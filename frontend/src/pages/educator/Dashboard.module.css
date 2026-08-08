@@ -1,0 +1,109 @@
+.stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.25rem;
+}
+
+.pageHeader h1 {
+  color: var(--foreground);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 2rem;
+}
+
+.pageHeader p {
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.roundGrid {
+  display: grid;
+  gap: 1rem;
+  list-style: none;
+}
+
+.roundCard {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  padding: 1rem;
+}
+
+.roundTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.roundTop h2 {
+  color: var(--card-foreground);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+}
+
+.dateGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.dateGrid dt {
+  color: var(--muted-foreground);
+}
+
+.dateGrid dd {
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+}
+
+.roundNote {
+  min-height: 1.5rem;
+  margin-top: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.timer {
+  color: var(--foreground);
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    monospace;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+
+@media (max-width: 47.999rem) {
+  .dateGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 48rem) {
+  .roundGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

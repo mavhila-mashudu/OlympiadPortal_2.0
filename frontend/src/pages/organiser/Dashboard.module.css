@@ -1,0 +1,157 @@
+.stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 1.25rem;
+}
+
+.pageHeader h1 {
+  color: var(--foreground);
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 2rem;
+}
+
+.pageHeader p {
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.statsGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.statCard {
+  padding: 1rem;
+}
+
+.statTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.statTop p {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+}
+
+.statTop svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--muted-foreground);
+}
+
+.statValue {
+  margin-top: 0.5rem;
+  color: var(--card-foreground);
+  font-size: 1.875rem;
+  font-weight: 600;
+  line-height: 2.25rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.statHelper {
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+
+.tableHeader {
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+}
+
+.tableHeader h2 {
+  color: var(--card-foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.tableScroller {
+  overflow-x: auto;
+}
+
+.roundsTable {
+  width: 100%;
+  min-width: 58rem;
+  border-collapse: collapse;
+  caption-side: bottom;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.roundsTable th {
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.roundsTable td {
+  padding: 0.5rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.roundsTable tr {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 160ms ease;
+}
+
+.roundsTable tbody tr:hover {
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+
+.roundsTable tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.roundName {
+  color: var(--foreground) !important;
+  font-weight: 500;
+}
+
+.numeric {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.actionColumn {
+  text-align: right !important;
+}
+
+@media (min-width: 40rem) {
+  .pageHeader {
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

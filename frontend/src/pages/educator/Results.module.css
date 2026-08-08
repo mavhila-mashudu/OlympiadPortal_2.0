@@ -1,0 +1,21 @@
+.stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.filterRow {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.filterRow p {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+@media (min-width: 40rem) {
+  .filterRow {
+    max-width: 24rem;
+  }
+}

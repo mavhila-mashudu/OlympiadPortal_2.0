@@ -1,0 +1,70 @@
+.panel {
+  overflow: hidden;
+}
+
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+}
+
+.header h2 {
+  color: var(--card-foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+}
+
+.scroller {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  min-width: var(--table-min-width);
+  border-collapse: collapse;
+  caption-side: bottom;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.table th {
+  height: 2.5rem;
+  padding: 0 0.5rem;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table td {
+  padding: 0.5rem;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.table tr {
+  border-bottom: 1px solid var(--border);
+  transition: background-color 160ms ease;
+}
+
+.table tbody tr:hover {
+  background: color-mix(in oklab, var(--muted) 50%, transparent);
+}
+
+.table tbody tr:last-child {
+  border-bottom: 0;
+}
+
+.numeric {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.muted {
+  color: var(--muted-foreground);
+}

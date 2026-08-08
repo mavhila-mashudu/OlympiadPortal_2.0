@@ -1,0 +1,35 @@
+.stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.educators {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.educators li {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.educatorName {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+.educatorRole {
+  color: var(--muted-foreground);
+}
+
+.educators a {
+  display: block;
+  color: var(--primary);
+  font-size: 0.75rem;
+  text-underline-offset: 4px;
+}
+
+.educators a:hover {
+  text-decoration: underline;
+}

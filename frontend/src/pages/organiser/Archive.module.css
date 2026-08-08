@@ -1,0 +1,18 @@
+.stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.fileName,
+.downloads {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.fileName svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}

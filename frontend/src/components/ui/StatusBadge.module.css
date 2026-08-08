@@ -1,0 +1,39 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.125rem 0.625rem;
+  color: var(--muted-foreground);
+  background: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1rem;
+  white-space: nowrap;
+}
+
+.dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.open {
+  color: var(--status-open);
+  border-color: color-mix(in oklab, var(--status-open) 30%, transparent);
+  background: color-mix(in oklab, var(--status-open) 10%, transparent);
+}
+
+.upcoming {
+  color: var(--status-upcoming);
+  border-color: color-mix(in oklab, var(--status-upcoming) 30%, transparent);
+  background: color-mix(in oklab, var(--status-upcoming) 10%, transparent);
+}
+
+.closed {
+  color: var(--muted-foreground);
+  border-color: var(--border);
+  background: var(--muted);
+}

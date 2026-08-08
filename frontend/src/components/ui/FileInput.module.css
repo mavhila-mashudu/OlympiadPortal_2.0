@@ -1,0 +1,28 @@
+.fileInput {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--input);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--foreground);
+  background: var(--background);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.fileInput::file-selector-button {
+  min-height: 2.25rem;
+  margin-right: 0.75rem;
+  border: 0;
+  border-right: 1px solid var(--input);
+  padding: 0.5rem 0.75rem;
+  color: var(--foreground);
+  background: var(--muted);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.fileInput:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
+}
