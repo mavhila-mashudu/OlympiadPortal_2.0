@@ -1,3 +1,4 @@
+import { Download } from "lucide-react";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -80,6 +81,21 @@ function StudentDashboard() {
                   >
                     Round detail
                   </Button>
+                  {round.status === "closed" ? (
+                    <Button size="sm" to="/student/results" variant="primary">
+                      View results
+                    </Button>
+                  ) : null}
+                  {round.status === "upcoming" ? (
+                    <Button
+                      icon={<Download aria-hidden="true" />}
+                      size="sm"
+                      variant="primary"
+                      disabled
+                    >
+                      Paper not yet available
+                    </Button>
+                  ) : null}
                 </div>
               </Card>
             </li>

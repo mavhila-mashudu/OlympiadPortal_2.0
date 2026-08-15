@@ -1,0 +1,47 @@
+.stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.roundLink {
+  text-underline-offset: 4px;
+}
+
+.roundLink:hover {
+  text-decoration: underline;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-radius: 9999px;
+  border: 1px solid;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badgeDot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.badgePrimary {
+  border-color: color-mix(in oklab, var(--primary) 30%, transparent);
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  color: var(--primary);
+}
+
+.badgeUpcoming {
+  border-color: color-mix(in oklab, var(--status-upcoming) 30%, transparent);
+  background: color-mix(in oklab, var(--status-upcoming) 10%, transparent);
+  color: var(--status-upcoming);
+}
+
+.dash {
+  color: var(--muted-foreground);
+}

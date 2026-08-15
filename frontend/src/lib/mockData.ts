@@ -276,6 +276,7 @@ export type StudentRound = {
 
 export const studentNav: NavItem[] = [
   { label: "Dashboard", to: "/student", icon: LayoutDashboard },
+  { label: "Results & certificates", to: "/student/results", icon: Award },
 ];
 
 export const studentStats = [
@@ -336,5 +337,36 @@ export const studentRounds: StudentRound[] = [
     countdown: "2d 23h 55m",
     paperFile: "olympiad-round-4-national-final.pdf",
     paperNote: "Available when the round opens.",
+  },
+];
+
+export type StudentResultRow = {
+  id: string;
+  round: string;
+  closed: string;
+  resultStatus: "released" | "pending";
+  score: string;
+  percentage: string;
+  hasCertificate: boolean;
+};
+
+export const studentResults: StudentResultRow[] = [
+  {
+    id: "r-2026-01",
+    round: "Round 1 — Qualifier",
+    closed: "Jul 17, 2026",
+    resultStatus: "released",
+    score: "82 / 100",
+    percentage: "82%",
+    hasCertificate: true,
+  },
+  {
+    id: "r-2026-02",
+    round: "Round 2 — Semi-final",
+    closed: "Aug 01, 2026",
+    resultStatus: "pending",
+    score: "—",
+    percentage: "—",
+    hasCertificate: false,
   },
 ];
