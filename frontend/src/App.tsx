@@ -7,6 +7,8 @@ import Archive from "./pages/organiser/Archive";
 import CreateRound from "./pages/organiser/CreateRound";
 import OrganiserDashboard from "./pages/organiser/Dashboard";
 import Schools from "./pages/organiser/Schools";
+import StudentDashboard from "./pages/student/Dashboard";
+import StudentRoundDetail from "./pages/student/RoundDetail";
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
       <Route path="/organiser/rounds/new" element={<CreateRound />} />
       <Route path="/organiser/archive" element={<Archive />} />
       <Route path="/organiser/schools" element={<Schools />} />
+      <Route path="/student" element={<StudentDashboard />} />
+      <Route path="/student/rounds/:id" element={<StudentRoundDetail />} />
     </Routes>
   );
 }
