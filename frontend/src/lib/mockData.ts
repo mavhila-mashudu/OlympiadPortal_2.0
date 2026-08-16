@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Archive,
+  Award,
   Building2,
   ClipboardList,
   FileCheckCorner,
@@ -250,5 +251,122 @@ export const resultRows: ResultRow[] = [
     grade: 12,
     score: "67 / 100",
     percentage: "67%",
+  },
+];
+
+export type StudentRoundResult = {
+  score: string;
+  percentage: string;
+  rankInSchool: number;
+  hasCertificate: boolean;
+};
+
+export type StudentRound = {
+  id: string;
+  title: string;
+  opens: string;
+  closes: string;
+  status: RoundStatus;
+  note: string;
+  countdown?: string;
+  paperFile?: string;
+  paperNote?: string;
+  result?: StudentRoundResult;
+};
+
+export const studentNav: NavItem[] = [
+  { label: "Dashboard", to: "/student", icon: LayoutDashboard },
+  { label: "Results & certificates", to: "/student/results", icon: Award },
+];
+
+export const studentStats = [
+  {
+    label: "Rounds entered",
+    value: "3",
+    helper: "This olympiad year",
+    icon: ClipboardList,
+  },
+  {
+    label: "Results available",
+    value: "1",
+    helper: "Released to you",
+    icon: FileCheckCorner,
+  },
+  {
+    label: "Certificates earned",
+    value: "1",
+    helper: "Top-3 school placings",
+    icon: Award,
+  },
+];
+
+export const studentRounds: StudentRound[] = [
+  {
+    id: "r-2026-01",
+    title: "Round 1 — Qualifier",
+    opens: "Jul 16, 2026, 07:52 PM",
+    closes: "Jul 17, 2026, 07:52 PM",
+    status: "closed",
+    note: "Your score: 82 / 100 · Certificate available",
+    paperFile: "olympiad-round-1-qualifier.pdf",
+    paperNote: "This round has closed.",
+    result: {
+      score: "82 / 100",
+      percentage: "82%",
+      rankInSchool: 2,
+      hasCertificate: true,
+    },
+  },
+  {
+    id: "r-2026-02",
+    title: "Round 2 — Semi-final",
+    opens: "Jul 31, 2026, 07:52 PM",
+    closes: "Aug 01, 2026, 07:52 PM",
+    status: "closed",
+    note: "Results not released yet",
+    paperFile: "olympiad-round-2-semifinal.pdf",
+    paperNote: "This round has closed.",
+  },
+  {
+    id: "r-2026-04",
+    title: "Round 4 — National Final",
+    opens: "Aug 18, 2026, 07:52 PM",
+    closes: "Aug 19, 2026, 07:52 PM",
+    status: "upcoming",
+    note: "Opens in",
+    countdown: "2d 23h 55m",
+    paperFile: "olympiad-round-4-national-final.pdf",
+    paperNote: "Available when the round opens.",
+  },
+];
+
+export type StudentResultRow = {
+  id: string;
+  round: string;
+  closed: string;
+  resultStatus: "released" | "pending";
+  score: string;
+  percentage: string;
+  hasCertificate: boolean;
+};
+
+export const studentResults: StudentResultRow[] = [
+  {
+    id: "r-2026-01",
+    round: "Round 1 — Qualifier",
+    closed: "Jul 17, 2026",
+    resultStatus: "released",
+    score: "82 / 100",
+    percentage: "82%",
+    hasCertificate: true,
+  },
+  {
+    id: "r-2026-02",
+    round: "Round 2 — Semi-final",
+    closed: "Aug 01, 2026",
+    resultStatus: "pending",
+    score: "—",
+    percentage: "—",
+    hasCertificate: false,
   },
 ];
