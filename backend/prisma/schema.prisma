@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -10,4 +5,223 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model answers {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submission_id  String      @db.Uuid
+  question_id    String      @db.Uuid
+  answer_value   String?
+  is_correct     Boolean?
+  points_awarded Decimal?    @db.Decimal
+  marked_by      String?     @db.Uuid
+  marked_at      DateTime?   @db.Timestamptz(6)
+  users          users?      @relation(fields: [marked_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  questions      questions   @relation(fields: [question_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  submissions    submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([submission_id, question_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model educators {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String                  @unique @db.Uuid
+  school_id             String                  @db.Uuid
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  schools               schools                 @relation(fields: [school_id], references: [id], onUpdate: NoAction)
+  users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  entrant_registrations entrant_registrations[]
+  submissions           submissions[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model entrant_registrations {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entrant_id    String    @db.Uuid
+  round_id      String    @db.Uuid
+  registered_by String    @db.Uuid
+  status        String    @default("registered")
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  entrants      entrants  @relation(fields: [entrant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  educators     educators @relation(fields: [registered_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rounds        rounds    @relation(fields: [round_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([entrant_id, round_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model entrants {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String?                 @unique @db.Uuid
+  school_id             String                  @db.Uuid
+  full_name             String
+  grade                 String?
+  external_ref          String?
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  entrant_registrations entrant_registrations[]
+  schools               schools                 @relation(fields: [school_id], references: [id], onUpdate: NoAction)
+  users                 users?                  @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+  results               results[]
+  submissions           submissions[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model olympiads {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  organiser_id         String                 @db.Uuid
+  timezone             String                 @default("Africa/Johannesburg")
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  users                users                  @relation(fields: [organiser_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rounds               rounds[]
+  school_registrations school_registrations[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model papers {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id      String      @db.Uuid
+  title         String
+  file_url      String?
+  memo_file_url String?
+  is_archived   Boolean     @default(false)
+  released_at   DateTime?   @db.Timestamptz(6)
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  rounds        rounds      @relation(fields: [round_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  questions     questions[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model questions {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paper_id       String    @db.Uuid
+  type           String
+  prompt         String
+  options        Json?
+  correct_option String?
+  max_points     Decimal   @default(1) @db.Decimal
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  answers        answers[]
+  papers         papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model results {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id     String    @db.Uuid
+  entrant_id   String    @db.Uuid
+  total_points Decimal   @default(0) @db.Decimal
+  rank         Int?
+  qualified    Boolean   @default(false)
+  finalised_at DateTime? @db.Timestamptz(6)
+  entrants     entrants  @relation(fields: [entrant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rounds       rounds    @relation(fields: [round_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([round_id, entrant_id])
+  @@index([round_id, rank], map: "idx_results_round_rank")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model rounds {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  olympiad_id           String                  @db.Uuid
+  name                  String
+  opens_at              DateTime                @db.Timestamptz(6)
+  closes_at             DateTime                @db.Timestamptz(6)
+  results_release_at    DateTime?               @db.Timestamptz(6)
+  state                 round_state             @default(scheduled)
+  qualifying_threshold  Decimal?                @db.Decimal
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  entrant_registrations entrant_registrations[]
+  papers                papers[]
+  results               results[]
+  olympiads             olympiads               @relation(fields: [olympiad_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  submissions           submissions[]
+
+  @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model school_registrations {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id     String    @db.Uuid
+  olympiad_id   String    @db.Uuid
+  registered_at DateTime  @default(now()) @db.Timestamptz(6)
+  olympiads     olympiads @relation(fields: [olympiad_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  schools       schools   @relation(fields: [school_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([school_id, olympiad_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model schools {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  address              String?
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  educators            educators[]
+  entrants             entrants[]
+  school_registrations school_registrations[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model submissions {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id             String            @db.Uuid
+  entrant_id           String            @db.Uuid
+  submitted_by         String?           @db.Uuid
+  route                submission_route  @default(offline)
+  status               submission_status @default(received)
+  idempotency_key      String            @unique
+  received_at          DateTime          @default(now()) @db.Timestamptz(6)
+  round_close_snapshot DateTime          @db.Timestamptz(6)
+  created_at           DateTime          @default(now()) @db.Timestamptz(6)
+  answers              answers[]
+  entrants             entrants          @relation(fields: [entrant_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rounds               rounds            @relation(fields: [round_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  educators            educators?        @relation(fields: [submitted_by], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([round_id, entrant_id, route])
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id               String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email            String      @unique
+  full_name        String
+  role             String
+  auth_provider_id String?
+  created_at       DateTime    @default(now()) @db.Timestamptz(6)
+  deleted_at       DateTime?   @db.Timestamptz(6)
+  answers          answers[]
+  educators        educators?
+  entrants         entrants?
+  olympiads        olympiads[]
+}
+
+enum round_state {
+  scheduled
+  open
+  closed
+  marking
+  results_released
+}
+
+enum submission_route {
+  online
+  offline
+}
+
+enum submission_status {
+  received
+  automarked
+  queued_for_marking
+  marked
+  moderated
 }
