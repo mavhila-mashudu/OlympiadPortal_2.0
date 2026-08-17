@@ -21,8 +21,10 @@
     "typescript": "^7.0.2"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/node": "^26.2.0",
     "@types/pg": "^8.21.0",
+    "cors": "^2.8.6",
     "prisma": "^7.9.1",
     "tsx": "^4.23.12"
   }
