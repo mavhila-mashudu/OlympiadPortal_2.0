@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/auth/Login";
 import EducatorDashboard from "./pages/educator/Dashboard";
 import Entrants from "./pages/educator/Entrants";
+import EducatorRoundDetail from "./pages/educator/RoundDetail";
 import Results from "./pages/educator/Results";
 import Archive from "./pages/organiser/Archive";
 import CreateRound from "./pages/organiser/CreateRound";
@@ -19,6 +20,7 @@ function App() {
       <Route path="/educator" element={<EducatorDashboard />} />
       <Route path="/educator/results" element={<Results />} />
       <Route path="/educator/entrants" element={<Entrants />} />
+      <Route path="/educator/rounds/:id" element={<EducatorRoundDetail />} />
       <Route path="/organiser" element={<OrganiserDashboard />} />
       <Route path="/organiser/rounds/new" element={<CreateRound />} />
       <Route path="/organiser/archive" element={<Archive />} />
