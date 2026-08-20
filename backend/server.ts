@@ -1,20 +1,19 @@
-import express from "express";
-import cors from "cors";
-import olympiadRoutes from "./routes/olympiads";
-import usersRoutes from "./routes/users";
-import studentRoutes from "./routes/studentRoundsDetailsRoutes.js";
+const app = require("./src/app");
 
-const app = express();
+const PORT = process.env.PORT || 3000;
 
-const PORT = 3000;
-
-app.use(cors());
-app.use(express.json());
-
-app.use("/api/olympiads", olympiadRoutes);
-app.use("/api/users", usersRoutes);
-app.use("/api/students", studentRoutes);
-
-app.listen(PORT, () => {
+//start the server - request listener
+const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
-})
+});
+
+// Graceful shutdown
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received. Shutting down gracefully...");
+  server.close(() => {
+    console.log("Server closed.");
+    process.exit(0);
+  });
+});
+
+module.exports = server;
