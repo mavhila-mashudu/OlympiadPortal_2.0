@@ -45,6 +45,17 @@ function Signup() {
             </div>
 
             <div className={styles.field}>
+              <Label htmlFor="tempId">Temporary ID</Label>
+              <Input
+                id="tempId"
+                name="tempId"
+                placeholder="TMP-2026-0001"
+                required
+                type="text"
+              />
+            </div>
+
+            <div className={styles.field}>
               <Label htmlFor="email">Email address</Label>
               <Input
                 autoComplete="email"
