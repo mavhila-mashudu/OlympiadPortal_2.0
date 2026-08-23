@@ -252,6 +252,51 @@ const login = async ({ email, password }) => {
 };
 
 // ─────────────────────────────────────────
+// DEV LOGIN (TEMPORARY)
+// Bypasses password entirely — finds or creates a user by
+// email only, matching the CURRENT live `users` table (which
+// no longer has password_hash / refresh_tokens columns).
+// select is explicit here — Prisma otherwise tries to fetch
+// EVERY field declared in schema.prisma (including
+// password_hash), which doesn't exist on the real table.
+// Remove this once real auth is settled with the team.
+// ─────────────────────────────────────────
+const SAFE_USER_FIELDS = {
+  id: true,
+  email: true,
+  full_name: true,
+  role: true,
+  created_at: true,
+};
+
+const devLogin = async ({ email, full_name, role }) => {
+  const safeRole = ["organiser", "educator", "student"].includes(role)
+    ? role
+    : "organiser";
+
+  let user = await prisma.users.findFirst({
+    where: { email, deleted_at: null },
+    select: SAFE_USER_FIELDS,
+  });
+
+  if (!user) {
+    user = await prisma.users.create({
+      data: {
+        id: crypto.randomUUID(),
+        email,
+        full_name: full_name || email.split("@")[0],
+        role: safeRole,
+      },
+      select: SAFE_USER_FIELDS,
+    });
+  }
+
+  const accessToken = generateAccessToken(user);
+
+  return { user, accessToken };
+};
+
+// ─────────────────────────────────────────
 // REFRESH TOKEN
 // ─────────────────────────────────────────
 const refresh = async (token) => {
@@ -466,6 +511,7 @@ module.exports = {
   validateInvitationCode,
   registerWithCode,
   login,
+  devLogin,
   refresh,
   logout,
   forgotPassword,

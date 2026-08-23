@@ -7,6 +7,7 @@ const {
   validateCode,
   registerWithCode,
   login,
+  devLogin,
   refresh,
   logout,
   me,
@@ -65,6 +66,15 @@ const loginRules = [
   body("password").notEmpty().withMessage("Password is required"),
 ];
 
+// TEMPORARY — validation for the password-free dev login
+const devLoginRules = [
+  body("email")
+    .trim()
+    .isEmail()
+    .withMessage("Valid email required")
+    .normalizeEmail(),
+];
+
 const forgotRules = [
   body("email")
     .trim()
@@ -104,6 +114,12 @@ const studentCodesRules = [
 router.post("/register/organiser", organiserRules, validate, registerOrganiser);
 router.post("/register", registerRules, validate, registerWithCode);
 router.post("/login", loginRules, validate, login);
+
+// TEMPORARY — bypasses password auth entirely, matches the
+// current live `users` table (no password_hash column).
+// Remove once real auth is settled with the team.
+router.post("/dev-login", devLoginRules, validate, devLogin);
+
 router.post("/refresh", refresh);
 router.post("/logout", logout);
 router.post("/forgot-password", forgotRules, validate, forgotPassword);

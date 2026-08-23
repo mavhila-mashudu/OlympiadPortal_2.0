@@ -39,6 +39,10 @@ app.get("/", (_req, res) => {
 // ── Routes ──────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
 
+//registering olympiads and rounds routes
+app.use("/olympiads", require("./routes/olympiads"));
+app.use("/rounds", require("./routes/roundDetail"));
+app.use("/papers", require("./routes/papers"));
 // 404
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: "Route not found" });
@@ -48,3 +52,5 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 module.exports = app;
+
+

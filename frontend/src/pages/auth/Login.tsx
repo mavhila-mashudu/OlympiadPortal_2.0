@@ -1,13 +1,22 @@
 import { Trophy } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
+import { api, setToken } from "../../lib/api";
 import styles from "./Login.module.css";
+
+type DevLoginResponse = {
+  user: { id: string; email: string; full_name: string; role: string };
+  accessToken: string;
+};
 
 function Login() {
   const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   return (
     <div className={styles.page}>
@@ -27,9 +36,31 @@ function Login() {
 
           <form
             className={styles.form}
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault();
-              navigate("/organiser");
+              setError(null);
+              setLoading(true);
+
+              const formData = new FormData(event.currentTarget);
+              const email = (formData.get("email") as string) || "";
+
+              try {
+                const { accessToken } = await api.post<DevLoginResponse>(
+                  "/auth/dev-login",
+                  {
+                    email,
+                    full_name: email.split("@")[0],
+                    role: "organiser",
+                  },
+                );
+
+                setToken(accessToken);
+                navigate("/organiser");
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Login failed");
+              } finally {
+                setLoading(false);
+              }
             }}
           >
             <div className={styles.field}>
@@ -45,39 +76,27 @@ function Login() {
             </div>
 
             <div className={styles.field}>
-              <div className={styles.fieldHeader}>
-                <Label htmlFor="password">Password</Label>
-                <Link className={styles.inlineLink} to="/forgot-password">
-                  Forgot password?
-                </Link>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <Input
                 autoComplete="current-password"
                 id="password"
                 name="password"
-                required
                 type="password"
               />
             </div>
 
-            <Button fullWidth type="submit">
-              Log in
+            {error && <p className={styles.demoNote}>{error}</p>}
+
+            <Button disabled={loading} fullWidth type="submit">
+              {loading ? "Logging in…" : "Log in"}
             </Button>
           </form>
 
           <p className={styles.demoNote}>
-            Demo shell: authentication is not wired up. Logging in opens the
-            organiser console — use the role switcher in the sidebar to view the
-            educator portal.
+            Dev shortcut: any email logs you in as an organiser. Password
+            isn&apos;t checked.
           </p>
         </Card>
-
-        <p className={styles.signup}>
-          Don&apos;t have an account?{" "}
-          <Link className={styles.inlineLink} to="/signup">
-            Create one
-          </Link>
-        </p>
       </div>
     </div>
   );

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
@@ -7,9 +9,17 @@ import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { Textarea } from "../../components/ui/Textarea";
 import { organiserNav } from "../../lib/mockData";
+import { api } from "../../lib/api";
+import { getCurrentOlympiad } from "../../lib/olympiad";
 import styles from "./CreateRound.module.css";
 
+type Round = { id: string };
+
 function CreateRound() {
+  const navigate = useNavigate();
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   return (
     <AppShell
       activeRole="organiser"
@@ -31,7 +41,54 @@ function CreateRound() {
         />
 
         <Card className={styles.formCard}>
-          <form className={styles.form}>
+          <form
+            className={styles.form}
+            onSubmit={async (event) => {
+              event.preventDefault();
+              setError(null);
+              setSubmitting(true);
+
+              const formData = new FormData(event.currentTarget);
+              const name = formData.get("roundName") as string;
+              const notes = (formData.get("notes") as string) || undefined;
+              const opensAtLocal = formData.get("opensAt") as string;
+              const closesAtLocal = formData.get("closesAt") as string;
+              const paperFile = formData.get("paper") as File | null;
+              const memoFile = formData.get("memo") as File | null;
+
+              try {
+                const olympiad = await getCurrentOlympiad();
+
+                const { round } = await api.post<{ round: Round }>(
+                  `/olympiads/${olympiad.id}/rounds`,
+                  {
+                    name,
+                    notes,
+                    opens_at: new Date(opensAtLocal).toISOString(),
+                    closes_at: new Date(closesAtLocal).toISOString(),
+                  },
+                );
+
+                const hasPaper = paperFile && paperFile.size > 0;
+                const hasMemo = memoFile && memoFile.size > 0;
+
+                if (hasPaper || hasMemo) {
+                  const papersForm = new FormData();
+                  if (hasPaper) papersForm.append("paper", paperFile as File);
+                  if (hasMemo) papersForm.append("memo", memoFile as File);
+                  await api.post(`/rounds/${round.id}/papers`, papersForm);
+                }
+
+                navigate("/organiser");
+              } catch (err) {
+                setError(
+                  err instanceof Error ? err.message : "Failed to create round",
+                );
+              } finally {
+                setSubmitting(false);
+              }
+            }}
+          >
             <div className={styles.field}>
               <Label htmlFor="round-name">
                 Round name<span className={styles.required}> *</span>
@@ -75,6 +132,7 @@ function CreateRound() {
                 accept=".pdf,.doc,.docx,.csv,.xlsx"
                 aria-describedby="paper-file-hint"
                 id="paper-file"
+                name="paper"
               />
               <p id="paper-file-hint" className={styles.hint}>
                 PDF released to schools when the round opens.
@@ -87,14 +145,19 @@ function CreateRound() {
                 accept=".pdf,.doc,.docx,.csv,.xlsx"
                 aria-describedby="memo-file-hint"
                 id="memo-file"
+                name="memo"
               />
               <p id="memo-file-hint" className={styles.hint}>
                 Used for auto-marking. Can be added later.
               </p>
             </div>
 
+            {error && <p className={styles.hint}>{error}</p>}
+
             <div className={styles.actions}>
-              <Button type="submit">Create round</Button>
+              <Button disabled={submitting} type="submit">
+                {submitting ? "Creating…" : "Create round"}
+              </Button>
               <Button to="/organiser" variant="outline">
                 Back to dashboard
               </Button>
