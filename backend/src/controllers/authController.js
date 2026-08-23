@@ -62,6 +62,27 @@ const login = async (req, res, next) => {
   }
 };
 
+// ─────────────────────────────────────────
+// DEV LOGIN (TEMPORARY)
+// Bypasses password entirely — just needs an email.
+// Matches the current live `users` table, which has no
+// password_hash column. Remove once real auth is settled
+// with the team.
+// ─────────────────────────────────────────
+const devLogin = async (req, res, next) => {
+  try {
+    const { email, full_name, role } = req.body;
+    const { user, accessToken } = await authService.devLogin({
+      email,
+      full_name,
+      role,
+    });
+    res.json({ success: true, data: { user, accessToken } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const refresh = async (req, res, next) => {
   try {
     const token = req.cookies?.refreshToken;
@@ -205,6 +226,7 @@ module.exports = {
   validateCode,
   registerWithCode,
   login,
+  devLogin,
   refresh,
   logout,
   me,

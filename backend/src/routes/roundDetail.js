@@ -2,6 +2,8 @@
 const express = require("express");
 const { body } = require("express-validator");
 const router = express.Router();
+const upload = require("../middlewares/upload");
+const { uploadPapers } = require("../controllers/paperController");
 const {
   getRound,
   updateRound,
@@ -17,15 +19,16 @@ const updateRoundRules = [
 ];
 
 // ── Routes ──────────────────────────────────────────────
-// Mounted at /rounds — a round's identity doesn't depend on
-// nesting under its olympiad once you already have its id.
-// Organiser-only for now; educators/students get their own
-// read routes later (paper download, submission, etc.).
 
 router.use(requireAuth, requireRole("organiser"));
 
 router.get("/:id", getRound);
 router.patch("/:id", updateRoundRules, validate, updateRound);
 router.delete("/:id", deleteRound);
+router.post(
+  "/:id/papers",
+  upload.fields([{ name: "paper", maxCount: 1 }, { name: "memo", maxCount: 1 }]),
+  uploadPapers,
+);
 
 module.exports = router;

@@ -17,6 +17,7 @@ const createRound = async ({
   olympiadId,
   organiserId,
   name,
+  notes,
   opensAt,
   closesAt,
 }) => {
@@ -32,10 +33,11 @@ const createRound = async ({
     throw new BadRequestError("closes_at must be after opens_at");
   }
 
-  const round = await prisma.rounds.create({
+   const round = await prisma.rounds.create({
     data: {
       olympiad_id: olympiadId,
       name,
+      notes,
       opens_at: opens,
       closes_at: closes,
     },

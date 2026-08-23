@@ -3,11 +3,12 @@ const roundService = require("../services/roundService");
 
 const createRound = async (req, res, next) => {
   try {
-    const { name, opens_at, closes_at } = req.body;
+    const { name, notes, opens_at, closes_at } = req.body;
     const round = await roundService.createRound({
       olympiadId: req.params.olympiadId,
       organiserId: req.user.userId,
       name,
+      notes,
       opensAt: opens_at,
       closesAt: closes_at,
     });
