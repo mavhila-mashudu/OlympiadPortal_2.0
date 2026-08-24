@@ -1,170 +1,117 @@
 import React, { useEffect, useState } from "react";
-import { AppShell } from "../../components/layout/AppShell";
+import { AppShell as AppShellComponent } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
-import { Label } from "../../components/ui/Label";
 import { api } from "../../lib/api";
 import { organiserNav } from "../../lib/mockData";
-import type { Olympiad } from "../../lib/olympiad";
-import { InviteSchoolForm } from "./InviteSchoolForm";
-import styles from "./Olympiads.module.css";
+
+const AppShell = AppShellComponent as any;
 
 export default function Olympiads() {
-  const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
+  const [olympiads, setOlympiads] = useState<any[]>([]);
   const [name, setName] = useState("");
-  const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedOlympiadForInvite, setSelectedOlympiadForInvite] = useState<string | null>(null);
 
-  const fetchOlympiads = async () => {
-    setLoading(true);
-    setError(null);
+  async function loadOlympiads() {
     try {
-      const data = await api.get<Olympiad[]>("/olympiads");
-      const list = Array.isArray(data) ? data : (data as any).olympiads || [];
+      const res: any = await api.get("/olympiads");
+      const list = res.olympiads || res || [];
       setOlympiads(list);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch olympiads");
-    } finally {
-      setLoading(false);
+    } catch (err: any) {
+      console.error(err);
     }
-  };
+  }
 
   useEffect(() => {
-    fetchOlympiads();
+    loadOlympiads();
   }, []);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-
     setSubmitting(true);
     setError(null);
-
     try {
-      const created = await api.post<Olympiad>("/olympiads", { name: name.trim() });
+      await api.post("/olympiads", { name });
       setName("");
-      setOlympiads((prev) => [created, ...prev]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create Olympiad");
+      await loadOlympiads();
+    } catch (err: any) {
+      setError(err.message || "Failed to create Olympiad.");
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <AppShell
-      activeRole="organiser"
-      navItems={organiserNav}
-      organisation="National Olympiad Office"
-      portalLabel="Organiser console"
-      userInitials="NO"
-      userName="Admin user"
-    >
-      <div className={styles.stack}>
-        <PageHeader
-          title="Olympiads"
-          description="Manage and create competition editions."
-        />
+    <AppShell navItems={organiserNav} role="Organiser">
+      <PageHeader
+        title="Olympiads"
+        description="Manage and create competition editions."
+      />
 
-        <Card className={styles.statCard}>
-          <form onSubmit={handleCreate} className={styles.stack}>
-            <div className={styles.stack} style={{ gap: "0.5rem" }}>
-              <Label htmlFor="olympiad-name">
-                Create new Olympiad<span className={styles.required}> *</span>
-              </Label>
-              <div className={styles.actions}>
-                <Input
-                  id="olympiad-name"
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-                <Button type="submit" disabled={submitting || !name.trim()}>
-                  {submitting ? "Creating..." : "Create"}
-                </Button>
-              </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+        {/* Create Form */}
+        <Card style={{ padding: "1.25rem" }}>
+          <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+            <label style={{ fontWeight: 600, fontSize: "0.875rem" }}>Create new Olympiad*</label>
+            <div style={{ display: "flex", gap: "0.75rem" }}>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. 2026 National Competition"
+                required
+                style={{ flex: 1 }}
+              />
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Creating..." : "Create"}
+              </Button>
             </div>
-            {error && (
-              <p className={styles.hint} style={{ color: "var(--destructive, red)" }}>
-                {error}
-              </p>
-            )}
+            {error && <p style={{ color: "red", marginTop: "0.25rem" }}>{error}</p>}
           </form>
         </Card>
 
-        {selectedOlympiadForInvite && (
-          <Card className={styles.statCard}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-              <h3 style={{ margin: 0 }}>Invite School</h3>
-              <Button variant="outline" onClick={() => setSelectedOlympiadForInvite(null)}>
-                Close Form
-              </Button>
-            </div>
-            <InviteSchoolForm
-              olympiadId={selectedOlympiadForInvite}
-              onSuccess={() => {
-                fetchOlympiads();
-              }}
-            />
-          </Card>
-        )}
-
-        <Card
-          className={styles.tableCard}
-          padded={false}
-          aria-labelledby="olympiads-heading"
-        >
-          <div className={styles.tableHeader}>
-            <h2 id="olympiads-heading">Registered Olympiads</h2>
+        {/* Registered Olympiads Table */}
+        <Card style={{ padding: "0", overflow: "hidden" }}>
+          <div style={{ padding: "1.25rem", borderBottom: "1px solid #e5e7eb" }}>
+            <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 600 }}>Registered Olympiads</h3>
           </div>
-          <div className={styles.tableScroller}>
-            <table className={styles.olympiadsTable}>
-              <thead>
+          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
+            <thead>
+              <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
+                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600 }}>Olympiad Name</th>
+                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600 }}>ID</th>
+                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600, textAlign: "center" }}>Rounds</th>
+                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600, textAlign: "center" }}>Schools Registered</th>
+                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600, textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {olympiads.length === 0 ? (
                 <tr>
-                  <th>Olympiad Name</th>
-                  <th>ID</th>
-                  <th className={styles.numeric}>Rounds</th>
-                  <th className={styles.numeric}>Schools Registered</th>
-                  <th style={{ textAlign: "right" }}>Actions</th>
+                  <td colSpan={5} style={{ padding: "1.5rem", textAlign: "center", color: "#9ca3af" }}>
+                    No olympiads registered yet.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={5}>Loading olympiads...</td>
+              ) : (
+                olympiads.map((item) => (
+                  <tr key={item.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
+                    <td style={{ padding: "1rem 1.25rem", fontWeight: 600 }}>{item.name}</td>
+                    <td style={{ padding: "1rem 1.25rem", color: "#6b7280", fontFamily: "monospace" }}>{item.id}</td>
+                    <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.roundsCount ?? item.rounds?.length ?? 0}</td>
+                    <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.schoolsCount ?? item._count?.school_registrations ?? 0}</td>
+                    <td style={{ padding: "1rem 1.25rem", textAlign: "right" }}>
+                      <Button style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}>
+                        Invite School
+                      </Button>
+                    </td>
                   </tr>
-                ) : olympiads.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>No olympiads registered yet. Create one above to get started.</td>
-                  </tr>
-                ) : (
-                  olympiads.map((item) => (
-                    <tr key={item.id}>
-                      <td className={styles.olympiadName}>{item.name}</td>
-                      <td style={{ color: "var(--muted-foreground, #666)" }}>{item.id}</td>
-                      <td className={styles.numeric}>{item._count?.rounds ?? 0}</td>
-                      <td className={styles.numeric}>
-                        {item._count?.school_registrations ?? 0}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <Button
-                          type="button"
-                          onClick={() => setSelectedOlympiadForInvite(item.id)}
-                        >
-                          Invite School
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+          </table>
         </Card>
       </div>
     </AppShell>

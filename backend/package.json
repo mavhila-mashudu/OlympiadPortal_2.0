@@ -2,10 +2,10 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
-  "main": "server.ts",
+  "main": "src/server.ts",
   "scripts": {
-    "start": "server.ts",
-    "dev": "tsx watch server.ts",
+    "start": "tsx src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
