@@ -7,19 +7,21 @@ import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { api, setToken } from "../../lib/api";
 import { getSupabaseClient } from "../../lib/supabase";
-import styles from "./Login.module.css";
+import styles from "./Signup.module.css";
+
+type Role = "organiser" | "educator" | "student";
 
 type MeResponse = {
-  user: { role: "organiser" | "educator" | "student" };
+  user: { role: Role };
 };
 
-const dashboardForRole = (role: MeResponse["user"]["role"]) => {
+const dashboardForRole = (role: Role) => {
   if (role === "organiser") return "/organiser";
   if (role === "educator") return "/educator";
   return "/student";
 };
 
-function Login() {
+function Signup() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,7 +29,7 @@ function Login() {
   return (
     <div className={styles.page}>
       <div className={styles.panel}>
-        <Link className={styles.brand} to="/login" aria-current="page">
+        <Link className={styles.brand} to="/login">
           <span className={styles.brandMark}>
             <Trophy aria-hidden="true" />
           </span>
@@ -35,9 +37,9 @@ function Login() {
         </Link>
 
         <Card className={styles.card}>
-          <h1>Log in</h1>
+          <h1>Create account</h1>
           <p className={styles.subtitle}>
-            Access your organiser console or educator portal.
+            Use an organiser secret or an invitation code to join.
           </p>
 
           <form
@@ -48,10 +50,28 @@ function Login() {
               setLoading(true);
 
               const formData = new FormData(event.currentTarget);
+              const full_name = (formData.get("full_name") as string) || "";
               const email = (formData.get("email") as string) || "";
               const password = (formData.get("password") as string) || "";
+              const organiser_secret =
+                (formData.get("organiser_secret") as string) || "";
+              const code = (formData.get("code") as string) || "";
 
               try {
+                const payload = { full_name, email, password };
+
+                if (organiser_secret) {
+                  await api.post("/auth/register/organiser", {
+                    ...payload,
+                    organiser_secret,
+                  });
+                } else {
+                  await api.post("/auth/register", {
+                    ...payload,
+                    code,
+                  });
+                }
+
                 const supabase = getSupabaseClient();
                 const { data, error: signInError } =
                   await supabase.auth.signInWithPassword({
@@ -68,12 +88,47 @@ function Login() {
                 const { user } = await api.get<MeResponse>("/auth/me");
                 navigate(dashboardForRole(user.role));
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Login failed");
+                setError(
+                  err instanceof Error ? err.message : "Registration failed",
+                );
               } finally {
                 setLoading(false);
               }
             }}
           >
+            <div className={styles.field}>
+              <Label htmlFor="full_name">Full name</Label>
+              <Input
+                autoComplete="name"
+                id="full_name"
+                name="full_name"
+                placeholder="Thandi Mokoena"
+                required
+                type="text"
+              />
+            </div>
+
+            <div className={styles.field}>
+              <Label htmlFor="code">Invitation code</Label>
+              <Input
+                autoComplete="one-time-code"
+                id="code"
+                name="code"
+                placeholder="SCH-ABC123 or STU-ABC123"
+                type="text"
+              />
+            </div>
+
+            <div className={styles.field}>
+              <Label htmlFor="organiser_secret">Organiser secret</Label>
+              <Input
+                id="organiser_secret"
+                name="organiser_secret"
+                placeholder="Only needed for organiser registration"
+                type="password"
+              />
+            </div>
+
             <div className={styles.field}>
               <Label htmlFor="email">Email address</Label>
               <Input
@@ -89,7 +144,7 @@ function Login() {
             <div className={styles.field}>
               <Label htmlFor="password">Password</Label>
               <Input
-                autoComplete="current-password"
+                autoComplete="new-password"
                 id="password"
                 name="password"
                 required
@@ -100,15 +155,15 @@ function Login() {
             {error && <p className={styles.demoNote}>{error}</p>}
 
             <Button disabled={loading} fullWidth type="submit">
-              {loading ? "Logging in..." : "Log in"}
+              {loading ? "Creating account..." : "Create account"}
             </Button>
           </form>
         </Card>
 
         <p className={styles.signup}>
-          Registering as an organiser?{" "}
-          <Link className={styles.inlineLink} to="/signup">
-            Create organiser account
+          Already have an account?{" "}
+          <Link className={styles.inlineLink} to="/login">
+            Log in
           </Link>
         </p>
       </div>
@@ -116,4 +171,4 @@ function Login() {
   );
 }
 
-export default Login;
+export default Signup;

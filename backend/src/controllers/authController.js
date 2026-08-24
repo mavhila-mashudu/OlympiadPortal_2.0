@@ -1,5 +1,7 @@
 // @ts-nocheck
+const prisma = require("../config/database").default;
 const authService = require("../services/authService");
+const { UnauthorizedError } = require("../errors/AppError");
 
 const registerOrganiser = async (req, res, next) => {
   try {
@@ -10,6 +12,7 @@ const registerOrganiser = async (req, res, next) => {
       password,
       organiserSecret: organiser_secret,
     });
+
     res.status(201).json({ success: true, data: { user } });
   } catch (err) {
     next(err);
@@ -25,6 +28,7 @@ const registerWithCode = async (req, res, next) => {
       password,
       code,
     });
+
     res.status(201).json({ success: true, data: { user } });
   } catch (err) {
     next(err);
@@ -42,7 +46,6 @@ const validateCode = async (req, res, next) => {
 
 const me = async (req, res, next) => {
   try {
-    const prisma = require("../config/database").default;
     const user = await prisma.users.findUnique({
       where: { id: req.user.userId },
       select: {
@@ -55,6 +58,7 @@ const me = async (req, res, next) => {
         entrants: { select: { school_id: true, schools: true } },
       },
     });
+
     res.json({ success: true, data: { user } });
   } catch (err) {
     next(err);
@@ -79,6 +83,7 @@ const inviteSchool = async (req, res, next) => {
       olympiadId: olympiad_id,
       organiserId: req.user.userId,
     });
+
     res.status(201).json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -88,16 +93,21 @@ const inviteSchool = async (req, res, next) => {
 const inviteEducator = async (req, res, next) => {
   try {
     const { email, olympiad_id } = req.body;
-    const prisma = require("../config/database").default;
     const educator = await prisma.educators.findUnique({
       where: { user_id: req.user.userId },
     });
+
+    if (!educator) {
+      throw new UnauthorizedError("Educator profile not found");
+    }
+
     const result = await authService.inviteEducator({
       email,
       schoolId: educator.school_id,
       olympiadId: olympiad_id,
       createdById: req.user.userId,
     });
+
     res.status(201).json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -107,16 +117,21 @@ const inviteEducator = async (req, res, next) => {
 const generateStudentCodes = async (req, res, next) => {
   try {
     const { count, olympiad_id } = req.body;
-    const prisma = require("../config/database").default;
     const educator = await prisma.educators.findUnique({
       where: { user_id: req.user.userId },
     });
+
+    if (!educator) {
+      throw new UnauthorizedError("Educator profile not found");
+    }
+
     const codes = await authService.generateStudentCodes({
-      count: parseInt(count),
+      count: parseInt(count, 10),
       schoolId: educator.school_id,
       olympiadId: olympiad_id,
       createdById: req.user.userId,
     });
+
     res.status(201).json({ success: true, data: { codes } });
   } catch (err) {
     next(err);

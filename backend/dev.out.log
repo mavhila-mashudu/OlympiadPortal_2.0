@@ -4,3 +4,4 @@
 
 ◇ injected env (11) from .env // tip: ⌘ suppress logs { quiet: true }
 ◇ injected env (0) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+20:30:32 [tsx] change in ./server.ts Rerunning...

@@ -7,9 +7,212 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─────────────────────────────────────────
-// ENUMS
-// ─────────────────────────────────────────
+model users {
+  id                  String        @id @db.Uuid
+  email               String        @unique
+  full_name           String
+  auth_provider_id    String?
+  created_at          DateTime      @default(now()) @db.Timestamptz(6)
+  deleted_at          DateTime?     @db.Timestamptz(6)
+  role                user_role
+  answers             answers[]
+  educators           educators?
+  entrants            entrants?
+  sent_invitations    invitations[] @relation("sent_by")
+  claimed_invitations invitations[] @relation("claimed_by")
+  olympiads           olympiads[]
+}
+
+model invitations {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String      @unique
+  type          invite_type
+  olympiad_id   String?     @db.Uuid
+  school_id     String?     @db.Uuid
+  email         String?
+  used_by_id    String?     @db.Uuid
+  created_by_id String?     @db.Uuid
+  expires_at    DateTime    @db.Timestamptz(6)
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  created_by    users?      @relation("sent_by", fields: [created_by_id], references: [id])
+  olympiads     olympiads?  @relation(fields: [olympiad_id], references: [id])
+  schools       schools?    @relation(fields: [school_id], references: [id])
+  used_by       users?      @relation("claimed_by", fields: [used_by_id], references: [id])
+
+  @@index([code])
+  @@index([school_id])
+  @@index([olympiad_id])
+}
+
+model schools {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  address              String?
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  educators            educators[]
+  entrants             entrants[]
+  invitations          invitations[]
+  school_registrations school_registrations[]
+}
+
+model educators {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String                  @unique @db.Uuid
+  school_id             String                  @db.Uuid
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  schools               schools                 @relation(fields: [school_id], references: [id])
+  users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  entrant_registrations entrant_registrations[]
+  submissions           submissions[]
+}
+
+model entrants {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id               String?                 @unique @db.Uuid
+  school_id             String                  @db.Uuid
+  full_name             String
+  grade                 String?
+  external_ref          String?
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  entrant_registrations entrant_registrations[]
+  schools               schools                 @relation(fields: [school_id], references: [id])
+  users                 users?                  @relation(fields: [user_id], references: [id])
+  results               results[]
+  submissions           submissions[]
+}
+
+model olympiads {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                 String
+  organiser_id         String                 @db.Uuid
+  timezone             String                 @default("Africa/Johannesburg")
+  created_at           DateTime               @default(now()) @db.Timestamptz(6)
+  invitations          invitations[]
+  users                users                  @relation(fields: [organiser_id], references: [id])
+  rounds               rounds[]
+  school_registrations school_registrations[]
+}
+
+model school_registrations {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id     String    @db.Uuid
+  olympiad_id   String    @db.Uuid
+  registered_at DateTime  @default(now()) @db.Timestamptz(6)
+  olympiads     olympiads @relation(fields: [olympiad_id], references: [id])
+  schools       schools   @relation(fields: [school_id], references: [id])
+
+  @@unique([school_id, olympiad_id])
+}
+
+model rounds {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  olympiad_id           String                  @db.Uuid
+  name                  String
+  notes                 String?
+  opens_at              DateTime                @db.Timestamptz(6)
+  closes_at             DateTime                @db.Timestamptz(6)
+  results_release_at    DateTime?               @db.Timestamptz(6)
+  state                 round_state             @default(scheduled)
+  qualifying_threshold  Decimal?                @db.Decimal
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  entrant_registrations entrant_registrations[]
+  papers                papers[]
+  results               results[]
+  olympiads             olympiads               @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
+  submissions           submissions[]
+
+  @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
+}
+
+model papers {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id      String      @db.Uuid
+  title         String
+  file_url      String?
+  memo_file_url String?
+  is_archived   Boolean     @default(false)
+  released_at   DateTime?   @db.Timestamptz(6)
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  rounds        rounds      @relation(fields: [round_id], references: [id])
+  questions     questions[]
+}
+
+model questions {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paper_id       String    @db.Uuid
+  type           String
+  prompt         String
+  options        Json?
+  correct_option String?
+  max_points     Decimal   @default(1) @db.Decimal
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  answers        answers[]
+  papers         papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade)
+}
+
+model answers {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  submission_id  String      @db.Uuid
+  question_id    String      @db.Uuid
+  answer_value   String?
+  is_correct     Boolean?
+  points_awarded Decimal?    @db.Decimal
+  marked_by      String?     @db.Uuid
+  marked_at      DateTime?   @db.Timestamptz(6)
+  users          users?      @relation(fields: [marked_by], references: [id])
+  questions      questions   @relation(fields: [question_id], references: [id])
+  submissions    submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade)
+
+  @@unique([submission_id, question_id])
+}
+
+model submissions {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id             String            @db.Uuid
+  entrant_id           String            @db.Uuid
+  submitted_by         String?           @db.Uuid
+  route                submission_route  @default(offline)
+  status               submission_status @default(received)
+  idempotency_key      String            @unique
+  received_at          DateTime          @default(now()) @db.Timestamptz(6)
+  round_close_snapshot DateTime          @db.Timestamptz(6)
+  created_at           DateTime          @default(now()) @db.Timestamptz(6)
+  answers              answers[]
+  entrants             entrants          @relation(fields: [entrant_id], references: [id])
+  rounds               rounds            @relation(fields: [round_id], references: [id])
+  educators            educators?        @relation(fields: [submitted_by], references: [id])
+
+  @@unique([round_id, entrant_id, route])
+}
+
+model entrant_registrations {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  entrant_id    String    @db.Uuid
+  round_id      String    @db.Uuid
+  registered_by String    @db.Uuid
+  status        String    @default("registered")
+  created_at    DateTime  @default(now()) @db.Timestamptz(6)
+  entrants      entrants  @relation(fields: [entrant_id], references: [id])
+  educators     educators @relation(fields: [registered_by], references: [id])
+  rounds        rounds    @relation(fields: [round_id], references: [id])
+
+  @@unique([entrant_id, round_id])
+}
+
+model results {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id     String    @db.Uuid
+  entrant_id   String    @db.Uuid
+  total_points Decimal   @default(0) @db.Decimal
+  rank         Int?
+  qualified    Boolean   @default(false)
+  finalised_at DateTime? @db.Timestamptz(6)
+  entrants     entrants  @relation(fields: [entrant_id], references: [id])
+  rounds       rounds    @relation(fields: [round_id], references: [id])
+
+  @@unique([round_id, entrant_id])
+  @@index([round_id, rank], map: "idx_results_round_rank")
+}
 
 enum round_state {
   scheduled
@@ -32,318 +235,14 @@ enum submission_status {
   moderated
 }
 
-// ADDED — was plain String before, now enforced at DB level
 enum user_role {
   organiser
   educator
   student
 }
 
-// ADDED — controls what an invitation grants
 enum invite_type {
   school
   educator
   student
-}
-
-// ─────────────────────────────────────────
-// USERS
-// ─────────────────────────────────────────
-
-model users {
-  id                     String      @id @db.Uuid
-  email                  String      @unique
-  full_name              String
-  role                   user_role
-  created_at             DateTime    @default(now()) @db.Timestamptz(6)
-  deleted_at             DateTime?   @db.Timestamptz(6)
-  auth_provider_id       String?
-  // existing relations
-  answers                answers[]
-  educators              educators?
-  entrants               entrants?
-  olympiads              olympiads[]
-
-  claimed_invitations    invitations[] @relation("claimed_by")
-  sent_invitations       invitations[] @relation("sent_by")
-}
-
-
-// ─────────────────────────────────────────
-// INVITATIONS
-// ADDED — the entire invitation system was missing
-// ─────────────────────────────────────────
-
-model invitations {
-  id          String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  // the code educators/students use to register
-  // e.g. "SCH-X7K9" or "STU-B3M1"
-  code        String      @unique
-
-  type        invite_type
-
-  // which olympiad this invitation belongs to
-  olympiad_id String?     @db.Uuid
-
-  // which school this invitation belongs to
-  // null for school-type invites (school doesn't exist yet)
-  school_id   String?     @db.Uuid
-
-  // optional — who was this sent to
-  email       String?
-
-  // who claimed this invitation
-  used_by_id  String?     @db.Uuid
-
-  // who generated this invitation
-  created_by_id String?   @db.Uuid
-
-  expires_at  DateTime    @db.Timestamptz(6)
-  created_at  DateTime    @default(now()) @db.Timestamptz(6)
-
-  olympiads   olympiads?  @relation(fields: [olympiad_id], references: [id])
-  schools     schools?    @relation(fields: [school_id], references: [id])
-  used_by     users?      @relation("claimed_by", fields: [used_by_id], references: [id])
-  created_by  users?      @relation("sent_by", fields: [created_by_id], references: [id])
-
-  @@index([code])
-  @@index([school_id])
-  @@index([olympiad_id])
-}
-
-// ─────────────────────────────────────────
-// SCHOOLS
-// ─────────────────────────────────────────
-
-model schools {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                 String
-  address              String?
-  created_at           DateTime               @default(now()) @db.Timestamptz(6)
-
-  educators            educators[]
-  entrants             entrants[]
-  school_registrations school_registrations[]
-
-  // ADDED — needed for invitation foreign key
-  invitations          invitations[]
-}
-
-// ─────────────────────────────────────────
-// EDUCATORS
-// ─────────────────────────────────────────
-
-model educators {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  user_id               String                  @unique @db.Uuid
-  school_id             String                  @db.Uuid
-  created_at            DateTime                @default(now()) @db.Timestamptz(6)
-
-  schools               schools                 @relation(fields: [school_id], references: [id])
-  users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  entrant_registrations entrant_registrations[]
-  submissions           submissions[]
-}
-
-// ─────────────────────────────────────────
-// ENTRANTS
-// ─────────────────────────────────────────
-
-model entrants {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-
-  // KEPT nullable — offline students have no login account
-  user_id               String?                 @unique @db.Uuid
-
-  school_id             String                  @db.Uuid
-  full_name             String
-  grade                 String?
-  external_ref          String?
-  created_at            DateTime                @default(now()) @db.Timestamptz(6)
-
-  entrant_registrations entrant_registrations[]
-  schools               schools                 @relation(fields: [school_id], references: [id])
-  users                 users?                  @relation(fields: [user_id], references: [id])
-  results               results[]
-  submissions           submissions[]
-}
-
-// ─────────────────────────────────────────
-// OLYMPIADS
-// ─────────────────────────────────────────
-
-model olympiads {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                 String
-  organiser_id         String                 @db.Uuid
-  timezone             String                 @default("Africa/Johannesburg")
-  created_at           DateTime               @default(now()) @db.Timestamptz(6)
-
-  users                users                  @relation(fields: [organiser_id], references: [id])
-  rounds               rounds[]
-  school_registrations school_registrations[]
-
-  // ADDED — needed for invitation foreign key
-  invitations          invitations[]
-}
-
-// ─────────────────────────────────────────
-// SCHOOL REGISTRATIONS
-// ─────────────────────────────────────────
-
-model school_registrations {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  school_id     String    @db.Uuid
-  olympiad_id   String    @db.Uuid
-  registered_at DateTime  @default(now()) @db.Timestamptz(6)
-
-  olympiads     olympiads @relation(fields: [olympiad_id], references: [id])
-  schools       schools   @relation(fields: [school_id], references: [id])
-
-  @@unique([school_id, olympiad_id])
-}
-
-// ─────────────────────────────────────────
-// ROUNDS
-// ─────────────────────────────────────────
-
-model rounds {
-  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  olympiad_id           String                  @db.Uuid
-  name                  String
-  opens_at              DateTime                @db.Timestamptz(6)
-  closes_at             DateTime                @db.Timestamptz(6)
-  results_release_at    DateTime?               @db.Timestamptz(6)
-  state                 round_state             @default(scheduled)
-  qualifying_threshold  Decimal?                @db.Decimal
-  created_at            DateTime                @default(now()) @db.Timestamptz(6)
-
-  entrant_registrations entrant_registrations[]
-  papers                papers[]
-  results               results[]
-  olympiads             olympiads               @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
-  submissions           submissions[]
-
-  @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
-}
-
-// ─────────────────────────────────────────
-// PAPERS
-// ─────────────────────────────────────────
-
-model papers {
-  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  round_id      String      @db.Uuid
-  title         String
-  file_url      String?
-  memo_file_url String?
-  is_archived   Boolean     @default(false)
-  released_at   DateTime?   @db.Timestamptz(6)
-  created_at    DateTime    @default(now()) @db.Timestamptz(6)
-
-  rounds        rounds      @relation(fields: [round_id], references: [id])
-  questions     questions[]
-}
-
-// ─────────────────────────────────────────
-// QUESTIONS
-// ─────────────────────────────────────────
-
-model questions {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  paper_id       String    @db.Uuid
-  type           String
-  prompt         String
-  options        Json?
-  correct_option String?
-  max_points     Decimal   @default(1) @db.Decimal
-  created_at     DateTime  @default(now()) @db.Timestamptz(6)
-
-  answers        answers[]
-  papers         papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade)
-}
-
-// ─────────────────────────────────────────
-// ANSWERS
-// ─────────────────────────────────────────
-
-model answers {
-  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  submission_id  String      @db.Uuid
-  question_id    String      @db.Uuid
-  answer_value   String?
-  is_correct     Boolean?
-  points_awarded Decimal?    @db.Decimal
-  marked_by      String?     @db.Uuid
-  marked_at      DateTime?   @db.Timestamptz(6)
-
-  users          users?      @relation(fields: [marked_by], references: [id])
-  questions      questions   @relation(fields: [question_id], references: [id])
-  submissions    submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade)
-
-  @@unique([submission_id, question_id])
-}
-
-// ─────────────────────────────────────────
-// SUBMISSIONS
-// ─────────────────────────────────────────
-
-model submissions {
-  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  round_id             String            @db.Uuid
-  entrant_id           String            @db.Uuid
-  submitted_by         String?           @db.Uuid
-  route                submission_route  @default(offline)
-  status               submission_status @default(received)
-  idempotency_key      String            @unique
-  received_at          DateTime          @default(now()) @db.Timestamptz(6)
-  round_close_snapshot DateTime          @db.Timestamptz(6)
-  created_at           DateTime          @default(now()) @db.Timestamptz(6)
-
-  answers              answers[]
-  entrants             entrants          @relation(fields: [entrant_id], references: [id])
-  rounds               rounds            @relation(fields: [round_id], references: [id])
-  educators            educators?        @relation(fields: [submitted_by], references: [id])
-
-  @@unique([round_id, entrant_id, route])
-}
-
-// ─────────────────────────────────────────
-// ENTRANT REGISTRATIONS
-// ─────────────────────────────────────────
-
-model entrant_registrations {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  entrant_id    String    @db.Uuid
-  round_id      String    @db.Uuid
-  registered_by String    @db.Uuid
-  status        String    @default("registered")
-  created_at    DateTime  @default(now()) @db.Timestamptz(6)
-
-  entrants      entrants  @relation(fields: [entrant_id], references: [id])
-  educators     educators @relation(fields: [registered_by], references: [id])
-  rounds        rounds    @relation(fields: [round_id], references: [id])
-
-  @@unique([entrant_id, round_id])
-}
-
-// ─────────────────────────────────────────
-// RESULTS
-// ─────────────────────────────────────────
-
-model results {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  round_id     String    @db.Uuid
-  entrant_id   String    @db.Uuid
-  total_points Decimal   @default(0) @db.Decimal
-  rank         Int?
-  qualified    Boolean   @default(false)
-  finalised_at DateTime? @db.Timestamptz(6)
-
-  entrants     entrants  @relation(fields: [entrant_id], references: [id])
-  rounds       rounds    @relation(fields: [round_id], references: [id])
-
-  @@unique([round_id, entrant_id])
-  @@index([round_id, rank], map: "idx_results_round_rank")
 }

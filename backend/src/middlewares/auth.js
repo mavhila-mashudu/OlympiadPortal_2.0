@@ -1,12 +1,7 @@
 // @ts-nocheck
-const { createClient } = require("@supabase/supabase-js");
 const prisma = require("../config/database").default;
+const supabase = require("../config/supabase");
 const { UnauthorizedError, ForbiddenError } = require("../errors/AppError");
-
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY,
-);
 
 const requireAuth = async (req, _res, next) => {
   try {
@@ -17,8 +12,6 @@ const requireAuth = async (req, _res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-
-    // Verify token with Supabase — no manual JWT verification needed
     const {
       data: { user },
       error,
@@ -28,7 +21,6 @@ const requireAuth = async (req, _res, next) => {
       throw new UnauthorizedError("Invalid or expired token");
     }
 
-    // Get role and profile from YOUR database
     const dbUser = await prisma.users.findUnique({
       where: { id: user.id },
       include: {
@@ -41,7 +33,6 @@ const requireAuth = async (req, _res, next) => {
       throw new UnauthorizedError("Account not found or deleted");
     }
 
-    // Attach user to request
     req.user = {
       userId: dbUser.id,
       email: dbUser.email,
@@ -49,6 +40,7 @@ const requireAuth = async (req, _res, next) => {
       schoolId:
         dbUser.educators?.school_id || dbUser.entrants?.school_id || null,
       educator: dbUser.educators || null,
+      entrant: dbUser.entrants || null,
     };
 
     next();
