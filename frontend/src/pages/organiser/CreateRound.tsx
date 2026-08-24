@@ -1,172 +1,165 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AppShell } from "../../components/layout/AppShell";
+import React, { useEffect, useState } from "react";
+import { AppShell as AppShellComponent } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { FileInput } from "../../components/ui/FileInput";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
-import { Textarea } from "../../components/ui/Textarea";
-import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import { organiserNav } from "../../lib/mockData";
 import { getCurrentOlympiad } from "../../lib/olympiad";
-import styles from "./CreateRound.module.css";
 
-type Round = { id: string };
+const AppShell = AppShellComponent as any;
 
-function CreateRound() {
-  const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
+export default function CreateRound() {
+  const [olympiads, setOlympiads] = useState<any[]>([]);
+  const [selectedOlympiadId, setSelectedOlympiadId] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchOlympiads() {
+      try {
+        const res: any = await api.get("/olympiads");
+        const list = res.olympiads || res || [];
+        const current = await getCurrentOlympiad();
+        setOlympiads(list);
+        if (current?.id) {
+          setSelectedOlympiadId(current.id);
+        } else if (list.length > 0) {
+          setSelectedOlympiadId(list[0].id);
+        }
+      } catch (err) {
+        setError("Failed to load olympiads list.");
+      }
+    }
+    fetchOlympiads();
+  }, []);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+
+    const olympiadId = (formData.get("olympiadId") as string) || selectedOlympiadId;
+    const name = formData.get("roundName") as string;
+    const notes = (formData.get("notes") as string) || undefined;
+    const opensAtLocal = formData.get("opensAt") as string;
+    const closesAtLocal = formData.get("closesAt") as string;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      await api.post(`/olympiads/${olympiadId}/rounds`, {
+        name,
+        notes,
+        opens_at: new Date(opensAtLocal).toISOString(),
+        closes_at: new Date(closesAtLocal).toISOString(),
+      });
+      alert("Round created successfully!");
+    } catch (err: any) {
+      setError(err.message || "Failed to create round.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
-    <AppShell
-      activeRole="organiser"
-      navItems={organiserNav}
-      organisation="National Olympiad Office"
-      portalLabel="Organiser console"
-      userInitials="NO"
-      userName="Admin user"
-    >
-      <div className={styles.stack}>
+    <AppShell navItems={organiserNav} role="Organiser">
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "1.5rem" }}>
         <PageHeader
           title="Create a round"
           description="Define the schedule and upload the paper and memo for a new round."
-          actions={
-            <Button to="/organiser" variant="outline">
-              Cancel
-            </Button>
-          }
         />
-
-        <Card className={styles.formCard}>
-          <form
-            className={styles.form}
-            onSubmit={async (event) => {
-              event.preventDefault();
-              setError(null);
-              setSubmitting(true);
-
-              const formData = new FormData(event.currentTarget);
-              const name = formData.get("roundName") as string;
-              const notes = (formData.get("notes") as string) || undefined;
-              const opensAtLocal = formData.get("opensAt") as string;
-              const closesAtLocal = formData.get("closesAt") as string;
-              const paperFile = formData.get("paper") as File | null;
-              const memoFile = formData.get("memo") as File | null;
-
-              try {
-                const olympiad = await getCurrentOlympiad();
-
-                const { round } = await api.post<{ round: Round }>(
-                  `/olympiads/${olympiad.id}/rounds`,
-                  {
-                    name,
-                    notes,
-                    opens_at: new Date(opensAtLocal).toISOString(),
-                    closes_at: new Date(closesAtLocal).toISOString(),
-                  },
-                );
-
-                const hasPaper = paperFile && paperFile.size > 0;
-                const hasMemo = memoFile && memoFile.size > 0;
-
-                if (hasPaper || hasMemo) {
-                  const papersForm = new FormData();
-                  if (hasPaper) papersForm.append("paper", paperFile as File);
-                  if (hasMemo) papersForm.append("memo", memoFile as File);
-                  await api.post(`/rounds/${round.id}/papers`, papersForm);
-                }
-
-                navigate("/organiser");
-              } catch (err) {
-                setError(
-                  err instanceof Error ? err.message : "Failed to create round",
-                );
-              } finally {
-                setSubmitting(false);
-              }
-            }}
-          >
-            <div className={styles.field}>
-              <Label htmlFor="round-name">
-                Round name<span className={styles.required}> *</span>
-              </Label>
-              <Input
-                id="round-name"
-                name="roundName"
-                placeholder="Round 5 — Regional"
-                required
-              />
-            </div>
-
-            <div className={styles.field}>
-              <Label htmlFor="round-notes">Instructions for educators</Label>
-              <Textarea
-                id="round-notes"
-                name="notes"
-                placeholder="Any notes shown to educators alongside the paper."
-                rows={3}
-              />
-            </div>
-
-            <div className={styles.dateGrid}>
-              <div className={styles.field}>
-                <Label htmlFor="opens-at">
-                  Opens at<span className={styles.required}> *</span>
-                </Label>
-                <Input id="opens-at" name="opensAt" required type="datetime-local" />
-              </div>
-              <div className={styles.field}>
-                <Label htmlFor="closes-at">
-                  Closes at<span className={styles.required}> *</span>
-                </Label>
-                <Input id="closes-at" name="closesAt" required type="datetime-local" />
-              </div>
-            </div>
-
-            <div className={styles.field}>
-              <Label htmlFor="paper-file">Paper file</Label>
-              <FileInput
-                accept=".pdf,.doc,.docx,.csv,.xlsx"
-                aria-describedby="paper-file-hint"
-                id="paper-file"
-                name="paper"
-              />
-              <p id="paper-file-hint" className={styles.hint}>
-                PDF released to schools when the round opens.
-              </p>
-            </div>
-
-            <div className={styles.field}>
-              <Label htmlFor="memo-file">Memo file</Label>
-              <FileInput
-                accept=".pdf,.doc,.docx,.csv,.xlsx"
-                aria-describedby="memo-file-hint"
-                id="memo-file"
-                name="memo"
-              />
-              <p id="memo-file-hint" className={styles.hint}>
-                Used for auto-marking. Can be added later.
-              </p>
-            </div>
-
-            {error && <p className={styles.hint}>{error}</p>}
-
-            <div className={styles.actions}>
-              <Button disabled={submitting} type="submit">
-                {submitting ? "Creating…" : "Create round"}
-              </Button>
-              <Button to="/organiser" variant="outline">
-                Back to dashboard
-              </Button>
-            </div>
-          </form>
-        </Card>
+        <Button variant="outline" type="button" onClick={() => window.history.back()}>
+          Cancel
+        </Button>
       </div>
+
+      <Card style={{ maxWidth: "680px", margin: "0 auto", padding: "1.5rem" }}>
+        <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
+          <div>
+            <Label htmlFor="olympiadId">Target Olympiad*</Label>
+            <select
+              id="olympiadId"
+              name="olympiadId"
+              value={selectedOlympiadId}
+              onChange={(e) => setSelectedOlympiadId(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                marginTop: "0.25rem",
+                borderRadius: "0.375rem",
+                border: "1px solid #d1d5db"
+              }}
+              required
+            >
+              {olympiads.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <Label htmlFor="roundName">Round name*</Label>
+            <Input id="roundName" name="roundName" defaultValue="Round 1 — Qualifier" required />
+          </div>
+
+          <div>
+            <Label htmlFor="notes">Instructions for educators</Label>
+            <textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              placeholder="Any notes shown to educators alongside the paper."
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                marginTop: "0.25rem",
+                borderRadius: "0.375rem",
+                border: "1px solid #d1d5db",
+                fontFamily: "inherit"
+              }}
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+            <div>
+              <Label htmlFor="opensAt">Opens at*</Label>
+              <Input id="opensAt" name="opensAt" type="datetime-local" required />
+            </div>
+
+            <div>
+              <Label htmlFor="closesAt">Closes at*</Label>
+              <Input id="closesAt" name="closesAt" type="datetime-local" required />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="paper">Paper file</Label>
+            <Input id="paper" name="paper" type="file" accept=".pdf" />
+            <p style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.25rem" }}>
+              PDF released to schools when the round opens.
+            </p>
+          </div>
+
+          <div>
+            <Label htmlFor="memo">Memo file</Label>
+            <Input id="memo" name="memo" type="file" accept=".pdf" />
+            <p style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "0.25rem" }}>
+              Used for auto-marking. Can be added later.
+            </p>
+          </div>
+
+          {error && <p style={{ color: "red", fontSize: "0.875rem" }}>{error}</p>}
+
+          <Button type="submit" disabled={submitting}>
+            {submitting ? "Creating..." : "Create Round"}
+          </Button>
+        </form>
+      </Card>
     </AppShell>
   );
 }
-
-export default CreateRound;

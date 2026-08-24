@@ -8,6 +8,7 @@ import Results from "./pages/educator/Results";
 import Archive from "./pages/organiser/Archive";
 import CreateRound from "./pages/organiser/CreateRound";
 import OrganiserDashboard from "./pages/organiser/Dashboard";
+import Olympiads from "./pages/organiser/Olympiads";
 import Schools from "./pages/organiser/Schools";
 import StudentDashboard from "./pages/student/Dashboard";
 import StudentResults from "./pages/student/Results";
@@ -24,6 +25,7 @@ function App() {
       <Route path="/educator/entrants" element={<Entrants />} />
       <Route path="/educator/rounds/:id" element={<EducatorRoundDetail />} />
       <Route path="/organiser" element={<OrganiserDashboard />} />
+      <Route path="/organiser/olympiads" element={<Olympiads />} />
       <Route path="/organiser/rounds/new" element={<CreateRound />} />
       <Route path="/organiser/archive" element={<Archive />} />
       <Route path="/organiser/schools" element={<Schools />} />

@@ -15,7 +15,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true, // allows cookies to be sent cross-origin
-  }),
+  })
 );
 
 // Body parsing
@@ -39,11 +39,15 @@ app.get("/", (_req, res) => {
 // ── Routes ──────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
 
-//registering olympiads and rounds routes
+// Registering olympiads, rounds, and papers routes
 app.use("/olympiads", require("./routes/olympiads"));
 app.use("/rounds", require("./routes/roundDetail"));
 app.use("/papers", require("./routes/papers"));
-// 404
+
+// Invitation routes (Organiser inviting schools)
+app.use("/", require("./routes/invitationRoutes.js"));
+
+// 404 handler
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: "Route not found" });
 });
@@ -52,5 +56,3 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 module.exports = app;
-
-

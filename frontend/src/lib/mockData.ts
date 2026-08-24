@@ -7,6 +7,7 @@ import {
   FileCheckCorner,
   FilePlusCorner,
   LayoutDashboard,
+  Trophy,
   UserPlus,
 } from "lucide-react";
 
@@ -61,6 +62,58 @@ export type ResultRow = {
   percentage: string;
 };
 
+export type OlympiadStatus = "active" | "draft" | "archived" | "completed";
+
+export type Olympiad = {
+  id: string;
+  name: string;
+  year: number;
+  status: OlympiadStatus;
+  roundsCount?: number;
+  schoolsCount?: number;
+  entrantsCount?: number;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+};
+
+export const olympiads: Olympiad[] = [
+  {
+    id: "ol-2026",
+    name: "National Mathematics Olympiad 2026",
+    year: 2026,
+    status: "active",
+    roundsCount: 4,
+    schoolsCount: 42,
+    entrantsCount: 1250,
+    startDate: "2026-07-01",
+    endDate: "2026-08-31",
+    description: "Annual national mathematics competition for high school students.",
+  },
+  {
+    id: "ol-2025",
+    name: "National Mathematics Olympiad 2025",
+    year: 2025,
+    status: "completed",
+    roundsCount: 4,
+    schoolsCount: 38,
+    entrantsCount: 1100,
+    startDate: "2025-07-01",
+    endDate: "2025-08-31",
+    description: "Previous year national mathematics competition.",
+  },
+  {
+    id: "ol-2027",
+    name: "National Mathematics Olympiad 2027",
+    year: 2027,
+    status: "draft",
+    roundsCount: 0,
+    schoolsCount: 0,
+    entrantsCount: 0,
+    description: "Upcoming competition draft.",
+  },
+];
+
 export const rounds: OlympiadRound[] = [
   {
     id: "r-2026-01",
@@ -110,6 +163,7 @@ export const rounds: OlympiadRound[] = [
 
 export const organiserNav: NavItem[] = [
   { label: "Dashboard", to: "/organiser", icon: LayoutDashboard },
+  { label: "Olympiads", to: "/organiser/olympiads", icon: Trophy },
   { label: "Create round", to: "/organiser/rounds/new", icon: FilePlusCorner },
   { label: "Paper archive", to: "/organiser/archive", icon: Archive },
   { label: "Schools & educators", to: "/organiser/schools", icon: Building2 },

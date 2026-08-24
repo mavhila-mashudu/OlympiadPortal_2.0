@@ -30,10 +30,17 @@ function Schools() {
       setError(null);
       try {
         const olympiad = await getCurrentOlympiad();
-        const { schools: list } = await api.get<{ schools: School[] }>(
-          `/olympiads/${olympiad.id}/schools`,
+        if (!olympiad?.id) {
+          if (!cancelled) setSchools([]);
+          return;
+        }
+
+        const res = await api.get<{ schools: School[] }>(
+          `/olympiads/${olympiad.id}/schools`
         );
-        if (!cancelled) setSchools(list);
+        if (!cancelled) {
+          setSchools(res?.schools || []);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : "Failed to load schools");
@@ -68,7 +75,7 @@ function Schools() {
           }
         />
 
-        {error && <p>{error}</p>}
+        {error && <p style={{ color: "var(--red-600, #dc2626)" }}>{error}</p>}
 
         <TablePanel minWidth="52rem">
           <thead>
@@ -81,7 +88,9 @@ function Schools() {
           <tbody>
             {!loading && schools.length === 0 && (
               <tr>
-                <td colSpan={3}>No schools registered yet.</td>
+                <td colSpan={3} style={{ padding: "1rem", textAlign: "center" }}>
+                  No schools registered yet.
+                </td>
               </tr>
             )}
             {schools.map((school) => (
@@ -89,20 +98,21 @@ function Schools() {
                 <Td strong muted={false}>
                   {school.name}
                 </Td>
-                <Td numeric>{school.entrants}</Td>
+                <Td numeric>{school.entrants ?? 0}</Td>
                 <Td muted={false}>
                   <ul className={styles.educators}>
-                    {school.educators.map((educator) => (
-                      <li key={educator.email}>
-                        <span className={styles.educatorName}>
-                          {educator.name}
-                        </span>
-                        <a href={`mailto:${educator.email}`}>
-                          {educator.email}
-                        </a>
-                      </li>
-                    ))}
-                    {school.educators.length === 0 && (
+                    {school.educators && school.educators.length > 0 ? (
+                      school.educators.map((educator) => (
+                        <li key={educator.email}>
+                          <span className={styles.educatorName}>
+                            {educator.name}
+                          </span>
+                          <a href={`mailto:${educator.email}`}>
+                            {educator.email}
+                          </a>
+                        </li>
+                      ))
+                    ) : (
                       <li className={styles.educatorName}>No educators yet</li>
                     )}
                   </ul>
