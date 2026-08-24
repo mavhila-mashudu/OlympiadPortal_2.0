@@ -1,0 +1,164 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.pageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 640px) {
+  .pageHeader {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.pageHeader h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  line-height: 2.25rem;
+  color: var(--foreground);
+}
+
+.pageHeader p {
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.statsGrid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media (min-width: 640px) {
+  .statsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.statCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+}
+
+.statTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.statTop svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.statValue {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: var(--foreground);
+}
+
+.statHelper {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.tableCard {
+  overflow: hidden;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tableHeader h2 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.tableScroller {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.olympiadsTable {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+}
+
+.olympiadsTable th {
+  padding: 0.75rem 1.5rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+  background-color: var(--muted, rgba(0, 0, 0, 0.02));
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.olympiadsTable td {
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--foreground);
+  vertical-align: middle;
+}
+
+.olympiadsTable tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.olympiadsTable tbody tr:hover {
+  background-color: var(--muted-hover, rgba(0, 0, 0, 0.01));
+}
+
+.olympiadName {
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.numeric {
+  text-align: right;
+}
+
+th.numeric {
+  text-align: right;
+}
+
+.actionColumn {
+  text-align: right;
+  width: 100px;
+}
+
+.required {
+  color: var(--destructive, #ef4444);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  margin-top: 0.25rem;
+}

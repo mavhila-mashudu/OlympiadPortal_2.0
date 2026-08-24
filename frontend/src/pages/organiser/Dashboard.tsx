@@ -1,12 +1,134 @@
-import { FilePlusCorner, Timer } from "lucide-react";
+import { Building2, FileCheckCorner, FilePlusCorner, Timer } from "lucide-react";
+import { useEffect, useState } from "react";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { organiserNav, rounds, stats } from "../../lib/mockData";
+import type { RoundStatus } from "../../lib/mockData";
+import { organiserNav } from "../../lib/mockData";
+import { api } from "../../lib/api";
+import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
 import styles from "./Dashboard.module.css";
 
+type Round = {
+  id: string;
+  name: string;
+  opens_at: string;
+  closes_at: string;
+  state: "scheduled" | "open" | "closed" | "marking" | "results_released";
+  _count: { submissions: number; entrant_registrations: number };
+};
+
+const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
+  dateStyle: "medium",
+  timeStyle: "short",
+});
+
+function toBadgeStatus(state: Round["state"]): RoundStatus {
+  if (state === "open") return "open";
+  if (state === "scheduled") return "upcoming";
+  return "closed";
+}
+
 function OrganiserDashboard() {
+  const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
+  const [selectedOlympiad, setSelectedOlympiad] = useState<Olympiad | null>(null);
+  const [rounds, setRounds] = useState<Round[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  async function loadRounds(olympiadId: string) {
+    const { rounds: roundList } = await api.get<{ rounds: Round[] }>(
+      `/olympiads/${olympiadId}/rounds`,
+    );
+    setRounds(roundList);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      setError(null);
+      try {
+        const { olympiads: allOlympiads } = await api.get<{ olympiads: Olympiad[] }>("/olympiads");
+        const current = await getCurrentOlympiad();
+        
+        if (!cancelled) {
+          setOlympiads(allOlympiads);
+          setSelectedOlympiad(current);
+          if (current) {
+            await loadRounds(current.id);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Failed to load dashboard");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleOlympiadChange = async (olympiadId: string) => {
+    const found = olympiads.find((o) => o.id === olympiadId) || null;
+    setSelectedOlympiad(found);
+    if (found) {
+      setLoading(true);
+      await loadRounds(found.id);
+      setLoading(false);
+    }
+  };
+
+  async function handleSetState(roundId: string, state: string) {
+    if (!selectedOlympiad) return;
+    setUpdatingId(roundId);
+    setError(null);
+    try {
+      await api.patch(`/rounds/${roundId}/state`, { state });
+      await loadRounds(selectedOlympiad.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update round");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
+  const submissionsTotal = rounds.reduce(
+    (sum, round) => sum + round._count.submissions,
+    0,
+  );
+  const openCount = rounds.filter((round) => round.state === "open").length;
+  const schoolsCount = selectedOlympiad?._count?.school_registrations ?? 0;
+
+  const stats = [
+    {
+      label: "Schools registered",
+      value: String(schoolsCount),
+      helper: "Across this olympiad",
+      icon: Building2,
+    },
+    {
+      label: "Submissions received",
+      value: String(submissionsTotal),
+      helper: "All rounds to date",
+      icon: FileCheckCorner,
+    },
+    {
+      label: "Rounds currently open",
+      value: String(openCount),
+      helper: "Accepting submissions",
+      icon: Timer,
+    },
+  ];
+
   return (
     <AppShell
       activeRole="organiser"
@@ -20,9 +142,24 @@ function OrganiserDashboard() {
         <header className={styles.pageHeader}>
           <div>
             <h1>Organiser dashboard</h1>
-            <p>Overview of all olympiad rounds and school participation.</p>
+            <p>
+              Overview of rounds and school participation.
+            </p>
           </div>
-          <div className={styles.actions}>
+          <div className={styles.actions} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+            {olympiads.length > 0 && (
+              <select
+                value={selectedOlympiad?.id ?? ""}
+                onChange={(e) => handleOlympiadChange(e.target.value)}
+                style={{ padding: "8px 12px", borderRadius: "6px", border: "1px solid #ccc" }}
+              >
+                {olympiads.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    Active Olympiad: {o.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <Button
               icon={<FilePlusCorner aria-hidden="true" />}
               to="/organiser/rounds/new"
@@ -32,18 +169,18 @@ function OrganiserDashboard() {
           </div>
         </header>
 
+        {error && <Card className={styles.tableCard}>{error}</Card>}
+
         <section className={styles.statsGrid} aria-label="Dashboard summary">
           {stats.map((stat) => {
-            const Icon =
-              stat.label === "Rounds currently open" ? Timer : stat.icon;
-
+            const Icon = stat.icon;
             return (
               <Card className={styles.statCard} key={stat.label}>
                 <div className={styles.statTop}>
                   <p>{stat.label}</p>
                   <Icon aria-hidden="true" />
                 </div>
-                <p className={styles.statValue}>{stat.value}</p>
+                <p className={styles.statValue}>{loading ? "…" : stat.value}</p>
                 <p className={styles.statHelper}>{stat.helper}</p>
               </Card>
             );
@@ -56,7 +193,9 @@ function OrganiserDashboard() {
           aria-labelledby="rounds-heading"
         >
           <div className={styles.tableHeader}>
-            <h2 id="rounds-heading">Rounds</h2>
+            <h2 id="rounds-heading">
+              Rounds {selectedOlympiad ? `(${selectedOlympiad.name})` : ""}
+            </h2>
           </div>
           <div className={styles.tableScroller}>
             <table className={styles.roundsTable}>
@@ -66,30 +205,55 @@ function OrganiserDashboard() {
                   <th>Opens</th>
                   <th>Closes</th>
                   <th>Status</th>
-                  <th className={styles.numeric}>Schools</th>
                   <th className={styles.numeric}>Submissions</th>
                   <th className={styles.actionColumn}>Action</th>
                 </tr>
               </thead>
               <tbody>
+                {!loading && rounds.length === 0 && (
+                  <tr>
+                    <td colSpan={6}>No rounds yet — create the first one.</td>
+                  </tr>
+                )}
                 {rounds.map((round) => (
                   <tr key={round.id}>
-                    <td className={styles.roundName}>{round.title}</td>
-                    <td>{round.opens}</td>
-                    <td>{round.closes}</td>
+                    <td className={styles.roundName}>{round.name}</td>
+                    <td>{dateFormatter.format(new Date(round.opens_at))}</td>
+                    <td>{dateFormatter.format(new Date(round.closes_at))}</td>
                     <td>
-                      <StatusBadge status={round.status} />
+                      <StatusBadge status={toBadgeStatus(round.state)} />
                     </td>
-                    <td className={styles.numeric}>{round.schools}</td>
-                    <td className={styles.numeric}>{round.submissions}</td>
+                    <td className={styles.numeric}>
+                      {round._count.submissions}
+                    </td>
                     <td className={styles.actionColumn}>
-                      <Button
-                        size="sm"
-                        to={`/organiser/rounds/${round.id}`}
-                        variant="outline"
-                      >
-                        View
-                      </Button>
+                      {round.state === "scheduled" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={updatingId === round.id}
+                          onClick={() => handleSetState(round.id, "open")}
+                        >
+                          {updatingId === round.id ? "Opening…" : "Open round"}
+                        </Button>
+                      )}
+                      {round.state === "open" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={updatingId === round.id}
+                          onClick={() => handleSetState(round.id, "closed")}
+                        >
+                          {updatingId === round.id ? "Closing…" : "Close round"}
+                        </Button>
+                      )}
+                      {(round.state === "closed" ||
+                        round.state === "marking" ||
+                        round.state === "results_released") && (
+                        <Button size="sm" variant="outline" disabled>
+                          Closed
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}
