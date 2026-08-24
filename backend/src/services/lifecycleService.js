@@ -1,14 +1,16 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
+const { autoMarkRoundInternal } = require("./markingService");
 
 // ─────────────────────────────────────────
 // RUN ONE LIFECYCLE PASS
 // Called on a timer (see jobs/roundLifecycleJob.js).
-// Two transitions only, for now:
+// Two transitions:
 //   scheduled -> open     (once opens_at has passed)
 //   open      -> closed   (once closes_at has passed)
-// Marking / results_released are separate pieces of work
-// (auto-marking, results release) that build on top of this.
+// On close, auto-marks every received submission
+// in that round (B14).  Results release is a
+// separate organiser-triggered step.
 // ─────────────────────────────────────────
 const runLifecycleTick = async () => {
   const now = new Date();
@@ -42,11 +44,23 @@ const runLifecycleTick = async () => {
       data: { state: "closed" },
     });
 
-    toClose.forEach((r) =>
-      console.log(`[lifecycle] round "${r.name}" (${r.id}) closed`),
-    );
-    // Future hook: this is the point where auto-marking (B14)
-    // would kick off for each round in toClose.
+    // Auto-mark all received submissions for each
+    // round that just closed.  A failure for one
+    // round is logged, not thrown — it shouldn't
+    // kill the lifecycle loop or block other rounds.
+    for (const r of toClose) {
+      try {
+        const result = await autoMarkRoundInternal(r.id);
+        console.log(
+          `[lifecycle] round "${r.name}" (${r.id}) closed — ` +
+            `auto-marked ${result.total} submission(s)`,
+        );
+      } catch (err) {
+        console.error(
+          `[lifecycle] auto-marking failed for round "${r.name}" (${r.id}): ${err.message}`,
+        );
+      }
+    }
   }
 
   return { opened: toOpen.length, closed: toClose.length };

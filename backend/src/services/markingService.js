@@ -138,10 +138,12 @@ const autoMarkSubmission = async (submissionId) => {
 // "received" status.  Called when a round
 // closes (see lifecycleService) or on
 // demand by an organiser.
+//
+// The internal variant skips ownership
+// checks — it is meant for system /
+// lifecycle use where there is no user.
 // ─────────────────────────────────────────
-const autoMarkRound = async (roundId, userId, role) => {
-  const round = await assertRoundOwnership(roundId, userId, role);
-
+const autoMarkRoundInternal = async (roundId) => {
   const pending = await prisma.submissions.findMany({
     where: { round_id: roundId, status: "received" },
     select: { id: true },
@@ -161,6 +163,19 @@ const autoMarkRound = async (roundId, userId, role) => {
     total: pending.length,
     processed: results,
   };
+};
+
+// ─────────────────────────────────────────
+// AUTO-MARK A ROUND (with ownership check)
+//
+// Thin wrapper around autoMarkRoundInternal
+// that first verifies the caller owns the
+// round.  Used by the organiser-facing
+// POST /rounds/:roundId/mark endpoint.
+// ─────────────────────────────────────────
+const autoMarkRound = async (roundId, userId, role) => {
+  await assertRoundOwnership(roundId, userId, role);
+  return autoMarkRoundInternal(roundId);
 };
 
 // ─────────────────────────────────────────
@@ -288,6 +303,7 @@ const generateResults = async (roundId, userId, role) => {
 
 module.exports = {
   autoMarkSubmission,
+  autoMarkRoundInternal,
   autoMarkRound,
   markAnswer,
   generateResults,
