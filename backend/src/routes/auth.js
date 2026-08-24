@@ -4,14 +4,9 @@ const { body } = require("express-validator");
 const router = express.Router();
 const {
   registerOrganiser,
-  validateCode,
   registerWithCode,
-  login,
-  refresh,
-  logout,
+  validateCode,
   me,
-  forgotPassword,
-  resetPassword,
   deleteAccount,
   inviteSchool,
   inviteEducator,
@@ -20,23 +15,21 @@ const {
 const { requireAuth, requireRole } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
 
-// ── Validation rules ────────────────────────────────────
-
 const organiserRules = [
   body("full_name").trim().notEmpty().withMessage("Full name is required"),
   body("email")
     .trim()
     .isEmail()
-    .withMessage("Valid email required")
-    .normalizeEmail(),
+    .normalizeEmail()
+    .withMessage("Valid email required"),
   body("password")
     .isLength({ min: 8 })
-    .withMessage("Password min 8 characters")
+    .withMessage("Min 8 characters")
     .matches(/[A-Z]/)
-    .withMessage("Password needs an uppercase letter")
+    .withMessage("Needs uppercase")
     .matches(/[0-9]/)
-    .withMessage("Password needs a number"),
-  body("organiser_secret").notEmpty().withMessage("Organiser secret required"),
+    .withMessage("Needs a number"),
+  body("organiser_secret").notEmpty().withMessage("Secret required"),
 ];
 
 const registerRules = [
@@ -44,70 +37,21 @@ const registerRules = [
   body("email")
     .trim()
     .isEmail()
-    .withMessage("Valid email required")
-    .normalizeEmail(),
+    .normalizeEmail()
+    .withMessage("Valid email required"),
   body("password")
     .isLength({ min: 8 })
-    .withMessage("Password min 8 characters")
+    .withMessage("Min 8 characters")
     .matches(/[A-Z]/)
-    .withMessage("Password needs an uppercase letter")
+    .withMessage("Needs uppercase")
     .matches(/[0-9]/)
-    .withMessage("Password needs a number"),
-  body("code").trim().notEmpty().withMessage("Invitation code is required"),
+    .withMessage("Needs a number"),
+  body("code").trim().notEmpty().withMessage("Invitation code required"),
 ];
-
-const loginRules = [
-  body("email")
-    .trim()
-    .isEmail()
-    .withMessage("Valid email required")
-    .normalizeEmail(),
-  body("password").notEmpty().withMessage("Password is required"),
-];
-
-const forgotRules = [
-  body("email")
-    .trim()
-    .isEmail()
-    .withMessage("Valid email required")
-    .normalizeEmail(),
-];
-
-const resetRules = [
-  body("token").notEmpty().withMessage("Reset token is required"),
-  body("newPassword")
-    .isLength({ min: 8 })
-    .withMessage("Password min 8 characters"),
-];
-
-const inviteSchoolRules = [
-  body("school_name").trim().notEmpty().withMessage("School name is required"),
-  body("contact_email").trim().isEmail().withMessage("Valid email required"),
-  body("olympiad_id").notEmpty().withMessage("Olympiad ID is required"),
-];
-
-const inviteEducatorRules = [
-  body("email").trim().isEmail().withMessage("Valid email required"),
-  body("olympiad_id").notEmpty().withMessage("Olympiad ID is required"),
-];
-
-const studentCodesRules = [
-  body("count")
-    .isInt({ min: 1, max: 200 })
-    .withMessage("Count must be between 1 and 200"),
-  body("olympiad_id").notEmpty().withMessage("Olympiad ID is required"),
-];
-
-// ── Routes ──────────────────────────────────────────────
 
 // Public
 router.post("/register/organiser", organiserRules, validate, registerOrganiser);
 router.post("/register", registerRules, validate, registerWithCode);
-router.post("/login", loginRules, validate, login);
-router.post("/refresh", refresh);
-router.post("/logout", logout);
-router.post("/forgot-password", forgotRules, validate, forgotPassword);
-router.post("/reset-password", resetRules, validate, resetPassword);
 router.get("/validate-code/:code", validateCode);
 
 // Protected
@@ -119,7 +63,11 @@ router.post(
   "/invite-school",
   requireAuth,
   requireRole("organiser"),
-  inviteSchoolRules,
+  [
+    body("school_name").trim().notEmpty().withMessage("School name required"),
+    body("contact_email").trim().isEmail().withMessage("Valid email required"),
+    body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
+  ],
   validate,
   inviteSchool,
 );
@@ -129,7 +77,10 @@ router.post(
   "/invite-educator",
   requireAuth,
   requireRole("educator"),
-  inviteEducatorRules,
+  [
+    body("email").trim().isEmail().withMessage("Valid email required"),
+    body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
+  ],
   validate,
   inviteEducator,
 );
@@ -138,7 +89,10 @@ router.post(
   "/generate-student-codes",
   requireAuth,
   requireRole("educator"),
-  studentCodesRules,
+  [
+    body("count").isInt({ min: 1, max: 200 }).withMessage("Count 1-200"),
+    body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
+  ],
   validate,
   generateStudentCodes,
 );

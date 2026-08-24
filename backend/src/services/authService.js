@@ -1,27 +1,25 @@
 // @ts-nocheck
-const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
+const { createClient } = require("@supabase/supabase-js");
 const prisma = require("../config/database").default;
 const config = require("../config/env");
 const {
   ConflictError,
-  UnauthorizedError,
   BadRequestError,
   NotFoundError,
+  UnauthorizedError,
 } = require("../errors/AppError");
-const {
-  generateAccessToken,
-  generateRefreshToken,
-  getRefreshTokenExpiry,
-} = require("../utils/tokens");
 const {
   generateInvitationCode,
   getInvitationExpiry,
 } = require("../utils/invitations");
 
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY,
+);
+
 // ─────────────────────────────────────────
-// ORGANISER REGISTRATION
-// Gated by ORGANISER_SECRET — no invitation needed
+// REGISTER ORGANISER
 // ─────────────────────────────────────────
 const registerOrganiser = async ({
   full_name,
@@ -29,19 +27,31 @@ const registerOrganiser = async ({
   password,
   organiserSecret,
 }) => {
-  // Verify the secret key
   if (organiserSecret !== config.auth.organiserSecret) {
     throw new UnauthorizedError("Invalid organiser secret");
   }
 
-  // Check email not taken
+  // Check email not already in your DB
   const existing = await prisma.users.findUnique({ where: { email } });
   if (existing) throw new ConflictError("Email already registered");
 
-  const password_hash = await bcrypt.hash(password, 10);
+  // Create auth user in Supabase
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true, // auto-confirm for organiser
+  });
 
+  if (error) throw new BadRequestError(error.message);
+
+  // Create profile in your DB using Supabase's user ID
   const user = await prisma.users.create({
-    data: { full_name, email, password_hash, role: "organiser" },
+    data: {
+      id: data.user.id, // same ID as Supabase auth
+      full_name,
+      email,
+      role: "organiser",
+    },
     select: {
       id: true,
       full_name: true,
@@ -51,80 +61,48 @@ const registerOrganiser = async ({
     },
   });
 
-  const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
-
-  await prisma.refresh_tokens.create({
-    data: {
-      token: refreshToken,
-      user_id: user.id,
-      expires_at: getRefreshTokenExpiry(),
-    },
-  });
-
-  return { user, accessToken, refreshToken };
-};
-
-// ─────────────────────────────────────────
-// VALIDATE INVITATION CODE
-// Called before showing the registration form
-// ─────────────────────────────────────────
-const validateInvitationCode = async (code) => {
-  const invitation = await prisma.invitations.findUnique({
-    where: { code },
-    include: {
-      schools: { select: { id: true, name: true } },
-      olympiads: { select: { id: true, name: true } },
-    },
-  });
-
-  if (!invitation) throw new NotFoundError("Invalid invitation code");
-  if (invitation.used_by_id)
-    throw new BadRequestError("Invitation already used");
-  if (invitation.expires_at < new Date())
-    throw new BadRequestError("Invitation has expired");
-
-  return {
-    valid: true,
-    type: invitation.type,
-    school: invitation.schools || null,
-    olympiad: invitation.olympiads || null,
-  };
+  return { user };
 };
 
 // ─────────────────────────────────────────
 // REGISTER WITH INVITATION CODE
-// For educators and students
 // ─────────────────────────────────────────
 const registerWithCode = async ({ full_name, email, password, code }) => {
   // Validate invitation
   const invitation = await prisma.invitations.findUnique({
     where: { code },
-    include: {
-      schools: true,
-      olympiads: true,
-    },
+    include: { schools: true, olympiads: true },
   });
 
   if (!invitation) throw new BadRequestError("Invalid invitation code");
   if (invitation.used_by_id) throw new ConflictError("Invitation already used");
   if (invitation.expires_at < new Date())
-    throw new BadRequestError("Invitation has expired");
+    throw new BadRequestError("Invitation expired");
 
   // Check email not taken
   const existing = await prisma.users.findUnique({ where: { email } });
   if (existing) throw new ConflictError("Email already registered");
 
-  const password_hash = await bcrypt.hash(password, 10);
+  // Create Supabase auth user
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
 
-  // Determine role from invitation type
+  if (error) throw new BadRequestError(error.message);
+
   const role = invitation.type === "school" ? "educator" : invitation.type;
 
-  // Create user + role-specific record in a transaction
-  const result = await prisma.$transaction(async (tx) => {
-    // Create the user
-    const user = await tx.users.create({
-      data: { full_name, email, password_hash, role },
+  // Create profile + role record in transaction
+  const user = await prisma.$transaction(async (tx) => {
+    const newUser = await tx.users.create({
+      data: {
+        id: data.user.id,
+        full_name,
+        email,
+        role,
+      },
       select: {
         id: true,
         full_name: true,
@@ -134,16 +112,14 @@ const registerWithCode = async ({ full_name, email, password, code }) => {
       },
     });
 
-    // Create educator profile
     if (role === "educator") {
       await tx.educators.create({
         data: {
-          user_id: user.id,
+          user_id: newUser.id,
           school_id: invitation.school_id,
         },
       });
 
-      // If school invite — also register school in olympiad
       if (invitation.type === "school" && invitation.olympiad_id) {
         await tx.school_registrations.upsert({
           where: {
@@ -161,213 +137,71 @@ const registerWithCode = async ({ full_name, email, password, code }) => {
       }
     }
 
-    // Create student profile (online student claiming their code)
     if (role === "student") {
-      // Find the entrant record created when educator generated codes
       const entrant = await tx.entrants.findFirst({
-        where: {
-          school_id: invitation.school_id,
-          user_id: null, // not yet claimed
-        },
+        where: { school_id: invitation.school_id, user_id: null },
       });
-
       if (entrant) {
         await tx.entrants.update({
           where: { id: entrant.id },
-          data: { user_id: user.id, full_name },
+          data: { user_id: newUser.id, full_name },
         });
       }
     }
 
-    // Mark invitation as used
     await tx.invitations.update({
       where: { code },
-      data: { used_by_id: user.id },
+      data: { used_by_id: newUser.id },
     });
 
-    return user;
+    return newUser;
   });
 
-  const accessToken = generateAccessToken(result);
-  const refreshToken = generateRefreshToken(result);
-
-  await prisma.refresh_tokens.create({
-    data: {
-      token: refreshToken,
-      user_id: result.id,
-      expires_at: getRefreshTokenExpiry(),
-    },
-  });
-
-  return { user: result, accessToken, refreshToken };
+  return { user };
 };
 
 // ─────────────────────────────────────────
-// LOGIN
+// VALIDATE INVITATION CODE
 // ─────────────────────────────────────────
-const login = async ({ email, password }) => {
-  // Find user — must not be soft deleted
-  const user = await prisma.users.findFirst({
-    where: {
-      email,
-      deleted_at: null,
-    },
+const validateInvitationCode = async (code) => {
+  const invitation = await prisma.invitations.findUnique({
+    where: { code },
     include: {
-      educators: { select: { school_id: true } },
-      entrants: { select: { school_id: true } },
+      schools: { select: { id: true, name: true } },
+      olympiads: { select: { id: true, name: true } },
     },
   });
 
-  // Same error for wrong email or wrong password
-  // Never reveal which one — prevents user enumeration
-  if (!user || !user.password_hash) {
-    throw new UnauthorizedError("Invalid credentials");
-  }
+  if (!invitation) throw new NotFoundError("Invalid invitation code");
+  if (invitation.used_by_id)
+    throw new BadRequestError("Invitation already used");
+  if (invitation.expires_at < new Date())
+    throw new BadRequestError("Invitation expired");
 
-  const isValid = await bcrypt.compare(password, user.password_hash);
-  if (!isValid) throw new UnauthorizedError("Invalid credentials");
-
-  const safeUser = {
-    id: user.id,
-    full_name: user.full_name,
-    email: user.email,
-    role: user.role,
-    educators: user.educators,
-    entrants: user.entrants,
-    created_at: user.created_at,
+  return {
+    valid: true,
+    type: invitation.type,
+    school: invitation.schools || null,
+    olympiad: invitation.olympiads || null,
   };
-
-  const accessToken = generateAccessToken(safeUser);
-  const refreshToken = generateRefreshToken(safeUser);
-
-  await prisma.refresh_tokens.create({
-    data: {
-      token: refreshToken,
-      user_id: user.id,
-      expires_at: getRefreshTokenExpiry(),
-    },
-  });
-
-  return { user: safeUser, accessToken, refreshToken };
-};
-
-// ─────────────────────────────────────────
-// REFRESH TOKEN
-// ─────────────────────────────────────────
-const refresh = async (token) => {
-  if (!token) throw new UnauthorizedError("No refresh token");
-
-  const stored = await prisma.refresh_tokens.findUnique({
-    where: { token },
-    include: { users: true },
-  });
-
-  if (!stored || stored.expires_at < new Date()) {
-    throw new UnauthorizedError("Invalid or expired refresh token");
-  }
-
-  const jwt = require("jsonwebtoken");
-  try {
-    jwt.verify(token, config.auth.refreshSecret);
-  } catch {
-    throw new UnauthorizedError("Invalid refresh token");
-  }
-
-  const accessToken = generateAccessToken(stored.users);
-  return { accessToken };
-};
-
-// ─────────────────────────────────────────
-// LOGOUT
-// ─────────────────────────────────────────
-const logout = async (token) => {
-  if (!token) return;
-  await prisma.refresh_tokens.deleteMany({ where: { token } });
-};
-
-// ─────────────────────────────────────────
-// FORGOT PASSWORD
-// ─────────────────────────────────────────
-const forgotPassword = async (email) => {
-  const user = await prisma.users.findFirst({
-    where: { email, deleted_at: null },
-  });
-
-  // Always return success — never reveal if email exists
-  if (!user) return;
-
-  const rawToken = crypto.randomBytes(32).toString("hex");
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(rawToken)
-    .digest("hex");
-
-  const expires = new Date();
-  expires.setHours(expires.getHours() + 1); // 1 hour
-
-  await prisma.users.update({
-    where: { id: user.id },
-    data: {
-      password_reset_token: hashedToken,
-      password_reset_expires: expires,
-    },
-  });
-
-  // TODO: send email with rawToken
-  // For now return it so you can test in Postman
-  return rawToken;
-};
-
-// ─────────────────────────────────────────
-// RESET PASSWORD
-// ─────────────────────────────────────────
-const resetPassword = async (rawToken, newPassword) => {
-  const hashedToken = crypto
-    .createHash("sha256")
-    .update(rawToken)
-    .digest("hex");
-
-  const user = await prisma.users.findFirst({
-    where: {
-      password_reset_token: hashedToken,
-      password_reset_expires: { gt: new Date() },
-      deleted_at: null,
-    },
-  });
-
-  if (!user) throw new BadRequestError("Invalid or expired reset token");
-
-  const password_hash = await bcrypt.hash(newPassword, 10);
-
-  await prisma.users.update({
-    where: { id: user.id },
-    data: {
-      password_hash,
-      password_reset_token: null,
-      password_reset_expires: null,
-    },
-  });
-
-  // Invalidate all refresh tokens — force re-login
-  await prisma.refresh_tokens.deleteMany({ where: { user_id: user.id } });
 };
 
 // ─────────────────────────────────────────
 // DELETE ACCOUNT (soft delete)
 // ─────────────────────────────────────────
 const deleteAccount = async (userId) => {
+  // Disable in Supabase Auth
+  await supabase.auth.admin.deleteUser(userId);
+
+  // Soft delete in your DB
   await prisma.users.update({
     where: { id: userId },
     data: { deleted_at: new Date() },
   });
-
-  // Invalidate all sessions
-  await prisma.refresh_tokens.deleteMany({ where: { user_id: userId } });
 };
 
 // ─────────────────────────────────────────
-// GENERATE SCHOOL INVITATION
-// Called by organiser when inviting a school
+// INVITE SCHOOL
 // ─────────────────────────────────────────
 const inviteSchool = async ({
   schoolName,
@@ -375,13 +209,17 @@ const inviteSchool = async ({
   olympiadId,
   organiserId,
 }) => {
-  // Create the school record
+  const olympiad = await prisma.olympiads.findUnique({
+    where: { id: olympiadId },
+    select: { name: true },
+  });
+
   const school = await prisma.schools.create({
     data: { name: schoolName },
   });
 
-  // Generate invitation code
   const code = generateInvitationCode("school");
+  const expires_at = getInvitationExpiry("school");
 
   const invitation = await prisma.invitations.create({
     data: {
@@ -391,17 +229,18 @@ const inviteSchool = async ({
       school_id: school.id,
       email: contactEmail,
       created_by_id: organiserId,
-      expires_at: getInvitationExpiry("school"),
+      expires_at,
     },
   });
 
-  // TODO: send email to contactEmail with the code
+  // TODO: send email with code
+  // await emailService.sendSchoolInvitation({...})
+
   return { school, invitation, code };
 };
 
 // ─────────────────────────────────────────
-// GENERATE EDUCATOR INVITATION
-// Called by existing educator to invite colleague
+// INVITE EDUCATOR
 // ─────────────────────────────────────────
 const inviteEducator = async ({ email, schoolId, olympiadId, createdById }) => {
   const code = generateInvitationCode("educator");
@@ -422,8 +261,7 @@ const inviteEducator = async ({ email, schoolId, olympiadId, createdById }) => {
 };
 
 // ─────────────────────────────────────────
-// GENERATE STUDENT CODES IN BULK
-// Called by educator — generates N codes at once
+// GENERATE STUDENT CODES
 // ─────────────────────────────────────────
 const generateStudentCodes = async ({
   count,
@@ -436,7 +274,6 @@ const generateStudentCodes = async ({
   for (let i = 0; i < count; i++) {
     const code = generateInvitationCode("student");
 
-    // Create placeholder entrant (no user yet)
     const entrant = await prisma.entrants.create({
       data: {
         school_id: schoolId,
@@ -463,13 +300,8 @@ const generateStudentCodes = async ({
 
 module.exports = {
   registerOrganiser,
-  validateInvitationCode,
   registerWithCode,
-  login,
-  refresh,
-  logout,
-  forgotPassword,
-  resetPassword,
+  validateInvitationCode,
   deleteAccount,
   inviteSchool,
   inviteEducator,
