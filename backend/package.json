@@ -2,10 +2,17 @@
   "name": "backend",
   "version": "1.0.0",
   "description": "",
+<<<<<<< HEAD
   "main": "src/server.ts",
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
+=======
+  "main": "server.ts",
+  "scripts": {
+    "start": "server.ts",
+    "dev": "tsx watch server.ts",
+>>>>>>> main
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
@@ -29,7 +36,10 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
+<<<<<<< HEAD
     "nodemailer": "^9.0.5",
+=======
+>>>>>>> main
     "pg": "^8.23.0",
     "typescript": "^7.0.2",
     "ws": "^8.21.3"
@@ -37,7 +47,10 @@
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/node": "^26.2.0",
+<<<<<<< HEAD
     "@types/nodemailer": "^8.0.1",
+=======
+>>>>>>> main
     "@types/pg": "^8.21.0",
     "cors": "^2.8.6",
     "prisma": "^7.9.1",

@@ -500,4 +500,8 @@ export const studentResults: StudentResultRow[] = [
     percentage: "—",
     hasCertificate: false,
   },
+<<<<<<< HEAD
 ];
+=======
+];
+>>>>>>> main

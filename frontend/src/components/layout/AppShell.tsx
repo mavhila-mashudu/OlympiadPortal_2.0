@@ -11,7 +11,7 @@ import { Button } from "../ui/Button";
 import styles from "./AppShell.module.css";
 
 type AppShellProps = {
-  activeRole: "organiser" | "educator";
+  activeRole: "organiser" | "educator" | "student";
   children: React.ReactNode;
   navItems: NavItem[];
   organisation: string;
@@ -78,13 +78,26 @@ export function AppShell({
               >
                 educator
               </Link>
+              <Link
+                aria-pressed={activeRole === "student"}
+                className={`${styles.roleOption} ${
+                  activeRole === "student" ? styles.roleOptionActive : ""
+                }`}
+                to="/student"
+              >
+                student
+              </Link>
             </div>
           </div>
 
           <nav className={styles.nav} aria-label="Main">
             {navItems.map((item) => (
               <NavLink
-                end={item.to === "/organiser" || item.to === "/educator"}
+                end={
+                  item.to === "/organiser" ||
+                  item.to === "/educator" ||
+                  item.to === "/student"
+                }
                 className={({ isActive }) =>
                   `${styles.navItem} ${isActive ? styles.navItemActive : ""}`
                 }
@@ -103,7 +116,11 @@ export function AppShell({
               <span className={styles.accountText}>
                 <span>{userName}</span>
                 <small>
-                  {activeRole === "organiser" ? "Organiser" : "Educator"}
+                  {activeRole === "organiser"
+                    ? "Organiser"
+                    : activeRole === "educator"
+                      ? "Educator"
+                      : "Student"}
                 </small>
               </span>
             </div>
