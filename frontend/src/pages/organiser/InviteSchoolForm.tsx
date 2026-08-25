@@ -1,111 +1,134 @@
-import React, { useState } from 'react';
-import { api } from '../../lib/api';
+import { useState } from "react";
+import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { api } from "../../lib/api";
 
-interface InviteSchoolFormProps {
+type InviteSchoolFormProps = {
   olympiadId: string;
   onSuccess?: () => void;
-}
+  onCancel?: () => void;
+};
 
-export function InviteSchoolForm({ olympiadId, onSuccess }: InviteSchoolFormProps) {
-  const [schoolName, setSchoolName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
+export function InviteSchoolForm({
+  olympiadId,
+  onSuccess,
+  onCancel,
+}: InviteSchoolFormProps) {
+  const [schoolName, setSchoolName] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [successCode, setSuccessCode] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!schoolName || !contactEmail) {
+      setError("Please fill in both the school name and contact email.");
+      return;
+    }
+
     setLoading(true);
-    setStatusMessage(null);
+    setError(null);
 
     try {
-      const data: any = await api.post(`/olympiads/${olympiadId}/invite-school`, {
+      const res = await api.post<{
+        success: boolean;
+        invitationCode: string;
+      }>(`/olympiads/${olympiadId}/invite-school`, {
         schoolName,
         contactEmail,
       });
 
-      setStatusMessage({
-        type: 'success',
-        text: `Invitation code (${data.invitationCode}) sent to ${contactEmail}!`,
-      });
-
-      setSchoolName('');
-      setContactEmail('');
+      setSuccessCode(res.invitationCode);
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to send invitation.';
-      setStatusMessage({ type: 'error', text: errorMessage });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to send invitation code."
+      );
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', maxWidth: '500px' }}>
-      <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Invite School & Educator</h3>
+    <Card padded>
+      <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Invite School</h2>
+      {error && (
+        <p style={{ color: "red", fontSize: "0.875rem", marginBottom: "1rem" }}>
+          {error}
+        </p>
+      )}
 
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {successCode ? (
         <div>
-          <label htmlFor="schoolName" style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', fontSize: '14px' }}>
-            School Name *
-          </label>
-          <input
-            id="schoolName"
-            type="text"
-            required
-            value={schoolName}
-            onChange={(e) => setSchoolName(e.target.value)}
-            placeholder="e.g., Wits High School"
-            style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
+          <p style={{ color: "green", fontWeight: 600 }}>
+            Invitation sent successfully!
+          </p>
+          <p style={{ marginBottom: "1.5rem" }}>
+            Invitation Code: <strong>{successCode}</strong>
+          </p>
+          <Button onClick={onCancel}>Close</Button>
         </div>
-
-        <div>
-          <label htmlFor="contactEmail" style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', fontSize: '14px' }}>
-            Contact Person's Email (Educator) *
-          </label>
-          <input
-            id="contactEmail"
-            type="email"
-            required
-            value={contactEmail}
-            onChange={(e) => setContactEmail(e.target.value)}
-            placeholder="e.g., educator@witshigh.ac.za"
-            style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-        </div>
-
-        {statusMessage && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: '4px',
-              fontSize: '14px',
-              backgroundColor: statusMessage.type === 'success' ? '#e6fffa' : '#fff5f5',
-              color: statusMessage.type === 'success' ? '#234e52' : '#9b2c2c',
-              border: `1px solid ${statusMessage.type === 'success' ? '#b2f5ea' : '#feb2b2'}`,
-            }}
-          >
-            {statusMessage.text}
+      ) : (
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: "1rem" }}>
+            <label
+              htmlFor="schoolName"
+              style={{ display: "block", marginBottom: "0.25rem" }}
+            >
+              School Name
+            </label>
+            <input
+              id="schoolName"
+              type="text"
+              value={schoolName}
+              onChange={(e) => setSchoolName(e.target.value)}
+              placeholder="e.g. Parktown Boys High"
+              required
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
-            padding: '10px 16px',
-            backgroundColor: '#3182ce',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            fontWeight: 'bold',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            opacity: loading ? 0.7 : 1,
-          }}
-        >
-          {loading ? 'Sending Invitation...' : 'Send Invitation'}
-        </button>
-      </form>
-    </div>
+          <div style={{ marginBottom: "1.5rem" }}>
+            <label
+              htmlFor="contactEmail"
+              style={{ display: "block", marginBottom: "0.25rem" }}
+            >
+              Principal / Contact Email
+            </label>
+            <input
+              id="contactEmail"
+              type="email"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              placeholder="e.g. principal@parktown.co.za"
+              required
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+            {onCancel && (
+              <Button type="button" variant="outline" onClick={onCancel}>
+                Cancel
+              </Button>
+            )}
+            <Button type="submit" disabled={loading}>
+              {loading ? "Sending..." : "Send Invitation"}
+            </Button>
+          </div>
+        </form>
+      )}
+    </Card>
   );
 }
