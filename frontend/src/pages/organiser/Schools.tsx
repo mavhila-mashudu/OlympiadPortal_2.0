@@ -44,12 +44,20 @@ export function SchoolsPage() {
       setLoading(true);
       setError(null);
       try {
+<<<<<<< HEAD
         const current = await getCurrentOlympiad();
         if (!cancelled) setOlympiad(current);
 
         if (current?.id) {
           await fetchSchools(current.id);
         }
+=======
+        const olympiad = await getCurrentOlympiad();
+        const { schools: list } = await api.get<{ schools: School[] }>(
+          `/olympiads/${olympiad.id}/schools`,
+        );
+        if (!cancelled) setSchools(list);
+>>>>>>> origin/main
       } catch (err) {
         if (!cancelled) {
           setError(
@@ -96,6 +104,7 @@ export function SchoolsPage() {
           </div>
         </header>
 
+<<<<<<< HEAD
         {error && <Card className={styles.tableCard}>{error}</Card>}
 
         <Card padded={false} className={styles.tableCard}>
@@ -156,6 +165,51 @@ export function SchoolsPage() {
             </div>
           </div>
         )}
+=======
+        {error && <p>{error}</p>}
+
+        <TablePanel minWidth="52rem">
+          <thead>
+            <tr>
+              <Th>School</Th>
+              <Th numeric>Entrants</Th>
+              <Th>Educators</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {!loading && schools.length === 0 && (
+              <tr>
+                <td colSpan={3}>No schools registered yet.</td>
+              </tr>
+            )}
+            {schools.map((school) => (
+              <tr key={school.id}>
+                <Td strong muted={false}>
+                  {school.name}
+                </Td>
+                <Td numeric>{school.entrants}</Td>
+                <Td muted={false}>
+                  <ul className={styles.educators}>
+                    {school.educators.map((educator) => (
+                      <li key={educator.email}>
+                        <span className={styles.educatorName}>
+                          {educator.name}
+                        </span>
+                        <a href={`mailto:${educator.email}`}>
+                          {educator.email}
+                        </a>
+                      </li>
+                    ))}
+                    {school.educators.length === 0 && (
+                      <li className={styles.educatorName}>No educators yet</li>
+                    )}
+                  </ul>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </TablePanel>
+>>>>>>> origin/main
       </div>
     </AppShell>
   );

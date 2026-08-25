@@ -2,7 +2,6 @@
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
-const cookieParser = require("cookie-parser");
 const errorHandler = require("./middlewares/errorHandler");
 require("./config/env");
 require("dotenv").config();
@@ -14,14 +13,13 @@ app.use(helmet());
 app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    credentials: true, // allows cookies to be sent cross-origin
-  })
+    credentials: true,
+  }),
 );
 
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser()); // reads refresh token cookie on every request
 
 // Health check
 app.get("/health", (_req, res) => {
@@ -39,15 +37,11 @@ app.get("/", (_req, res) => {
 // ── Routes ──────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
 
-// Registering olympiads, rounds, and papers routes
+//registering olympiads and rounds routes
 app.use("/olympiads", require("./routes/olympiads"));
 app.use("/rounds", require("./routes/roundDetail"));
 app.use("/papers", require("./routes/papers"));
-
-// Invitation routes (Organiser inviting schools)
-app.use("/", require("./routes/invitationRoutes.js"));
-
-// 404 handler
+// 404
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: "Route not found" });
 });
@@ -56,3 +50,5 @@ app.use((_req, res) => {
 app.use(errorHandler);
 
 module.exports = app;
+
+

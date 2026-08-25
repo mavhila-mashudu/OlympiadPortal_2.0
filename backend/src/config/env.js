@@ -3,12 +3,15 @@ require("dotenv").config();
 
 const required = [
   "DATABASE_URL",
-  "JWT_SECRET",
-  "REFRESH_SECRET",
   "ORGANISER_SECRET",
+  "SUPABASE_URL",
 ];
 
 const missing = required.filter((key) => !process.env[key]);
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SERVICE_KEY) {
+  missing.push("SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY");
+}
 
 if (missing.length > 0) {
   console.error("Missing required environment variables:");
@@ -23,11 +26,12 @@ module.exports = {
     isProd: process.env.NODE_ENV === "production",
   },
   auth: {
-    jwtSecret: process.env.JWT_SECRET,
-    jwtExpiry: process.env.JWT_EXPIRY || "15m",
-    refreshSecret: process.env.REFRESH_SECRET,
-    refreshExpiry: process.env.REFRESH_EXPIRY || "30d",
     organiserSecret: process.env.ORGANISER_SECRET,
+  },
+  supabase: {
+    url: process.env.SUPABASE_URL,
+    serviceRoleKey:
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY,
   },
   frontend: {
     url: process.env.FRONTEND_URL || "http://localhost:5173",

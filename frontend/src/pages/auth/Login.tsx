@@ -6,11 +6,17 @@ import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { api, setToken } from "../../lib/api";
+import { getSupabaseClient } from "../../lib/supabase";
 import styles from "./Login.module.css";
 
-type DevLoginResponse = {
-  user: { id: string; email: string; full_name: string; role: string };
-  accessToken: string;
+type MeResponse = {
+  user: { role: "organiser" | "educator" | "student" };
+};
+
+const dashboardForRole = (role: MeResponse["user"]["role"]) => {
+  if (role === "organiser") return "/organiser";
+  if (role === "educator") return "/educator";
+  return "/student";
 };
 
 function Login() {
@@ -43,19 +49,24 @@ function Login() {
 
               const formData = new FormData(event.currentTarget);
               const email = (formData.get("email") as string) || "";
+              const password = (formData.get("password") as string) || "";
 
               try {
-                const { accessToken } = await api.post<DevLoginResponse>(
-                  "/auth/dev-login",
-                  {
+                const supabase = getSupabaseClient();
+                const { data, error: signInError } =
+                  await supabase.auth.signInWithPassword({
                     email,
-                    full_name: email.split("@")[0],
-                    role: "organiser",
-                  },
-                );
+                    password,
+                  });
 
-                setToken(accessToken);
-                navigate("/organiser");
+                if (signInError) throw new Error(signInError.message);
+                if (!data.session?.access_token) {
+                  throw new Error("Supabase did not return an access token");
+                }
+
+                setToken(data.session.access_token);
+                const { user } = await api.get<MeResponse>("/auth/me");
+                navigate(dashboardForRole(user.role));
               } catch (err) {
                 setError(err instanceof Error ? err.message : "Login failed");
               } finally {
@@ -81,6 +92,7 @@ function Login() {
                 autoComplete="current-password"
                 id="password"
                 name="password"
+                required
                 type="password"
               />
             </div>
@@ -88,15 +100,17 @@ function Login() {
             {error && <p className={styles.demoNote}>{error}</p>}
 
             <Button disabled={loading} fullWidth type="submit">
-              {loading ? "Logging in…" : "Log in"}
+              {loading ? "Logging in..." : "Log in"}
             </Button>
           </form>
-
-          <p className={styles.demoNote}>
-            Dev shortcut: any email logs you in as an organiser. Password
-            isn&apos;t checked.
-          </p>
         </Card>
+
+        <p className={styles.signup}>
+          Registering as an organiser?{" "}
+          <Link className={styles.inlineLink} to="/signup">
+            Create organiser account
+          </Link>
+        </p>
       </div>
     </div>
   );

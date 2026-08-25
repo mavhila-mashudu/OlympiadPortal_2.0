@@ -1,14 +1,9 @@
 // @ts-nocheck
-const jwt = require("jsonwebtoken");
-const config = require("../config/env");
+const prisma = require("../config/database").default;
+const supabase = require("../config/supabase");
 const { UnauthorizedError, ForbiddenError } = require("../errors/AppError");
 
-/**
- * Protects routes — user must be logged in
- * Reads Bearer token from Authorization header
- * Attaches decoded user to req.user
- */
-const requireAuth = (req, _res, next) => {
+const requireAuth = async (req, _res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
@@ -17,13 +12,35 @@ const requireAuth = (req, _res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, config.auth.jwtSecret);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+      throw new UnauthorizedError("Invalid or expired token");
+    }
+
+    const dbUser = await prisma.users.findUnique({
+      where: { id: user.id },
+      include: {
+        educators: { select: { id: true, school_id: true } },
+        entrants: { select: { id: true, school_id: true } },
+      },
+    });
+
+    if (!dbUser || dbUser.deleted_at) {
+      throw new UnauthorizedError("Account not found or deleted");
+    }
 
     req.user = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-      schoolId: decoded.schoolId || null,
+      userId: dbUser.id,
+      email: dbUser.email,
+      role: dbUser.role,
+      schoolId:
+        dbUser.educators?.school_id || dbUser.entrants?.school_id || null,
+      educator: dbUser.educators || null,
+      entrant: dbUser.entrants || null,
     };
 
     next();
@@ -32,37 +49,20 @@ const requireAuth = (req, _res, next) => {
   }
 };
 
-/**
- * Restricts routes to specific roles
- * Always use AFTER requireAuth
- *
- * Usage:
- *   requireRole("organiser")
- *   requireRole("organiser", "educator")
- */
 const requireRole =
   (...roles) =>
   (req, _res, next) => {
     if (!req.user) {
       return next(new UnauthorizedError("Not authenticated"));
     }
-
     if (!roles.includes(req.user.role)) {
       return next(new ForbiddenError("Insufficient permissions"));
     }
-
     next();
   };
 
-/**
- * Ensures an educator can only manage their own school
- * Use AFTER requireAuth + requireRole("educator")
- *
- * Expects schoolId in req.params
- */
 const requireSameSchool = async (req, _res, next) => {
   try {
-    const prisma = require("../config/database").default;
     const educator = await prisma.educators.findUnique({
       where: { user_id: req.user.userId },
     });

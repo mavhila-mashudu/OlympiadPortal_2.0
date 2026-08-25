@@ -1,20 +1,35 @@
 // @ts-nocheck
+const prisma = require("../config/database").default;
 const authService = require("../services/authService");
-const { setRefreshTokenCookie } = require("../utils/tokens");
+const { UnauthorizedError } = require("../errors/AppError");
 
 const registerOrganiser = async (req, res, next) => {
   try {
     const { full_name, email, password, organiser_secret } = req.body;
-    const { user, accessToken, refreshToken } =
-      await authService.registerOrganiser({
-        full_name,
-        email,
-        password,
-        organiserSecret: organiser_secret,
-      });
+    const { user } = await authService.registerOrganiser({
+      full_name,
+      email,
+      password,
+      organiserSecret: organiser_secret,
+    });
 
-    setRefreshTokenCookie(res, refreshToken);
-    res.status(201).json({ success: true, data: { user, accessToken } });
+    res.status(201).json({ success: true, data: { user } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const registerWithCode = async (req, res, next) => {
+  try {
+    const { full_name, email, password, code } = req.body;
+    const { user } = await authService.registerWithCode({
+      full_name,
+      email,
+      password,
+      code,
+    });
+
+    res.status(201).json({ success: true, data: { user } });
   } catch (err) {
     next(err);
   }
@@ -29,84 +44,8 @@ const validateCode = async (req, res, next) => {
   }
 };
 
-const registerWithCode = async (req, res, next) => {
-  try {
-    const { full_name, email, password, code } = req.body;
-    const { user, accessToken, refreshToken } =
-      await authService.registerWithCode({
-        full_name,
-        email,
-        password,
-        code,
-      });
-
-    setRefreshTokenCookie(res, refreshToken);
-    res.status(201).json({ success: true, data: { user, accessToken } });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const login = async (req, res, next) => {
-  try {
-    const { email, password } = req.body;
-    const { user, accessToken, refreshToken } = await authService.login({
-      email,
-      password,
-    });
-
-    setRefreshTokenCookie(res, refreshToken);
-    res.json({ success: true, data: { user, accessToken } });
-  } catch (err) {
-    next(err);
-  }
-};
-
-// ─────────────────────────────────────────
-// DEV LOGIN (TEMPORARY)
-// Bypasses password entirely — just needs an email.
-// Matches the current live `users` table, which has no
-// password_hash column. Remove once real auth is settled
-// with the team.
-// ─────────────────────────────────────────
-const devLogin = async (req, res, next) => {
-  try {
-    const { email, full_name, role } = req.body;
-    const { user, accessToken } = await authService.devLogin({
-      email,
-      full_name,
-      role,
-    });
-    res.json({ success: true, data: { user, accessToken } });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const refresh = async (req, res, next) => {
-  try {
-    const token = req.cookies?.refreshToken;
-    const { accessToken } = await authService.refresh(token);
-    res.json({ success: true, data: { accessToken } });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const logout = async (req, res, next) => {
-  try {
-    const token = req.cookies?.refreshToken;
-    await authService.logout(token);
-    res.clearCookie("refreshToken");
-    res.json({ success: true, data: { message: "Logged out successfully" } });
-  } catch (err) {
-    next(err);
-  }
-};
-
 const me = async (req, res, next) => {
   try {
-    const prisma = require("../config/database").default;
     const user = await prisma.users.findUnique({
       where: { id: req.user.userId },
       select: {
@@ -119,37 +58,8 @@ const me = async (req, res, next) => {
         entrants: { select: { school_id: true, schools: true } },
       },
     });
+
     res.json({ success: true, data: { user } });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const forgotPassword = async (req, res, next) => {
-  try {
-    const token = await authService.forgotPassword(req.body.email);
-    // In production — send email instead of returning token
-    // For testing in Postman we return it directly
-    res.json({
-      success: true,
-      data: {
-        message: "If that email exists you will receive a reset link",
-        ...(process.env.NODE_ENV !== "production" && { resetToken: token }),
-      },
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const resetPassword = async (req, res, next) => {
-  try {
-    const { token, newPassword } = req.body;
-    await authService.resetPassword(token, newPassword);
-    res.json({
-      success: true,
-      data: { message: "Password reset successfully" },
-    });
   } catch (err) {
     next(err);
   }
@@ -158,7 +68,6 @@ const resetPassword = async (req, res, next) => {
 const deleteAccount = async (req, res, next) => {
   try {
     await authService.deleteAccount(req.user.userId);
-    res.clearCookie("refreshToken");
     res.json({ success: true, data: { message: "Account deleted" } });
   } catch (err) {
     next(err);
@@ -174,6 +83,7 @@ const inviteSchool = async (req, res, next) => {
       olympiadId: olympiad_id,
       organiserId: req.user.userId,
     });
+
     res.status(201).json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -183,10 +93,13 @@ const inviteSchool = async (req, res, next) => {
 const inviteEducator = async (req, res, next) => {
   try {
     const { email, olympiad_id } = req.body;
-    const prisma = require("../config/database").default;
     const educator = await prisma.educators.findUnique({
       where: { user_id: req.user.userId },
     });
+
+    if (!educator) {
+      throw new UnauthorizedError("Educator profile not found");
+    }
 
     const result = await authService.inviteEducator({
       email,
@@ -194,6 +107,7 @@ const inviteEducator = async (req, res, next) => {
       olympiadId: olympiad_id,
       createdById: req.user.userId,
     });
+
     res.status(201).json({ success: true, data: result });
   } catch (err) {
     next(err);
@@ -203,13 +117,16 @@ const inviteEducator = async (req, res, next) => {
 const generateStudentCodes = async (req, res, next) => {
   try {
     const { count, olympiad_id } = req.body;
-    const prisma = require("../config/database").default;
     const educator = await prisma.educators.findUnique({
       where: { user_id: req.user.userId },
     });
 
+    if (!educator) {
+      throw new UnauthorizedError("Educator profile not found");
+    }
+
     const codes = await authService.generateStudentCodes({
-      count: parseInt(count),
+      count: parseInt(count, 10),
       schoolId: educator.school_id,
       olympiadId: olympiad_id,
       createdById: req.user.userId,
@@ -223,15 +140,9 @@ const generateStudentCodes = async (req, res, next) => {
 
 module.exports = {
   registerOrganiser,
-  validateCode,
   registerWithCode,
-  login,
-  devLogin,
-  refresh,
-  logout,
+  validateCode,
   me,
-  forgotPassword,
-  resetPassword,
   deleteAccount,
   inviteSchool,
   inviteEducator,
