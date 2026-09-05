@@ -170,13 +170,14 @@ See `CONTRIBUTING.md` for our Git workflow and branching strategy.
 
 ## Team
 
-| Name      | Role             |
-| --------- | ---------------- |
-| Phumudzo  | Backend Lead     |
-| Andile    | Frontend Lead    |
-| Engedzani | Database / Auth  |
-| Kedibone  | Frontend         |
-| Mashudu   | Testing / DevOps |
+| Name       | Role             |
+| ---------  | ---------------- |
+| Phumudzo   | Backend Lead     |
+| Andile     | Frontend Lead    |
+| Engedzani  | Database / Auth  |
+| Kedibone   | Frontend         |
+| Mashudu    | Testing / DevOps |
+| Nhlakanipho| Tools
 
 ## License
 
