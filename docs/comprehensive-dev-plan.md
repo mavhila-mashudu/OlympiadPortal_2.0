@@ -29,22 +29,6 @@ The Olympiad Portal is a web platform that digitises academic olympiad competiti
 | 5   | Kedibone Mnisi       | Organiser Dashboard | Prisma schema, database migrations, data seeding |
 | 6   | Andile Dudu          | Organiser Dashboard | UML diagrams, visual design                      |
 
-### RACI Matrix
-
-| Activity            | Mashudu | Nhlakanipho | Madimabe | Engedzani | Kedibone | Andile |
-| ------------------- | ------- | ----------- | -------- | --------- | -------- | ------ |
-| Student dashboard   | R       | R           | I        | I         | I        | I      |
-| Educator dashboard  | I       | I           | R        | R         | I        | I      |
-| Organiser dashboard | I       | I           | I        | I         | R        | R      |
-| Auth & API          | C       | I           | R        | I         | I        | I      |
-| Database / Prisma   | C       | I           | C        | I         | R        | I      |
-| CI/CD               | R       | I           | I        | I         | I        | I      |
-| Documentation       | I       | I           | I        | R         | C        | C      |
-| UML / design        | I       | I           | I        | C         | I        | R      |
-| Trello / tracking   | I       | R           | I        | I         | I        | I      |
-
-R = Responsible, C = Consulted, I = Informed
-
 ### Communication
 
 - **Monday:** Sprint planning and task allocation
@@ -87,26 +71,26 @@ We use Agile with Scrum as the delivery framework:
 
 ## 4. Sprint 1 Detail (B-tier + Authentication)
 
-| ID  | Story                                            | Owner               | Status      |
-| --- | ------------------------------------------------ | ------------------- | ----------- |
-| B1  | Create olympiad and define rounds                | Kedibone, Andile    | In Progress |
-| B2  | Register schools against an olympiad             | Kedibone, Andile    | In Progress |
-| B3  | Register educators for a school                  | Madimabe            | In Progress |
-| B4  | Register entrants for a round                    | Madimabe, Engedzani | In Progress |
-| B5  | Set opening/closing time for a round             | Kedibone            | Done        |
-| B6  | Auto-transition round states                     | Mashudu             | In Progress |
-| B7  | Prevent paper download before round opens        | Madimabe            | In Progress |
-| B8  | Prevent result submission after round closes     | Madimabe            | In Progress |
-| B9  | Upload round paper and memo                      | Kedibone, Andile    | In Progress |
-| B10 | Auto-archive past papers on release              | Kedibone            | Planned     |
-| B11 | Download current and archived papers             | Engedzani           | In Progress |
-| B12 | Upload school results within open window         | Engedzani           | In Progress |
-| B13 | Get submission receipt confirmation              | Engedzani           | Planned     |
-| B14 | Auto-mark MCQ submissions                        | Mashudu             | In Progress |
-| B15 | Release entrant scores after round closes        | Madimabe            | Planned     |
-| B16 | Organiser console with live round state          | Andile, Kedibone    | In Progress |
-| B17 | Single place for papers, results, submissions    | Engedzani           | In Progress |
-| P1  | Sign up, sign in, reset password, delete account | Madimabe, Mashudu   | In Progress |
+| ID  | Story                                            | Status      |
+| --- | ------------------------------------------------ | ----------- |
+| B1  | Create olympiad and define rounds                | In Progress |
+| B2  | Register schools against an olympiad             | In Progress |
+| B3  | Register educators for a school                  | In Progress |
+| B4  | Register entrants for a round                    | In Progress |
+| B5  | Set opening/closing time for a round             | Done        |
+| B6  | Auto-transition round states                     | In Progress |
+| B7  | Prevent paper download before round opens        | In Progress |
+| B8  | Prevent result submission after round closes     | In Progress |
+| B9  | Upload round paper and memo                      | In Progress |
+| B10 | Auto-archive past papers on release              | Planned     |
+| B11 | Download current and archived papers             | In Progress |
+| B12 | Upload school results within open window         | In Progress |
+| B13 | Get submission receipt confirmation              | Planned     |
+| B14 | Auto-mark MCQ submissions                        | In Progress |
+| B15 | Release entrant scores after round closes        | Planned     |
+| B16 | Organiser console with live round state          | In Progress |
+| B17 | Single place for papers, results, submissions    | In Progress |
+| P1  | Sign up, sign in, reset password, delete account | In Progress |
 
 ### Sprint 1 Deliverables
 
