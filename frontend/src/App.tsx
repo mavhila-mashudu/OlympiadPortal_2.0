@@ -12,6 +12,7 @@ import OrganiserDashboard from "./pages/organiser/Dashboard";
 import ExamReview from "./pages/organiser/ExamReview";
 import Olympiads from "./pages/organiser/Olympiads";
 import Schools from "./pages/organiser/Schools";
+import ExamSitting from "./pages/student/ExamSitting";
 import StudentDashboard from "./pages/student/Dashboard";
 import StudentResults from "./pages/student/Results";
 import StudentRoundDetail from "./pages/student/RoundDetail";
@@ -36,6 +37,7 @@ function App() {
       <Route path="/student" element={<StudentDashboard />} />
       <Route path="/student/results" element={<StudentResults />} />
       <Route path="/student/rounds/:id" element={<StudentRoundDetail />} />
+      <Route path="/student/rounds/:id/exam" element={<ExamSitting />} />
     </Routes>
   );
 }

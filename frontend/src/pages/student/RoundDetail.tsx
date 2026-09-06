@@ -1,4 +1,4 @@
-import { Award, Download, FileText } from "lucide-react";
+import { Award, Download, FileText, Pencil } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
@@ -78,13 +78,24 @@ function StudentRoundDetail() {
                 <small>{round.paperNote}</small>
               </span>
             </span>
-            <Button
-              icon={<Download aria-hidden="true" />}
-              variant="primary"
-              disabled={!paperAvailable}
-            >
-              Download paper
-            </Button>
+            <div className={styles.paperActions}>
+              {round.status === "open" && (
+                <Button
+                  icon={<Pencil aria-hidden="true" />}
+                  variant="primary"
+                  to={`/student/rounds/${round.id}/exam`}
+                >
+                  Sit exam online
+                </Button>
+              )}
+              <Button
+                icon={<Download aria-hidden="true" />}
+                variant={round.status === "open" ? "outline" : "primary"}
+                disabled={!paperAvailable}
+              >
+                Download paper
+              </Button>
+            </div>
           </div>
         </Card>
 

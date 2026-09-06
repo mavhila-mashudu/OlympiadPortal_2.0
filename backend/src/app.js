@@ -42,6 +42,7 @@ app.use("/olympiads", require("./routes/olympiads"));
 app.use("/rounds", require("./routes/roundDetail"));
 app.use("/rounds", require("./routes/questions"));
 app.use("/rounds", require("./routes/examStatus"));
+app.use("/rounds", require("./routes/studentExam"));
 app.use("/papers", require("./routes/papers"));
 // 404
 app.use((_req, res) => {

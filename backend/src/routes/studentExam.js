@@ -1,0 +1,423 @@
+// @ts-nocheck
+const express = require("express");
+const { param, body } = require("express-validator");
+const router = express.Router();
+const { requireAuth, requireRole } = require("../middlewares/auth");
+const validate = require("../middlewares/validate");
+const prisma = require("../config/database").default;
+const {
+  NotFoundError,
+  ForbiddenError,
+  BadRequestError,
+  ConflictError,
+} = require("../errors/AppError");
+const { autoMarkSubmission } = require("../services/markingService");
+
+// All routes require student auth
+router.use(requireAuth, requireRole("student"));
+
+// ─────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────
+
+// Resolve the entrant record for the authenticated student.
+const resolveEntrant = (req) => {
+  if (!req.user.entrant) {
+    throw new ForbiddenError("No entrant profile linked to your account");
+  }
+  return req.user.entrant;
+};
+
+// Verify the round is open and the student is registered.
+const assertCanSit = async (roundId, entrant) => {
+  const round = await prisma.rounds.findUnique({
+    where: { id: roundId },
+    include: {
+      olympiads: true,
+      papers: { include: { questions: { orderBy: { created_at: "asc" } } } },
+    },
+  });
+
+  if (!round) throw new NotFoundError("Round not found");
+  if (round.state !== "open") {
+    throw new BadRequestError(`Round is not open (state: ${round.state})`);
+  }
+  if (round.exam_status !== "live") {
+    throw new BadRequestError("This exam is not available for sitting");
+  }
+
+  // Check the entrant is registered for this round
+  const registration = await prisma.entrant_registrations.findFirst({
+    where: { entrant_id: entrant.id, round_id: roundId },
+  });
+  if (!registration) {
+    throw new ForbiddenError("You are not registered for this round");
+  }
+
+  return round;
+};
+
+// ─────────────────────────────────────────
+// GET /rounds/:roundId/exam
+//
+// Returns round info + questions STRIPPED of
+// correct_option and correct_answer.  Used
+// to render the exam sitting UI.
+// ─────────────────────────────────────────
+const getExam = async (req, res, next) => {
+  try {
+    const entrant = resolveEntrant(req);
+    const round = await assertCanSit(req.params.roundId, entrant);
+    const paper = round.papers[0];
+
+    // Check if the student already has a submission
+    const existingSubmission = await prisma.submissions.findFirst({
+      where: {
+        round_id: round.id,
+        entrant_id: entrant.id,
+        route: "online",
+      },
+      include: {
+        answers: {
+          select: { id: true, question_id: true, answer_value: true },
+        },
+      },
+    });
+
+    // Strip correct answers from questions
+    const questions = (paper?.questions ?? []).map((q) => ({
+      id: q.id,
+      type: q.type,
+      prompt: q.prompt,
+      options: q.options,
+      max_points: q.max_points,
+      // Deliberately omit correct_option and correct_answer
+    }));
+
+    const totalPoints = (paper?.questions ?? []).reduce(
+      (sum, q) => sum + Number(q.max_points),
+      0,
+    );
+
+    res.json({
+      success: true,
+      data: {
+        round: {
+          id: round.id,
+          name: round.name,
+          opens_at: round.opens_at,
+          closes_at: round.closes_at,
+          state: round.state,
+        },
+        questions,
+        total_points: totalPoints,
+        submission: existingSubmission
+          ? {
+              id: existingSubmission.id,
+              status: existingSubmission.status,
+              answers: existingSubmission.answers,
+            }
+          : null,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────
+// POST /rounds/:roundId/exam/start
+//
+// Creates a submission + empty answer rows
+// for every question.  If a submission
+// already exists, returns it (resume).
+// ─────────────────────────────────────────
+const startExam = async (req, res, next) => {
+  try {
+    const entrant = resolveEntrant(req);
+    const round = await assertCanSit(req.params.roundId, entrant);
+    const paper = round.papers[0];
+
+    if (!paper || paper.questions.length === 0) {
+      throw new BadRequestError("No questions available for this exam");
+    }
+
+    // Check for existing submission (resume)
+    const existing = await prisma.submissions.findFirst({
+      where: {
+        round_id: round.id,
+        entrant_id: entrant.id,
+        route: "online",
+      },
+      include: {
+        answers: {
+          select: { id: true, question_id: true, answer_value: true },
+        },
+      },
+    });
+
+    if (existing) {
+      if (existing.status !== "received") {
+        throw new BadRequestError("This exam has already been submitted");
+      }
+      // Resume existing submission
+      return res.json({
+        success: true,
+        data: {
+          submission: {
+            id: existing.id,
+            status: existing.status,
+            answers: existing.answers,
+          },
+        },
+      });
+    }
+
+    // Create new submission with empty answers
+    const idempotencyKey = `${round.id}:${entrant.id}:online`;
+
+    const submission = await prisma.$transaction(async (tx) => {
+      const sub = await tx.submissions.create({
+        data: {
+          round_id: round.id,
+          entrant_id: entrant.id,
+          submitted_by: null, // student self-submitted
+          route: "online",
+          status: "received",
+          idempotency_key: idempotencyKey,
+          round_close_snapshot: round.closes_at,
+        },
+      });
+
+      // Create empty answer rows for each question
+      const answers = [];
+      for (const q of paper.questions) {
+        const ans = await tx.answers.create({
+          data: {
+            submission_id: sub.id,
+            question_id: q.id,
+            answer_value: null,
+          },
+        });
+        answers.push({
+          id: ans.id,
+          question_id: q.id,
+          answer_value: null,
+        });
+      }
+
+      return { id: sub.id, status: sub.status, answers };
+    });
+
+    res.status(201).json({ success: true, data: { submission } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────
+// PATCH /rounds/:roundId/exam/answers/:qid
+//
+// Update a single answer value.  Used for
+// auto-save as the student types.
+// ─────────────────────────────────────────
+const saveAnswer = async (req, res, next) => {
+  try {
+    const entrant = resolveEntrant(req);
+    const { answer_value } = req.body;
+    const questionId = req.params.qid;
+
+    // Find the student's submission for this round
+    const submission = await prisma.submissions.findFirst({
+      where: {
+        round_id: req.params.roundId,
+        entrant_id: entrant.id,
+        route: "online",
+        status: "received",
+      },
+    });
+
+    if (!submission) {
+      throw new BadRequestError(
+        "No active submission found — start the exam first",
+      );
+    }
+
+    // Find the answer row for this question
+    const answer = await prisma.answers.findFirst({
+      where: {
+        submission_id: submission.id,
+        question_id: questionId,
+      },
+    });
+
+    if (!answer) {
+      throw new NotFoundError("Answer row not found for this question");
+    }
+
+    // Update the answer value (no marking yet)
+    const updated = await prisma.answers.update({
+      where: { id: answer.id },
+      data: { answer_value: answer_value ?? null },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        answer: {
+          id: updated.id,
+          question_id: updated.question_id,
+          answer_value: updated.answer_value,
+        },
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────
+// POST /rounds/:roundId/exam/submit
+//
+// Finalize the submission.  Triggers
+// auto-marking for MCQ questions.
+// ─────────────────────────────────────────
+const submitExam = async (req, res, next) => {
+  try {
+    const entrant = resolveEntrant(req);
+
+    const submission = await prisma.submissions.findFirst({
+      where: {
+        round_id: req.params.roundId,
+        entrant_id: entrant.id,
+        route: "online",
+      },
+      include: {
+        answers: {
+          include: {
+            questions: {
+              select: {
+                id: true,
+                type: true,
+                correct_option: true,
+                correct_answer: true,
+                max_points: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!submission) {
+      throw new BadRequestError("No submission found — start the exam first");
+    }
+
+    if (submission.status !== "received") {
+      throw new BadRequestError("This exam has already been submitted");
+    }
+
+    // Auto-mark MCQ + short_answer inline
+    const now = new Date();
+    let totalPoints = 0;
+    let allAutoMarked = true;
+
+    await prisma.$transaction(async (tx) => {
+      for (const answer of submission.answers) {
+        const q = answer.questions;
+
+        if (q.type === "mcq" && q.correct_option) {
+          const isCorrect = answer.answer_value === q.correct_option;
+          const points = isCorrect ? Number(q.max_points) : 0;
+          totalPoints += points;
+
+          await tx.answers.update({
+            where: { id: answer.id },
+            data: {
+              is_correct: isCorrect,
+              points_awarded: points,
+              marked_at: now,
+            },
+          });
+        } else if (q.type === "short_answer" && q.correct_answer) {
+          // Case-insensitive match for short answers
+          const studentAnswer = (answer.answer_value ?? "")
+            .trim()
+            .toLowerCase();
+          const correct = (q.correct_answer ?? "").trim().toLowerCase();
+          const isCorrect = studentAnswer === correct;
+          const points = isCorrect ? Number(q.max_points) : 0;
+          totalPoints += points;
+
+          await tx.answers.update({
+            where: { id: answer.id },
+            data: {
+              is_correct: isCorrect,
+              points_awarded: points,
+              marked_at: now,
+            },
+          });
+        } else if (q.type === "essay") {
+          allAutoMarked = false;
+          // Leave for manual marking
+        } else {
+          allAutoMarked = false;
+        }
+      }
+
+      // Update submission status
+      const status = allAutoMarked ? "automarked" : "queued_for_marking";
+      await tx.submissions.update({
+        where: { id: submission.id },
+        data: { status },
+      });
+
+      // Upsert results
+      await tx.results.upsert({
+        where: {
+          round_id_entrant_id: {
+            round_id: req.params.roundId,
+            entrant_id: entrant.id,
+          },
+        },
+        create: {
+          round_id: req.params.roundId,
+          entrant_id: entrant.id,
+          total_points: totalPoints,
+        },
+        update: { total_points: totalPoints },
+      });
+    });
+
+    res.json({
+      success: true,
+      data: {
+        message: "Exam submitted successfully",
+        status: allAutoMarked ? "automarked" : "queued_for_marking",
+        total_points: totalPoints,
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Routes ──────────────────────────────────────────
+
+router.get("/:roundId/exam", getExam);
+router.post("/:roundId/exam/start", startExam);
+
+router.patch(
+  "/:roundId/exam/answers/:qid",
+  [
+    param("roundId").isUUID(),
+    param("qid").isUUID(),
+    body("answer_value").optional().isString(),
+  ],
+  validate,
+  saveAnswer,
+);
+
+router.post("/:roundId/exam/submit", submitExam);
+
+module.exports = router;
