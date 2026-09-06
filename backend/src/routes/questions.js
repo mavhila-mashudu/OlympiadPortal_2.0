@@ -24,6 +24,7 @@ const createQuestionRules = [
   body("prompt").trim().notEmpty().withMessage("Prompt is required"),
   body("options").optional().isArray(),
   body("correct_option").optional().isString(),
+  body("correct_answer").optional().isString(),
   body("max_points").optional().isFloat({ min: 0.01 }),
 ];
 
@@ -33,12 +34,16 @@ const updateQuestionRules = [
   body("prompt").optional().trim().notEmpty(),
   body("options").optional().isArray(),
   body("correct_option").optional().isString(),
+  body("correct_answer").optional().isString(),
   body("max_points").optional().isFloat({ min: 0.01 }),
 ];
 
 // ── Routes ──────────────────────────────────────────
+// Both organisers and educators can manage questions.
+// Organiser ownership is checked in the service layer.
+// Educator access is checked via school registration.
 
-router.use(requireAuth, requireRole("organiser"));
+router.use(requireAuth, requireRole("organiser", "educator"));
 
 // Create a question on a round's paper
 router.post(

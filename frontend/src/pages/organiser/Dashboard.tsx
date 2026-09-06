@@ -1,4 +1,10 @@
-import { Building2, FileCheckCorner, FilePlusCorner, Timer } from "lucide-react";
+import {
+  Building2,
+  FileCheckCorner,
+  FilePlusCorner,
+  ShieldCheck,
+  Timer,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
@@ -61,7 +67,9 @@ function OrganiserDashboard() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load dashboard");
+          setError(
+            err instanceof Error ? err.message : "Failed to load dashboard",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -201,6 +209,14 @@ function OrganiserDashboard() {
                       {round._count.submissions}
                     </td>
                     <td className={styles.actionColumn}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        to={`/organiser/rounds/${round.id}/review`}
+                        icon={<ShieldCheck aria-hidden="true" />}
+                      >
+                        Review
+                      </Button>
                       {round.state === "scheduled" && (
                         <Button
                           size="sm"
@@ -208,7 +224,9 @@ function OrganiserDashboard() {
                           disabled={updatingId === round.id}
                           onClick={() => handleSetState(round.id, "open")}
                         >
-                          {updatingId === round.id ? "Opening…" : "Open round"}
+                          {updatingId === round.id
+                            ? "Opening..."
+                            : "Open round"}
                         </Button>
                       )}
                       {round.state === "open" && (

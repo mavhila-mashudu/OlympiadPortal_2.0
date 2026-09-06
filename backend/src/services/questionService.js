@@ -29,9 +29,9 @@ const ensurePaperForRound = async (roundId) => {
 };
 
 // Walk  question → paper → round → olympiad  and
-// assert the organiser owns the parent olympiad.
-// Also returns the round so callers can check its state.
-const assertQuestionOwnership = async (questionId, organiserId) => {
+// assert the caller has permission (organiser owns it,
+// or educator's school is registered for the olympiad).
+const assertQuestionAccess = async (questionId, userId, role) => {
   const question = await prisma.questions.findUnique({
     where: { id: questionId },
     include: {
@@ -45,23 +45,69 @@ const assertQuestionOwnership = async (questionId, organiserId) => {
 
   if (!question) throw new NotFoundError("Question not found");
 
-  if (question.papers.rounds.olympiads.organiser_id !== organiserId) {
-    throw new ForbiddenError("Not your question");
+  const round = question.papers.rounds;
+  const olympiad = round.olympiads;
+
+  if (role === "organiser") {
+    if (olympiad.organiser_id !== userId) {
+      throw new ForbiddenError("Not your question");
+    }
+  } else if (role === "educator") {
+    const educator = await prisma.educators.findUnique({
+      where: { user_id: userId },
+    });
+    if (!educator) throw new ForbiddenError("Educator profile not found");
+
+    const registration = await prisma.school_registrations.findFirst({
+      where: {
+        school_id: educator.school_id,
+        olympiad_id: olympiad.id,
+      },
+    });
+    if (!registration) {
+      throw new ForbiddenError(
+        "Your school is not registered for this olympiad",
+      );
+    }
+  } else {
+    throw new ForbiddenError("Insufficient permissions");
   }
 
-  return { question, round: question.papers.rounds };
+  return { question, round };
 };
 
-// Walk  round → olympiad  and assert ownership.
-const assertRoundOwnership = async (roundId, organiserId) => {
+// Walk  round → olympiad  and assert access.
+const assertRoundAccess = async (roundId, userId, role) => {
   const round = await prisma.rounds.findUnique({
     where: { id: roundId },
     include: { olympiads: true },
   });
 
   if (!round) throw new NotFoundError("Round not found");
-  if (round.olympiads.organiser_id !== organiserId) {
-    throw new ForbiddenError("Not your round");
+
+  if (role === "organiser") {
+    if (round.olympiads.organiser_id !== userId) {
+      throw new ForbiddenError("Not your round");
+    }
+  } else if (role === "educator") {
+    const educator = await prisma.educators.findUnique({
+      where: { user_id: userId },
+    });
+    if (!educator) throw new ForbiddenError("Educator profile not found");
+
+    const registration = await prisma.school_registrations.findFirst({
+      where: {
+        school_id: educator.school_id,
+        olympiad_id: round.olympiads.id,
+      },
+    });
+    if (!registration) {
+      throw new ForbiddenError(
+        "Your school is not registered for this olympiad",
+      );
+    }
+  } else {
+    throw new ForbiddenError("Insufficient permissions");
   }
 
   return round;
@@ -69,16 +115,14 @@ const assertRoundOwnership = async (roundId, organiserId) => {
 
 // ─────────────────────────────────────────
 // CREATE QUESTION
-// Adds a question to the paper belonging to the
-// given round.  Only allowed while the round is
-// still in "scheduled" state.
 // ─────────────────────────────────────────
-const createQuestion = async (roundId, organiserId, data) => {
-  const round = await assertRoundOwnership(roundId, organiserId);
+const createQuestion = async (roundId, userId, role, data) => {
+  const round = await assertRoundAccess(roundId, userId, role);
 
-  if (round.state !== "scheduled") {
+  // Questions can only be added/edited while exam_status is draft
+  if (round.exam_status !== "draft") {
     throw new BadRequestError(
-      "Questions can only be added while the round is still scheduled",
+      "Questions can only be added while the exam is in draft status",
     );
   }
 
@@ -91,6 +135,7 @@ const createQuestion = async (roundId, organiserId, data) => {
       prompt: data.prompt,
       options: data.options ?? undefined,
       correct_option: data.correct_option ?? undefined,
+      correct_answer: data.correct_answer ?? undefined,
       max_points: data.max_points ?? 1,
     },
   });
@@ -100,11 +145,9 @@ const createQuestion = async (roundId, organiserId, data) => {
 
 // ─────────────────────────────────────────
 // LIST QUESTIONS FOR A ROUND
-// Returns every question on the round's paper,
-// ordered by creation time.
 // ─────────────────────────────────────────
-const listQuestions = async (roundId, organiserId) => {
-  const round = await assertRoundOwnership(roundId, organiserId);
+const listQuestions = async (roundId, userId, role) => {
+  await assertRoundAccess(roundId, userId, role);
 
   const paper = await prisma.papers.findFirst({
     where: { round_id: roundId },
@@ -119,12 +162,12 @@ const listQuestions = async (roundId, organiserId) => {
 // ─────────────────────────────────────────
 // UPDATE QUESTION
 // ─────────────────────────────────────────
-const updateQuestion = async (questionId, organiserId, data) => {
-  const { round } = await assertQuestionOwnership(questionId, organiserId);
+const updateQuestion = async (questionId, userId, role, data) => {
+  const { round } = await assertQuestionAccess(questionId, userId, role);
 
-  if (round.state !== "scheduled") {
+  if (round.exam_status !== "draft") {
     throw new BadRequestError(
-      "Questions can only be edited while the round is still scheduled",
+      "Questions can only be edited while the exam is in draft status",
     );
   }
 
@@ -134,6 +177,8 @@ const updateQuestion = async (questionId, organiserId, data) => {
   if (data.options !== undefined) updateData.options = data.options;
   if (data.correct_option !== undefined)
     updateData.correct_option = data.correct_option;
+  if (data.correct_answer !== undefined)
+    updateData.correct_answer = data.correct_answer;
   if (data.max_points !== undefined) updateData.max_points = data.max_points;
 
   const question = await prisma.questions.update({
@@ -147,12 +192,12 @@ const updateQuestion = async (questionId, organiserId, data) => {
 // ─────────────────────────────────────────
 // DELETE QUESTION
 // ─────────────────────────────────────────
-const deleteQuestion = async (questionId, organiserId) => {
-  const { round } = await assertQuestionOwnership(questionId, organiserId);
+const deleteQuestion = async (questionId, userId, role) => {
+  const { round } = await assertQuestionAccess(questionId, userId, role);
 
-  if (round.state !== "scheduled") {
+  if (round.exam_status !== "draft") {
     throw new BadRequestError(
-      "Questions can only be deleted while the round is still scheduled",
+      "Questions can only be deleted while the exam is in draft status",
     );
   }
 

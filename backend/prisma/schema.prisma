@@ -113,6 +113,7 @@ model rounds {
   closes_at             DateTime                @db.Timestamptz(6)
   results_release_at    DateTime?               @db.Timestamptz(6)
   state                 round_state             @default(scheduled)
+  exam_status           exam_status             @default(draft)
   qualifying_threshold  Decimal?                @db.Decimal
   created_at            DateTime                @default(now()) @db.Timestamptz(6)
   entrant_registrations entrant_registrations[]
@@ -144,6 +145,7 @@ model questions {
   prompt         String
   options        Json?
   correct_option String?
+  correct_answer String?
   max_points     Decimal   @default(1) @db.Decimal
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
   answers        answers[]
@@ -245,4 +247,10 @@ enum invite_type {
   school
   educator
   student
+}
+
+enum exam_status {
+  draft
+  ready
+  live
 }

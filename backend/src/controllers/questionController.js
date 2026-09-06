@@ -3,12 +3,20 @@ const questionService = require("../services/questionService");
 
 const createQuestion = async (req, res, next) => {
   try {
-    const { type, prompt, options, correct_option, max_points } = req.body;
+    const {
+      type,
+      prompt,
+      options,
+      correct_option,
+      correct_answer,
+      max_points,
+    } = req.body;
 
     const question = await questionService.createQuestion(
       req.params.roundId,
       req.user.userId,
-      { type, prompt, options, correct_option, max_points },
+      req.user.role,
+      { type, prompt, options, correct_option, correct_answer, max_points },
     );
 
     res.status(201).json({ success: true, data: { question } });
@@ -22,6 +30,7 @@ const listQuestions = async (req, res, next) => {
     const questions = await questionService.listQuestions(
       req.params.roundId,
       req.user.userId,
+      req.user.role,
     );
 
     res.json({ success: true, data: { questions } });
@@ -32,12 +41,20 @@ const listQuestions = async (req, res, next) => {
 
 const updateQuestion = async (req, res, next) => {
   try {
-    const { type, prompt, options, correct_option, max_points } = req.body;
+    const {
+      type,
+      prompt,
+      options,
+      correct_option,
+      correct_answer,
+      max_points,
+    } = req.body;
 
     const question = await questionService.updateQuestion(
       req.params.id,
       req.user.userId,
-      { type, prompt, options, correct_option, max_points },
+      req.user.role,
+      { type, prompt, options, correct_option, correct_answer, max_points },
     );
 
     res.json({ success: true, data: { question } });
@@ -48,7 +65,11 @@ const updateQuestion = async (req, res, next) => {
 
 const deleteQuestion = async (req, res, next) => {
   try {
-    await questionService.deleteQuestion(req.params.id, req.user.userId);
+    await questionService.deleteQuestion(
+      req.params.id,
+      req.user.userId,
+      req.user.role,
+    );
     res.json({ success: true, data: { message: "Question deleted" } });
   } catch (err) {
     next(err);

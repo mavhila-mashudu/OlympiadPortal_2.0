@@ -1,0 +1,512 @@
+import { useCallback, useEffect, useState } from "react";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { useParams } from "react-router-dom";
+import { AppShell } from "../../components/layout/AppShell";
+import { api } from "../../lib/api";
+import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { Input } from "../../components/ui/Input";
+import { Label } from "../../components/ui/Label";
+import { Select } from "../../components/ui/Select";
+import { Textarea } from "../../components/ui/Textarea";
+import { educatorNav } from "../../lib/mockData";
+import styles from "./ExamBuilder.module.css";
+
+type QuestionType = "mcq" | "short_answer" | "essay";
+
+type Question = {
+  id: string;
+  type: QuestionType;
+  prompt: string;
+  options: string[] | null;
+  correct_option: string | null;
+  correct_answer: string | null;
+  max_points: number;
+};
+
+const TYPE_LABELS: Record<QuestionType, string> = {
+  mcq: "Multiple choice",
+  short_answer: "Short answer",
+  essay: "Essay / long answer",
+};
+
+const EMPTY_QUESTION: Omit<Question, "id"> = {
+  type: "mcq",
+  prompt: "",
+  options: ["", "", "", ""],
+  correct_option: null,
+  correct_answer: null,
+  max_points: 1,
+};
+
+function QuestionForm({
+  initial,
+  onSave,
+  onCancel,
+  saving,
+}: {
+  initial?: Question;
+  onSave: (data: Omit<Question, "id">) => void;
+  onCancel: () => void;
+  saving: boolean;
+}) {
+  const [type, setType] = useState<QuestionType>(initial?.type ?? "mcq");
+  const [prompt, setPrompt] = useState(initial?.prompt ?? "");
+  const [options, setOptions] = useState<string[]>(
+    initial?.options ?? ["", "", "", ""],
+  );
+  const [correctOption, setCorrectOption] = useState<string | null>(
+    initial?.correct_option ?? null,
+  );
+  const [correctAnswer, setCorrectAnswer] = useState(
+    initial?.correct_answer ?? "",
+  );
+  const [maxPoints, setMaxPoints] = useState(initial?.max_points ?? 1);
+
+  const addOption = () => setOptions([...options, ""]);
+  const removeOption = (idx: number) => {
+    const next = options.filter((_, i) => i !== idx);
+    setOptions(next.length >= 2 ? next : ["", ""]);
+    if (correctOption === String(idx)) setCorrectOption(null);
+  };
+  const updateOption = (idx: number, val: string) => {
+    const next = [...options];
+    next[idx] = val;
+    setOptions(next);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      type,
+      prompt: prompt.trim(),
+      options: type === "mcq" ? options.filter(Boolean) : null,
+      correct_option: type === "mcq" ? correctOption : null,
+      correct_answer: type === "short_answer" ? correctAnswer.trim() : null,
+      max_points: maxPoints,
+    });
+  };
+
+  const canSave =
+    prompt.trim().length > 0 &&
+    (type === "essay" ||
+      (type === "mcq" &&
+        options.filter(Boolean).length >= 2 &&
+        correctOption !== null) ||
+      (type === "short_answer" && correctAnswer.trim().length > 0));
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <div className={styles.field}>
+        <Label htmlFor="q-type">Question type</Label>
+        <Select
+          id="q-type"
+          value={type}
+          onChange={(e) => setType(e.target.value as QuestionType)}
+        >
+          <option value="mcq">Multiple choice (single answer)</option>
+          <option value="short_answer">
+            Short answer (single word / number)
+          </option>
+          <option value="essay">Essay / long answer</option>
+        </Select>
+      </div>
+
+      <div className={styles.field}>
+        <Label htmlFor="q-prompt">Question prompt</Label>
+        <Textarea
+          id="q-prompt"
+          rows={3}
+          placeholder="Enter the question text..."
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+        />
+      </div>
+
+      {type === "mcq" && (
+        <div className={styles.field}>
+          <Label>Answer options (select the correct one)</Label>
+          <div className={styles.optionsList}>
+            {options.map((opt, idx) => (
+              <div key={idx} className={styles.optionRow}>
+                <input
+                  type="radio"
+                  name="correct-option"
+                  checked={correctOption === String(idx)}
+                  onChange={() => setCorrectOption(String(idx))}
+                  title="Mark as correct"
+                  className={styles.radio}
+                />
+                <Input
+                  placeholder={`Option ${idx + 1}`}
+                  value={opt}
+                  onChange={(e) => updateOption(idx, e.target.value)}
+                />
+                {options.length > 2 && (
+                  <button
+                    type="button"
+                    className={styles.iconBtn}
+                    onClick={() => removeOption(idx)}
+                    title="Remove option"
+                  >
+                    <Trash2 />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {options.length < 6 && (
+            <Button type="button" variant="ghost" size="sm" onClick={addOption}>
+              <Plus /> Add option
+            </Button>
+          )}
+        </div>
+      )}
+
+      {type === "short_answer" && (
+        <div className={styles.field}>
+          <Label htmlFor="q-answer">Correct answer</Label>
+          <Input
+            id="q-answer"
+            placeholder="Expected answer (e.g. 42, photosynthesis)"
+            value={correctAnswer}
+            onChange={(e) => setCorrectAnswer(e.target.value)}
+          />
+        </div>
+      )}
+
+      {type === "essay" && (
+        <p className={styles.hint}>
+          Essay questions will be queued for manual marking after submission.
+        </p>
+      )}
+
+      <div className={styles.field}>
+        <Label htmlFor="q-points">Points</Label>
+        <Input
+          id="q-points"
+          type="number"
+          min={1}
+          step={1}
+          value={maxPoints}
+          onChange={(e) => setMaxPoints(Number(e.target.value) || 1)}
+          className={styles.pointsInput}
+        />
+      </div>
+
+      <div className={styles.formActions}>
+        <Button type="submit" disabled={!canSave || saving}>
+          {saving ? "Saving..." : initial ? "Update question" : "Add question"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function QuestionCard({
+  question,
+  index,
+  onEdit,
+  onDelete,
+}: {
+  question: Question;
+  index: number;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className={styles.questionCard}>
+      <div className={styles.questionHeader}>
+        <span className={styles.questionNumber}>
+          <GripVertical className={styles.grip} />Q{index + 1}
+        </span>
+        <span className={styles.typeBadge}>{TYPE_LABELS[question.type]}</span>
+        <span className={styles.points}>
+          {question.max_points} pt{question.max_points !== 1 ? "s" : ""}
+        </span>
+        <div className={styles.questionActions}>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={onEdit}
+            title="Edit"
+          >
+            <Pencil />
+          </button>
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={onDelete}
+            title="Delete"
+          >
+            <Trash2 />
+          </button>
+        </div>
+      </div>
+      <p className={styles.questionPrompt}>{question.prompt}</p>
+      {question.type === "mcq" && question.options && (
+        <ul className={styles.optionsReview}>
+          {question.options.map((opt, i) => (
+            <li
+              key={i}
+              className={`${styles.optionItem} ${String(i) === question.correct_option ? styles.correctOption : ""}`}
+            >
+              {String(i) === question.correct_option && (
+                <CheckCircle2 className={styles.checkIcon} />
+              )}
+              {opt}
+            </li>
+          ))}
+        </ul>
+      )}
+      {question.type === "short_answer" && question.correct_answer && (
+        <p className={styles.answerPreview}>
+          Answer: <strong>{question.correct_answer}</strong>
+        </p>
+      )}
+      {question.type === "essay" && (
+        <p className={styles.answerPreview}>Marked manually</p>
+      )}
+    </div>
+  );
+}
+
+function ExamBuilder() {
+  const { id: roundId } = useParams<{ id: string }>();
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [examStatus, setExamStatus] = useState<string>("draft");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const fetchQuestions = useCallback(async () => {
+    try {
+      const res = await api.get<{ questions: any[] }>(
+        `/rounds/${roundId}/questions`,
+      );
+      setQuestions(res.questions);
+    } catch {
+      setQuestions([]);
+    }
+  }, [roundId]);
+
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await api.get<{ exam_status: string }>(
+        `/rounds/${roundId}/exam-status`,
+      );
+      setExamStatus(res.exam_status);
+    } catch {
+      setExamStatus("draft");
+    }
+  }, [roundId]);
+
+  useEffect(() => {
+    Promise.all([fetchQuestions(), fetchStatus()]).finally(() =>
+      setLoading(false),
+    );
+  }, [fetchQuestions, fetchStatus]);
+
+  const handleSave = async (data: Omit<Question, "id">) => {
+    setSaving(true);
+    setError(null);
+    try {
+      if (editingId) {
+        const res = await api.patch<{ question: any }>(
+          `/rounds/${roundId}/questions/${editingId}`,
+          data,
+        );
+        setQuestions((prev) =>
+          prev.map((q) => (q.id === editingId ? res.question : q)),
+        );
+      } else {
+        const res = await api.post<{ question: any }>(
+          `/rounds/${roundId}/questions`,
+          data,
+        );
+        setQuestions((prev) => [...prev, res.question]);
+      }
+      setShowForm(false);
+      setEditingId(null);
+      fetchStatus();
+    } catch (err: any) {
+      setError(err.message || "Failed to save question");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this question?")) return;
+    setError(null);
+    try {
+      await api.delete(`/rounds/${roundId}/questions/${id}`);
+      setQuestions((prev) => prev.filter((q) => q.id !== id));
+      fetchStatus();
+    } catch (err: any) {
+      setError(err.message || "Failed to delete question");
+    }
+  };
+
+  const handleMarkReady = async () => {
+    setError(null);
+    try {
+      await api.patch(`/rounds/${roundId}/exam-status`, { status: "ready" });
+      setExamStatus("ready");
+    } catch (err: any) {
+      setError(err.message || "Failed to update status");
+    }
+  };
+
+  const totalPoints = questions.reduce((sum, q) => sum + q.max_points, 0);
+  const isDraft = examStatus === "draft";
+  const isReady = examStatus === "ready";
+
+  if (loading) {
+    return (
+      <AppShell
+        activeRole="educator"
+        navItems={educatorNav}
+        organisation=""
+        portalLabel="Educator portal"
+        userInitials=""
+        userName=""
+      >
+        <p className={styles.loading}>Loading...</p>
+      </AppShell>
+    );
+  }
+
+  return (
+    <AppShell
+      activeRole="educator"
+      navItems={educatorNav}
+      organisation=""
+      portalLabel="Educator portal"
+      userInitials=""
+      userName=""
+    >
+      <div className={styles.stack}>
+        <header className={styles.pageHeader}>
+          <div>
+            <h1>Exam Builder</h1>
+            <p>
+              Digitize the question paper — add each question with its type,
+              options, and correct answer.
+            </p>
+          </div>
+          <div className={styles.pageActions}>
+            <Button variant="outline" to="/educator">
+              <ArrowLeft /> Back to rounds
+            </Button>
+          </div>
+        </header>
+
+        {/* Status bar */}
+        <div className={styles.statusBar}>
+          <div className={styles.statsRow}>
+            <span>
+              <strong>{questions.length}</strong> question
+              {questions.length !== 1 ? "s" : ""}
+            </span>
+            <span>
+              <strong>{totalPoints}</strong> total point
+              {totalPoints !== 1 ? "s" : ""}
+            </span>
+            <span className={`${styles.statusPill} ${styles[examStatus]}`}>
+              {examStatus === "draft" && "Draft"}
+              {examStatus === "ready" && "Ready for review"}
+              {examStatus === "live" && "Live"}
+            </span>
+          </div>
+          {isDraft && questions.length > 0 && (
+            <Button size="sm" onClick={handleMarkReady}>
+              <CheckCircle2 /> Mark as ready for review
+            </Button>
+          )}
+          {isReady && (
+            <span className={styles.readyNote}>
+              Submitted for organiser verification. Waiting for approval.
+            </span>
+          )}
+        </div>
+
+        {error && <div className={styles.errorBanner}>{error}</div>}
+
+        {/* Question list */}
+        {questions.length > 0 && !showForm && (
+          <div className={styles.questionList}>
+            {questions.map((q, i) => (
+              <QuestionCard
+                key={q.id}
+                question={q}
+                index={i}
+                onEdit={() => {
+                  setEditingId(q.id);
+                  setShowForm(true);
+                }}
+                onDelete={() => handleDelete(q.id)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Form */}
+        {showForm && isDraft && (
+          <Card className={styles.formCard}>
+            <h2>{editingId ? "Edit question" : "Add a question"}</h2>
+            <QuestionForm
+              initial={
+                editingId
+                  ? questions.find((q) => q.id === editingId)
+                  : undefined
+              }
+              onSave={handleSave}
+              onCancel={() => {
+                setShowForm(false);
+                setEditingId(null);
+              }}
+              saving={saving}
+            />
+          </Card>
+        )}
+
+        {/* Add button */}
+        {isDraft && !showForm && (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingId(null);
+              setShowForm(true);
+            }}
+          >
+            <Plus /> Add question
+          </Button>
+        )}
+
+        {!isDraft && !showForm && questions.length === 0 && (
+          <Card className={styles.emptyCard}>
+            <p>
+              No questions yet. The exam must be in draft mode to add questions.
+            </p>
+          </Card>
+        )}
+      </div>
+    </AppShell>
+  );
+}
+
+export default ExamBuilder;
