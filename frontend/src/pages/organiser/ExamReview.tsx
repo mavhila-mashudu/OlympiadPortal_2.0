@@ -23,6 +23,7 @@ type Question = {
   options: string[] | null;
   correct_option: string | null;
   correct_answer: string | null;
+  negative_pct: number | null;
   max_points: number;
 };
 
@@ -30,6 +31,21 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   mcq: "Multiple choice",
   short_answer: "Short answer",
   essay: "Essay / long answer",
+};
+
+// correct_option holds option indexes as a
+// comma-separated string ("0,2") — split it
+// so multi-answer MCQs highlight every
+// correct option.
+const splitCorrect = (v: string | null) =>
+  (v ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+const perCorrectPoints = (q: Question) => {
+  const n = splitCorrect(q.correct_option).length;
+  return n > 0 ? Math.round((Number(q.max_points) / n) * 100) / 100 : 0;
 };
 
 function ExamReview() {
@@ -216,6 +232,10 @@ function ExamReview() {
                   <span className={styles.questionNumber}>Q{i + 1}</span>
                   <span className={styles.typeBadge}>
                     {TYPE_LABELS[q.type]}
+                    {q.type === "mcq" &&
+                    splitCorrect(q.correct_option).length > 1
+                      ? " (multiple answers)"
+                      : ""}
                   </span>
                   <span className={styles.points}>
                     {q.max_points} pt{q.max_points !== 1 ? "s" : ""}
@@ -229,18 +249,34 @@ function ExamReview() {
                     {q.options.map((opt, idx) => (
                       <li
                         key={idx}
-                        className={`${styles.optionItem} ${String(idx) === q.correct_option ? styles.correctOption : ""}`}
+                        className={`${styles.optionItem} ${splitCorrect(q.correct_option).includes(String(idx)) ? styles.correctOption : ""}`}
                       >
                         <span className={styles.optionLetter}>
                           {String.fromCharCode(65 + idx)}.
                         </span>
                         {opt}
-                        {String(idx) === q.correct_option && (
-                          <CheckCircle2 className={styles.checkIcon} />
-                        )}
+                        {splitCorrect(q.correct_option).includes(
+                          String(idx),
+                        ) && <CheckCircle2 className={styles.checkIcon} />}
                       </li>
                     ))}
                   </ul>
+                )}
+
+                {q.type === "mcq" &&
+                  splitCorrect(q.correct_option).length > 1 && (
+                    <p className={styles.essayNote}>
+                      Points split evenly across{" "}
+                      {splitCorrect(q.correct_option).length} correct answers (
+                      {perCorrectPoints(q)} each).
+                    </p>
+                  )}
+
+                {q.type === "mcq" && Number(q.negative_pct) > 0 && (
+                  <p className={styles.essayNote}>
+                    Negative marking: {Number(q.negative_pct)}% of the
+                    question&apos;s points deducted per wrong selection.
+                  </p>
                 )}
 
                 {q.type === "short_answer" && q.correct_answer && (

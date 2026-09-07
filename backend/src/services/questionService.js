@@ -136,6 +136,7 @@ const createQuestion = async (roundId, userId, role, data) => {
       options: data.options ?? undefined,
       correct_option: data.correct_option ?? undefined,
       correct_answer: data.correct_answer ?? undefined,
+      negative_pct: data.negative_pct ?? 0,
       max_points: data.max_points ?? 1,
     },
   });
@@ -179,6 +180,8 @@ const updateQuestion = async (questionId, userId, role, data) => {
     updateData.correct_option = data.correct_option;
   if (data.correct_answer !== undefined)
     updateData.correct_answer = data.correct_answer;
+  if (data.negative_pct !== undefined)
+    updateData.negative_pct = data.negative_pct;
   if (data.max_points !== undefined) updateData.max_points = data.max_points;
 
   const question = await prisma.questions.update({

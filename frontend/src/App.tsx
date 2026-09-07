@@ -10,6 +10,7 @@ import Archive from "./pages/organiser/Archive";
 import CreateRound from "./pages/organiser/CreateRound";
 import OrganiserDashboard from "./pages/organiser/Dashboard";
 import ExamReview from "./pages/organiser/ExamReview";
+import MarkingQueue from "./pages/organiser/MarkingQueue";
 import Olympiads from "./pages/organiser/Olympiads";
 import Schools from "./pages/organiser/Schools";
 import ExamSitting from "./pages/student/ExamSitting";
@@ -34,6 +35,7 @@ function App() {
       <Route path="/organiser/archive" element={<Archive />} />
       <Route path="/organiser/schools" element={<Schools />} />
       <Route path="/organiser/rounds/:id/review" element={<ExamReview />} />
+      <Route path="/organiser/rounds/:id/marking" element={<MarkingQueue />} />
       <Route path="/student" element={<StudentDashboard />} />
       <Route path="/student/results" element={<StudentResults />} />
       <Route path="/student/rounds/:id" element={<StudentRoundDetail />} />

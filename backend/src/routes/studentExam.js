@@ -11,7 +11,7 @@ const {
   BadRequestError,
   ConflictError,
 } = require("../errors/AppError");
-const { autoMarkSubmission } = require("../services/markingService");
+const { parseOptionList, scoreMcq } = require("../services/markingMath");
 
 // All routes require student auth
 router.use(requireAuth, requireRole("student"));
@@ -84,13 +84,20 @@ const getExam = async (req, res, next) => {
       },
     });
 
-    // Strip correct answers from questions
+    // Strip the answers themselves but keep shape info:
+    //   multi_select  → how many correct options exist
+    //                   (not which ones), so the UI can
+    //                   switch between radio and checkboxes
+    //   negative_pct  → shown to students so they know
+    //                   wrong selections cost marks
     const questions = (paper?.questions ?? []).map((q) => ({
       id: q.id,
       type: q.type,
       prompt: q.prompt,
       options: q.options,
       max_points: q.max_points,
+      multi_select: parseOptionList(q.correct_option).length > 1,
+      negative_pct: Number(q.negative_pct) || 0,
       // Deliberately omit correct_option and correct_answer
     }));
 
@@ -111,6 +118,10 @@ const getExam = async (req, res, next) => {
         },
         questions,
         total_points: totalPoints,
+        // Server clock — lets the client compute its
+        // offset so the countdown survives a skewed
+        // local clock.
+        server_time: new Date().toISOString(),
         submission: existingSubmission
           ? {
               id: existingSubmission.id,
@@ -280,7 +291,12 @@ const saveAnswer = async (req, res, next) => {
 // POST /rounds/:roundId/exam/submit
 //
 // Finalize the submission.  Triggers
-// auto-marking for MCQ questions.
+// auto-marking for MCQ and short-answer
+// questions.  A submission arriving after
+// closes_at is accepted (the auto-submit on
+// expiry can race the round-close job) but
+// flagged is_late so the organiser can
+// decide how to treat it.
 // ─────────────────────────────────────────
 const submitExam = async (req, res, next) => {
   try {
@@ -301,6 +317,7 @@ const submitExam = async (req, res, next) => {
                 type: true,
                 correct_option: true,
                 correct_answer: true,
+                negative_pct: true,
                 max_points: true,
               },
             },
@@ -319,6 +336,10 @@ const submitExam = async (req, res, next) => {
 
     // Auto-mark MCQ + short_answer inline
     const now = new Date();
+    // round_close_snapshot holds the closes_at the
+    // student sat against — compare for lateness
+    const closesAt = submission.round_close_snapshot;
+    const isLate = closesAt ? now > new Date(closesAt) : false;
     let totalPoints = 0;
     let allAutoMarked = true;
 
@@ -327,15 +348,22 @@ const submitExam = async (req, res, next) => {
         const q = answer.questions;
 
         if (q.type === "mcq" && q.correct_option) {
-          const isCorrect = answer.answer_value === q.correct_option;
-          const points = isCorrect ? Number(q.max_points) : 0;
-          totalPoints += points;
+          // Multi-answer aware scoring — partial credit
+          // split across correct options, minus negative
+          // marking per wrong selection (markingMath.scoreMcq)
+          const score = scoreMcq({
+            maxPoints: q.max_points,
+            correctOption: q.correct_option,
+            selected: answer.answer_value,
+            negativePct: q.negative_pct,
+          });
+          totalPoints += score.points;
 
           await tx.answers.update({
             where: { id: answer.id },
             data: {
-              is_correct: isCorrect,
-              points_awarded: points,
+              is_correct: score.isCorrect,
+              points_awarded: score.points,
               marked_at: now,
             },
           });
@@ -365,11 +393,11 @@ const submitExam = async (req, res, next) => {
         }
       }
 
-      // Update submission status
+      // Update submission status (+ late flag)
       const status = allAutoMarked ? "automarked" : "queued_for_marking";
       await tx.submissions.update({
         where: { id: submission.id },
-        data: { status },
+        data: { status, is_late: isLate },
       });
 
       // Upsert results
@@ -395,6 +423,7 @@ const submitExam = async (req, res, next) => {
         message: "Exam submitted successfully",
         status: allAutoMarked ? "automarked" : "queued_for_marking",
         total_points: totalPoints,
+        is_late: isLate,
       },
     });
   } catch (err) {

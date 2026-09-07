@@ -26,6 +26,8 @@ type Question = {
   prompt: string;
   options: string[] | null;
   max_points: number;
+  multi_select?: boolean;
+  negative_pct?: number | null;
 };
 
 type Answer = {
@@ -44,19 +46,24 @@ type ExamData = {
   };
   questions: Question[];
   total_points: number;
+  server_time?: string;
   submission: { id: string; status: string; answers: Answer[] } | null;
 };
 
-function useCountdown(closesAt: string, serverNow?: string) {
+function useCountdown(closesAt: string, offsetMs = 0) {
   const [remaining, setRemaining] = useState("");
   const [expired, setExpired] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     const closes = new Date(closesAt).getTime();
 
     function tick() {
-      const now = Date.now();
+      // Apply the server-clock offset so a skewed
+      // local clock can't extend or shorten the exam
+      const now = Date.now() + offsetMs;
       const diff = closes - now;
 
       if (diff <= 0) {
@@ -80,10 +87,39 @@ function useCountdown(closesAt: string, serverNow?: string) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [closesAt, serverNow]);
+  }, [closesAt, offsetMs]);
 
   return { remaining, expired };
 }
+
+// ── Offline resilience ──────────────────────────────
+// Answers persist to localStorage so a refresh or
+// network drop never loses work.  The dirty list
+// tracks answers whose last save failed — they are
+// replayed on reconnect and before submitting.
+type StoredAnswers = { answers: Record<string, string>; dirty: string[] };
+
+const readStored = (key: string): StoredAnswers => {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return { answers: {}, dirty: [] };
+    const parsed = JSON.parse(raw);
+    return {
+      answers: parsed.answers ?? {},
+      dirty: Array.isArray(parsed.dirty) ? parsed.dirty : [],
+    };
+  } catch {
+    return { answers: {}, dirty: [] };
+  }
+};
+
+const writeStored = (key: string, state: StoredAnswers) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(state));
+  } catch {
+    // Quota exceeded / private mode — degrade gracefully
+  }
+};
 
 function ExamSitting() {
   const { id: roundId } = useParams<{ id: string }>();
@@ -91,6 +127,10 @@ function ExamSitting() {
 
   const [examData, setExamData] = useState<ExamData | null>(null);
   const [answers, setAnswers] = useState<Map<string, string>>(new Map());
+  const answersRef = useRef<Map<string, string>>(new Map());
+  const dirtyRef = useRef<Set<string>>(new Set());
+  const [serverOffset, setServerOffset] = useState(0);
+  const [offline, setOffline] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(false);
@@ -99,17 +139,25 @@ function ExamSitting() {
   const [submitResult, setSubmitResult] = useState<{
     status: string;
     total_points: number;
+    is_late?: boolean;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
 
   // Load exam data (questions + check for existing submission)
   const loadExam = useCallback(async () => {
     try {
       const res = await api.get<ExamData>(`/rounds/${roundId}/exam`);
       setExamData(res);
+
+      // Offset between the server clock and this device
+      if (res.server_time) {
+        setServerOffset(new Date(res.server_time).getTime() - Date.now());
+      }
 
       if (res.submission && res.submission.status === "received") {
         setStarted(true);
@@ -118,6 +166,15 @@ function ExamSitting() {
         for (const a of res.submission.answers) {
           if (a.answer_value) map.set(a.question_id, a.answer_value);
         }
+        // Overlay locally stored answers whose last save
+        // failed — they are newer than what the server has
+        const stored = readStored(`exam-answers-${roundId}`);
+        for (const qid of stored.dirty) {
+          if (stored.answers[qid] !== undefined) {
+            map.set(qid, stored.answers[qid]);
+          }
+        }
+        answersRef.current = map;
         setAnswers(map);
       }
     } catch (err: any) {
@@ -129,7 +186,10 @@ function ExamSitting() {
     loadExam().finally(() => setLoading(false));
   }, [loadExam]);
 
-  const { remaining, expired } = useCountdown(examData?.round.closes_at ?? "");
+  const { remaining, expired } = useCountdown(
+    examData?.round.closes_at ?? "",
+    serverOffset,
+  );
 
   // Auto-submit when time expires
   useEffect(() => {
@@ -141,62 +201,119 @@ function ExamSitting() {
   const startExam = async () => {
     setError(null);
     try {
-      const res = await api.post<{ submission: any }>(
-        `/rounds/${roundId}/exam/start`,
-      );
+      await api.post(`/rounds/${roundId}/exam/start`);
       setStarted(true);
-      // Populate empty answers map
-      const map = new Map<string, string>();
-      for (const a of res.submission.answers) {
-        if (a.answer_value) map.set(a.question_id, a.answer_value);
-      }
-      setAnswers(map);
-      // Reload to get submission data
+      // loadExam populates the answers map (incl. any
+      // locally stored dirty answers from an earlier
+      // sitting attempt)
       await loadExam();
     } catch (err: any) {
       setError(err.message || "Failed to start exam");
     }
   };
 
+  // Persist the full answer state + dirty list locally
+  const persistLocal = useCallback(() => {
+    writeStored(`exam-answers-${roundId}`, {
+      answers: Object.fromEntries(answersRef.current),
+      dirty: [...dirtyRef.current],
+    });
+  }, [roundId]);
+
+  // Push a single answer to the server; failures are
+  // remembered in the dirty set for replay
+  const pushAnswer = useCallback(
+    async (questionId: string) => {
+      const value = answersRef.current.get(questionId);
+      setSaving(true);
+      try {
+        await api.patch(`/rounds/${roundId}/exam/answers/${questionId}`, {
+          answer_value: value || null,
+        });
+        dirtyRef.current.delete(questionId);
+      } catch {
+        dirtyRef.current.add(questionId);
+      } finally {
+        setSaving(false);
+      }
+      persistLocal();
+    },
+    [roundId, persistLocal],
+  );
+
+  // Replay only the answers that failed to save
+  const flushPending = useCallback(async () => {
+    const qids = [...dirtyRef.current];
+    await Promise.allSettled(qids.map((qid) => pushAnswer(qid)));
+  }, [pushAnswer]);
+
+  // Push every current answer (used right before submit
+  // so nothing is lost to a pending debounce or a drop)
+  const pushAll = useCallback(async () => {
+    const qids = [...answersRef.current.keys()];
+    await Promise.allSettled(qids.map((qid) => pushAnswer(qid)));
+  }, [pushAnswer]);
+
   // Debounced auto-save
   const saveAnswer = useCallback(
     (questionId: string, value: string) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
 
-      setAnswers((prev) => {
-        const next = new Map(prev);
-        next.set(questionId, value);
-        return next;
-      });
+      answersRef.current = new Map(answersRef.current).set(questionId, value);
+      setAnswers(answersRef.current);
+      persistLocal();
 
-      saveTimerRef.current = setTimeout(async () => {
-        setSaving(true);
-        try {
-          await api.patch(`/rounds/${roundId}/exam/answers/${questionId}`, {
-            answer_value: value || null,
-          });
-        } catch {
-          // Silently fail — will retry on next change
-        } finally {
-          setSaving(false);
-        }
+      saveTimerRef.current = setTimeout(() => {
+        pushAnswer(questionId);
       }, 800);
     },
-    [roundId],
+    [persistLocal, pushAnswer],
   );
+
+  // Replay failed saves when the connection returns
+  useEffect(() => {
+    const onOnline = () => {
+      setOffline(false);
+      if (started && !submitted) flushPending();
+    };
+    const onOffline = () => setOffline(true);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [started, submitted, flushPending]);
 
   const handleSubmit = async () => {
     setShowConfirm(false);
     setSubmitting(true);
     setError(null);
     try {
+      // Flush every answer before finalising — includes
+      // anything still inside the debounce window or
+      // the dirty set from an earlier network drop
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      await pushAll();
+
       const res = await api.post<{
         message: string;
         status: string;
         total_points: number;
+        is_late?: boolean;
       }>(`/rounds/${roundId}/exam/submit`);
       setSubmitted(true);
-      setSubmitResult({ status: res.status, total_points: res.total_points });
+      setSubmitResult({
+        status: res.status,
+        total_points: res.total_points,
+        is_late: res.is_late,
+      });
+      // Local cache no longer needed
+      try {
+        localStorage.removeItem(`exam-answers-${roundId}`);
+      } catch {
+        // ignore
+      }
     } catch (err: any) {
       setError(err.message || "Failed to submit exam");
     } finally {
@@ -279,6 +396,12 @@ function ExamSitting() {
                 </span>
               </div>
             )}
+            {submitResult?.is_late && (
+              <p className={styles.lateNote}>
+                Your submission arrived after the closing time and has been
+                flagged for the organiser to review.
+              </p>
+            )}
             <Button to="/student" variant="primary">
               Back to dashboard
             </Button>
@@ -321,6 +444,13 @@ function ExamSitting() {
         </header>
 
         {error && <div className={styles.errorBanner}>{error}</div>}
+
+        {offline && started && (
+          <div className={styles.offlineBanner}>
+            You are offline — your answers are saved locally and will sync when
+            the connection returns.
+          </div>
+        )}
 
         {/* Pre-start screen */}
         {!started && (
@@ -385,7 +515,9 @@ function ExamSitting() {
                 </span>
                 <span className={styles.typeBadge}>
                   {currentQ.type === "mcq"
-                    ? "Multiple choice"
+                    ? currentQ.multi_select
+                      ? "Multiple answer"
+                      : "Multiple choice"
                     : currentQ.type === "short_answer"
                       ? "Short answer"
                       : "Essay"}
@@ -395,26 +527,63 @@ function ExamSitting() {
 
               <p className={styles.prompt}>{currentQ.prompt}</p>
 
-              {/* MCQ */}
+              {/* MCQ guidance */}
+              {currentQ.type === "mcq" &&
+                (currentQ.multi_select ||
+                  Number(currentQ.negative_pct) > 0) && (
+                  <div className={styles.mcqHints}>
+                    {currentQ.multi_select && (
+                      <p>Select all answers that apply.</p>
+                    )}
+                    {Number(currentQ.negative_pct) > 0 && (
+                      <p className={styles.negativeHint}>
+                        Each wrongly selected option deducts{" "}
+                        {Number(currentQ.negative_pct)}% of this question&apos;s
+                        points.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+              {/* MCQ — checkboxes when multiple answers apply */}
               {currentQ.type === "mcq" && currentQ.options && (
                 <div className={styles.optionsList}>
-                  {currentQ.options.map((opt, idx) => (
-                    <label key={idx} className={styles.optionLabel}>
-                      <input
-                        type="radio"
-                        name={`q-${currentQ.id}`}
-                        value={String(idx)}
-                        checked={answers.get(currentQ.id) === String(idx)}
-                        onChange={() => saveAnswer(currentQ.id, String(idx))}
-                        className={styles.radio}
-                      />
-                      <span
-                        className={`${styles.optionText} ${answers.get(currentQ.id) === String(idx) ? styles.optionSelected : ""}`}
-                      >
-                        {String.fromCharCode(65 + idx)}. {opt}
-                      </span>
-                    </label>
-                  ))}
+                  {currentQ.options.map((opt, idx) => {
+                    const multi = currentQ.multi_select ?? false;
+                    const selectedList = (answers.get(currentQ.id) ?? "")
+                      .split(",")
+                      .map((s) => s.trim())
+                      .filter(Boolean);
+                    const isChecked = selectedList.includes(String(idx));
+
+                    const handleSelect = () => {
+                      if (!multi) {
+                        saveAnswer(currentQ.id, String(idx));
+                        return;
+                      }
+                      const next = isChecked
+                        ? selectedList.filter((s) => s !== String(idx))
+                        : [...selectedList, String(idx)];
+                      saveAnswer(currentQ.id, next.join(","));
+                    };
+
+                    return (
+                      <label key={idx} className={styles.optionLabel}>
+                        <input
+                          type={multi ? "checkbox" : "radio"}
+                          name={`q-${currentQ.id}`}
+                          checked={isChecked}
+                          onChange={handleSelect}
+                          className={styles.radio}
+                        />
+                        <span
+                          className={`${styles.optionText} ${isChecked ? styles.optionSelected : ""}`}
+                        >
+                          {String.fromCharCode(65 + idx)}. {opt}
+                        </span>
+                      </label>
+                    );
+                  })}
                 </div>
               )}
 

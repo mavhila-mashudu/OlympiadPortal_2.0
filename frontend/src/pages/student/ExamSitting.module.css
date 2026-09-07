@@ -18,6 +18,21 @@
   padding: 0.75rem 1rem;
 }
 
+.offlineBanner {
+  border: 1px solid color-mix(in oklab, var(--status-upcoming) 30%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--status-upcoming) 8%, transparent);
+  color: var(--status-upcoming);
+  font-size: 0.875rem;
+  padding: 0.75rem 1rem;
+}
+
+.lateNote {
+  color: var(--status-upcoming);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
 /* Layout */
 .layout {
   display: grid;
@@ -240,6 +255,20 @@
   font-size: 0.9375rem;
   line-height: 1.5rem;
   margin-bottom: 1rem;
+}
+
+/* MCQ guidance (multi-select / negative marking) */
+.mcqHints {
+  display: grid;
+  gap: 0.25rem;
+  margin: -0.5rem 0 0.875rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.negativeHint {
+  color: var(--status-upcoming);
+  font-weight: 500;
 }
 
 /* MCQ options */

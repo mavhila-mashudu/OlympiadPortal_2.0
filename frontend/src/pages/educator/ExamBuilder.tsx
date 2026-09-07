@@ -28,6 +28,7 @@ type Question = {
   options: string[] | null;
   correct_option: string | null;
   correct_answer: string | null;
+  negative_pct: number | null;
   max_points: number;
 };
 
@@ -43,6 +44,7 @@ const EMPTY_QUESTION: Omit<Question, "id"> = {
   options: ["", "", "", ""],
   correct_option: null,
   correct_answer: null,
+  negative_pct: 0,
   max_points: 1,
 };
 
@@ -62,19 +64,38 @@ function QuestionForm({
   const [options, setOptions] = useState<string[]>(
     initial?.options ?? ["", "", "", ""],
   );
-  const [correctOption, setCorrectOption] = useState<string | null>(
-    initial?.correct_option ?? null,
+  const [correctOptions, setCorrectOptions] = useState<string[]>(
+    initial?.correct_option
+      ? initial.correct_option
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : [],
   );
   const [correctAnswer, setCorrectAnswer] = useState(
     initial?.correct_answer ?? "",
   );
+  const [negativePct, setNegativePct] = useState(
+    Number(initial?.negative_pct) || 0,
+  );
   const [maxPoints, setMaxPoints] = useState(initial?.max_points ?? 1);
+
+  const toggleCorrect = (idx: string) => {
+    setCorrectOptions((prev) =>
+      prev.includes(idx) ? prev.filter((c) => c !== idx) : [...prev, idx],
+    );
+  };
 
   const addOption = () => setOptions([...options, ""]);
   const removeOption = (idx: number) => {
     const next = options.filter((_, i) => i !== idx);
     setOptions(next.length >= 2 ? next : ["", ""]);
-    if (correctOption === String(idx)) setCorrectOption(null);
+    // Drop the removed index and shift later indexes down
+    setCorrectOptions((prev) =>
+      prev
+        .filter((c) => c !== String(idx))
+        .map((c) => (Number(c) > idx ? String(Number(c) - 1) : c)),
+    );
   };
   const updateOption = (idx: number, val: string) => {
     const next = [...options];
@@ -88,8 +109,12 @@ function QuestionForm({
       type,
       prompt: prompt.trim(),
       options: type === "mcq" ? options.filter(Boolean) : null,
-      correct_option: type === "mcq" ? correctOption : null,
+      correct_option:
+        type === "mcq" && correctOptions.length > 0
+          ? correctOptions.join(",")
+          : null,
       correct_answer: type === "short_answer" ? correctAnswer.trim() : null,
+      negative_pct: type === "mcq" ? negativePct : 0,
       max_points: maxPoints,
     });
   };
@@ -99,7 +124,7 @@ function QuestionForm({
     (type === "essay" ||
       (type === "mcq" &&
         options.filter(Boolean).length >= 2 &&
-        correctOption !== null) ||
+        correctOptions.length > 0) ||
       (type === "short_answer" && correctAnswer.trim().length > 0));
 
   return (
@@ -111,7 +136,9 @@ function QuestionForm({
           value={type}
           onChange={(e) => setType(e.target.value as QuestionType)}
         >
-          <option value="mcq">Multiple choice (single answer)</option>
+          <option value="mcq">
+            Multiple choice (single or multiple answers)
+          </option>
           <option value="short_answer">
             Short answer (single word / number)
           </option>
@@ -132,15 +159,14 @@ function QuestionForm({
 
       {type === "mcq" && (
         <div className={styles.field}>
-          <Label>Answer options (select the correct one)</Label>
+          <Label>Answer options (tick every correct answer)</Label>
           <div className={styles.optionsList}>
             {options.map((opt, idx) => (
               <div key={idx} className={styles.optionRow}>
                 <input
-                  type="radio"
-                  name="correct-option"
-                  checked={correctOption === String(idx)}
-                  onChange={() => setCorrectOption(String(idx))}
+                  type="checkbox"
+                  checked={correctOptions.includes(String(idx))}
+                  onChange={() => toggleCorrect(String(idx))}
                   title="Mark as correct"
                   className={styles.radio}
                 />
@@ -167,6 +193,28 @@ function QuestionForm({
               <Plus /> Add option
             </Button>
           )}
+        </div>
+      )}
+
+      {type === "mcq" && (
+        <div className={styles.field}>
+          <Label htmlFor="q-negative">
+            Negative marking per wrong selection (%)
+          </Label>
+          <Input
+            id="q-negative"
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={negativePct}
+            onChange={(e) => setNegativePct(Number(e.target.value) || 0)}
+            className={styles.pointsInput}
+          />
+          <p className={styles.hint}>
+            Set to 0 to disable. Each wrongly selected option deducts this
+            percentage of the question&apos;s points.
+          </p>
         </div>
       )}
 
@@ -224,13 +272,23 @@ function QuestionCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  const correctList = (question.correct_option ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return (
     <div className={styles.questionCard}>
       <div className={styles.questionHeader}>
         <span className={styles.questionNumber}>
           <GripVertical className={styles.grip} />Q{index + 1}
         </span>
-        <span className={styles.typeBadge}>{TYPE_LABELS[question.type]}</span>
+        <span className={styles.typeBadge}>
+          {TYPE_LABELS[question.type]}
+          {question.type === "mcq" && correctList.length > 1
+            ? " (multiple answers)"
+            : ""}
+        </span>
         <span className={styles.points}>
           {question.max_points} pt{question.max_points !== 1 ? "s" : ""}
         </span>
@@ -259,15 +317,21 @@ function QuestionCard({
           {question.options.map((opt, i) => (
             <li
               key={i}
-              className={`${styles.optionItem} ${String(i) === question.correct_option ? styles.correctOption : ""}`}
+              className={`${styles.optionItem} ${correctList.includes(String(i)) ? styles.correctOption : ""}`}
             >
-              {String(i) === question.correct_option && (
+              {correctList.includes(String(i)) && (
                 <CheckCircle2 className={styles.checkIcon} />
               )}
               {opt}
             </li>
           ))}
         </ul>
+      )}
+      {question.type === "mcq" && Number(question.negative_pct) > 0 && (
+        <p className={styles.answerPreview}>
+          Negative marking: -{Number(question.negative_pct)}% per wrong
+          selection
+        </p>
       )}
       {question.type === "short_answer" && question.correct_answer && (
         <p className={styles.answerPreview}>

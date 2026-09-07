@@ -1,6 +1,7 @@
 // @ts-nocheck
 const crypto = require("crypto");
 const prisma = require("../config/database").default;
+const { scoreMcq } = require("./markingMath");
 const {
   NotFoundError,
   ForbiddenError,
@@ -50,7 +51,8 @@ const buildIdempotencyKey = (roundId, entrantId, route) =>
 //
 // An educator submits answers on behalf of an
 // entrant.  MCQ answers are marked immediately
-// against the question's correct_option.
+// using the shared partial-credit + negative
+// marking rules (markingMath.scoreMcq).
 // ─────────────────────────────────────────
 const createSubmission = async (roundId, educatorUserId, body) => {
   const { entrant_id, route, answers } = body;
@@ -126,11 +128,18 @@ const createSubmission = async (roundId, educatorUserId, body) => {
       let markedAt = null;
 
       // Auto-mark MCQ questions immediately
+      // (multi-answer aware scoring)
       if (question && question.type === "mcq" && question.correct_option) {
-        isCorrect = a.answer_value === question.correct_option;
-        pointsAwarded = isCorrect ? Number(question.max_points) : 0;
+        const score = scoreMcq({
+          maxPoints: question.max_points,
+          correctOption: question.correct_option,
+          selected: a.answer_value,
+          negativePct: question.negative_pct,
+        });
+        isCorrect = score.isCorrect;
+        pointsAwarded = score.points;
         markedAt = new Date();
-        totalPoints += pointsAwarded;
+        totalPoints += score.points;
       } else {
         // Non-MCQ — needs manual marking
         allAutoMarked = false;

@@ -1,5 +1,6 @@
 import {
   Building2,
+  ClipboardCheck,
   FileCheckCorner,
   FilePlusCorner,
   ShieldCheck,
@@ -216,6 +217,14 @@ function OrganiserDashboard() {
                         icon={<ShieldCheck aria-hidden="true" />}
                       >
                         Review
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        to={`/organiser/rounds/${round.id}/marking`}
+                        icon={<ClipboardCheck aria-hidden="true" />}
+                      >
+                        Marking
                       </Button>
                       {round.state === "scheduled" && (
                         <Button

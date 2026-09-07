@@ -9,6 +9,7 @@ const createQuestion = async (req, res, next) => {
       options,
       correct_option,
       correct_answer,
+      negative_pct,
       max_points,
     } = req.body;
 
@@ -16,7 +17,15 @@ const createQuestion = async (req, res, next) => {
       req.params.roundId,
       req.user.userId,
       req.user.role,
-      { type, prompt, options, correct_option, correct_answer, max_points },
+      {
+        type,
+        prompt,
+        options,
+        correct_option,
+        correct_answer,
+        negative_pct,
+        max_points,
+      },
     );
 
     res.status(201).json({ success: true, data: { question } });
@@ -47,6 +56,7 @@ const updateQuestion = async (req, res, next) => {
       options,
       correct_option,
       correct_answer,
+      negative_pct,
       max_points,
     } = req.body;
 
@@ -54,7 +64,15 @@ const updateQuestion = async (req, res, next) => {
       req.params.id,
       req.user.userId,
       req.user.role,
-      { type, prompt, options, correct_option, correct_answer, max_points },
+      {
+        type,
+        prompt,
+        options,
+        correct_option,
+        correct_answer,
+        negative_pct,
+        max_points,
+      },
     );
 
     res.json({ success: true, data: { question } });
