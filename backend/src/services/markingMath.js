@@ -13,10 +13,14 @@
 //   • each wrongly selected option deducts
 //     negative_pct% of max_points
 //   • negative_pct = 0 disables the penalty
+//   • a question never scores below 0 — the
+//     penalty can at most wipe out the raw
+//     credit earned
 //
 // Example — 6 marks, 3 correct, 10% negative:
 //   picks 2 correct, 0 wrong → 6/3 × 2      = 4
 //   picks 1 correct, 2 wrong → 2 − 2 × 0.6  = 0.8
+//   picks 0 correct, 3 wrong → clamped to   = 0
 //
 // correct_option and answer_value both store
 // option indexes as a comma-separated string
@@ -51,9 +55,14 @@ const scoreMcq = ({ maxPoints, correctOption, selected, negativePct }) => {
   const isCorrect =
     correct.length > 0 && rightCount === correct.length && wrongCount === 0;
 
+  // Never below zero — wrong selections can
+  // cost at most what the correct ones earned
+  // (and everything when none were correct)
+  const final = Math.max(0, raw - penalty);
+
   return {
     isCorrect,
-    points: Math.round((raw - penalty) * 100) / 100,
+    points: Math.round(final * 100) / 100,
   };
 };
 
