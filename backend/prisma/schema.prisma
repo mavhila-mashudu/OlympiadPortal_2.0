@@ -113,6 +113,9 @@ model rounds {
   closes_at             DateTime                @db.Timestamptz(6)
   results_release_at    DateTime?               @db.Timestamptz(6)
   state                 round_state             @default(scheduled)
+  exam_status           exam_status             @default(draft)
+  approved_by           String?                 @db.Uuid
+  approved_at           DateTime?               @db.Timestamptz(6)
   qualifying_threshold  Decimal?                @db.Decimal
   created_at            DateTime                @default(now()) @db.Timestamptz(6)
   entrant_registrations entrant_registrations[]
@@ -144,6 +147,8 @@ model questions {
   prompt         String
   options        Json?
   correct_option String?
+  correct_answer String?
+  negative_pct   Decimal   @default(0) @db.Decimal
   max_points     Decimal   @default(1) @db.Decimal
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
   answers        answers[]
@@ -173,6 +178,7 @@ model submissions {
   submitted_by         String?           @db.Uuid
   route                submission_route  @default(offline)
   status               submission_status @default(received)
+  is_late              Boolean           @default(false)
   idempotency_key      String            @unique
   received_at          DateTime          @default(now()) @db.Timestamptz(6)
   round_close_snapshot DateTime          @db.Timestamptz(6)
@@ -245,4 +251,10 @@ enum invite_type {
   school
   educator
   student
+}
+
+enum exam_status {
+  draft
+  ready
+  live
 }

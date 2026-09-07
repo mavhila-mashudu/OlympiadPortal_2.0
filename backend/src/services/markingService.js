@@ -5,6 +5,7 @@ const {
   ForbiddenError,
   BadRequestError,
 } = require("../errors/AppError");
+const { scoreMcq } = require("./markingMath");
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -66,11 +67,18 @@ const recalcSubmissionResults = async (tx, submission) => {
 // ─────────────────────────────────────────
 // AUTO-MARK A SINGLE SUBMISSION
 //
-// Marks every MCQ answer in the submission
-// against its question's correct_option.
-// Non-MCQ answers are left untouched (they
-// queue for manual marking).
+// Marks every MCQ answer with the shared
+// partial-credit + negative-marking rules
+// (see markingMath.scoreMcq) and every
+// short_answer against correct_answer
+// (case-insensitive).  Essay answers
+// are left untouched (they queue for
+// manual marking).
 // ─────────────────────────────────────────
+const isAutoMarkable = (q) =>
+  ((q.type === "mcq" || q.type === "true_false") && q.correct_option) ||
+  (q.type === "short_answer" && q.correct_answer);
+
 const autoMarkSubmission = async (submissionId) => {
   const submission = await prisma.submissions.findUnique({
     where: { id: submissionId },
@@ -82,6 +90,8 @@ const autoMarkSubmission = async (submissionId) => {
               id: true,
               type: true,
               correct_option: true,
+              correct_answer: true,
+              negative_pct: true,
               max_points: true,
             },
           },
@@ -98,11 +108,34 @@ const autoMarkSubmission = async (submissionId) => {
     for (const answer of submission.answers) {
       const q = answer.questions;
 
-      // Only auto-mark MCQ with a known correct option
-      if (q && q.type === "mcq" && q.correct_option) {
-        const isCorrect = answer.answer_value === q.correct_option;
-        const points = isCorrect ? Number(q.max_points) : 0;
+      if (!q || answer.marked_at !== null) continue;
 
+      let isCorrect = null;
+      let points = null;
+
+      // Choice questions (MCQ + True/False) — partial credit
+      // + negative marking (multi-answer aware, see
+      // markingMath.scoreMcq)
+      if ((q.type === "mcq" || q.type === "true_false") && q.correct_option) {
+        const score = scoreMcq({
+          maxPoints: q.max_points,
+          correctOption: q.correct_option,
+          selected: answer.answer_value,
+          negativePct: q.negative_pct,
+        });
+        isCorrect = score.isCorrect;
+        points = score.points;
+      }
+
+      // Short answer — case-insensitive trimmed match
+      if (q.type === "short_answer" && q.correct_answer) {
+        const studentAnswer = (answer.answer_value ?? "").trim().toLowerCase();
+        const correct = q.correct_answer.trim().toLowerCase();
+        isCorrect = studentAnswer === correct;
+        points = isCorrect ? Number(q.max_points) : 0;
+      }
+
+      if (isCorrect !== null) {
         await tx.answers.update({
           where: { id: answer.id },
           data: {
@@ -118,13 +151,13 @@ const autoMarkSubmission = async (submissionId) => {
     await recalcSubmissionResults(tx, submission);
 
     // Update submission status
-    const hasUnmarked = submission.answers.some(
-      (a) => a.questions && a.questions.type !== "mcq",
+    const hasManual = submission.answers.some(
+      (a) => a.questions && !isAutoMarkable(a.questions),
     );
 
     await tx.submissions.update({
       where: { id: submissionId },
-      data: { status: hasUnmarked ? "queued_for_marking" : "automarked" },
+      data: { status: hasManual ? "queued_for_marking" : "automarked" },
     });
   });
 
@@ -301,10 +334,51 @@ const generateResults = async (roundId, userId, role) => {
   };
 };
 
+// ─────────────────────────────────────────
+// GET MARKING QUEUE FOR A ROUND
+//
+// Returns every submission still holding
+// unmarked answers (essays), with the
+// entrant's name, the question prompt and
+// the student's answer text — everything
+// a human marker needs to award points.
+// ─────────────────────────────────────────
+const getMarkingQueue = async (roundId, userId, role) => {
+  await assertRoundOwnership(roundId, userId, role);
+
+  const submissions = await prisma.submissions.findMany({
+    where: { round_id: roundId, status: "queued_for_marking" },
+    include: {
+      entrants: { select: { id: true, full_name: true, grade: true } },
+      answers: {
+        where: { marked_at: null },
+        include: {
+          questions: {
+            select: {
+              id: true,
+              prompt: true,
+              type: true,
+              options: true,
+              correct_option: true,
+              correct_answer: true,
+              max_points: true,
+            },
+          },
+        },
+        orderBy: { questions: { created_at: "asc" } },
+      },
+    },
+    orderBy: { received_at: "asc" },
+  });
+
+  return submissions.filter((s) => s.answers.length > 0);
+};
+
 module.exports = {
   autoMarkSubmission,
   autoMarkRoundInternal,
   autoMarkRound,
   markAnswer,
   generateResults,
+  getMarkingQueue,
 };

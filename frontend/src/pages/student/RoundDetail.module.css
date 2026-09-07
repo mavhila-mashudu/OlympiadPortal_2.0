@@ -99,6 +99,12 @@
   line-height: 1rem;
 }
 
+.paperActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 .resultBody {
   display: grid;
   gap: 1rem;

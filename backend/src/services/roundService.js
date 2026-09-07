@@ -1,6 +1,7 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
 const { assertOwnsOlympiad } = require("./olympiadService");
+const { autoMarkRoundInternal } = require("./markingService");
 const {
   NotFoundError,
   ForbiddenError,
@@ -33,7 +34,7 @@ const createRound = async ({
     throw new BadRequestError("closes_at must be after opens_at");
   }
 
-   const round = await prisma.rounds.create({
+  const round = await prisma.rounds.create({
     data: {
       olympiad_id: olympiadId,
       name,
@@ -91,7 +92,11 @@ const getRound = async (roundId, organiserId) => {
 // once it's live, its timing shouldn't move under
 // schools that are already relying on it.
 // ─────────────────────────────────────────
-const updateRound = async (roundId, organiserId, { name, opensAt, closesAt }) => {
+const updateRound = async (
+  roundId,
+  organiserId,
+  { name, opensAt, closesAt },
+) => {
   const round = await getRound(roundId, organiserId);
 
   if (round.state !== "scheduled") {
@@ -142,10 +147,58 @@ const deleteRound = async (roundId, organiserId) => {
   await prisma.rounds.delete({ where: { id: roundId } });
 };
 
+// ─────────────────────────────────────────
+// SET ROUND STATE (manual organiser override)
+// Mirrors the lifecycle transitions but lets
+// the organiser move a round early.  Closing
+// a round triggers auto-marking, same as the
+// lifecycle job would.
+// ─────────────────────────────────────────
+const setRoundState = async (roundId, organiserId, state) => {
+  const round = await getRound(roundId, organiserId);
+
+  const allowed = {
+    scheduled: ["open"],
+    open: ["closed"],
+    closed: ["marking"],
+    marking: ["results_released"],
+    results_released: [],
+  };
+
+  if (!allowed[round.state].includes(state)) {
+    throw new BadRequestError(
+      `Cannot transition from "${round.state}" to "${state}"`,
+    );
+  }
+
+  const updated = await prisma.rounds.update({
+    where: { id: roundId },
+    data: { state },
+  });
+
+  // Closing a round kicks off auto-marking,
+  // matching the lifecycle job's behaviour.
+  if (state === "closed") {
+    try {
+      const result = await autoMarkRoundInternal(roundId);
+      console.log(
+        `[round] auto-marked ${result.total} submission(s) for round "${round.name}"`,
+      );
+    } catch (err) {
+      console.error(
+        `[round] auto-marking failed for round "${round.name}" (${roundId}): ${err.message}`,
+      );
+    }
+  }
+
+  return updated;
+};
+
 module.exports = {
   createRound,
   listRounds,
   getRound,
   updateRound,
   deleteRound,
+  setRoundState,
 };
