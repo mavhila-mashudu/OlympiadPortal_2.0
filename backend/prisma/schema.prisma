@@ -114,6 +114,8 @@ model rounds {
   results_release_at    DateTime?               @db.Timestamptz(6)
   state                 round_state             @default(scheduled)
   exam_status           exam_status             @default(draft)
+  approved_by           String?                 @db.Uuid
+  approved_at           DateTime?               @db.Timestamptz(6)
   qualifying_threshold  Decimal?                @db.Decimal
   created_at            DateTime                @default(now()) @db.Timestamptz(6)
   entrant_registrations entrant_registrations[]

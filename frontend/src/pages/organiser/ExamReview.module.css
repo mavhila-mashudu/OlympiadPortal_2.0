@@ -99,7 +99,7 @@
 
 .summaryGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
   gap: 0;
 }
 
@@ -218,6 +218,36 @@
   font-size: 0.75rem;
 }
 
+.questionActions {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: calc(var(--radius) - 2px);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  padding: 0.25rem;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.iconBtn svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.iconBtn:hover {
+  background: var(--muted);
+  color: var(--foreground);
+}
+
 .questionPrompt {
   color: var(--foreground);
   font-size: 0.875rem;
@@ -288,6 +318,50 @@
   font-style: italic;
 }
 
+/* Organiser answer-correction editor */
+.correctEditor {
+  display: grid;
+  gap: 0.625rem;
+  border: 1px dashed color-mix(in oklab, var(--primary) 40%, transparent);
+  border-radius: calc(var(--radius) - 2px);
+  background: color-mix(in oklab, var(--primary) 4%, transparent);
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+}
+
+.correctLabel {
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.correctOptions {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.correctOptionRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.correctRadio {
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.correctActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .emptyCard {
   text-align: center;
   color: var(--muted-foreground);
@@ -301,4 +375,53 @@
     align-items: flex-end;
     justify-content: space-between;
   }
+}
+
+/* Side-by-side memo PDF viewer layout */
+.reviewLayout {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 80rem) {
+  .reviewLayout {
+    grid-template-columns: 1fr 34rem;
+  }
+}
+
+.pdfPanel {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  overflow: hidden;
+  position: sticky;
+  top: 1rem;
+  height: calc(100vh - 6rem);
+  min-height: 24rem;
+}
+
+.pdfPanelHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.625rem 0.875rem;
+}
+
+.pdfPanelHeader svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+}
+
+.pdfFrame {
+  border: none;
+  flex: 1;
+  width: 100%;
 }

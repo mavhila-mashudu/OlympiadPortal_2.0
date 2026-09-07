@@ -127,9 +127,13 @@ const createSubmission = async (roundId, educatorUserId, body) => {
       let pointsAwarded = null;
       let markedAt = null;
 
-      // Auto-mark MCQ questions immediately
-      // (multi-answer aware scoring)
-      if (question && question.type === "mcq" && question.correct_option) {
+      // Auto-mark choice questions (MCQ + True/False)
+      // immediately (multi-answer aware scoring)
+      if (
+        question &&
+        (question.type === "mcq" || question.type === "true_false") &&
+        question.correct_option
+      ) {
         const score = scoreMcq({
           maxPoints: question.max_points,
           correctOption: question.correct_option,

@@ -43,6 +43,16 @@ const getExamStatus = async (req, res, next) => {
       }
     }
 
+    // Resolve the approver's name for the audit trail
+    let approved_by_name = null;
+    if (round.approved_by) {
+      const approver = await prisma.users.findUnique({
+        where: { id: round.approved_by },
+        select: { full_name: true },
+      });
+      approved_by_name = approver?.full_name ?? null;
+    }
+
     res.json({
       success: true,
       data: {
@@ -51,6 +61,9 @@ const getExamStatus = async (req, res, next) => {
         question_count: questionCount,
         questions_by_type: byType,
         paper_id: paper?.id || null,
+        approved_by: round.approved_by,
+        approved_at: round.approved_at,
+        approved_by_name,
       },
     });
   } catch (err) {
@@ -102,9 +115,21 @@ const updateExamStatus = async (req, res, next) => {
       );
     }
 
+    // Audit trail: going live records which organiser
+    // verified the exam (two-person integrity).  Any
+    // other transition clears a stale approval record.
+    const patchData = { exam_status: status };
+    if (status === "live") {
+      patchData.approved_by = req.user.userId;
+      patchData.approved_at = new Date();
+    } else {
+      patchData.approved_by = null;
+      patchData.approved_at = null;
+    }
+
     const updated = await prisma.rounds.update({
       where: { id: req.params.roundId },
-      data: { exam_status: status },
+      data: patchData,
     });
 
     res.json({

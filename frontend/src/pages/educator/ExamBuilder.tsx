@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   CheckCircle2,
+  FileText,
   GripVertical,
   Pencil,
   Plus,
@@ -19,7 +20,7 @@ import { Textarea } from "../../components/ui/Textarea";
 import { educatorNav } from "../../lib/mockData";
 import styles from "./ExamBuilder.module.css";
 
-type QuestionType = "mcq" | "short_answer" | "essay";
+type QuestionType = "mcq" | "true_false" | "short_answer" | "essay";
 
 type Question = {
   id: string;
@@ -34,6 +35,7 @@ type Question = {
 
 const TYPE_LABELS: Record<QuestionType, string> = {
   mcq: "Multiple choice",
+  true_false: "True / False",
   short_answer: "Short answer",
   essay: "Essay / long answer",
 };
@@ -108,9 +110,14 @@ function QuestionForm({
     onSave({
       type,
       prompt: prompt.trim(),
-      options: type === "mcq" ? options.filter(Boolean) : null,
+      options:
+        type === "mcq"
+          ? options.filter(Boolean)
+          : type === "true_false"
+            ? ["True", "False"]
+            : null,
       correct_option:
-        type === "mcq" && correctOptions.length > 0
+        (type === "mcq" || type === "true_false") && correctOptions.length > 0
           ? correctOptions.join(",")
           : null,
       correct_answer: type === "short_answer" ? correctAnswer.trim() : null,
@@ -125,6 +132,7 @@ function QuestionForm({
       (type === "mcq" &&
         options.filter(Boolean).length >= 2 &&
         correctOptions.length > 0) ||
+      (type === "true_false" && correctOptions.length === 1) ||
       (type === "short_answer" && correctAnswer.trim().length > 0));
 
   return (
@@ -134,11 +142,25 @@ function QuestionForm({
         <Select
           id="q-type"
           value={type}
-          onChange={(e) => setType(e.target.value as QuestionType)}
+          onChange={(e) => {
+            const next = e.target.value as QuestionType;
+            setType(next);
+            // True/False has fixed options; switching in or
+            // out resets the option editor so stale values
+            // never leak between types
+            if (next === "true_false") {
+              setOptions(["True", "False"]);
+              setCorrectOptions([]);
+            } else if (type === "true_false") {
+              setOptions(["", "", "", ""]);
+              setCorrectOptions([]);
+            }
+          }}
         >
           <option value="mcq">
             Multiple choice (single or multiple answers)
           </option>
+          <option value="true_false">True / False</option>
           <option value="short_answer">
             Short answer (single word / number)
           </option>
@@ -215,6 +237,26 @@ function QuestionForm({
             Set to 0 to disable. Each wrongly selected option deducts this
             percentage of the question&apos;s points.
           </p>
+        </div>
+      )}
+
+      {type === "true_false" && (
+        <div className={styles.field}>
+          <Label>Correct answer</Label>
+          <div className={styles.tfRow}>
+            {["True", "False"].map((label, idx) => (
+              <label key={label} className={styles.tfOption}>
+                <input
+                  type="radio"
+                  name="tf-correct"
+                  checked={correctOptions.includes(String(idx))}
+                  onChange={() => setCorrectOptions([String(idx)])}
+                  className={styles.radio}
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
         </div>
       )}
 
@@ -312,21 +354,22 @@ function QuestionCard({
         </div>
       </div>
       <p className={styles.questionPrompt}>{question.prompt}</p>
-      {question.type === "mcq" && question.options && (
-        <ul className={styles.optionsReview}>
-          {question.options.map((opt, i) => (
-            <li
-              key={i}
-              className={`${styles.optionItem} ${correctList.includes(String(i)) ? styles.correctOption : ""}`}
-            >
-              {correctList.includes(String(i)) && (
-                <CheckCircle2 className={styles.checkIcon} />
-              )}
-              {opt}
-            </li>
-          ))}
-        </ul>
-      )}
+      {(question.type === "mcq" || question.type === "true_false") &&
+        question.options && (
+          <ul className={styles.optionsReview}>
+            {question.options.map((opt, i) => (
+              <li
+                key={i}
+                className={`${styles.optionItem} ${correctList.includes(String(i)) ? styles.correctOption : ""}`}
+              >
+                {correctList.includes(String(i)) && (
+                  <CheckCircle2 className={styles.checkIcon} />
+                )}
+                {opt}
+              </li>
+            ))}
+          </ul>
+        )}
       {question.type === "mcq" && Number(question.negative_pct) > 0 && (
         <p className={styles.answerPreview}>
           Negative marking: -{Number(question.negative_pct)}% per wrong
@@ -350,6 +393,8 @@ function ExamBuilder() {
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [examStatus, setExamStatus] = useState<string>("draft");
+  const [paperUrl, setPaperUrl] = useState<string | null>(null);
+  const [showPaper, setShowPaper] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -378,11 +423,25 @@ function ExamBuilder() {
     }
   }, [roundId]);
 
+  // Signed viewing URL for the uploaded question paper —
+  // shown side-by-side so the educator can digitize while
+  // reading the original PDF
+  const fetchPaperUrl = useCallback(async () => {
+    try {
+      const res = await api.get<{ url: string }>(
+        `/papers/by-round/${roundId}?type=paper`,
+      );
+      setPaperUrl(res.url);
+    } catch {
+      setPaperUrl(null);
+    }
+  }, [roundId]);
+
   useEffect(() => {
-    Promise.all([fetchQuestions(), fetchStatus()]).finally(() =>
-      setLoading(false),
+    Promise.all([fetchQuestions(), fetchStatus(), fetchPaperUrl()]).finally(
+      () => setLoading(false),
     );
-  }, [fetchQuestions, fetchStatus]);
+  }, [fetchQuestions, fetchStatus, fetchPaperUrl]);
 
   const handleSave = async (data: Omit<Question, "id">) => {
     setSaving(true);
@@ -463,110 +522,139 @@ function ExamBuilder() {
       userInitials=""
       userName=""
     >
-      <div className={styles.stack}>
-        <header className={styles.pageHeader}>
-          <div>
-            <h1>Exam Builder</h1>
-            <p>
-              Digitize the question paper — add each question with its type,
-              options, and correct answer.
-            </p>
-          </div>
-          <div className={styles.pageActions}>
-            <Button variant="outline" to="/educator">
-              <ArrowLeft /> Back to rounds
-            </Button>
-          </div>
-        </header>
+      <div
+        className={showPaper && paperUrl ? styles.builderLayout : styles.stack}
+      >
+        <div className={styles.stack}>
+          <header className={styles.pageHeader}>
+            <div>
+              <h1>Exam Builder</h1>
+              <p>
+                Digitize the question paper — add each question with its type,
+                options, and correct answer.
+              </p>
+            </div>
+            <div className={styles.pageActions}>
+              {paperUrl && (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPaper((v) => !v)}
+                >
+                  <FileText />
+                  {showPaper ? "Hide" : "Show"} question paper
+                </Button>
+              )}
+              <Button variant="outline" to="/educator">
+                <ArrowLeft /> Back to rounds
+              </Button>
+            </div>
+          </header>
 
-        {/* Status bar */}
-        <div className={styles.statusBar}>
-          <div className={styles.statsRow}>
-            <span>
-              <strong>{questions.length}</strong> question
-              {questions.length !== 1 ? "s" : ""}
-            </span>
-            <span>
-              <strong>{totalPoints}</strong> total point
-              {totalPoints !== 1 ? "s" : ""}
-            </span>
-            <span className={`${styles.statusPill} ${styles[examStatus]}`}>
-              {examStatus === "draft" && "Draft"}
-              {examStatus === "ready" && "Ready for review"}
-              {examStatus === "live" && "Live"}
-            </span>
+          {/* Status bar */}
+          <div className={styles.statusBar}>
+            <div className={styles.statsRow}>
+              <span>
+                <strong>{questions.length}</strong> question
+                {questions.length !== 1 ? "s" : ""}
+              </span>
+              <span>
+                <strong>{totalPoints}</strong> total point
+                {totalPoints !== 1 ? "s" : ""}
+              </span>
+              <span className={`${styles.statusPill} ${styles[examStatus]}`}>
+                {examStatus === "draft" && "Draft"}
+                {examStatus === "ready" && "Ready for review"}
+                {examStatus === "live" && "Live"}
+              </span>
+            </div>
+            {isDraft && questions.length > 0 && (
+              <Button size="sm" onClick={handleMarkReady}>
+                <CheckCircle2 /> Mark as ready for review
+              </Button>
+            )}
+            {isReady && (
+              <span className={styles.readyNote}>
+                Submitted for organiser verification. Waiting for approval.
+              </span>
+            )}
           </div>
-          {isDraft && questions.length > 0 && (
-            <Button size="sm" onClick={handleMarkReady}>
-              <CheckCircle2 /> Mark as ready for review
+
+          {error && <div className={styles.errorBanner}>{error}</div>}
+
+          {/* Question list */}
+          {questions.length > 0 && !showForm && (
+            <div className={styles.questionList}>
+              {questions.map((q, i) => (
+                <QuestionCard
+                  key={q.id}
+                  question={q}
+                  index={i}
+                  onEdit={() => {
+                    setEditingId(q.id);
+                    setShowForm(true);
+                  }}
+                  onDelete={() => handleDelete(q.id)}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Form */}
+          {showForm && isDraft && (
+            <Card className={styles.formCard}>
+              <h2>{editingId ? "Edit question" : "Add a question"}</h2>
+              <QuestionForm
+                initial={
+                  editingId
+                    ? questions.find((q) => q.id === editingId)
+                    : undefined
+                }
+                onSave={handleSave}
+                onCancel={() => {
+                  setShowForm(false);
+                  setEditingId(null);
+                }}
+                saving={saving}
+              />
+            </Card>
+          )}
+
+          {/* Add button */}
+          {isDraft && !showForm && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEditingId(null);
+                setShowForm(true);
+              }}
+            >
+              <Plus /> Add question
             </Button>
           )}
-          {isReady && (
-            <span className={styles.readyNote}>
-              Submitted for organiser verification. Waiting for approval.
-            </span>
+
+          {!isDraft && !showForm && questions.length === 0 && (
+            <Card className={styles.emptyCard}>
+              <p>
+                No questions yet. The exam must be in draft mode to add
+                questions.
+              </p>
+            </Card>
           )}
         </div>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
-
-        {/* Question list */}
-        {questions.length > 0 && !showForm && (
-          <div className={styles.questionList}>
-            {questions.map((q, i) => (
-              <QuestionCard
-                key={q.id}
-                question={q}
-                index={i}
-                onEdit={() => {
-                  setEditingId(q.id);
-                  setShowForm(true);
-                }}
-                onDelete={() => handleDelete(q.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Form */}
-        {showForm && isDraft && (
-          <Card className={styles.formCard}>
-            <h2>{editingId ? "Edit question" : "Add a question"}</h2>
-            <QuestionForm
-              initial={
-                editingId
-                  ? questions.find((q) => q.id === editingId)
-                  : undefined
-              }
-              onSave={handleSave}
-              onCancel={() => {
-                setShowForm(false);
-                setEditingId(null);
-              }}
-              saving={saving}
+        {/* Side-by-side PDF viewer — the original question paper */}
+        {showPaper && paperUrl && (
+          <aside className={styles.pdfPanel}>
+            <div className={styles.pdfPanelHeader}>
+              <FileText />
+              <span>Question paper (for reference)</span>
+            </div>
+            <iframe
+              src={paperUrl}
+              title="Question paper"
+              className={styles.pdfFrame}
             />
-          </Card>
-        )}
-
-        {/* Add button */}
-        {isDraft && !showForm && (
-          <Button
-            variant="outline"
-            onClick={() => {
-              setEditingId(null);
-              setShowForm(true);
-            }}
-          >
-            <Plus /> Add question
-          </Button>
-        )}
-
-        {!isDraft && !showForm && questions.length === 0 && (
-          <Card className={styles.emptyCard}>
-            <p>
-              No questions yet. The exam must be in draft mode to add questions.
-            </p>
-          </Card>
+          </aside>
         )}
       </div>
     </AppShell>

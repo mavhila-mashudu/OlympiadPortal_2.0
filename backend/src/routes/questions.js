@@ -49,8 +49,8 @@ const createQuestionRules = [
     .trim()
     .notEmpty()
     .withMessage("Question type is required")
-    .isIn(["mcq", "short_answer", "essay"])
-    .withMessage("type must be one of: mcq, short_answer, essay"),
+    .isIn(["mcq", "true_false", "short_answer", "essay"])
+    .withMessage("type must be one of: mcq, true_false, short_answer, essay"),
   body("prompt").trim().notEmpty().withMessage("Prompt is required"),
   body("options").optional().isArray(),
   correctOptionRule(),
@@ -61,7 +61,10 @@ const createQuestionRules = [
 
 const updateQuestionRules = [
   param("id").isUUID(),
-  body("type").optional().trim().isIn(["mcq", "short_answer", "essay"]),
+  body("type")
+    .optional()
+    .trim()
+    .isIn(["mcq", "true_false", "short_answer", "essay"]),
   body("prompt").optional().trim().notEmpty(),
   body("options").optional().isArray(),
   correctOptionRule(),

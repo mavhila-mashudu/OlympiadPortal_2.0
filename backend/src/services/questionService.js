@@ -166,10 +166,20 @@ const listQuestions = async (roundId, userId, role) => {
 const updateQuestion = async (questionId, userId, role, data) => {
   const { round } = await assertQuestionAccess(questionId, userId, role);
 
+  // Editing is locked once digitization moves on:
+  //   • educators may edit only while the exam is draft
+  //   • organisers may additionally CORRECT answers while
+  //     the exam awaits their verification (ready) — this is
+  //     the organiser's answer-correction path
   if (round.exam_status !== "draft") {
-    throw new BadRequestError(
-      "Questions can only be edited while the exam is in draft status",
-    );
+    const mayCorrect = role === "organiser" && round.exam_status === "ready";
+    if (!mayCorrect) {
+      throw new BadRequestError(
+        role === "organiser"
+          ? "Questions are locked once the exam is live"
+          : "Questions can only be edited while the exam is in draft status",
+      );
+    }
   }
 
   const updateData = {};

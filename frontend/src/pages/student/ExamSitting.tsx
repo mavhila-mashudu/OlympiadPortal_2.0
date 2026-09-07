@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Flag,
   Send,
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
@@ -18,7 +19,7 @@ import { Textarea } from "../../components/ui/Textarea";
 import { studentNav } from "../../lib/mockData";
 import styles from "./ExamSitting.module.css";
 
-type QuestionType = "mcq" | "short_answer" | "essay";
+type QuestionType = "mcq" | "true_false" | "short_answer" | "essay";
 
 type Question = {
   id: string;
@@ -53,6 +54,7 @@ type ExamData = {
 function useCountdown(closesAt: string, offsetMs = 0) {
   const [remaining, setRemaining] = useState("");
   const [expired, setExpired] = useState(false);
+  const [urgent, setUrgent] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(
     undefined,
   );
@@ -69,6 +71,7 @@ function useCountdown(closesAt: string, offsetMs = 0) {
       if (diff <= 0) {
         setRemaining("Time expired");
         setExpired(true);
+        setUrgent(false);
         if (intervalRef.current) clearInterval(intervalRef.current);
         return;
       }
@@ -77,6 +80,8 @@ function useCountdown(closesAt: string, offsetMs = 0) {
       const minutes = Math.floor((diff % 3600000) / 60000);
       const seconds = Math.floor((diff % 60000) / 1000);
 
+      // Final five minutes — the timer turns red
+      setUrgent(diff <= 5 * 60 * 1000);
       setRemaining(
         `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
       );
@@ -89,7 +94,7 @@ function useCountdown(closesAt: string, offsetMs = 0) {
     };
   }, [closesAt, offsetMs]);
 
-  return { remaining, expired };
+  return { remaining, expired, urgent };
 }
 
 // ── Offline resilience ──────────────────────────────
@@ -131,6 +136,8 @@ function ExamSitting() {
   const dirtyRef = useRef<Set<string>>(new Set());
   const [serverOffset, setServerOffset] = useState(0);
   const [offline, setOffline] = useState(false);
+  const [submitQueued, setSubmitQueued] = useState(false);
+  const [flagged, setFlagged] = useState<Set<string>>(new Set());
   const [currentIdx, setCurrentIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [started, setStarted] = useState(false);
@@ -142,11 +149,23 @@ function ExamSitting() {
     is_late?: boolean;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">(
+    "idle",
+  );
+  const [dirtyCount, setDirtyCount] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  // A final submit that failed while offline is retried
+  // through this ref so reconnect handlers always use the
+  // freshest state
+  const submitRetryRef = useRef<(() => void) | undefined>(undefined);
+  const submitQueuedRef = useRef(false);
+
+  useEffect(() => {
+    submitQueuedRef.current = submitQueued;
+  }, [submitQueued]);
 
   // Load exam data (questions + check for existing submission)
   const loadExam = useCallback(async () => {
@@ -186,7 +205,35 @@ function ExamSitting() {
     loadExam().finally(() => setLoading(false));
   }, [loadExam]);
 
-  const { remaining, expired } = useCountdown(
+  // Flags are a local navigation aid (never sent to the
+  // server) but persist across refreshes
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`exam-flags-${roundId}`);
+      if (raw) setFlagged(new Set(JSON.parse(raw)));
+    } catch {
+      // ignore
+    }
+  }, [roundId]);
+
+  const toggleFlag = (questionId: string) => {
+    setFlagged((prev) => {
+      const next = new Set(prev);
+      if (next.has(questionId)) next.delete(questionId);
+      else next.add(questionId);
+      try {
+        localStorage.setItem(
+          `exam-flags-${roundId}`,
+          JSON.stringify([...next]),
+        );
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  };
+
+  const { remaining, expired, urgent } = useCountdown(
     examData?.round.closes_at ?? "",
     serverOffset,
   );
@@ -225,18 +272,20 @@ function ExamSitting() {
   const pushAnswer = useCallback(
     async (questionId: string) => {
       const value = answersRef.current.get(questionId);
-      setSaving(true);
+      setSaveState("saving");
       try {
         await api.patch(`/rounds/${roundId}/exam/answers/${questionId}`, {
           answer_value: value || null,
         });
         dirtyRef.current.delete(questionId);
+        setSaveState("saved");
       } catch {
         dirtyRef.current.add(questionId);
+        setSaveState("idle");
       } finally {
-        setSaving(false);
+        setDirtyCount(dirtyRef.current.size);
+        persistLocal();
       }
-      persistLocal();
     },
     [roundId, persistLocal],
   );
@@ -274,7 +323,12 @@ function ExamSitting() {
   useEffect(() => {
     const onOnline = () => {
       setOffline(false);
-      if (started && !submitted) flushPending();
+      if (started && !submitted) {
+        flushPending();
+        // A final submit that failed offline retries
+        // immediately on reconnect
+        if (submitQueuedRef.current) submitRetryRef.current?.();
+      }
     };
     const onOffline = () => setOffline(true);
     window.addEventListener("online", onOnline);
@@ -284,6 +338,42 @@ function ExamSitting() {
       window.removeEventListener("offline", onOffline);
     };
   }, [started, submitted, flushPending]);
+
+  // Periodic connectivity ping — the browser's online/offline
+  // events only fire on interface changes; this also detects
+  // loss of actual server reachability
+  useEffect(() => {
+    if (!started || submitted) return;
+    const ping = async () => {
+      let ok = false;
+      try {
+        await api.get("/health");
+        ok = true;
+      } catch {
+        ok = false;
+      }
+      if (ok) {
+        setOffline(false);
+        flushPending();
+        if (submitQueuedRef.current) submitRetryRef.current?.();
+      } else {
+        setOffline(true);
+      }
+    };
+    const t = setInterval(ping, 30000);
+    return () => clearInterval(t);
+  }, [started, submitted, flushPending]);
+
+  // Background retry for a final submit that failed due to
+  // network loss — re-attempts every 15s while a connection
+  // appears available
+  useEffect(() => {
+    if (!submitQueued || submitted) return;
+    const t = setInterval(() => {
+      if (!offline) submitRetryRef.current?.();
+    }, 15000);
+    return () => clearInterval(t);
+  }, [submitQueued, submitted, offline]);
 
   const handleSubmit = async () => {
     setShowConfirm(false);
@@ -303,23 +393,35 @@ function ExamSitting() {
         is_late?: boolean;
       }>(`/rounds/${roundId}/exam/submit`);
       setSubmitted(true);
+      setSubmitQueued(false);
       setSubmitResult({
         status: res.status,
         total_points: res.total_points,
         is_late: res.is_late,
       });
-      // Local cache no longer needed
+      // Local caches no longer needed
       try {
         localStorage.removeItem(`exam-answers-${roundId}`);
+        localStorage.removeItem(`exam-flags-${roundId}`);
       } catch {
         // ignore
       }
     } catch (err: any) {
-      setError(err.message || "Failed to submit exam");
+      if (err instanceof TypeError) {
+        // Network failure — the final submit is queued and
+        // retried automatically once the connection returns
+        setSubmitQueued(true);
+      } else {
+        setError(err.message || "Failed to submit exam");
+      }
     } finally {
       setSubmitting(false);
     }
   };
+
+  // Kept current so reconnect handlers and the retry
+  // interval always re-attempt with fresh state
+  submitRetryRef.current = handleSubmit;
 
   const questions = examData?.questions ?? [];
   const currentQ = questions[currentIdx];
@@ -432,13 +534,23 @@ function ExamSitting() {
           </div>
           <div className={styles.headerRight}>
             <div
-              className={`${styles.timer} ${expired ? styles.timerExpired : ""}`}
+              className={`${styles.timer} ${expired ? styles.timerExpired : urgent ? styles.timerUrgent : ""}`}
             >
               <Clock />
               <span>{remaining}</span>
             </div>
-            {saving && (
-              <span className={styles.savingIndicator}>Saving...</span>
+            {started && (
+              <span
+                className={`${styles.saveStatus} ${dirtyCount > 0 && saveState !== "saving" ? styles.savePending : ""}`}
+              >
+                {saveState === "saving"
+                  ? "Saving..."
+                  : dirtyCount > 0
+                    ? `${dirtyCount} answer${dirtyCount !== 1 ? "s" : ""} saved locally`
+                    : saveState === "saved"
+                      ? "All answers saved"
+                      : ""}
+              </span>
             )}
           </div>
         </header>
@@ -449,6 +561,13 @@ function ExamSitting() {
           <div className={styles.offlineBanner}>
             You are offline — your answers are saved locally and will sync when
             the connection returns.
+          </div>
+        )}
+
+        {submitQueued && !submitted && (
+          <div className={styles.offlineBanner}>
+            Your answers are saved locally. The exam will be submitted
+            automatically when your connection returns.
           </div>
         )}
 
@@ -477,14 +596,15 @@ function ExamSitting() {
                   const hasAnswer =
                     answers.has(q.id) &&
                     (answers.get(q.id)?.trim().length ?? 0) > 0;
+                  const isFlagged = flagged.has(q.id);
                   const isCurrent = i === currentIdx;
                   return (
                     <button
                       key={q.id}
                       type="button"
-                      className={`${styles.navBtn} ${isCurrent ? styles.navCurrent : ""} ${hasAnswer ? styles.navAnswered : ""}`}
+                      className={`${styles.navBtn} ${hasAnswer ? styles.navAnswered : ""} ${isFlagged ? styles.navFlagged : ""} ${isCurrent ? styles.navCurrent : ""}`}
                       onClick={() => setCurrentIdx(i)}
-                      title={`Question ${i + 1}${hasAnswer ? " (answered)" : ""}`}
+                      title={`Question ${i + 1}${hasAnswer ? " (answered)" : ""}${isFlagged ? " (flagged for review)" : ""}`}
                     >
                       {i + 1}
                     </button>
@@ -504,6 +624,12 @@ function ExamSitting() {
                   />
                   Unanswered ({questions.length - answeredCount})
                 </span>
+                <span className={styles.legendItem}>
+                  <span
+                    className={`${styles.legendDot} ${styles.legendFlagged}`}
+                  />
+                  Flagged ({flagged.size})
+                </span>
               </div>
             </aside>
 
@@ -518,10 +644,23 @@ function ExamSitting() {
                     ? currentQ.multi_select
                       ? "Multiple answer"
                       : "Multiple choice"
-                    : currentQ.type === "short_answer"
-                      ? "Short answer"
-                      : "Essay"}
+                    : currentQ.type === "true_false"
+                      ? "True / False"
+                      : currentQ.type === "short_answer"
+                        ? "Short answer"
+                        : "Essay"}
                 </span>
+                <button
+                  type="button"
+                  className={`${styles.flagBtn} ${flagged.has(currentQ.id) ? styles.flagBtnActive : ""}`}
+                  onClick={() => toggleFlag(currentQ.id)}
+                  title={
+                    flagged.has(currentQ.id) ? "Remove flag" : "Flag for review"
+                  }
+                >
+                  <Flag />
+                  {flagged.has(currentQ.id) ? "Flagged" : "Flag"}
+                </button>
                 <span className={styles.points}>{currentQ.max_points} pts</span>
               </div>
 
@@ -545,47 +684,51 @@ function ExamSitting() {
                   </div>
                 )}
 
-              {/* MCQ — checkboxes when multiple answers apply */}
-              {currentQ.type === "mcq" && currentQ.options && (
-                <div className={styles.optionsList}>
-                  {currentQ.options.map((opt, idx) => {
-                    const multi = currentQ.multi_select ?? false;
-                    const selectedList = (answers.get(currentQ.id) ?? "")
-                      .split(",")
-                      .map((s) => s.trim())
-                      .filter(Boolean);
-                    const isChecked = selectedList.includes(String(idx));
+              {/* Choice questions — checkboxes when multiple answers apply */}
+              {(currentQ.type === "mcq" || currentQ.type === "true_false") &&
+                currentQ.options && (
+                  <div className={styles.optionsList}>
+                    {currentQ.options.map((opt, idx) => {
+                      const multi =
+                        currentQ.type === "mcq"
+                          ? (currentQ.multi_select ?? false)
+                          : false;
+                      const selectedList = (answers.get(currentQ.id) ?? "")
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      const isChecked = selectedList.includes(String(idx));
 
-                    const handleSelect = () => {
-                      if (!multi) {
-                        saveAnswer(currentQ.id, String(idx));
-                        return;
-                      }
-                      const next = isChecked
-                        ? selectedList.filter((s) => s !== String(idx))
-                        : [...selectedList, String(idx)];
-                      saveAnswer(currentQ.id, next.join(","));
-                    };
+                      const handleSelect = () => {
+                        if (!multi) {
+                          saveAnswer(currentQ.id, String(idx));
+                          return;
+                        }
+                        const next = isChecked
+                          ? selectedList.filter((s) => s !== String(idx))
+                          : [...selectedList, String(idx)];
+                        saveAnswer(currentQ.id, next.join(","));
+                      };
 
-                    return (
-                      <label key={idx} className={styles.optionLabel}>
-                        <input
-                          type={multi ? "checkbox" : "radio"}
-                          name={`q-${currentQ.id}`}
-                          checked={isChecked}
-                          onChange={handleSelect}
-                          className={styles.radio}
-                        />
-                        <span
-                          className={`${styles.optionText} ${isChecked ? styles.optionSelected : ""}`}
-                        >
-                          {String.fromCharCode(65 + idx)}. {opt}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+                      return (
+                        <label key={idx} className={styles.optionLabel}>
+                          <input
+                            type={multi ? "checkbox" : "radio"}
+                            name={`q-${currentQ.id}`}
+                            checked={isChecked}
+                            onChange={handleSelect}
+                            className={styles.radio}
+                          />
+                          <span
+                            className={`${styles.optionText} ${isChecked ? styles.optionSelected : ""}`}
+                          >
+                            {String.fromCharCode(65 + idx)}. {opt}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
 
               {/* Short answer */}
               {currentQ.type === "short_answer" && (

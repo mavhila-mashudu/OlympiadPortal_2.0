@@ -334,7 +334,8 @@ const submitExam = async (req, res, next) => {
       throw new BadRequestError("This exam has already been submitted");
     }
 
-    // Auto-mark MCQ + short_answer inline
+    // Auto-mark choice questions (MCQ + True/False) and
+    // short answers inline
     const now = new Date();
     // round_close_snapshot holds the closes_at the
     // student sat against — compare for lateness
@@ -347,10 +348,11 @@ const submitExam = async (req, res, next) => {
       for (const answer of submission.answers) {
         const q = answer.questions;
 
-        if (q.type === "mcq" && q.correct_option) {
-          // Multi-answer aware scoring — partial credit
+        if ((q.type === "mcq" || q.type === "true_false") && q.correct_option) {
+          // Choice-question scoring — partial credit
           // split across correct options, minus negative
-          // marking per wrong selection (markingMath.scoreMcq)
+          // marking per wrong selection (markingMath.scoreMcq).
+          // True/False is the two-option case.
           const score = scoreMcq({
             maxPoints: q.max_points,
             correctOption: q.correct_option,

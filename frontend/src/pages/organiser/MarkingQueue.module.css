@@ -163,6 +163,18 @@
   margin-bottom: 0.75rem;
 }
 
+/* Reference answer from the memo, when one exists */
+.memoAnswer {
+  border-radius: calc(var(--radius) - 2px);
+  background: color-mix(in oklab, var(--status-open) 8%, transparent);
+  padding: 0.625rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.memoAnswer strong {
+  color: var(--status-open);
+}
+
 .answerLabel {
   display: block;
   color: var(--muted-foreground);

@@ -76,7 +76,7 @@ const recalcSubmissionResults = async (tx, submission) => {
 // manual marking).
 // ─────────────────────────────────────────
 const isAutoMarkable = (q) =>
-  (q.type === "mcq" && q.correct_option) ||
+  ((q.type === "mcq" || q.type === "true_false") && q.correct_option) ||
   (q.type === "short_answer" && q.correct_answer);
 
 const autoMarkSubmission = async (submissionId) => {
@@ -113,9 +113,10 @@ const autoMarkSubmission = async (submissionId) => {
       let isCorrect = null;
       let points = null;
 
-      // MCQ — partial credit + negative marking
-      // (multi-answer aware, see markingMath.scoreMcq)
-      if (q.type === "mcq" && q.correct_option) {
+      // Choice questions (MCQ + True/False) — partial credit
+      // + negative marking (multi-answer aware, see
+      // markingMath.scoreMcq)
+      if ((q.type === "mcq" || q.type === "true_false") && q.correct_option) {
         const score = scoreMcq({
           maxPoints: q.max_points,
           correctOption: q.correct_option,
@@ -353,7 +354,15 @@ const getMarkingQueue = async (roundId, userId, role) => {
         where: { marked_at: null },
         include: {
           questions: {
-            select: { id: true, prompt: true, type: true, max_points: true },
+            select: {
+              id: true,
+              prompt: true,
+              type: true,
+              options: true,
+              correct_option: true,
+              correct_answer: true,
+              max_points: true,
+            },
           },
         },
         orderBy: { questions: { created_at: "asc" } },
