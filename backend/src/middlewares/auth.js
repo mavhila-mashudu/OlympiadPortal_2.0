@@ -78,4 +78,26 @@ const requireSameSchool = async (req, _res, next) => {
   }
 };
 
-module.exports = { requireAuth, requireRole, requireSameSchool };
+// Use this for actions that change a school's people or competition entries.
+// It checks the scoped school membership rather than trusting the broad user
+// role alone, so an educator from one school cannot manage another school.
+const requireSchoolMembership =
+  (...roles) =>
+  async (req, _res, next) => {
+    try {
+      const schoolId = req.params.schoolId || req.user.schoolId;
+      if (!schoolId) throw new ForbiddenError("No school membership found");
+      const membership = await prisma.school_memberships.findUnique({
+        where: { user_id_school_id: { user_id: req.user.userId, school_id: schoolId } },
+      });
+      if (!membership || membership.status !== "active" || (roles.length && !roles.includes(membership.role))) {
+        throw new ForbiddenError("You do not have permission to manage this school");
+      }
+      req.schoolMembership = membership;
+      next();
+    } catch (err) {
+      next(err);
+    }
+  };
+
+module.exports = { requireAuth, requireRole, requireSameSchool, requireSchoolMembership };

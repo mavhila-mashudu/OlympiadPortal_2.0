@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { api } from '../../lib/api';
+import { Toast } from '../../components/ui/Toast';
 
 interface InviteSchoolFormProps {
-  olympiadId: string;
+  olympiads: { id: string; name: string }[];
+  initialOlympiadId: string;
+  onCancel: () => void;
   onSuccess?: () => void;
 }
 
-export function InviteSchoolForm({ olympiadId, onSuccess }: InviteSchoolFormProps) {
+export function InviteSchoolForm({ olympiads, initialOlympiadId, onCancel, onSuccess }: InviteSchoolFormProps) {
   const [schoolName, setSchoolName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
+  const [olympiadId, setOlympiadId] = useState(initialOlympiadId);
   const [loading, setLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -18,21 +22,26 @@ export function InviteSchoolForm({ olympiadId, onSuccess }: InviteSchoolFormProp
     setStatusMessage(null);
 
     try {
-      const data: any = await api.post(`/olympiads/${olympiadId}/invite-school`, {
-        schoolName,
-        contactEmail,
+      const data: any = await api.post('/auth/invite-school', {
+        school_name: schoolName,
+        contact_email: contactEmail,
+        olympiad_id: olympiadId,
       });
 
       setStatusMessage({
         type: 'success',
-        text: `Invitation code (${data.invitationCode}) sent to ${contactEmail}!`,
+        text: data.emailDelivered
+          ? `Invitation code (${data.code}) sent to ${contactEmail}!`
+          : `Invitation code (${data.code}) created. SMTP is not configured, so the registration link was logged by the server.`,
       });
 
       setSchoolName('');
       setContactEmail('');
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to send invitation.';
+      const errorMessage = err.message?.includes("not found")
+        ? "This Olympiad is no longer available. Close this form and try again."
+        : "We couldn’t send the school invitation. Please check the details and try again.";
       setStatusMessage({ type: 'error', text: errorMessage });
     } finally {
       setLoading(false);
@@ -40,10 +49,20 @@ export function InviteSchoolForm({ olympiadId, onSuccess }: InviteSchoolFormProp
   }
 
   return (
-    <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', maxWidth: '500px' }}>
-      <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Invite School & Educator</h3>
+    <div role="dialog" aria-modal="true" aria-labelledby="invite-school-title" style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', padding: '1rem', backgroundColor: 'rgba(15, 23, 42, 0.5)' }}>
+    <div style={{ width: 'min(100%, 500px)', padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', backgroundColor: '#fff', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2)' }}>
+      <h3 id="invite-school-title" style={{ marginTop: 0, marginBottom: '16px' }}>Invite School & Educator</h3>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div>
+          <label htmlFor="olympiad" style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', fontSize: '14px' }}>
+            Olympiad *
+          </label>
+          <select id="olympiad" required value={olympiadId} onChange={(e) => setOlympiadId(e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc' }}>
+            {olympiads.map((olympiad) => <option key={olympiad.id} value={olympiad.id}>{olympiad.name}</option>)}
+          </select>
+        </div>
+
         <div>
           <label htmlFor="schoolName" style={{ display: 'block', marginBottom: '6px', fontWeight: 'bold', fontSize: '14px' }}>
             School Name *
@@ -75,24 +94,15 @@ export function InviteSchoolForm({ olympiadId, onSuccess }: InviteSchoolFormProp
         </div>
 
         {statusMessage && (
-          <div
-            style={{
-              padding: '10px 14px',
-              borderRadius: '4px',
-              fontSize: '14px',
-              backgroundColor: statusMessage.type === 'success' ? '#e6fffa' : '#fff5f5',
-              color: statusMessage.type === 'success' ? '#234e52' : '#9b2c2c',
-              border: `1px solid ${statusMessage.type === 'success' ? '#b2f5ea' : '#feb2b2'}`,
-            }}
-          >
-            {statusMessage.text}
-          </div>
+          <Toast type={statusMessage.type} message={statusMessage.text} onDismiss={() => setStatusMessage(null)} />
         )}
 
-        <button
-          type="submit"
-          disabled={loading}
-          style={{
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <button type="button" onClick={onCancel} disabled={loading} style={{ padding: '10px 16px', backgroundColor: '#fff', color: '#1f2937', border: '1px solid #d1d5db', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Cancel</button>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
             padding: '10px 16px',
             backgroundColor: '#3182ce',
             color: '#fff',
@@ -102,10 +112,12 @@ export function InviteSchoolForm({ olympiadId, onSuccess }: InviteSchoolFormProp
             cursor: loading ? 'not-allowed' : 'pointer',
             opacity: loading ? 0.7 : 1,
           }}
-        >
-          {loading ? 'Sending Invitation...' : 'Send Invitation'}
-        </button>
+          >
+            {loading ? 'Sending Invitation...' : 'Send Invitation'}
+          </button>
+        </div>
       </form>
+    </div>
     </div>
   );
 }

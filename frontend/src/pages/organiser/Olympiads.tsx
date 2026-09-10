@@ -6,6 +6,7 @@ import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { api } from "../../lib/api";
 import { organiserNav } from "../../lib/mockData";
+import { InviteSchoolForm } from "./InviteSchoolForm";
 
 const AppShell = AppShellComponent as any;
 
@@ -14,6 +15,7 @@ export default function Olympiads() {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inviteOlympiadId, setInviteOlympiadId] = useState<string | null>(null);
 
   async function loadOlympiads() {
     try {
@@ -103,7 +105,7 @@ export default function Olympiads() {
                     <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.roundsCount ?? item.rounds?.length ?? 0}</td>
                     <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.schoolsCount ?? item._count?.school_registrations ?? 0}</td>
                     <td style={{ padding: "1rem 1.25rem", textAlign: "right" }}>
-                      <Button style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}>
+                      <Button onClick={() => setInviteOlympiadId(item.id)} style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}>
                         Invite School
                       </Button>
                     </td>
@@ -114,6 +116,16 @@ export default function Olympiads() {
           </table>
         </Card>
       </div>
+      {inviteOlympiadId && (
+        <InviteSchoolForm
+          olympiads={olympiads}
+          initialOlympiadId={inviteOlympiadId}
+          onCancel={() => setInviteOlympiadId(null)}
+          onSuccess={() => {
+            loadOlympiads();
+          }}
+        />
+      )}
     </AppShell>
   );
 }

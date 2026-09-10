@@ -13,6 +13,11 @@
   padding: 1rem;
 }
 
+.sectionTitle {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
 .form {
   display: grid;
   gap: 1rem;
@@ -50,6 +55,30 @@
   line-height: 1.25rem;
   text-align: center;
 }
+
+.error {
+  color: var(--destructive);
+}
+
+.invitations {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 1rem;
+  list-style: none;
+}
+
+.invitations li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.statusPending { color: #92400e; }
+.statusAccepted { color: #166534; }
+.statusExpired { color: #991b1b; }
 
 @media (min-width: 40rem) {
   .form {

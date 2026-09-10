@@ -15,6 +15,8 @@ type School = {
   address: string | null;
   entrants: number;
   educators: SchoolEducator[];
+  contactEmail: string | null;
+  status: "pending" | "accepted" | "expired";
 };
 
 function Schools() {
@@ -64,7 +66,7 @@ function Schools() {
           description={
             loading
               ? "Loading registered schools…"
-              : `${schools.length} registered school${schools.length === 1 ? "" : "s"} taking part in this olympiad.`
+              : `${schools.length} school invitation${schools.length === 1 ? "" : "s"} and registration${schools.length === 1 ? "" : "s"} for this olympiad.`
           }
         />
 
@@ -74,6 +76,7 @@ function Schools() {
           <thead>
             <tr>
               <Th>School</Th>
+              <Th>Status</Th>
               <Th numeric>Entrants</Th>
               <Th>Educators</Th>
             </tr>
@@ -81,7 +84,7 @@ function Schools() {
           <tbody>
             {!loading && schools.length === 0 && (
               <tr>
-                <td colSpan={3}>No schools registered yet.</td>
+                <td colSpan={4}>No school invitations or registrations yet.</td>
               </tr>
             )}
             {schools.map((school) => (
@@ -89,7 +92,12 @@ function Schools() {
                 <Td strong muted={false}>
                   {school.name}
                 </Td>
-                <Td numeric>{school.entrants}</Td>
+                <Td muted={false}>
+                  <span className={`${styles.status} ${styles[`status${school.status[0].toUpperCase()}${school.status.slice(1)}`]}`}>
+                    {school.status[0].toUpperCase() + school.status.slice(1)}
+                  </span>
+                </Td>
+                <Td numeric>{school.status === "accepted" ? school.entrants : "—"}</Td>
                 <Td muted={false}>
                   <ul className={styles.educators}>
                     {school.educators.map((educator) => (
@@ -103,7 +111,13 @@ function Schools() {
                       </li>
                     ))}
                     {school.educators.length === 0 && (
-                      <li className={styles.educatorName}>No educators yet</li>
+                      <li className={styles.educatorName}>
+                        {school.status === "pending" && school.contactEmail
+                          ? `Invitation sent to ${school.contactEmail}`
+                          : school.status === "expired"
+                            ? "Invitation expired"
+                            : "No educators yet"}
+                      </li>
                     )}
                   </ul>
                 </Td>

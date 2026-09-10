@@ -1,6 +1,9 @@
 // @ts-nocheck
 const crypto = require("crypto");
 
+const generateInviteToken = () => crypto.randomBytes(32).toString("base64url");
+const hashInviteToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
 /**
  * Generates a human-readable invitation code
  * Format: TYPE-XXXX-XXXX (e.g. EDU-X7K9-B3M1)
@@ -13,6 +16,15 @@ const generateInvitationCode = (type) => {
     educator: "EDU",
     student: "STU",
   }[type];
+
+  // School registration codes are intentionally short enough to type from an
+  // email, for example SCH-A3F8.
+  if (type === "school") {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const bytes = crypto.randomBytes(4);
+    const suffix = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+    return `${prefix}-${suffix}`;
+  }
 
   const part1 = crypto.randomBytes(2).toString("hex").toUpperCase();
   const part2 = crypto.randomBytes(2).toString("hex").toUpperCase();
@@ -32,4 +44,4 @@ const getInvitationExpiry = (type) => {
   return expiry;
 };
 
-module.exports = { generateInvitationCode, getInvitationExpiry };
+module.exports = { generateInvitationCode, getInvitationExpiry, generateInviteToken, hashInviteToken };
