@@ -3,7 +3,7 @@ import nodemailer from "nodemailer";
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: Number(process.env.SMTP_PORT) || 587,
-  secure: false, // true for 465, false for other ports
+  secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -67,7 +67,9 @@ export async function sendStudentInviteEmail({
 }) {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.log("--------------------------------------------------");
-    console.log("SMTP Credentials missing in .env. Student invitation generated:");
+    console.log(
+      "SMTP Credentials missing in .env. Student invitation generated:",
+    );
     console.log(`To: ${to}`);
     console.log(`Olympiad: ${olympiadName}`);
     console.log(`Invite Code: ${inviteCode}`);
@@ -93,7 +95,17 @@ export async function sendStudentInviteEmail({
   return { delivered: true };
 }
 
-export async function sendEducatorInviteEmail({ to, olympiadName, inviteCode, registrationUrl }: { to: string; olympiadName: string; inviteCode: string; registrationUrl: string }) {
+export async function sendEducatorInviteEmail({
+  to,
+  olympiadName,
+  inviteCode,
+  registrationUrl,
+}: {
+  to: string;
+  olympiadName: string;
+  inviteCode: string;
+  registrationUrl: string;
+}) {
   if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.log(`Educator invitation for ${to}: ${registrationUrl}`);
     return { delivered: false };
