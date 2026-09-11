@@ -16,7 +16,7 @@ type Round = {
   opens_at: string;
   closes_at: string;
   state: "scheduled" | "open" | "closed" | "marking" | "results_released";
-  _count: { submissions: number; entrant_registrations: number };
+  _count?: { submissions?: number; entrant_registrations?: number };
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
@@ -41,7 +41,7 @@ function OrganiserDashboard() {
     const { rounds: roundList } = await api.get<{ rounds: Round[] }>(
       `/olympiads/${olympiadId}/rounds`,
     );
-    setRounds(roundList);
+    setRounds(roundList || []);
   }
 
   useEffect(() => {
@@ -52,12 +52,17 @@ function OrganiserDashboard() {
       setError(null);
       try {
         const current = await getCurrentOlympiad();
-        const { rounds: roundList } = await api.get<{ rounds: Round[] }>(
-          `/olympiads/${current.id}/rounds`,
-        );
         if (!cancelled) {
           setOlympiad(current);
-          setRounds(roundList);
+        }
+
+        if (current?.id) {
+          const { rounds: roundList } = await api.get<{ rounds: Round[] }>(
+            `/olympiads/${current.id}/rounds`,
+          );
+          if (!cancelled) {
+            setRounds(roundList || []);
+          }
         }
       } catch (err) {
         if (!cancelled) {
@@ -89,7 +94,7 @@ function OrganiserDashboard() {
   }
 
   const submissionsTotal = rounds.reduce(
-    (sum, round) => sum + round._count.submissions,
+    (sum, round) => sum + (round._count?.submissions ?? 0),
     0,
   );
   const openCount = rounds.filter((round) => round.state === "open").length;
@@ -169,7 +174,9 @@ function OrganiserDashboard() {
           aria-labelledby="rounds-heading"
         >
           <div className={styles.tableHeader}>
-            <h2 id="rounds-heading">Rounds</h2>
+            <h2 id="rounds-heading">
+              {olympiad ? `${olympiad.name} — Rounds` : "Rounds"}
+            </h2>
           </div>
           <div className={styles.tableScroller}>
             <table className={styles.roundsTable}>
@@ -186,7 +193,11 @@ function OrganiserDashboard() {
               <tbody>
                 {!loading && rounds.length === 0 && (
                   <tr>
-                    <td colSpan={6}>No rounds yet — create the first one.</td>
+                    <td colSpan={6}>
+                      {olympiad
+                        ? `No rounds created yet for ${olympiad.name}.`
+                        : "No rounds yet — create the first one."}
+                    </td>
                   </tr>
                 )}
                 {rounds.map((round) => (
@@ -198,7 +209,7 @@ function OrganiserDashboard() {
                       <StatusBadge status={toBadgeStatus(round.state)} />
                     </td>
                     <td className={styles.numeric}>
-                      {round._count.submissions}
+                      {round._count?.submissions ?? 0}
                     </td>
                     <td className={styles.actionColumn}>
                       {round.state === "scheduled" && (
