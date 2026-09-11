@@ -33,5 +33,6 @@ router.get("/:olympiadId/archive", listArchive);
 // Rounds are nested under their olympiad:
 // /olympiads/:olympiadId/rounds
 router.use("/:olympiadId/rounds", roundsRouter);
+router.use("/:olympiadId/notification-rules", require("./notificationRules"));
 
 module.exports = router;
