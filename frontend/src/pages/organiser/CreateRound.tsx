@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -7,18 +7,39 @@ import { Card } from "../../components/ui/Card";
 import { FileInput } from "../../components/ui/FileInput";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
+import { Select } from "../../components/ui/Select";
 import { Textarea } from "../../components/ui/Textarea";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
-import { getCurrentOlympiad } from "../../lib/olympiad";
+import type { Olympiad } from "../../lib/olympiad";
 import styles from "./CreateRound.module.css";
 
 type Round = { id: string };
 
 function CreateRound() {
   const navigate = useNavigate();
+  const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
+  const [selectedOlympiadId, setSelectedOlympiadId] = useState("");
+  const [loadingOlympiads, setLoadingOlympiads] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    async function loadOlympiads() {
+      try {
+        const data = await api.get<{ olympiads: Olympiad[] }>("/olympiads");
+        setOlympiads(data.olympiads || []);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to load olympiads",
+        );
+      } finally {
+        setLoadingOlympiads(false);
+      }
+    }
+
+    loadOlympiads();
+  }, []);
 
   return (
     <AppShell
@@ -58,10 +79,12 @@ function CreateRound() {
               const memoFile = formData.get("memo") as File | null;
 
               try {
-                const olympiad = await getCurrentOlympiad();
+                if (!selectedOlympiadId) {
+                  throw new Error("Select an olympiad before creating the round");
+                }
 
                 const { round } = await api.post<{ round: Round }>(
-                  `/olympiads/${olympiad.id}/rounds`,
+                  `/olympiads/${selectedOlympiadId}/rounds`,
                   {
                     name,
                     notes,
@@ -93,6 +116,34 @@ function CreateRound() {
               }
             }}
           >
+            <div className={styles.field}>
+              <Label htmlFor="round-olympiad">
+                Olympiad<span className={styles.required}> *</span>
+              </Label>
+              <Select
+                id="round-olympiad"
+                name="olympiadId"
+                value={selectedOlympiadId}
+                onChange={(event) => setSelectedOlympiadId(event.target.value)}
+                required
+                disabled={loadingOlympiads || olympiads.length === 0}
+              >
+                <option value="">
+                  {loadingOlympiads ? "Loading olympiads..." : "Select an olympiad"}
+                </option>
+                {olympiads.map((olympiad) => (
+                  <option key={olympiad.id} value={olympiad.id}>
+                    {olympiad.name}
+                  </option>
+                ))}
+              </Select>
+              {!loadingOlympiads && olympiads.length === 0 && (
+                <p className={styles.hint}>
+                  Create an olympiad before creating a round.
+                </p>
+              )}
+            </div>
+
             <div className={styles.field}>
               <Label htmlFor="round-name">
                 Round name<span className={styles.required}> *</span>
@@ -177,7 +228,10 @@ function CreateRound() {
             {error && <p className={styles.hint}>{error}</p>}
 
             <div className={styles.actions}>
-              <Button disabled={submitting} type="submit">
+              <Button
+                disabled={submitting || loadingOlympiads || olympiads.length === 0}
+                type="submit"
+              >
                 {submitting ? "Creating…" : "Create round"}
               </Button>
               <Button to="/organiser" variant="outline">
