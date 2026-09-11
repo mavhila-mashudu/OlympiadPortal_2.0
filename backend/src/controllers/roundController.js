@@ -62,4 +62,24 @@ const deleteRound = async (req, res, next) => {
   }
 };
 
-module.exports = { createRound, listRounds, getRound, updateRound, deleteRound };
+const setRoundState = async (req, res, next) => {
+  try {
+    const round = await roundService.setRoundState(
+      req.params.id,
+      req.user.userId,
+      req.body.state,
+    );
+    res.json({ success: true, data: { round } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  createRound,
+  listRounds,
+  getRound,
+  updateRound,
+  deleteRound,
+  setRoundState,
+};

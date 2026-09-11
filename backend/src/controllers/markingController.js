@@ -45,4 +45,23 @@ const generateResults = async (req, res, next) => {
   }
 };
 
-module.exports = { markRound, markAnswer, generateResults };
+const getMarkingQueue = async (req, res, next) => {
+  try {
+    const submissions = await markingService.getMarkingQueue(
+      req.params.roundId,
+      req.user.userId,
+      req.user.role,
+    );
+
+    res.json({ success: true, data: { submissions } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  markRound,
+  markAnswer,
+  generateResults,
+  getMarkingQueue,
+};

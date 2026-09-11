@@ -5,13 +5,17 @@ const {
   registerOrganiser,
   registerWithCode,
   validateCode,
+  validateInviteToken,
   me,
   deleteAccount,
   inviteSchool,
   inviteEducator,
   generateStudentCodes,
+  getEducatorOlympiads,
+  inviteStudent,
+  getStudentInvitations,
 } = require("../controllers/authController");
-const { requireAuth, requireRole } = require("../middlewares/auth");
+const { requireAuth, requireRole, requireSchoolMembership } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
 
 const router = express.Router();
@@ -43,7 +47,10 @@ const registerRules = [
     .normalizeEmail()
     .withMessage("Valid email required"),
   passwordRule,
-  body("code").trim().notEmpty().withMessage("Invitation code required"),
+  body().custom((value) => {
+    if (!value.code && !value.invite_token) throw new Error("Invitation link or code required");
+    return true;
+  }),
 ];
 
 const inviteSchoolRules = [
@@ -62,9 +69,15 @@ const studentCodesRules = [
   body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
 ];
 
+const inviteStudentRules = [
+  body("email").trim().isEmail().normalizeEmail().withMessage("Valid student email required"),
+  body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
+];
+
 router.post("/register/organiser", organiserRules, validate, registerOrganiser);
 router.post("/register", registerRules, validate, registerWithCode);
 router.get("/validate-code/:code", validateCode);
+router.get("/validate-invite/:token", validateInviteToken);
 
 router.get("/me", requireAuth, me);
 router.delete("/account", requireAuth, deleteAccount);
@@ -78,10 +91,23 @@ router.post(
   inviteSchool,
 );
 
+router.get("/educator-olympiads", requireAuth, requireRole("educator"), requireSchoolMembership("coordinator", "educator"), getEducatorOlympiads);
+router.get("/student-invitations", requireAuth, requireRole("educator"), requireSchoolMembership("coordinator", "educator"), getStudentInvitations);
+router.post(
+  "/invite-student",
+  requireAuth,
+  requireRole("educator"),
+  requireSchoolMembership("coordinator", "educator"),
+  inviteStudentRules,
+  validate,
+  inviteStudent,
+);
+
 router.post(
   "/invite-educator",
   requireAuth,
   requireRole("educator"),
+  requireSchoolMembership("coordinator"),
   inviteEducatorRules,
   validate,
   inviteEducator,

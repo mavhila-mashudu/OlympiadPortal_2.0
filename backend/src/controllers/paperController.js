@@ -22,11 +22,32 @@ const uploadPapers = async (req, res, next) => {
 const downloadPaper = async (req, res, next) => {
   try {
     const type = req.query.type === "memo" ? "memo" : "paper";
-    const url = await paperService.getDownloadUrl(req.params.id, req.user.userId, type);
+    const url = await paperService.getDownloadUrl(
+      req.params.id,
+      req.user.userId,
+      type,
+    );
     res.json({ success: true, data: { url } });
   } catch (err) {
     next(err);
   }
 };
 
-module.exports = { uploadPapers, downloadPaper };
+// Signed viewing URL for a round's paper/memo — used by the
+// side-by-side PDF viewers in the exam builder and review pages.
+const getRoundPaperUrl = async (req, res, next) => {
+  try {
+    const type = req.query.type === "memo" ? "memo" : "paper";
+    const url = await paperService.getRoundViewUrl(
+      req.params.roundId,
+      req.user.userId,
+      req.user.role,
+      type,
+    );
+    res.json({ success: true, data: { url } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { uploadPapers, downloadPaper, getRoundPaperUrl };

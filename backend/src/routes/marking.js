@@ -8,6 +8,7 @@ const {
   markRound,
   markAnswer,
   generateResults,
+  getMarkingQueue,
 } = require("../controllers/markingController");
 
 // ── Validation rules ──────────────────────────────────
@@ -28,6 +29,9 @@ router.use(requireAuth, requireRole("organiser"));
 
 // Bulk auto-mark all received submissions in a round
 router.post("/:roundId/mark", markRound);
+
+// List unmarked (essay) answers awaiting manual marking
+router.get("/:roundId/marking-queue", getMarkingQueue);
 
 // Generate final results with ranks + qualification
 router.post("/:roundId/results", generateResults);

@@ -1,6 +1,6 @@
 import { Trophy } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
@@ -23,6 +23,7 @@ const dashboardForRole = (role: Role) => {
 
 function Signup() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -56,6 +57,7 @@ function Signup() {
               const organiser_secret =
                 (formData.get("organiser_secret") as string) || "";
               const code = (formData.get("code") as string) || "";
+              const invite_token = searchParams.get("token") || "";
 
               try {
                 const payload = { full_name, email, password };
@@ -69,6 +71,7 @@ function Signup() {
                   await api.post("/auth/register", {
                     ...payload,
                     code,
+                    invite_token,
                   });
                 }
 
@@ -88,8 +91,11 @@ function Signup() {
                 const { user } = await api.get<MeResponse>("/auth/me");
                 navigate(dashboardForRole(user.role));
               } catch (err) {
+                const message = err instanceof Error ? err.message : "";
                 setError(
-                  err instanceof Error ? err.message : "Registration failed",
+                  message === "Failed to fetch"
+                    ? "We couldn’t reach the server. Make sure the frontend and backend are running, then try again."
+                    : message || "We couldn’t create your account. Please try again.",
                 );
               } finally {
                 setLoading(false);
@@ -115,6 +121,8 @@ function Signup() {
                 id="code"
                 name="code"
                 placeholder="SCH-ABC123 or STU-ABC123"
+                defaultValue={searchParams.get("code") || ""}
+                //readOnly={Boolean(searchParams.get("token"))}
                 type="text"
               />
             </div>

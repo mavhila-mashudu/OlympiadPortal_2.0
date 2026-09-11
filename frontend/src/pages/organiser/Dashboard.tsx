@@ -1,4 +1,11 @@
-import { Building2, FileCheckCorner, FilePlusCorner, Timer } from "lucide-react";
+import {
+  Building2,
+  ClipboardCheck,
+  FileCheckCorner,
+  FilePlusCorner,
+  ShieldCheck,
+  Timer,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
@@ -16,7 +23,12 @@ type Round = {
   opens_at: string;
   closes_at: string;
   state: "scheduled" | "open" | "closed" | "marking" | "results_released";
+<<<<<<< HEAD
   _count?: { submissions?: number; entrant_registrations?: number };
+=======
+  exam_status?: "draft" | "ready" | "live";
+  _count: { submissions: number; entrant_registrations: number };
+>>>>>>> 4f13afc40b40ec00ba13b06a5dec057149eed48d
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
@@ -66,7 +78,9 @@ function OrganiserDashboard() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load dashboard");
+          setError(
+            err instanceof Error ? err.message : "Failed to load dashboard",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -98,6 +112,9 @@ function OrganiserDashboard() {
     0,
   );
   const openCount = rounds.filter((round) => round.state === "open").length;
+  const awaitingReview = rounds.filter(
+    (round) => round.exam_status === "ready",
+  ).length;
   const schoolsCount = olympiad?._count?.school_registrations ?? 0;
 
   const stats = [
@@ -118,6 +135,12 @@ function OrganiserDashboard() {
       value: String(openCount),
       helper: "Accepting submissions",
       icon: Timer,
+    },
+    {
+      label: "Exams awaiting review",
+      value: String(awaitingReview),
+      helper: "Digitized by educators — verify to go live",
+      icon: ShieldCheck,
     },
   ];
 
@@ -202,7 +225,17 @@ function OrganiserDashboard() {
                 )}
                 {rounds.map((round) => (
                   <tr key={round.id}>
-                    <td className={styles.roundName}>{round.name}</td>
+                    <td className={styles.roundName}>
+                      {round.name}
+                      {round.exam_status === "ready" && (
+                        <span
+                          className={styles.examReadyTag}
+                          title="The educator has finished digitizing this exam — verify it before it can go live"
+                        >
+                          Exam ready for review
+                        </span>
+                      )}
+                    </td>
                     <td>{dateFormatter.format(new Date(round.opens_at))}</td>
                     <td>{dateFormatter.format(new Date(round.closes_at))}</td>
                     <td>
@@ -212,6 +245,22 @@ function OrganiserDashboard() {
                       {round._count?.submissions ?? 0}
                     </td>
                     <td className={styles.actionColumn}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        to={`/organiser/rounds/${round.id}/review`}
+                        icon={<ShieldCheck aria-hidden="true" />}
+                      >
+                        Review
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        to={`/organiser/rounds/${round.id}/marking`}
+                        icon={<ClipboardCheck aria-hidden="true" />}
+                      >
+                        Marking
+                      </Button>
                       {round.state === "scheduled" && (
                         <Button
                           size="sm"
@@ -219,7 +268,9 @@ function OrganiserDashboard() {
                           disabled={updatingId === round.id}
                           onClick={() => handleSetState(round.id, "open")}
                         >
-                          {updatingId === round.id ? "Opening…" : "Open round"}
+                          {updatingId === round.id
+                            ? "Opening..."
+                            : "Open round"}
                         </Button>
                       )}
                       {round.state === "open" && (

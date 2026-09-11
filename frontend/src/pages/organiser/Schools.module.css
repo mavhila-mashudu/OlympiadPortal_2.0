@@ -33,3 +33,26 @@
 .educators a:hover {
   text-decoration: underline;
 }
+
+.status {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.statusPending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.statusAccepted {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.statusExpired {
+  background: #fee2e2;
+  color: #991b1b;
+}

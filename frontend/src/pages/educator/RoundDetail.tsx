@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Download,
   FileText,
+  Pencil,
   Upload,
 } from "lucide-react";
 import { useParams } from "react-router-dom";
@@ -21,7 +22,9 @@ import styles from "./RoundDetail.module.css";
 function EducatorRoundDetail() {
   const { id } = useParams<{ id: string }>();
   const round = educatorRoundDetails.find((r) => r.id === id);
-  const [hasSubmitted, setHasSubmitted] = useState(round?.hasSubmitted ?? false);
+  const [hasSubmitted, setHasSubmitted] = useState(
+    round?.hasSubmitted ?? false,
+  );
 
   if (!round) {
     return (
@@ -78,6 +81,13 @@ function EducatorRoundDetail() {
             </p>
           </div>
           <div className={styles.pageActions}>
+            <Button
+              to={`/educator/rounds/${round.id}/exam`}
+              variant="primary"
+              icon={<Pencil aria-hidden="true" />}
+            >
+              Build exam
+            </Button>
             <Button to="/educator" variant="outline">
               Back to rounds
             </Button>
@@ -171,9 +181,7 @@ function EducatorRoundDetail() {
                 </Button>
               </form>
             ) : (
-              <div
-                className={`${styles.noticeBanner} ${styles.noticeBlocked}`}
-              >
+              <div className={`${styles.noticeBanner} ${styles.noticeBlocked}`}>
                 <AlertCircle aria-hidden="true" />
                 <span>{round.submissionNote}</span>
               </div>
