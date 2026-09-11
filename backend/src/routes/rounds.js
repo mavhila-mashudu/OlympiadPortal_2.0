@@ -19,12 +19,20 @@ const createRoundRules = [
   body("name").trim().notEmpty().withMessage("Round name is required"),
   body("opens_at").isISO8601().withMessage("opens_at must be a valid date"),
   body("closes_at").isISO8601().withMessage("closes_at must be a valid date"),
+  body("qualifying_threshold")
+    .optional({ values: "null" })
+    .isFloat({ min: 0 })
+    .withMessage("qualifying_threshold must be a non-negative number"),
 ];
 
 const updateRoundRules = [
   body("name").optional().trim().notEmpty(),
   body("opens_at").optional().isISO8601(),
   body("closes_at").optional().isISO8601(),
+  body("qualifying_threshold")
+    .optional({ values: "null" })
+    .isFloat({ min: 0 })
+    .withMessage("qualifying_threshold must be a non-negative number"),
 ];
 
 // ── Routes ──────────────────────────────────────────────

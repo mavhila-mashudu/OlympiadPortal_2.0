@@ -53,6 +53,7 @@ function CreateRound() {
               const notes = (formData.get("notes") as string) || undefined;
               const opensAtLocal = formData.get("opensAt") as string;
               const closesAtLocal = formData.get("closesAt") as string;
+              const qualifyingThreshold = formData.get("qualifyingThreshold") as string;
               const paperFile = formData.get("paper") as File | null;
               const memoFile = formData.get("memo") as File | null;
 
@@ -66,6 +67,9 @@ function CreateRound() {
                     notes,
                     opens_at: new Date(opensAtLocal).toISOString(),
                     closes_at: new Date(closesAtLocal).toISOString(),
+                    qualifying_threshold: qualifyingThreshold
+                      ? Number(qualifyingThreshold)
+                      : null,
                   },
                 );
 
@@ -99,6 +103,24 @@ function CreateRound() {
                 placeholder="Round 5 — Regional"
                 required
               />
+            </div>
+
+            <div className={styles.field}>
+              <Label htmlFor="qualifying-threshold">
+                Qualifying threshold
+              </Label>
+              <Input
+                id="qualifying-threshold"
+                name="qualifyingThreshold"
+                min="0"
+                placeholder="e.g. 60"
+                step="any"
+                type="number"
+              />
+              <p className={styles.hint}>
+                Entrants scoring at least this many points qualify. Leave blank
+                if this round has no threshold.
+              </p>
             </div>
 
             <div className={styles.field}>
