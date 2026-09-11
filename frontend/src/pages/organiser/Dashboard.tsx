@@ -23,12 +23,8 @@ type Round = {
   opens_at: string;
   closes_at: string;
   state: "scheduled" | "open" | "closed" | "marking" | "results_released";
-<<<<<<< HEAD
-  _count?: { submissions?: number; entrant_registrations?: number };
-=======
   exam_status?: "draft" | "ready" | "live";
-  _count: { submissions: number; entrant_registrations: number };
->>>>>>> 4f13afc40b40ec00ba13b06a5dec057149eed48d
+  _count: { submissions?: number; entrant_registrations?: number };
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-ZA", {

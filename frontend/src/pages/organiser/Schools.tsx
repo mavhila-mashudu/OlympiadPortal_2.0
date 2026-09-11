@@ -12,19 +12,11 @@ import styles from "./Schools.module.css";
 type RegisteredSchool = {
   id: string;
   name: string;
-<<<<<<< HEAD
   created_at: string;
   _count?: {
     educators?: number;
     entrant_registrations?: number;
   };
-=======
-  address: string | null;
-  entrants: number;
-  educators: SchoolEducator[];
-  contactEmail: string | null;
-  status: "pending" | "accepted" | "expired";
->>>>>>> 4f13afc40b40ec00ba13b06a5dec057149eed48d
 };
 
 export function SchoolsPage() {
@@ -85,7 +77,6 @@ export function SchoolsPage() {
       userName="Admin user"
     >
       <div className={styles.stack}>
-<<<<<<< HEAD
         <header className={styles.pageHeader}>
           <div>
             <h1>Registered Schools</h1>
@@ -104,20 +95,9 @@ export function SchoolsPage() {
             </Button>
           </div>
         </header>
-=======
-        <PageHeader
-          title="Schools & educators"
-          description={
-            loading
-              ? "Loading registered schools…"
-              : `${schools.length} school invitation${schools.length === 1 ? "" : "s"} and registration${schools.length === 1 ? "" : "s"} for this olympiad.`
-          }
-        />
->>>>>>> 4f13afc40b40ec00ba13b06a5dec057149eed48d
 
         {error && <Card className={styles.tableCard}>{error}</Card>}
 
-<<<<<<< HEAD
         <Card padded={false} className={styles.tableCard}>
           <div className={styles.tableScroller}>
             <table className={styles.roundsTable}>
@@ -176,67 +156,11 @@ export function SchoolsPage() {
             </div>
           </div>
         )}
-=======
-        <TablePanel minWidth="52rem">
-          <thead>
-            <tr>
-              <Th>School</Th>
-              <Th>Status</Th>
-              <Th numeric>Entrants</Th>
-              <Th>Educators</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {!loading && schools.length === 0 && (
-              <tr>
-                <td colSpan={4}>No school invitations or registrations yet.</td>
-              </tr>
-            )}
-            {schools.map((school) => (
-              <tr key={school.id}>
-                <Td strong muted={false}>
-                  {school.name}
-                </Td>
-                <Td muted={false}>
-                  <span className={`${styles.status} ${styles[`status${school.status[0].toUpperCase()}${school.status.slice(1)}`]}`}>
-                    {school.status[0].toUpperCase() + school.status.slice(1)}
-                  </span>
-                </Td>
-                <Td numeric>{school.status === "accepted" ? school.entrants : "—"}</Td>
-                <Td muted={false}>
-                  <ul className={styles.educators}>
-                    {school.educators.map((educator) => (
-                      <li key={educator.email}>
-                        <span className={styles.educatorName}>
-                          {educator.name}
-                        </span>
-                        <a href={`mailto:${educator.email}`}>
-                          {educator.email}
-                        </a>
-                      </li>
-                    ))}
-                    {school.educators.length === 0 && (
-                      <li className={styles.educatorName}>
-                        {school.status === "pending" && school.contactEmail
-                          ? `Invitation sent to ${school.contactEmail}`
-                          : school.status === "expired"
-                            ? "Invitation expired"
-                            : "No educators yet"}
-                      </li>
-                    )}
-                  </ul>
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </TablePanel>
->>>>>>> 4f13afc40b40ec00ba13b06a5dec057149eed48d
       </div>
     </AppShell>
   );
 }
 
-<<<<<<< HEAD
 const overlayStyle: React.CSSProperties = {
   position: "fixed",
   top: 0,
@@ -256,6 +180,3 @@ const modalStyle: React.CSSProperties = {
 };
 
 export default SchoolsPage;
-=======
-export default Schools;
->>>>>>> 4f13afc40b40ec00ba13b06a5dec057149eed48d

@@ -176,6 +176,13 @@ const setRoundState = async (roundId, organiserId, state) => {
     data: { state },
   });
 
+  if (state === "results_released") {
+    await prisma.papers.updateMany({
+      where: { round_id: roundId },
+      data: { is_archived: true, released_at: new Date() },
+    });
+  }
+
   // Closing a round kicks off auto-marking,
   // matching the lifecycle job's behaviour.
   if (state === "closed") {
