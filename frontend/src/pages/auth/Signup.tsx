@@ -91,8 +91,11 @@ function Signup() {
                 const { user } = await api.get<MeResponse>("/auth/me");
                 navigate(dashboardForRole(user.role));
               } catch (err) {
+                const message = err instanceof Error ? err.message : "";
                 setError(
-                  err instanceof Error ? err.message : "Registration failed",
+                  message === "Failed to fetch"
+                    ? "We couldn’t reach the server. Make sure the frontend and backend are running, then try again."
+                    : message || "We couldn’t create your account. Please try again.",
                 );
               } finally {
                 setLoading(false);

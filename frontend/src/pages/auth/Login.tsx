@@ -68,7 +68,12 @@ function Login() {
                 const { user } = await api.get<MeResponse>("/auth/me");
                 navigate(dashboardForRole(user.role));
               } catch (err) {
-                setError(err instanceof Error ? err.message : "Login failed");
+                const message = err instanceof Error ? err.message : "";
+                setError(
+                  message === "Failed to fetch"
+                    ? "We couldn’t reach the server. Make sure the frontend and backend are running, then try again."
+                    : message || "We couldn’t log you in. Please check your email and password.",
+                );
               } finally {
                 setLoading(false);
               }
