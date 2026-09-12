@@ -21,6 +21,7 @@ const createRound = async ({
   notes,
   opensAt,
   closesAt,
+  qualifyingThreshold,
 }) => {
   await assertOwnsOlympiad(olympiadId, organiserId);
 
@@ -41,6 +42,10 @@ const createRound = async ({
       notes,
       opens_at: opens,
       closes_at: closes,
+      qualifying_threshold:
+        qualifyingThreshold === undefined || qualifyingThreshold === ""
+          ? null
+          : qualifyingThreshold,
     },
   });
 
@@ -95,7 +100,7 @@ const getRound = async (roundId, organiserId) => {
 const updateRound = async (
   roundId,
   organiserId,
-  { name, opensAt, closesAt },
+  { name, opensAt, closesAt, qualifyingThreshold },
 ) => {
   const round = await getRound(roundId, organiserId);
 
@@ -107,6 +112,12 @@ const updateRound = async (
 
   const data = {};
   if (name !== undefined) data.name = name;
+  if (qualifyingThreshold !== undefined) {
+    data.qualifying_threshold =
+      qualifyingThreshold === "" || qualifyingThreshold === null
+        ? null
+        : qualifyingThreshold;
+  }
 
   const opens = opensAt !== undefined ? new Date(opensAt) : round.opens_at;
   const closes = closesAt !== undefined ? new Date(closesAt) : round.closes_at;
@@ -175,6 +186,13 @@ const setRoundState = async (roundId, organiserId, state) => {
     where: { id: roundId },
     data: { state },
   });
+
+  if (state === "results_released") {
+    await prisma.papers.updateMany({
+      where: { round_id: roundId },
+      data: { is_archived: true, released_at: new Date() },
+    });
+  }
 
   // Closing a round kicks off auto-marking,
   // matching the lifecycle job's behaviour.

@@ -83,7 +83,7 @@ function Archive() {
       <div className={styles.stack}>
         <PageHeader
           title="Paper archive"
-          description="Question papers and memos from rounds that have closed."
+          description="Question papers and memos from rounds with released results."
         />
 
         {error && <p>{error}</p>}
@@ -100,7 +100,7 @@ function Archive() {
           <tbody>
             {!loading && rounds.length === 0 && (
               <tr>
-                <td colSpan={4}>No closed rounds yet.</td>
+                <td colSpan={4}>No released rounds have been archived yet.</td>
               </tr>
             )}
             {rounds.map((round) => {

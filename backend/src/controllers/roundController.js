@@ -3,7 +3,7 @@ const roundService = require("../services/roundService");
 
 const createRound = async (req, res, next) => {
   try {
-    const { name, notes, opens_at, closes_at } = req.body;
+    const { name, notes, opens_at, closes_at, qualifying_threshold } = req.body;
     const round = await roundService.createRound({
       olympiadId: req.params.olympiadId,
       organiserId: req.user.userId,
@@ -11,6 +11,7 @@ const createRound = async (req, res, next) => {
       notes,
       opensAt: opens_at,
       closesAt: closes_at,
+      qualifyingThreshold: qualifying_threshold,
     });
     res.status(201).json({ success: true, data: { round } });
   } catch (err) {
@@ -41,11 +42,16 @@ const getRound = async (req, res, next) => {
 
 const updateRound = async (req, res, next) => {
   try {
-    const { name, opens_at, closes_at } = req.body;
+    const { name, opens_at, closes_at, qualifying_threshold } = req.body;
     const round = await roundService.updateRound(
       req.params.id,
       req.user.userId,
-      { name, opensAt: opens_at, closesAt: closes_at },
+      {
+        name,
+        opensAt: opens_at,
+        closesAt: closes_at,
+        qualifyingThreshold: qualifying_threshold,
+      },
     );
     res.json({ success: true, data: { round } });
   } catch (err) {

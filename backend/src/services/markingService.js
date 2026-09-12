@@ -324,6 +324,11 @@ const generateResults = async (roundId, userId, role) => {
       where: { id: roundId },
       data: { state: "results_released" },
     });
+
+    await tx.papers.updateMany({
+      where: { round_id: roundId },
+      data: { is_archived: true, released_at: now },
+    });
   });
 
   return {

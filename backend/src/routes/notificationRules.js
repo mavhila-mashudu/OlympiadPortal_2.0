@@ -1,0 +1,23 @@
+const express = require("express");
+const { body } = require("express-validator");
+const { requireAuth, requireRole } = require("../middlewares/auth");
+const validate = require("../middlewares/validate");
+const controller = require("../controllers/notificationRuleController");
+
+const router = express.Router({ mergeParams: true });
+const ruleFields = [
+  body("name").optional().isString(),
+  body("trigger").optional().isIn(["round_opens", "round_closes", "results_released"]),
+  body("offset_minutes").optional().isInt({ min: 0 }),
+  body("recipient").optional().isIn(["registered_educators", "registered_schools", "qualifying_entrants"]),
+  body("condition").optional({ values: "null" }).isString(),
+  body("enabled").optional().isBoolean(),
+];
+
+router.use(requireAuth, requireRole("organiser"));
+router.get("/", controller.listRules);
+router.post("/", ruleFields, validate, controller.createRule);
+router.patch("/:ruleId", ruleFields, validate, controller.updateRule);
+router.delete("/:ruleId", controller.deleteRule);
+
+module.exports = router;

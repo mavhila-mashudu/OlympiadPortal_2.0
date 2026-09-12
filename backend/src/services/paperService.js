@@ -142,7 +142,11 @@ const listArchive = async (olympiadId, organiserId) => {
   await assertOwnsOlympiad(olympiadId, organiserId);
 
   const rounds = await prisma.rounds.findMany({
-    where: { olympiad_id: olympiadId, state: "closed" },
+    where: {
+      olympiad_id: olympiadId,
+      state: "results_released",
+      papers: { some: { is_archived: true } },
+    },
     orderBy: { closes_at: "desc" },
     include: { papers: true },
   });

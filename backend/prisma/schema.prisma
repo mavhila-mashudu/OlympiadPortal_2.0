@@ -111,6 +111,24 @@ model olympiads {
   users                users                  @relation(fields: [organiser_id], references: [id], onDelete: Cascade)
   rounds               rounds[]
   school_registrations school_registrations[]
+  notification_rules notification_rules[]
+}
+
+model notification_rules {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  olympiad_id     String                 @db.Uuid
+  name            String
+  trigger         notification_trigger
+  offset_minutes  Int                    @default(0)
+  recipient       notification_recipient
+  channel         notification_channel   @default(email)
+  condition       String?
+  enabled         Boolean                @default(true)
+  created_at      DateTime               @default(now()) @db.Timestamptz(6)
+  updated_at      DateTime               @updatedAt @db.Timestamptz(6)
+  olympiads       olympiads              @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
+
+  @@index([olympiad_id, enabled])
 }
 
 model school_registrations {
@@ -294,4 +312,20 @@ enum exam_status {
   draft
   ready
   live
+}
+
+enum notification_trigger {
+  round_opens
+  round_closes
+  results_released
+}
+
+enum notification_recipient {
+  registered_educators
+  registered_schools
+  qualifying_entrants
+}
+
+enum notification_channel {
+  email
 }

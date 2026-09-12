@@ -1,0 +1,13 @@
+.stack { display: grid; gap: 1.5rem; }
+.form { display: grid; gap: 1rem; }
+.form h2 { margin: 0; }
+.form label { display: grid; gap: 0.4rem; font-weight: 600; }
+.actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.error { color: var(--destructive, #b42318); }
+.tableScroller { overflow-x: auto; }
+.table { width: 100%; min-width: 54rem; border-collapse: collapse; text-align: left; }
+.table th, .table td { padding: 0.9rem 1rem; border-bottom: 1px solid var(--border, #e5e7eb); vertical-align: top; }
+.table th { color: var(--muted-foreground, #667085); font-size: 0.8rem; }
+.table small { display: block; margin-top: 0.25rem; color: var(--muted-foreground, #667085); font-weight: 400; }
+.empty { color: var(--muted-foreground, #667085); text-align: center; }
+.empty svg { width: 1rem; vertical-align: middle; margin-right: 0.35rem; }
