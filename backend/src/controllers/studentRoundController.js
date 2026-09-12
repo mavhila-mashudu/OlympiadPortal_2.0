@@ -19,7 +19,31 @@ const listRegisteredRounds = async (req, res, next) => {
   }
 };
 
+const getRoundDetail = async (req, res, next) => {
+  try {
+    const entrantId = resolveEntrantId(req);
+    const data = await studentRoundService.getStudentRoundDetail(
+      req.params.roundId,
+      entrantId,
+    );
+    res.json({ success: true, data: { round: data } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getStudentResults = async (req, res, next) => {
+  try {
+    const entrantId = resolveEntrantId(req);
+    const data = await studentRoundService.getStudentResults(entrantId);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
 
 module.exports = {
   listRegisteredRounds,
+  getRoundDetail,
+  getStudentResults,
 };

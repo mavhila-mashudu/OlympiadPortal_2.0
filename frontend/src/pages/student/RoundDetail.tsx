@@ -1,28 +1,117 @@
+import { useEffect, useState } from "react";
 import { Award, Download, FileText, Pencil } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { studentNav, studentRounds } from "../../lib/mockData";
+import { api } from "../../lib/api";
+import { studentNav } from "../../lib/mockData";
+import {
+  formatDateTime,
+  getStudentProfile,
+  type StudentProfile,
+} from "../../lib/student";
 import styles from "./RoundDetail.module.css";
+
+type RoundDetailData = {
+  id: string;
+  title: string;
+  olympiadTitle: string;
+  schoolName: string;
+  opens_at: string;
+  closes_at: string;
+  status: "upcoming" | "open" | "closed";
+  canSitOnline: boolean;
+  hasSubmitted: boolean;
+  submissionStatus: string | null;
+  paperFile: string;
+  paperFileUrl: string | null;
+  paperNote: string;
+  result: {
+    score: string;
+    percentage: string;
+    rankInSchool: number | null;
+    hasCertificate: boolean;
+  } | null;
+};
 
 function StudentRoundDetail() {
   const { id } = useParams<{ id: string }>();
-  const round = studentRounds.find((r) => r.id === id);
+  const [profile, setProfile] = useState<StudentProfile>({
+    userName: "Student",
+    userInitials: "ST",
+    organisation: "Loading...",
+  });
+  const [round, setRound] = useState<RoundDetailData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!round) {
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      if (!id) return;
+      setLoading(true);
+      setError(null);
+      try {
+        const [prof, roundRes] = await Promise.all([
+          getStudentProfile(),
+          api.get<{ round: RoundDetailData }>(`/rounds/${id}/details`),
+        ]);
+
+        if (!cancelled) {
+          setProfile(prof);
+          setRound(roundRes.round);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Failed to load round details",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  if (loading) {
     return (
       <AppShell
         activeRole="student"
         navItems={studentNav}
-        organisation="Rosebank High School"
+        organisation={profile.organisation}
         portalLabel="Student portal"
-        userInitials="LN"
-        userName="Lerato Nkosi"
+        userInitials={profile.userInitials}
+        userName={profile.userName}
       >
         <div className={styles.stack}>
-          <p className={styles.notFound}>Round not found.</p>
+          <p className={styles.noResult}>Loading round details…</p>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (error || !round) {
+    return (
+      <AppShell
+        activeRole="student"
+        navItems={studentNav}
+        organisation={profile.organisation}
+        portalLabel="Student portal"
+        userInitials={profile.userInitials}
+        userName={profile.userName}
+      >
+        <div className={styles.stack}>
+          <p className={styles.notFound}>
+            {error || "Round not found or you are not registered for it."}
+          </p>
           <div>
             <Button to="/student" variant="outline">
               Back to dashboard
@@ -33,23 +122,26 @@ function StudentRoundDetail() {
     );
   }
 
-  const paperAvailable = round.status === "open";
+  const paperAvailable = round.status === "open" || round.status === "closed";
   const showResult = round.status === "closed";
 
   return (
     <AppShell
       activeRole="student"
       navItems={studentNav}
-      organisation="Rosebank High School"
+      organisation={profile.organisation}
       portalLabel="Student portal"
-      userInitials="LN"
-      userName="Lerato Nkosi"
+      userInitials={profile.userInitials}
+      userName={profile.userName}
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>
           <div>
             <h1>{round.title}</h1>
-            <p>Rosebank High School · Closes {round.closes}</p>
+            <p>
+              {round.schoolName || profile.organisation} · Closes{" "}
+              {formatDateTime(round.closes_at)}
+            </p>
           </div>
           <div className={styles.pageActions}>
             <Button to="/student" variant="outline">
@@ -79,7 +171,7 @@ function StudentRoundDetail() {
               </span>
             </span>
             <div className={styles.paperActions}>
-              {round.status === "open" && (
+              {round.canSitOnline && !round.hasSubmitted && (
                 <Button
                   icon={<Pencil aria-hidden="true" />}
                   variant="primary"
@@ -88,10 +180,16 @@ function StudentRoundDetail() {
                   Sit exam online
                 </Button>
               )}
+              {round.hasSubmitted && (
+                <Button variant="outline" disabled>
+                  Exam submitted ({round.submissionStatus || "received"})
+                </Button>
+              )}
               <Button
                 icon={<Download aria-hidden="true" />}
                 variant={round.status === "open" ? "outline" : "primary"}
-                disabled={!paperAvailable}
+                disabled={!paperAvailable || !round.paperFileUrl}
+                onClick={() => window.open(round.paperFileUrl!, "_blank")}
               >
                 Download paper
               </Button>
@@ -135,6 +233,7 @@ function StudentRoundDetail() {
                         icon={<Download aria-hidden="true" />}
                         size="sm"
                         variant="outline"
+                        disabled
                       >
                         Download certificate
                       </Button>
