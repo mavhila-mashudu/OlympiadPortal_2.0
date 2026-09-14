@@ -25,18 +25,22 @@ const markAnswerRules = [
 
 // ── Routes ──────────────────────────────────────────
 
-router.use(requireAuth, requireRole("organiser"));
+// Auth at router level; role per route. Role guards must NOT be applied
+// with router.use — other routers are also mounted on /rounds in app.js,
+// and a router-level guard would 403 their requests before Express
+// falls through to them.
+router.use(requireAuth);
 
 // Bulk auto-mark all received submissions in a round
-router.post("/:roundId/mark", markRound);
+router.post("/:roundId/mark", requireRole("organiser", "educator"), markRound);
 
 // List unmarked (essay) answers awaiting manual marking
-router.get("/:roundId/marking-queue", getMarkingQueue);
+router.get("/:roundId/marking-queue", requireRole("organiser", "educator"), getMarkingQueue);
 
-// Generate final results with ranks + qualification
-router.post("/:roundId/results", generateResults);
+// Generate final results with ranks + qualification (organiser only — global action)
+router.post("/:roundId/results", requireRole("organiser"), generateResults);
 
 // Manually mark a single answer (non-MCQ)
-router.patch("/:roundId/answers/:id", markAnswerRules, validate, markAnswer);
+router.patch("/:roundId/answers/:id", requireRole("organiser", "educator"), markAnswerRules, validate, markAnswer);
 
 module.exports = router;

@@ -62,6 +62,22 @@ const listEntrants = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────
+// PROGRESSION INFO
+// ─────────────────────────────────────────
+
+const getProgressionInfo = async (req, res, next) => {
+  try {
+    const info = await educatorService.getProgressionInfo(
+      req.params.roundId,
+      req.user.userId,
+    );
+    res.json({ success: true, data: info });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────
 // RESULTS
 // ─────────────────────────────────────────
 
@@ -121,6 +137,7 @@ module.exports = {
   getRound,
   registerEntrants,
   listEntrants,
+  getProgressionInfo,
   getResults,
   listAllResults,
   listPastPapers,

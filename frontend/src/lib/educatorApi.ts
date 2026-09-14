@@ -104,6 +104,16 @@ export type PastPaper = {
   has_memo: boolean;
 };
 
+export type ProgressionInfo = {
+  requiresQualification: boolean;
+  previousRound: {
+    id: string;
+    name: string;
+    qualifyingThreshold: number | null;
+  } | null;
+  qualifiedEntrantIds: string[];
+};
+
 export type SubmissionReceipt = {
   submission: {
     id: string;
@@ -176,6 +186,15 @@ export function useEducatorEntrants(roundId: string) {
           `/educator/rounds/${roundId}/entrants`,
         )
         .then((d) => d.entrants),
+    enabled: !!roundId,
+  });
+}
+
+export function useProgressionInfo(roundId: string) {
+  return useQuery({
+    queryKey: ["educator", "rounds", roundId, "progression"],
+    queryFn: () =>
+      api.get<ProgressionInfo>(`/educator/rounds/${roundId}/progression`),
     enabled: !!roundId,
   });
 }

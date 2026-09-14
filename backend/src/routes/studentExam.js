@@ -13,8 +13,11 @@ const {
 } = require("../errors/AppError");
 const { parseOptionList, scoreMcq } = require("../services/markingMath");
 
-// All routes require student auth
-router.use(requireAuth, requireRole("student"));
+// Auth at router level; role per route. Role guards must NOT be applied
+// with router.use — other routers are also mounted on /rounds in app.js,
+// and a router-level guard would 403 their requests before Express
+// falls through to them.
+router.use(requireAuth);
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -435,11 +438,12 @@ const submitExam = async (req, res, next) => {
 
 // ── Routes ──────────────────────────────────────────
 
-router.get("/:roundId/exam", getExam);
-router.post("/:roundId/exam/start", startExam);
+router.get("/:roundId/exam", requireRole("student"), getExam);
+router.post("/:roundId/exam/start", requireRole("student"), startExam);
 
 router.patch(
   "/:roundId/exam/answers/:qid",
+  requireRole("student"),
   [
     param("roundId").isUUID(),
     param("qid").isUUID(),
@@ -449,6 +453,6 @@ router.patch(
   saveAnswer,
 );
 
-router.post("/:roundId/exam/submit", submitExam);
+router.post("/:roundId/exam/submit", requireRole("student"), submitExam);
 
 module.exports = router;

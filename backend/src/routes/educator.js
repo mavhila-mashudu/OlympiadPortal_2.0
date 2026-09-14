@@ -9,6 +9,7 @@ const {
   getRound,
   registerEntrants,
   listEntrants,
+  getProgressionInfo,
   getResults,
   listAllResults,
   listPastPapers,
@@ -43,6 +44,7 @@ router.post(
   registerEntrants,
 );
 router.get("/rounds/:roundId/entrants", listEntrants);
+router.get("/rounds/:roundId/progression", getProgressionInfo);
 
 // ── Results (B15) ───────────────────────────────────
 router.get("/rounds/:roundId/results", getResults);

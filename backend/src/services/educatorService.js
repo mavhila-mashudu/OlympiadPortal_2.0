@@ -184,6 +184,13 @@ const getEducatorRoundDetail = async (roundId, userId) => {
 // Upserts entrant records and creates
 // entrant_registrations.  Returns the full
 // list of registered entrants for the round.
+//
+// Round-progression rule: if a previous round
+// in the same olympiad has released results,
+// only entrants who qualified in that round
+// may be registered for this one.  The first
+// round (or any round whose predecessor has
+// not released results yet) has no restriction.
 // ─────────────────────────────────────────
 const registerEntrants = async (roundId, userId, entrantsData) => {
   const educator = await resolveEducator(userId);
@@ -207,46 +214,94 @@ const registerEntrants = async (roundId, userId, entrantsData) => {
     );
   }
 
-  // Register each entrant in a transaction
-  const registered = [];
-  for (const e of entrantsData) {
-    // Upsert the entrant record (keyed by school + external_ref)
-    const entrant = await prisma.entrants.upsert({
-      where: {
-        school_id: educator.school_id,
-        external_ref: e.external_ref || e.full_name,
-      },
-      update: {
-        full_name: e.full_name,
-        grade: e.grade?.toString(),
-      },
-      create: {
-        school_id: educator.school_id,
-        full_name: e.full_name,
-        grade: e.grade?.toString(),
-        external_ref: e.external_ref || null,
-      },
-    });
+  // ── Round-progression check ───────────────────────
+  // Find the immediately preceding round in the same
+  // olympiad (by opens_at).  If it has released results
+  // we require entrants to have qualified in it.
+  const previousRound = await prisma.rounds.findFirst({
+    where: {
+      olympiad_id: round.olympiads.id,
+      opens_at: { lt: round.opens_at },
+    },
+    orderBy: { opens_at: "desc" },
+  });
 
-    // Create registration (upsert to handle duplicates)
-    await prisma.entrant_registrations.upsert({
+  // Build a set of entrant IDs that qualified in the
+  // previous round (only relevant when results are out).
+  let qualifiedEntrantIds = null; // null = no restriction
+  if (previousRound && previousRound.state === "results_released") {
+    const qualifiedResults = await prisma.results.findMany({
       where: {
-        entrant_id_round_id: {
+        round_id: previousRound.id,
+        qualified: true,
+        entrants: { school_id: educator.school_id },
+      },
+      select: { entrant_id: true },
+    });
+    qualifiedEntrantIds = new Set(qualifiedResults.map((r) => r.entrant_id));
+  }
+
+  // Register each entrant in a transaction
+  const registered = await prisma.$transaction(async (tx) => {
+    const results = [];
+
+    for (const e of entrantsData) {
+      // Find the existing entrant (keyed by school + external_ref,
+      // falling back to school + full_name when no ref is given)
+      let entrant = await tx.entrants.findFirst({
+        where: e.external_ref
+          ? { school_id: educator.school_id, external_ref: e.external_ref }
+          : { school_id: educator.school_id, full_name: e.full_name },
+      });
+
+      if (entrant) {
+        entrant = await tx.entrants.update({
+          where: { id: entrant.id },
+          data: {
+            full_name: e.full_name,
+            grade: e.grade?.toString(),
+          },
+        });
+      } else {
+        entrant = await tx.entrants.create({
+          data: {
+            school_id: educator.school_id,
+            full_name: e.full_name,
+            grade: e.grade?.toString(),
+            external_ref: e.external_ref || null,
+          },
+        });
+      }
+
+      // ── Enforce progression: must have qualified ──
+      if (qualifiedEntrantIds !== null && !qualifiedEntrantIds.has(entrant.id)) {
+        throw new BadRequestError(
+          `${e.full_name} did not qualify in the previous round ("${previousRound.name}") and cannot be registered for this round.`,
+        );
+      }
+
+      // Create registration (upsert to handle duplicates)
+      await tx.entrant_registrations.upsert({
+        where: {
+          entrant_id_round_id: {
+            entrant_id: entrant.id,
+            round_id: roundId,
+          },
+        },
+        update: { status: "registered" },
+        create: {
           entrant_id: entrant.id,
           round_id: roundId,
+          registered_by: educator.id,
+          status: "registered",
         },
-      },
-      update: { status: "registered" },
-      create: {
-        entrant_id: entrant.id,
-        round_id: roundId,
-        registered_by: educator.id,
-        status: "registered",
-      },
-    });
+      });
 
-    registered.push(entrant);
-  }
+      results.push(entrant);
+    }
+
+    return results;
+  });
 
   return registered;
 };
@@ -533,11 +588,84 @@ const getPaperDownloadUrl = async (roundId, userId, type) => {
   return data.signedUrl;
 };
 
+// ─────────────────────────────────────────
+// GET PROGRESSION INFO FOR A ROUND
+//
+// Returns whether the round requires entrants
+// to have qualified from a previous round, and
+// the list of eligible (qualified) entrant IDs.
+// The frontend uses this to show warnings on the
+// entrants registration page.
+// ─────────────────────────────────────────
+const getProgressionInfo = async (roundId, userId) => {
+  const educator = await resolveEducator(userId);
+
+  const round = await prisma.rounds.findUnique({
+    where: { id: roundId },
+    include: { olympiads: true },
+  });
+  if (!round) throw new NotFoundError("Round not found");
+
+  // Verify school is registered
+  const registration = await prisma.school_registrations.findFirst({
+    where: {
+      school_id: educator.school_id,
+      olympiad_id: round.olympiads.id,
+    },
+  });
+  if (!registration) {
+    throw new ForbiddenError(
+      "Your school is not registered for this olympiad",
+    );
+  }
+
+  // Find the immediately preceding round
+  const previousRound = await prisma.rounds.findFirst({
+    where: {
+      olympiad_id: round.olympiads.id,
+      opens_at: { lt: round.opens_at },
+    },
+    orderBy: { opens_at: "desc" },
+  });
+
+  // No previous round = no restriction
+  if (!previousRound || previousRound.state !== "results_released") {
+    return {
+      requiresQualification: false,
+      previousRound: null,
+      qualifiedEntrantIds: [],
+    };
+  }
+
+  // Fetch qualified entrant IDs from the previous round
+  const qualifiedResults = await prisma.results.findMany({
+    where: {
+      round_id: previousRound.id,
+      qualified: true,
+      entrants: { school_id: educator.school_id },
+    },
+    select: { entrant_id: true },
+  });
+
+  return {
+    requiresQualification: true,
+    previousRound: {
+      id: previousRound.id,
+      name: previousRound.name,
+      qualifyingThreshold: previousRound.qualifying_threshold
+        ? Number(previousRound.qualifying_threshold)
+        : null,
+    },
+    qualifiedEntrantIds: qualifiedResults.map((r) => r.entrant_id),
+  };
+};
+
 module.exports = {
   listEducatorRounds,
   getEducatorRoundDetail,
   registerEntrants,
   listEntrants,
+  getProgressionInfo,
   getResults,
   listAllResults,
   listPastPapers,
