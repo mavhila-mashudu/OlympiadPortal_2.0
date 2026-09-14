@@ -16,6 +16,8 @@ See the README in each folder:
 
 Full project documentation:https://2846849.github.io/Olympiad-portal-documentation/
 
+REST API reference: [docs/API.md](./docs/API.md)
+
 ## Team
 
 Prompt Engineers — COMS3011A 2026
