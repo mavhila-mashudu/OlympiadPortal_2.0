@@ -77,4 +77,69 @@ const deleteRule = async (ruleId, organiserId) => {
   await prisma.notification_rules.delete({ where: { id: ruleId } });
 };
 
-module.exports = { listRules, createRule, updateRule, deleteRule };
+const testRule = async ({ ruleId, organiserId, roundId }) => {
+  const rule = await prisma.notification_rules.findUnique({
+    where: { id: ruleId },
+  });
+  if (!rule) throw new NotFoundError("Notification rule not found");
+
+  await assertOwnsOlympiad(rule.olympiad_id, organiserId);
+  if (!roundId) throw new BadRequestError("round_id is required");
+
+  const round = await prisma.rounds.findFirst({
+    where: { id: roundId, olympiad_id: rule.olympiad_id },
+    include: {
+      _count: { select: { submissions: true, entrant_registrations: true } },
+      results: { where: { qualified: true }, select: { id: true } },
+      olympiads: {
+        include: {
+          school_registrations: {
+            where: { status: "approved" },
+            include: { schools: { select: { id: true, educators: { select: { id: true } } } } },
+          },
+        },
+      },
+    },
+  });
+  if (!round) throw new NotFoundError("Round not found for this olympiad");
+
+  const triggerAt = {
+    round_opens: round.opens_at,
+    round_closes: round.closes_at,
+    results_released: round.results_release_at,
+  }[rule.trigger];
+  const warnings = [];
+  if (!triggerAt) warnings.push("This round has no results release time configured.");
+
+  const condition = rule.condition?.trim().toLowerCase() || null;
+  let conditionMatched = true;
+  if (condition) {
+    if (/no submissions?/.test(condition)) conditionMatched = round._count.submissions === 0;
+    else if (/submissions?/.test(condition)) conditionMatched = round._count.submissions > 0;
+    else warnings.push("The condition was not evaluated because it uses an unsupported phrase.");
+  }
+  if (!conditionMatched) warnings.push("The configured condition does not match this round.");
+
+  const recipientCount = rule.recipient === "registered_schools"
+    ? round.olympiads.school_registrations.length
+    : rule.recipient === "registered_educators"
+      ? new Set(round.olympiads.school_registrations.flatMap(({ schools }) => schools.educators.map(({ id }) => id))).size
+      : round.results.length;
+
+  return {
+    rule: { id: rule.id, name: rule.name, enabled: rule.enabled },
+    round: { id: round.id, name: round.name, state: round.state },
+    trigger: {
+      type: rule.trigger,
+      fires_at: triggerAt ? new Date(new Date(triggerAt).getTime() - rule.offset_minutes * 60 * 1000) : null,
+      source_time: triggerAt,
+      offset_minutes: rule.offset_minutes,
+    },
+    condition: { expression: rule.condition, matched: conditionMatched },
+    recipients: { type: rule.recipient, count: recipientCount },
+    would_send: Boolean(triggerAt) && conditionMatched && recipientCount > 0,
+    warnings,
+  };
+};
+
+module.exports = { listRules, createRule, updateRule, deleteRule, testRule };
