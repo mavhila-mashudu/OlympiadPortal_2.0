@@ -40,16 +40,6 @@ const TYPE_LABELS: Record<QuestionType, string> = {
   essay: "Essay / long answer",
 };
 
-const EMPTY_QUESTION: Omit<Question, "id"> = {
-  type: "mcq",
-  prompt: "",
-  options: ["", "", "", ""],
-  correct_option: null,
-  correct_answer: null,
-  negative_pct: 0,
-  max_points: 1,
-};
-
 function QuestionForm({
   initial,
   onSave,
