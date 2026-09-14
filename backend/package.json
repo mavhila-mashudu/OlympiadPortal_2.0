@@ -5,6 +5,7 @@
   "main": "server.ts",
   "scripts": {
     "start": "tsx server.ts",
+    "start:prod": "prisma migrate deploy && tsx server.ts",
     "dev": "tsx watch server.ts",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
@@ -15,6 +16,9 @@
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
     "@prisma/client": "^7.9.1",
