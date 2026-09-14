@@ -26,6 +26,9 @@ function Signup() {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [accountType, setAccountType] = useState<"organiser" | "invited">(
+    searchParams.get("code") || searchParams.get("token") ? "invited" : "organiser"
+  );
 
   return (
     <div className={styles.page}>
@@ -40,7 +43,7 @@ function Signup() {
         <Card className={styles.card}>
           <h1>Create account</h1>
           <p className={styles.subtitle}>
-            Use an organiser secret or an invitation code to join.
+            Sign up as an organiser to create your own olympiad, or use an invitation code to join as an educator or student.
           </p>
 
           <form
@@ -54,19 +57,14 @@ function Signup() {
               const full_name = (formData.get("full_name") as string) || "";
               const email = (formData.get("email") as string) || "";
               const password = (formData.get("password") as string) || "";
-              const organiser_secret =
-                (formData.get("organiser_secret") as string) || "";
               const code = (formData.get("code") as string) || "";
               const invite_token = searchParams.get("token") || "";
 
               try {
                 const payload = { full_name, email, password };
 
-                if (organiser_secret) {
-                  await api.post("/auth/register/organiser", {
-                    ...payload,
-                    organiser_secret,
-                  });
+                if (accountType === "organiser") {
+                  await api.post("/auth/register/organiser", payload);
                 } else {
                   await api.post("/auth/register", {
                     ...payload,
@@ -103,6 +101,46 @@ function Signup() {
             }}
           >
             <div className={styles.field}>
+              <Label>Account type</Label>
+              <div className={styles.roleSelector} style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setAccountType("organiser")}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem",
+                    border: accountType === "organiser" ? "2px solid #2563eb" : "1px solid #d1d5db",
+                    borderRadius: "0.5rem",
+                    backgroundColor: accountType === "organiser" ? "#eff6ff" : "white",
+                    cursor: "pointer",
+                    textAlign: "center",
+                  }}
+                >
+                  <strong>Organiser</strong>
+                  <br />
+                  <small style={{ color: "#6b7280" }}>Create and manage olympiads</small>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType("invited")}
+                  style={{
+                    flex: 1,
+                    padding: "0.75rem",
+                    border: accountType === "invited" ? "2px solid #2563eb" : "1px solid #d1d5db",
+                    borderRadius: "0.5rem",
+                    backgroundColor: accountType === "invited" ? "#eff6ff" : "white",
+                    cursor: "pointer",
+                    textAlign: "center",
+                  }}
+                >
+                  <strong>Educator / Student</strong>
+                  <br />
+                  <small style={{ color: "#6b7280" }}>Join with invitation code</small>
+                </button>
+              </div>
+            </div>
+
+            <div className={styles.field}>
               <Label htmlFor="full_name">Full name</Label>
               <Input
                 autoComplete="name"
@@ -114,28 +152,20 @@ function Signup() {
               />
             </div>
 
-            <div className={styles.field}>
-              <Label htmlFor="code">Invitation code</Label>
-              <Input
-                autoComplete="one-time-code"
-                id="code"
-                name="code"
-                placeholder="SCH-ABC123 or STU-ABC123"
-                defaultValue={searchParams.get("code") || ""}
-                //readOnly={Boolean(searchParams.get("token"))}
-                type="text"
-              />
-            </div>
-
-            <div className={styles.field}>
-              <Label htmlFor="organiser_secret">Organiser secret</Label>
-              <Input
-                id="organiser_secret"
-                name="organiser_secret"
-                placeholder="Only needed for organiser registration"
-                type="password"
-              />
-            </div>
+            {accountType === "invited" && (
+              <div className={styles.field}>
+                <Label htmlFor="code">Invitation code</Label>
+                <Input
+                  autoComplete="one-time-code"
+                  id="code"
+                  name="code"
+                  placeholder="SCH-ABC123 or STU-ABC123"
+                  defaultValue={searchParams.get("code") || ""}
+                  required={accountType === "invited"}
+                  type="text"
+                />
+              </div>
+            )}
 
             <div className={styles.field}>
               <Label htmlFor="email">Email address</Label>
@@ -143,7 +173,7 @@ function Signup() {
                 autoComplete="email"
                 id="email"
                 name="email"
-                placeholder="you@school.edu"
+                placeholder="you@example.com"
                 required
                 type="email"
               />
