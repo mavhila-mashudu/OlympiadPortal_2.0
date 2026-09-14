@@ -56,12 +56,7 @@ const registerOrganiser = async ({
   full_name,
   email,
   password,
-  organiserSecret,
 }) => {
-  if (organiserSecret !== config.auth.organiserSecret) {
-    throw new UnauthorizedError("Invalid organiser secret");
-  }
-
   const existing = await prisma.users.findUnique({
     where: { email },
     select: { id: true },

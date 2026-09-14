@@ -36,7 +36,6 @@ const organiserRules = [
     .normalizeEmail()
     .withMessage("Valid email required"),
   passwordRule,
-  body("organiser_secret").notEmpty().withMessage("Secret required"),
 ];
 
 const registerRules = [

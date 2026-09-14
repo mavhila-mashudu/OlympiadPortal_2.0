@@ -5,12 +5,11 @@ const { UnauthorizedError } = require("../errors/AppError");
 
 const registerOrganiser = async (req, res, next) => {
   try {
-    const { full_name, email, password, organiser_secret } = req.body;
+    const { full_name, email, password } = req.body;
     const { user } = await authService.registerOrganiser({
       full_name,
       email,
       password,
-      organiserSecret: organiser_secret,
     });
 
     res.status(201).json({ success: true, data: { user } });
