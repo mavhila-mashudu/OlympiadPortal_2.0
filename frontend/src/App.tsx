@@ -14,6 +14,7 @@ import MarkingQueue from "./pages/organiser/MarkingQueue";
 import Notifications from "./pages/organiser/Notifications";
 import Olympiads from "./pages/organiser/Olympiads";
 import Schools from "./pages/organiser/Schools";
+import Standings from "./pages/organiser/Standings";
 import ExamSitting from "./pages/student/ExamSitting";
 import StudentDashboard from "./pages/student/Dashboard";
 import StudentResults from "./pages/student/Results";
@@ -36,6 +37,7 @@ function App() {
       <Route path="/organiser/rounds/new" element={<CreateRound />} />
       <Route path="/organiser/archive" element={<Archive />} />
       <Route path="/organiser/schools" element={<Schools />} />
+      <Route path="/organiser/standings" element={<Standings />} />
       <Route path="/organiser/notifications" element={<Notifications />} />
       <Route path="/organiser/rounds/:id/review" element={<ExamReview />} />
       <Route path="/organiser/rounds/:id/marking" element={<MarkingQueue />} />

@@ -1,0 +1,20 @@
+.stack { display: grid; gap: 1.5rem; }
+.controls { display: flex; }
+.controls label { display: grid; gap: 0.4rem; font-weight: 600; width: min(100%, 24rem); }
+.error { color: var(--destructive, #b42318); }
+.empty { text-align: center; color: var(--muted-foreground, #667085); }
+.empty svg { width: 2rem; height: 2rem; margin-bottom: 0.5rem; }
+.empty h2 { color: var(--foreground); margin: 0; }
+.empty p { margin-bottom: 0; }
+.summary { display: flex; gap: 1.5rem; flex-wrap: wrap; align-items: center; }
+.summary span { color: var(--muted-foreground, #667085); }
+.tabs { display: flex; gap: 0.25rem; border-bottom: 1px solid var(--border, #e5e7eb); }
+.tabs button { border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted-foreground, #667085); cursor: pointer; padding: 0.65rem 0.9rem; font: inherit; }
+.tabs .activeTab { border-bottom-color: var(--primary); color: var(--foreground); font-weight: 700; }
+.tableScroller { overflow-x: auto; }
+.table { width: 100%; min-width: 48rem; border-collapse: collapse; text-align: left; }
+.table th, .table td { padding: 0.9rem 1rem; border-bottom: 1px solid var(--border, #e5e7eb); vertical-align: top; }
+.table th { color: var(--muted-foreground, #667085); font-size: 0.8rem; }
+.qualified, .notQualified { font-size: 0.85rem; font-weight: 700; }
+.qualified { color: var(--status-open, #067647); }
+.notQualified { color: var(--muted-foreground, #667085); }

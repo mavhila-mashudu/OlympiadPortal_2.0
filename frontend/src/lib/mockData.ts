@@ -8,6 +8,7 @@ import {
   FilePlusCorner,
   LayoutDashboard,
   Bell,
+  BarChart3,
   Trophy,
   UserPlus,
 } from "lucide-react";
@@ -168,6 +169,7 @@ export const organiserNav: NavItem[] = [
   { label: "Create round", to: "/organiser/rounds/new", icon: FilePlusCorner },
   { label: "Paper archive", to: "/organiser/archive", icon: Archive },
   { label: "Schools & educators", to: "/organiser/schools", icon: Building2 },
+  { label: "Standings", to: "/organiser/standings", icon: BarChart3 },
   { label: "Send announcement", to: "/organiser/notifications", icon: Bell },
 ];
 
