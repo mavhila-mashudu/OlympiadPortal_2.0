@@ -8,8 +8,11 @@ const {
   listRounds,
   getRound,
   registerEntrants,
+  registerEntrantsForOlympiad,
   listEntrants,
+  listOlympiadEntrants,
   getProgressionInfo,
+  getOlympiadProgressionInfo,
   getResults,
   listAllResults,
   listPastPapers,
@@ -45,6 +48,29 @@ router.post(
 );
 router.get("/rounds/:roundId/entrants", listEntrants);
 router.get("/rounds/:roundId/progression", getProgressionInfo);
+
+// ── Olympiad-level Entrants ─────────────────────────
+const registerOlympiadEntrantsRules = [
+  param("olympiadId").isUUID(),
+  body("entrants")
+    .isArray({ min: 1 })
+    .withMessage("entrants array with at least one entry is required"),
+  body("entrants.*.full_name")
+    .isString()
+    .notEmpty()
+    .withMessage("full_name is required"),
+  body("entrants.*.grade").optional(),
+  body("entrants.*.external_ref").optional().isString(),
+];
+
+router.post(
+  "/olympiads/:olympiadId/entrants",
+  registerOlympiadEntrantsRules,
+  validate,
+  registerEntrantsForOlympiad,
+);
+router.get("/olympiads/:olympiadId/entrants", listOlympiadEntrants);
+router.get("/olympiads/:olympiadId/progression", getOlympiadProgressionInfo);
 
 // ── Results (B15) ───────────────────────────────────
 router.get("/rounds/:roundId/results", getResults);

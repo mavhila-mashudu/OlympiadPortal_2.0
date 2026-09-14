@@ -660,12 +660,307 @@ const getProgressionInfo = async (roundId, userId) => {
   };
 };
 
+// ─────────────────────────────────────────
+// REGISTER ENTRANTS FOR AN OLYMPIAD
+//
+// Upserts entrant records and creates
+// entrant_registrations for every eligible
+// round in the olympiad.  The first round
+// is always registered; subsequent rounds
+// require the entrant to have qualified in
+// the preceding round (when results are
+// already released).
+// ─────────────────────────────────────────
+const registerEntrantsForOlympiad = async (olympiadId, userId, entrantsData) => {
+  const educator = await resolveEducator(userId);
+
+  const olympiad = await prisma.olympiads.findUnique({
+    where: { id: olympiadId },
+  });
+  if (!olympiad) throw new NotFoundError("Olympiad not found");
+
+  // School must be registered for the olympiad
+  const schoolReg = await prisma.school_registrations.findFirst({
+    where: {
+      school_id: educator.school_id,
+      olympiad_id: olympiadId,
+    },
+  });
+  if (!schoolReg) {
+    throw new ForbiddenError(
+      "Your school is not registered for this olympiad",
+    );
+  }
+
+  // Get all rounds ordered by opens_at
+  const rounds = await prisma.rounds.findMany({
+    where: { olympiad_id: olympiadId },
+    orderBy: { opens_at: "asc" },
+  });
+
+  if (rounds.length === 0) {
+    throw new BadRequestError("No rounds found for this olympiad");
+  }
+
+  const registered = await prisma.$transaction(async (tx) => {
+    const results = [];
+
+    for (const e of entrantsData) {
+      // Find or create the entrant record
+      let entrant = await tx.entrants.findFirst({
+        where: e.external_ref
+          ? { school_id: educator.school_id, external_ref: e.external_ref }
+          : { school_id: educator.school_id, full_name: e.full_name },
+      });
+
+      if (entrant) {
+        entrant = await tx.entrants.update({
+          where: { id: entrant.id },
+          data: {
+            full_name: e.full_name,
+            grade: e.grade?.toString(),
+          },
+        });
+      } else {
+        entrant = await tx.entrants.create({
+          data: {
+            school_id: educator.school_id,
+            full_name: e.full_name,
+            grade: e.grade?.toString(),
+            external_ref: e.external_ref || null,
+          },
+        });
+      }
+
+      // Register for each eligible round
+      const registeredRounds = [];
+
+      for (let i = 0; i < rounds.length; i++) {
+        const round = rounds[i];
+
+        // First round: always register
+        if (i > 0) {
+          const prevRound = rounds[i - 1];
+          if (prevRound.state === "results_released") {
+            // Must have qualified in the previous round
+            const qualified = await tx.results.findFirst({
+              where: {
+                round_id: prevRound.id,
+                entrant_id: entrant.id,
+                qualified: true,
+              },
+            });
+            if (!qualified) continue; // skip this round
+          }
+          // If previous round results not released, register tentatively
+        }
+
+        // Upsert the registration
+        await tx.entrant_registrations.upsert({
+          where: {
+            entrant_id_round_id: {
+              entrant_id: entrant.id,
+              round_id: round.id,
+            },
+          },
+          update: { status: "registered" },
+          create: {
+            entrant_id: entrant.id,
+            round_id: round.id,
+            registered_by: educator.id,
+            status: "registered",
+          },
+        });
+
+        registeredRounds.push({ id: round.id, name: round.name });
+      }
+
+      results.push({
+        id: entrant.id,
+        full_name: entrant.full_name,
+        grade: entrant.grade,
+        external_ref: entrant.external_ref,
+        rounds: registeredRounds,
+      });
+    }
+
+    return results;
+  });
+
+  return registered;
+};
+
+// ─────────────────────────────────────────
+// LIST ENTRANTS FOR AN OLYMPIAD
+//
+// Returns all entrants registered for any
+// round in the olympiad, with the list of
+// rounds each entrant is registered for.
+// ─────────────────────────────────────────
+const listOlympiadEntrants = async (olympiadId, userId) => {
+  const educator = await resolveEducator(userId);
+
+  const olympiad = await prisma.olympiads.findUnique({
+    where: { id: olympiadId },
+  });
+  if (!olympiad) throw new NotFoundError("Olympiad not found");
+
+  // Verify school is registered
+  const schoolReg = await prisma.school_registrations.findFirst({
+    where: {
+      school_id: educator.school_id,
+      olympiad_id: olympiadId,
+    },
+  });
+  if (!schoolReg) {
+    throw new ForbiddenError(
+      "Your school is not registered for this olympiad",
+    );
+  }
+
+  // Get all rounds in the olympiad
+  const rounds = await prisma.rounds.findMany({
+    where: { olympiad_id: olympiadId },
+    select: { id: true, name: true },
+    orderBy: { opens_at: "asc" },
+  });
+  const roundIds = rounds.map((r) => r.id);
+
+  const registrations = await prisma.entrant_registrations.findMany({
+    where: {
+      round_id: { in: roundIds },
+      entrants: { school_id: educator.school_id },
+    },
+    include: {
+      entrants: {
+        select: {
+          id: true,
+          full_name: true,
+          grade: true,
+          external_ref: true,
+        },
+      },
+      rounds: {
+        select: { id: true, name: true },
+      },
+    },
+    orderBy: { created_at: "asc" },
+  });
+
+  // Group by entrant
+  const entrantMap = new Map();
+  for (const reg of registrations) {
+    const e = reg.entrants;
+    if (!entrantMap.has(e.id)) {
+      entrantMap.set(e.id, {
+        id: e.id,
+        full_name: e.full_name,
+        grade: e.grade,
+        external_ref: e.external_ref,
+        rounds: [],
+      });
+    }
+    entrantMap.get(e.id).rounds.push(reg.rounds);
+  }
+
+  return Array.from(entrantMap.values());
+};
+
+// ─────────────────────────────────────────
+// GET PROGRESSION INFO FOR AN OLYMPIAD
+//
+// Returns per-round progression info so
+// the frontend can display which rounds
+// require qualification.
+// ─────────────────────────────────────────
+const getOlympiadProgressionInfo = async (olympiadId, userId) => {
+  const educator = await resolveEducator(userId);
+
+  const olympiad = await prisma.olympiads.findUnique({
+    where: { id: olympiadId },
+  });
+  if (!olympiad) throw new NotFoundError("Olympiad not found");
+
+  // Verify school is registered
+  const schoolReg = await prisma.school_registrations.findFirst({
+    where: {
+      school_id: educator.school_id,
+      olympiad_id: olympiadId,
+    },
+  });
+  if (!schoolReg) {
+    throw new ForbiddenError(
+      "Your school is not registered for this olympiad",
+    );
+  }
+
+  const rounds = await prisma.rounds.findMany({
+    where: { olympiad_id: olympiadId },
+    orderBy: { opens_at: "asc" },
+  });
+
+  const roundProgression = [];
+
+  for (let i = 0; i < rounds.length; i++) {
+    const round = rounds[i];
+
+    if (i === 0) {
+      roundProgression.push({
+        roundId: round.id,
+        roundName: round.name,
+        requiresQualification: false,
+        previousRound: null,
+        state: round.state,
+      });
+      continue;
+    }
+
+    const prevRound = rounds[i - 1];
+    const requiresQual = prevRound.state === "results_released";
+
+    let qualifiedEntrantIds = [];
+    if (requiresQual) {
+      const qualifiedResults = await prisma.results.findMany({
+        where: {
+          round_id: prevRound.id,
+          qualified: true,
+          entrants: { school_id: educator.school_id },
+        },
+        select: { entrant_id: true },
+      });
+      qualifiedEntrantIds = qualifiedResults.map((r) => r.entrant_id);
+    }
+
+    roundProgression.push({
+      roundId: round.id,
+      roundName: round.name,
+      requiresQualification: requiresQual,
+      previousRound: requiresQual
+        ? {
+            id: prevRound.id,
+            name: prevRound.name,
+            qualifyingThreshold: prevRound.qualifying_threshold
+              ? Number(prevRound.qualifying_threshold)
+              : null,
+          }
+        : null,
+      qualifiedEntrantIds,
+      state: round.state,
+    });
+  }
+
+  return { rounds: roundProgression };
+};
+
 module.exports = {
   listEducatorRounds,
   getEducatorRoundDetail,
   registerEntrants,
+  registerEntrantsForOlympiad,
   listEntrants,
+  listOlympiadEntrants,
   getProgressionInfo,
+  getOlympiadProgressionInfo,
   getResults,
   listAllResults,
   listPastPapers,

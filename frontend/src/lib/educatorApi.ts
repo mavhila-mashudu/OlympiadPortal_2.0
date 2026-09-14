@@ -114,6 +114,31 @@ export type ProgressionInfo = {
   qualifiedEntrantIds: string[];
 };
 
+export type OlympiadEntrant = {
+  id: string;
+  full_name: string;
+  grade: string | null;
+  external_ref: string | null;
+  rounds: Array<{ id: string; name: string }>;
+};
+
+export type RoundProgressionInfo = {
+  roundId: string;
+  roundName: string;
+  requiresQualification: boolean;
+  previousRound: {
+    id: string;
+    name: string;
+    qualifyingThreshold: number | null;
+  } | null;
+  qualifiedEntrantIds: string[];
+  state: string;
+};
+
+export type OlympiadProgressionInfo = {
+  rounds: RoundProgressionInfo[];
+};
+
 export type SubmissionReceipt = {
   submission: {
     id: string;
@@ -196,6 +221,53 @@ export function useProgressionInfo(roundId: string) {
     queryFn: () =>
       api.get<ProgressionInfo>(`/educator/rounds/${roundId}/progression`),
     enabled: !!roundId,
+  });
+}
+
+export function useOlympiadEntrants(olympiadId: string) {
+  return useQuery({
+    queryKey: ["educator", "olympiads", olympiadId, "entrants"],
+    queryFn: () =>
+      api
+        .get<{ entrants: OlympiadEntrant[] }>(
+          `/educator/olympiads/${olympiadId}/entrants`,
+        )
+        .then((d) => d.entrants),
+    enabled: !!olympiadId,
+  });
+}
+
+export function useOlympiadProgressionInfo(olympiadId: string) {
+  return useQuery({
+    queryKey: ["educator", "olympiads", olympiadId, "progression"],
+    queryFn: () =>
+      api.get<OlympiadProgressionInfo>(
+        `/educator/olympiads/${olympiadId}/progression`,
+      ),
+    enabled: !!olympiadId,
+  });
+}
+
+export function useRegisterEntrantsForOlympiad(olympiadId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (
+      entrants: Array<{
+        full_name: string;
+        grade?: string;
+        external_ref?: string;
+      }>,
+    ) =>
+      api.post<{ entrants: OlympiadEntrant[] }>(
+        `/educator/olympiads/${olympiadId}/entrants`,
+        { entrants },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ["educator", "olympiads", olympiadId, "entrants"],
+      });
+      qc.invalidateQueries({ queryKey: ["educator", "rounds"] });
+    },
   });
 }
 

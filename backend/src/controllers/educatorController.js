@@ -78,6 +78,51 @@ const getProgressionInfo = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────
+// OLYMPIAD-LEVEL ENTRANTS
+// ─────────────────────────────────────────
+
+const registerEntrantsForOlympiad = async (req, res, next) => {
+  try {
+    const { entrants } = req.body;
+    const registered = await educatorService.registerEntrantsForOlympiad(
+      req.params.olympiadId,
+      req.user.userId,
+      entrants,
+    );
+    res.status(201).json({
+      success: true,
+      data: { entrants: registered },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const listOlympiadEntrants = async (req, res, next) => {
+  try {
+    const entrants = await educatorService.listOlympiadEntrants(
+      req.params.olympiadId,
+      req.user.userId,
+    );
+    res.json({ success: true, data: { entrants } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getOlympiadProgressionInfo = async (req, res, next) => {
+  try {
+    const info = await educatorService.getOlympiadProgressionInfo(
+      req.params.olympiadId,
+      req.user.userId,
+    );
+    res.json({ success: true, data: info });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────
 // RESULTS
 // ─────────────────────────────────────────
 
@@ -136,8 +181,11 @@ module.exports = {
   listRounds,
   getRound,
   registerEntrants,
+  registerEntrantsForOlympiad,
   listEntrants,
+  listOlympiadEntrants,
   getProgressionInfo,
+  getOlympiadProgressionInfo,
   getResults,
   listAllResults,
   listPastPapers,
