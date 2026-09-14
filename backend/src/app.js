@@ -54,12 +54,13 @@ app.get("/", (_req, res) => {
 
 // ── Routes ──────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
+app.use("/educator", require("./routes/educator"));
 
 //registering olympiads and rounds routes
 // Specific subpaths first
+app.use("/olympiads", require("./routes/olympiads"));
 app.use("/rounds", require("./routes/studentRounds"));
 app.use("/rounds", require("./routes/studentExam"));
-app.use("/olympiads", require("./routes/olympiads"));
 app.use("/rounds", require("./routes/questions"));
 app.use("/rounds", require("./routes/examStatus"));
 app.use("/rounds", require("./routes/submissions"));
@@ -67,7 +68,7 @@ app.use("/rounds", require("./routes/marking"));
 // Root parametrised last
 app.use("/rounds", require("./routes/roundDetail"));
 app.use("/papers", require("./routes/papers"));
-app.use("/educator", require("./routes/educator"));
+
 // 404
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: "Route not found" });
