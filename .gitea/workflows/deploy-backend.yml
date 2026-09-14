@@ -22,7 +22,11 @@ jobs:
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build image
-        run: docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" backend
+        # --network=host: this runner's Docker build sandbox (the isolated bridge
+        # network BuildKit uses for RUN steps) can't reach the internet, even though
+        # the daemon itself can pull images fine. Building with the host's network
+        # directly routes RUN steps (npm ci, prisma generate) around that bridge.
+        run: docker build --network=host -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" backend
 
       - name: Push image
         run: |
