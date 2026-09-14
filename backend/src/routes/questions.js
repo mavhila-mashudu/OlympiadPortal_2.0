@@ -78,28 +78,38 @@ const updateQuestionRules = [
 // Organiser ownership is checked in the service layer.
 // Educator access is checked via school registration.
 
-router.use(requireAuth, requireRole("organiser", "educator"));
+// Auth at router level; role per route. Role guards must NOT be applied
+// with router.use — other routers are also mounted on /rounds in app.js,
+// and a router-level guard would 403 their requests before Express
+// falls through to them.
+router.use(requireAuth);
 
 // Create a question on a round's paper
 router.post(
   "/:roundId/questions",
+  requireRole("organiser", "educator"),
   createQuestionRules,
   validate,
   createQuestion,
 );
 
 // List questions for a round's paper
-router.get("/:roundId/questions", listQuestions);
+router.get("/:roundId/questions", requireRole("organiser", "educator"), listQuestions);
 
 // Update a specific question
 router.patch(
   "/:roundId/questions/:id",
+  requireRole("organiser", "educator"),
   updateQuestionRules,
   validate,
   updateQuestion,
 );
 
 // Delete a specific question
-router.delete("/:roundId/questions/:id", deleteQuestion);
+router.delete(
+  "/:roundId/questions/:id",
+  requireRole("organiser", "educator"),
+  deleteQuestion,
+);
 
 module.exports = router;

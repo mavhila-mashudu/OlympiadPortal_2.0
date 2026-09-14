@@ -9,7 +9,7 @@ import {
   Flag,
   Send,
 } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { api } from "../../lib/api";
 import { Button } from "../../components/ui/Button";
@@ -128,7 +128,6 @@ const writeStored = (key: string, state: StoredAnswers) => {
 
 function ExamSitting() {
   const { id: roundId } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
   const [examData, setExamData] = useState<ExamData | null>(null);
   const [answers, setAnswers] = useState<Map<string, string>>(new Map());

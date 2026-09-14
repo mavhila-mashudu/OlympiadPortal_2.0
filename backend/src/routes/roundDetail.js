@@ -30,14 +30,19 @@ const setRoundStateRules = [
 
 // ── Routes ──────────────────────────────────────────────
 
-router.use(requireAuth, requireRole("organiser"));
+// Auth at router level; role per route. Role guards must NOT be applied
+// with router.use — other routers are also mounted on /rounds in app.js,
+// and a router-level guard would 403 their requests before Express
+// falls through to them.
+router.use(requireAuth);
 
-router.get("/:id", getRound);
-router.patch("/:id", updateRoundRules, validate, updateRound);
-router.patch("/:id/state", setRoundStateRules, validate, setRoundState);
-router.delete("/:id", deleteRound);
+router.get("/:id", requireRole("organiser"), getRound);
+router.patch("/:id", requireRole("organiser"), updateRoundRules, validate, updateRound);
+router.patch("/:id/state", requireRole("organiser"), setRoundStateRules, validate, setRoundState);
+router.delete("/:id", requireRole("organiser"), deleteRound);
 router.post(
   "/:id/papers",
+  requireRole("organiser"),
   upload.fields([
     { name: "paper", maxCount: 1 },
     { name: "memo", maxCount: 1 },

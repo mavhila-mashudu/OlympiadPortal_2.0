@@ -12,7 +12,10 @@ const { scoreMcq } = require("./markingMath");
 // ─────────────────────────────────────────
 
 // Walk  round → olympiad  and assert the
-// organiser owns it.  Returns the round.
+// caller has access.  Organisers must own the
+// olympiad; educators must have their school
+// registered for it.  Returns the round plus
+// the educator's school_id (null for organisers).
 const assertRoundOwnership = async (roundId, userId, role) => {
   const round = await prisma.rounds.findUnique({
     where: { id: roundId },
@@ -21,15 +24,35 @@ const assertRoundOwnership = async (roundId, userId, role) => {
 
   if (!round) throw new NotFoundError("Round not found");
 
+  let schoolId = null;
+
   if (role === "organiser") {
     if (round.olympiads.organiser_id !== userId) {
       throw new ForbiddenError("Not your round");
     }
+  } else if (role === "educator") {
+    const educator = await prisma.educators.findUnique({
+      where: { user_id: userId },
+    });
+    if (!educator) throw new ForbiddenError("Educator profile not found");
+
+    const registration = await prisma.school_registrations.findFirst({
+      where: {
+        school_id: educator.school_id,
+        olympiad_id: round.olympiads.id,
+      },
+    });
+    if (!registration) {
+      throw new ForbiddenError(
+        "Your school is not registered for this olympiad",
+      );
+    }
+    schoolId = educator.school_id;
   } else {
     throw new ForbiddenError("Insufficient permissions");
   }
 
-  return round;
+  return { ...round, _educatorSchoolId: schoolId };
 };
 
 // Recalculate the total points for a submission
@@ -207,8 +230,30 @@ const autoMarkRoundInternal = async (roundId) => {
 // POST /rounds/:roundId/mark endpoint.
 // ─────────────────────────────────────────
 const autoMarkRound = async (roundId, userId, role) => {
-  await assertRoundOwnership(roundId, userId, role);
-  return autoMarkRoundInternal(roundId);
+  const round = await assertRoundOwnership(roundId, userId, role);
+
+  // Educators can only auto-mark submissions from their own school
+  const where = { round_id: roundId, status: "received" };
+  if (round._educatorSchoolId) {
+    where.entrants = { school_id: round._educatorSchoolId };
+  }
+
+  const pending = await prisma.submissions.findMany({
+    where,
+    select: { id: true },
+  });
+
+  const results = [];
+  for (const sub of pending) {
+    try {
+      const r = await autoMarkSubmission(sub.id);
+      results.push(r);
+    } catch (err) {
+      results.push({ submissionId: sub.id, error: err.message });
+    }
+  }
+
+  return { total: pending.length, processed: results };
 };
 
 // ─────────────────────────────────────────
@@ -284,6 +329,11 @@ const markAnswer = async (
 // ─────────────────────────────────────────
 const generateResults = async (roundId, userId, role) => {
   const round = await assertRoundOwnership(roundId, userId, role);
+  // Only organisers can generate results (the route guard enforces this,
+  // but we double-check here for safety).
+  if (role !== "organiser") {
+    throw new ForbiddenError("Only organisers can generate final results");
+  }
 
   if (round.state === "scheduled" || round.state === "open") {
     throw new BadRequestError(
@@ -349,10 +399,16 @@ const generateResults = async (roundId, userId, role) => {
 // a human marker needs to award points.
 // ─────────────────────────────────────────
 const getMarkingQueue = async (roundId, userId, role) => {
-  await assertRoundOwnership(roundId, userId, role);
+  const round = await assertRoundOwnership(roundId, userId, role);
+
+  // Educators only see submissions from their own school
+  const where = { round_id: roundId, status: "queued_for_marking" };
+  if (round._educatorSchoolId) {
+    where.entrants = { school_id: round._educatorSchoolId };
+  }
 
   const submissions = await prisma.submissions.findMany({
-    where: { round_id: roundId, status: "queued_for_marking" },
+    where,
     include: {
       entrants: { select: { id: true, full_name: true, grade: true } },
       answers: {
