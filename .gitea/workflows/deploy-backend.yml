@@ -33,6 +33,26 @@ jobs:
           docker push "$IMAGE:${{ github.sha }}"
           docker push "$IMAGE:latest"
 
+      - name: TEMPORARY DIAGNOSTIC - inspect Render service
+        # Read-only GET, can't change anything. Checks the RENDER_SERVICE_ID/RENDER_API_KEY
+        # secrets are well-formed before we try the actual deploy trigger below.
+
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          raw_len=$(printf '%s' "$RENDER_SERVICE_ID" | wc -c)
+          trimmed_len=$(printf '%s' "$RENDER_SERVICE_ID" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | wc -c)
+          echo "RENDER_SERVICE_ID raw length: $raw_len, trimmed length: $trimmed_len (a mismatch means stray whitespace/newline)"
+          if [[ "$RENDER_SERVICE_ID" =~ ^srv-[A-Za-z0-9]+$ ]]; then
+            echo "RENDER_SERVICE_ID format: looks correct (srv-<alphanumeric>)"
+          else
+            echo "RENDER_SERVICE_ID format: UNEXPECTED — does not match ^srv-[A-Za-z0-9]+\$"
+          fi
+          curl -sS -i "https://api.render.com/v1/services/${RENDER_SERVICE_ID}" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json"
+
       - name: Trigger Render deploy
         env:
           RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
