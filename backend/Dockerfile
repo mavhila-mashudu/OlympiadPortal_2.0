@@ -10,6 +10,16 @@ FROM node:22-bookworm-slim
 WORKDIR /app
 
 COPY package.json package-lock.json ./
+
+# TEMPORARY DIAGNOSTIC — remove once the npm ci hang is understood.
+# node's built-in fetch with a hard 15s timeout tells us fast whether the build
+# sandbox can even reach the npm registry, instead of waiting minutes on npm ci.
+RUN node -e "\
+  const t = Date.now(); \
+  fetch('https://registry.npmjs.org/npm', { signal: AbortSignal.timeout(15000) }) \
+    .then(r => { console.log('REGISTRY OK: status', r.status, 'in', Date.now() - t, 'ms'); }) \
+    .catch(e => { console.error('REGISTRY UNREACHABLE:', e.message); process.exit(1); });"
+
 # --no-audit/--no-fund skip extra registry calls; the retry loop is a safety net
 # for transient registry/network hiccups on the shared runner. `ok` tracks whether
 # any attempt actually succeeded, so a full failure still fails the build loudly
