@@ -65,6 +65,7 @@ app.use("/rounds", require("./routes/studentExam"));
 app.use("/rounds", require("./routes/submissions"));
 app.use("/rounds", require("./routes/marking"));
 app.use("/papers", require("./routes/papers"));
+app.use("/educator", require("./routes/educator"));
 // 404
 app.use((_req, res) => {
   res.status(404).json({ success: false, error: "Route not found" });
