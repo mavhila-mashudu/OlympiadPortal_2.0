@@ -14,12 +14,12 @@ const allowedOrigins = new Set(
   process.env.NODE_ENV === "production"
     ? [configuredFrontendUrl]
     : [
-        configuredFrontendUrl,
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-      ],
+      configuredFrontendUrl,
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://localhost:5174",
+      "http://127.0.0.1:5174",
+    ],
 );
 
 app.use(helmet());
@@ -56,14 +56,16 @@ app.get("/", (_req, res) => {
 app.use("/auth", require("./routes/auth"));
 
 //registering olympiads and rounds routes
-app.use("/olympiads", require("./routes/olympiads"));
+// Specific subpaths first
 app.use("/rounds", require("./routes/studentRounds"));
-app.use("/rounds", require("./routes/roundDetail"));
+app.use("/rounds", require("./routes/studentExam"));
+app.use("/olympiads", require("./routes/olympiads"));
 app.use("/rounds", require("./routes/questions"));
 app.use("/rounds", require("./routes/examStatus"));
-app.use("/rounds", require("./routes/studentExam"));
 app.use("/rounds", require("./routes/submissions"));
 app.use("/rounds", require("./routes/marking"));
+// Root parametrised last
+app.use("/rounds", require("./routes/roundDetail"));
 app.use("/papers", require("./routes/papers"));
 // 404
 app.use((_req, res) => {

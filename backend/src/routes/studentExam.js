@@ -14,7 +14,7 @@ const {
 const { parseOptionList, scoreMcq } = require("../services/markingMath");
 
 // All routes require student auth
-router.use(requireAuth, requireRole("student"));
+router.use(requireAuth);
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -124,10 +124,10 @@ const getExam = async (req, res, next) => {
         server_time: new Date().toISOString(),
         submission: existingSubmission
           ? {
-              id: existingSubmission.id,
-              status: existingSubmission.status,
-              answers: existingSubmission.answers,
-            }
+            id: existingSubmission.id,
+            status: existingSubmission.status,
+            answers: existingSubmission.answers,
+          }
           : null,
       },
     });
@@ -435,11 +435,12 @@ const submitExam = async (req, res, next) => {
 
 // ── Routes ──────────────────────────────────────────
 
-router.get("/:roundId/exam", getExam);
-router.post("/:roundId/exam/start", startExam);
+router.get("/:roundId/exam", requireRole("student"), getExam);
+router.post("/:roundId/exam/start", requireRole("student"), startExam);
 
 router.patch(
   "/:roundId/exam/answers/:qid",
+  requireRole("student"),
   [
     param("roundId").isUUID(),
     param("qid").isUUID(),
@@ -449,6 +450,6 @@ router.patch(
   saveAnswer,
 );
 
-router.post("/:roundId/exam/submit", submitExam);
+router.post("/:roundId/exam/submit", requireRole("student"), submitExam);
 
 module.exports = router;
