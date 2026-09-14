@@ -18,6 +18,7 @@ router.use(requireAuth, requireRole("organiser"));
 router.get("/", controller.listRules);
 router.post("/", ruleFields, validate, controller.createRule);
 router.patch("/:ruleId", ruleFields, validate, controller.updateRule);
+router.post("/:ruleId/test", [body("round_id").isUUID().withMessage("round_id must be a valid UUID")], validate, controller.testRule);
 router.delete("/:ruleId", controller.deleteRule);
 
 module.exports = router;
