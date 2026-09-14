@@ -19,7 +19,9 @@ const createSubmissionRules = [
     .optional()
     .isIn(["online", "offline"])
     .withMessage("route must be online or offline"),
-  body("answers").isArray({ min: 1 }).withMessage("answers array is required"),
+  // Empty arrays are allowed — educators can record a submission without
+  // per-question answers (bulk/offline results upload).
+  body("answers").isArray().withMessage("answers must be an array"),
   body("answers.*.question_id").isUUID().withMessage("question_id is required"),
   body("answers.*.answer_value").optional().isString(),
 ];

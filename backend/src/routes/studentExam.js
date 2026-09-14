@@ -13,7 +13,10 @@ const {
 } = require("../errors/AppError");
 const { parseOptionList, scoreMcq } = require("../services/markingMath");
 
-// All routes require student auth
+// Auth at router level; role per route. Role guards must NOT be applied
+// with router.use — other routers are also mounted on /rounds in app.js,
+// and a router-level guard would 403 their requests before Express
+// falls through to them.
 router.use(requireAuth);
 
 // ─────────────────────────────────────────

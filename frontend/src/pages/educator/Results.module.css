@@ -19,3 +19,36 @@
     max-width: 24rem;
   }
 }
+
+.loading {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.error {
+  color: var(--destructive, #dc2626);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.emptyState svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--muted-foreground);
+}
+
+.emptyState p {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}

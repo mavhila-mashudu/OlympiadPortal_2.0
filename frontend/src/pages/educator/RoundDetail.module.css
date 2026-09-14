@@ -201,3 +201,132 @@
     justify-content: space-between;
   }
 }
+
+/* Loading & error states */
+.loading,
+.error {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.error {
+  color: var(--destructive, #dc2626);
+}
+
+/* Past papers section (B11) */
+.pastPaperSection {
+  border-top: 1px solid var(--border);
+  padding: 1rem;
+}
+
+.pastPaperSection h3 {
+  color: var(--card-foreground);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+.pastPaperList {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.pastPaperItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.5rem 0.75rem;
+}
+
+.pastPaperInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.pastPaperInfo svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  flex-shrink: 0;
+  color: var(--muted-foreground);
+}
+
+.pastPaperName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--foreground);
+}
+
+.pastPaperRound {
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+/* Submission receipt (B13) */
+.receipt {
+  display: grid;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in oklab, var(--status-open) 30%, transparent);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 1rem;
+  background: color-mix(in oklab, var(--status-open) 5%, transparent);
+}
+
+.receiptHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+.receiptHeader svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--status-open);
+}
+
+.receiptDetails {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.receiptDetails strong {
+  color: var(--foreground);
+  font-weight: 500;
+}
+
+/* Entrant selector in submit form */
+.entrantSelect {
+  display: grid;
+  gap: 0.5rem;
+}
+
+/* Results locked banner */
+.lockedBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.75rem 1rem;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.lockedBanner svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}

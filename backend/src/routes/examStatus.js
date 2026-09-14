@@ -11,8 +11,11 @@ const {
   BadRequestError,
 } = require("../errors/AppError");
 
-// All routes require organiser auth
-router.use(requireAuth, requireRole("organiser"));
+// Auth at router level; role per route. Role guards must NOT be applied
+// with router.use — other routers are also mounted on /rounds in app.js,
+// and a router-level guard would 403 their requests before Express
+// falls through to them.
+router.use(requireAuth);
 
 // GET /rounds/:roundId/exam-status — get current exam status + question count
 const getExamStatus = async (req, res, next) => {
@@ -141,9 +144,10 @@ const updateExamStatus = async (req, res, next) => {
   }
 };
 
-router.get("/:roundId/exam-status", getExamStatus);
+router.get("/:roundId/exam-status", requireRole("organiser"), getExamStatus);
 router.patch(
   "/:roundId/exam-status",
+  requireRole("organiser"),
   [
     param("roundId").isUUID(),
     body("status").trim().notEmpty().isIn(["draft", "ready", "live"]),
