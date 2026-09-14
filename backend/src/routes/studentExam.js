@@ -127,10 +127,10 @@ const getExam = async (req, res, next) => {
         server_time: new Date().toISOString(),
         submission: existingSubmission
           ? {
-              id: existingSubmission.id,
-              status: existingSubmission.status,
-              answers: existingSubmission.answers,
-            }
+            id: existingSubmission.id,
+            status: existingSubmission.status,
+            answers: existingSubmission.answers,
+          }
           : null,
       },
     });
