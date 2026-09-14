@@ -1,0 +1,14 @@
+node_modules
+generated
+.env
+.env.*
+!.env.example
+.git
+.agents
+.claude
+.windsurf
+skills-lock.json
+*.md
+npm-debug.log*
+Dockerfile
+.dockerignore
