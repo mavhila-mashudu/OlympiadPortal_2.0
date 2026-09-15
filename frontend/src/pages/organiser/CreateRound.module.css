@@ -39,6 +39,59 @@
   gap: 0.5rem;
 }
 
+.warningBanner {
+  padding: 1.25rem;
+  border-left: 4px solid #f59e0b;
+  background: color-mix(in oklab, #f59e0b 8%, var(--card) 92%);
+}
+
+.warningTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.warningSubtitle {
+  margin: 0.5rem 0 0.25rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.warningList {
+  margin: 0.25rem 0 1rem;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.confirmPanel {
+  padding: 1rem 1.25rem;
+  border-left: 4px solid #f59e0b;
+  background: color-mix(in oklab, #f59e0b 8%, var(--card) 92%);
+  border-radius: 0.5rem;
+}
+
+.confirmTitle {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.confirmHint {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
 @media (min-width: 40rem) {
   .formCard {
     padding: 1.5rem;

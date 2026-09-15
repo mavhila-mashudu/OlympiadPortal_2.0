@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -16,6 +16,13 @@ import styles from "./CreateRound.module.css";
 
 type Round = { id: string };
 
+// Treats the datetime-local input value (e.g. "2026-12-25T08:00") as UTC
+// so that the date portion is preserved regardless of the user's timezone.
+function toUTCISO(localValue: string): string {
+  const [date, time] = localValue.split("T");
+  return `${date}T${time || "00:00"}:00.000Z`;
+}
+
 function CreateRound() {
   const navigate = useNavigate();
   const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
@@ -23,6 +30,12 @@ function CreateRound() {
   const [loadingOlympiads, setLoadingOlympiads] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
+  const [created, setCreated] = useState(false);
+  // Warnings shown BEFORE creation — user must confirm to proceed.
+  const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const confirmedRef = useRef(false);
 
   useEffect(() => {
     async function loadOlympiads() {
@@ -63,6 +76,7 @@ function CreateRound() {
 
         <Card className={styles.formCard}>
           <form
+            ref={formRef}
             className={styles.form}
             onSubmit={async (event) => {
               event.preventDefault();
@@ -83,13 +97,31 @@ function CreateRound() {
                   throw new Error("Select an olympiad before creating the round");
                 }
 
-                const { round } = await api.post<{ round: Round }>(
+                // Step 1: check for holiday clashes BEFORE creating
+                if (!confirmedRef.current) {
+                  const { warnings: preWarnings } = await api.post<{ warnings: string[] }>(
+                    "/rounds/check-dates",
+                    {
+                      opens_at: toUTCISO(opensAtLocal),
+                      closes_at: toUTCISO(closesAtLocal),
+                    },
+                  );
+                  if (preWarnings && preWarnings.length > 0) {
+                    setPendingWarnings(preWarnings);
+                    setSubmitting(false);
+                    return; // stop — wait for user to confirm
+                  }
+                }
+                confirmedRef.current = false;
+
+                // Step 2: create the round
+                const { round, warnings: apiWarnings } = await api.post<{ round: Round; warnings?: string[] }>(
                   `/olympiads/${selectedOlympiadId}/rounds`,
                   {
                     name,
                     notes,
-                    opens_at: new Date(opensAtLocal).toISOString(),
-                    closes_at: new Date(closesAtLocal).toISOString(),
+                    opens_at: toUTCISO(opensAtLocal),
+                    closes_at: toUTCISO(closesAtLocal),
                     qualifying_threshold: qualifyingThreshold
                       ? Number(qualifyingThreshold)
                       : null,
@@ -106,7 +138,12 @@ function CreateRound() {
                   await api.post(`/rounds/${round.id}/papers`, papersForm);
                 }
 
-                navigate("/organiser");
+                if (apiWarnings && apiWarnings.length > 0) {
+                  setWarnings(apiWarnings);
+                  setCreated(true);
+                } else {
+                  navigate("/organiser");
+                }
               } catch (err) {
                 setError(
                   err instanceof Error ? err.message : "Failed to create round",
@@ -189,13 +226,29 @@ function CreateRound() {
                 <Label htmlFor="opens-at">
                   Opens at<span className={styles.required}> *</span>
                 </Label>
-                <Input id="opens-at" name="opensAt" required type="datetime-local" />
+                <Input
+                  id="opens-at"
+                  name="opensAt"
+                  required
+                  type="datetime-local"
+                  onChange={() => {
+                    setPendingWarnings([]);
+                  }}
+                />
               </div>
               <div className={styles.field}>
                 <Label htmlFor="closes-at">
                   Closes at<span className={styles.required}> *</span>
                 </Label>
-                <Input id="closes-at" name="closesAt" required type="datetime-local" />
+                <Input
+                  id="closes-at"
+                  name="closesAt"
+                  required
+                  type="datetime-local"
+                  onChange={() => {
+                    setPendingWarnings([]);
+                  }}
+                />
               </div>
             </div>
 
@@ -227,6 +280,41 @@ function CreateRound() {
 
             {error && <p className={styles.hint}>{error}</p>}
 
+            {pendingWarnings.length > 0 && !created && (
+              <div className={styles.confirmPanel}>
+                <p className={styles.confirmTitle}>Public holiday clashes detected</p>
+                <ul className={styles.warningList}>
+                  {pendingWarnings.map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+                <p className={styles.confirmHint}>
+                  You can still create the round, or go back and change the dates.
+                </p>
+                <div className={styles.confirmActions}>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      confirmedRef.current = true;
+                      setPendingWarnings([]);
+                      formRef.current?.requestSubmit();
+                    }}
+                  >
+                    Create anyway
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setPendingWarnings([]);
+                    }}
+                  >
+                    Change dates
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className={styles.actions}>
               <Button
                 disabled={submitting || loadingOlympiads || olympiads.length === 0}
@@ -240,6 +328,23 @@ function CreateRound() {
             </div>
           </form>
         </Card>
+
+        {created && warnings.length > 0 && (
+          <Card className={styles.warningBanner}>
+            <p className={styles.warningTitle}>Round created</p>
+            <p className={styles.warningSubtitle}>
+              The following public holiday clashes were detected:
+            </p>
+            <ul className={styles.warningList}>
+              {warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
+            </ul>
+            <Button onClick={() => navigate("/organiser")}>
+              Go to dashboard
+            </Button>
+          </Card>
+        )}
       </div>
     </AppShell>
   );
