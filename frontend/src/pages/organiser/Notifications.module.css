@@ -11,3 +11,12 @@
 .table small { display: block; margin-top: 0.25rem; color: var(--muted-foreground, #667085); font-weight: 400; }
 .empty { color: var(--muted-foreground, #667085); text-align: center; }
 .empty svg { width: 1rem; vertical-align: middle; margin-right: 0.35rem; }
+.testHeader { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; }
+.testHeader h2 { margin: 0; }
+.testHeader p { margin: 0.35rem 0 0; color: var(--muted-foreground, #667085); }
+.testControls { display: flex; gap: 1rem; align-items: end; margin-top: 1rem; flex-wrap: wrap; }
+.testControls label { display: grid; gap: 0.4rem; font-weight: 600; min-width: min(100%, 20rem); }
+.testSuccess, .testWarning { margin-top: 1rem; padding: 0.85rem 1rem; border: 1px solid var(--border, #e5e7eb); }
+.testSuccess { color: var(--success, #067647); }
+.testWarning { color: var(--destructive, #b42318); }
+.testSuccess p, .testWarning p { margin: 0.35rem 0 0; }

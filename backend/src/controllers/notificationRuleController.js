@@ -37,3 +37,15 @@ const deleteRule = async (req, res, next) => {
 };
 
 module.exports = { listRules, createRule, updateRule, deleteRule };
+const testRule = async (req, res, next) => {
+  try {
+    const result = await notificationRuleService.testRule({
+      ruleId: req.params.ruleId,
+      organiserId: req.user.userId,
+      roundId: req.body.round_id,
+    });
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+};
+
+module.exports = { listRules, createRule, updateRule, deleteRule, testRule };

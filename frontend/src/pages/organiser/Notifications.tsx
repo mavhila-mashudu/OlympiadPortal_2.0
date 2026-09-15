@@ -24,6 +24,22 @@ type NotificationRule = {
   enabled: boolean;
 };
 
+type Round = {
+  id: string;
+  name: string;
+  state: string;
+  results_release_at?: string | null;
+};
+
+type RuleTestResult = {
+  round: { name: string; state: string };
+  trigger: { type: Trigger; fires_at: string | null; source_time: string | null; offset_minutes: number };
+  condition: { expression: string | null; matched: boolean };
+  recipients: { type: Recipient; count: number };
+  would_send: boolean;
+  warnings: string[];
+};
+
 const triggerLabels: Record<Trigger, string> = {
   round_opens: "Round opens",
   round_closes: "Round closes",
@@ -42,6 +58,11 @@ function Notifications() {
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [rounds, setRounds] = useState<Round[]>([]);
+  const [testingRule, setTestingRule] = useState<NotificationRule | null>(null);
+  const [testRoundId, setTestRoundId] = useState("");
+  const [testResult, setTestResult] = useState<RuleTestResult | null>(null);
+  const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function loadRules(olympiadId: string) {
@@ -51,13 +72,20 @@ function Notifications() {
     setRules(data.rules || []);
   }
 
+  async function loadRounds(olympiadId: string) {
+    const data = await api.get<{ rounds: Round[] }>(`/olympiads/${olympiadId}/rounds`);
+    setRounds(data.rounds || []);
+  }
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const current = await getCurrentOlympiad();
         if (!cancelled) setOlympiad(current);
-        if (current?.id) await loadRules(current.id);
+        if (current?.id) {
+          await Promise.all([loadRules(current.id), loadRounds(current.id)]);
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load announcement rules");
       } finally {
@@ -114,6 +142,29 @@ function Notifications() {
     }
   }
 
+  function openTest(rule: NotificationRule) {
+    setTestingRule(rule);
+    setTestRoundId(rounds[0]?.id || "");
+    setTestResult(null);
+  }
+
+  async function testRule() {
+    if (!olympiad?.id || !testingRule || !testRoundId) return;
+    setTesting(true);
+    setError(null);
+    try {
+      const result = await api.post<RuleTestResult>(
+        `/olympiads/${olympiad.id}/notification-rules/${testingRule.id}/test`,
+        { round_id: testRoundId },
+      );
+      setTestResult(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to test announcement rule");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
     <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
       <div className={styles.stack}>
@@ -138,13 +189,33 @@ function Notifications() {
           </Card>
         )}
 
+        {testingRule && (
+          <Card>
+            <div className={styles.testHeader}>
+              <div><h2>Test rule: {testingRule.name}</h2><p>Preview only. No announcement will be sent.</p></div>
+              <Button variant="outline" onClick={() => setTestingRule(null)}>Close</Button>
+            </div>
+            <div className={styles.testControls}>
+              <label>Round<Select value={testRoundId} onChange={(event) => { setTestRoundId(event.target.value); setTestResult(null); }}><option value="">Select a round</option>{rounds.map((round) => <option key={round.id} value={round.id}>{round.name}</option>)}</Select></label>
+              <Button onClick={testRule} disabled={testing || !testRoundId}>{testing ? "Testing..." : "Run test"}</Button>
+            </div>
+            {testResult && <div className={testResult.would_send ? styles.testSuccess : styles.testWarning}>
+              <strong>{testResult.would_send ? "This rule would send an announcement." : "This rule would not send an announcement."}</strong>
+              <p>Recipients: {recipientLabels[testResult.recipients.type]} ({testResult.recipients.count})</p>
+              <p>Condition: {testResult.condition.matched ? "matched" : "not matched"}</p>
+              <p>Scheduled: {testResult.trigger.fires_at ? new Date(testResult.trigger.fires_at).toLocaleString() : "not scheduled"}</p>
+              {testResult.warnings.map((warning) => <p key={warning}>{warning}</p>)}
+            </div>}
+          </Card>
+        )}
+
         <Card padded={false}>
           <div className={styles.tableScroller}>
             <table className={styles.table}>
               <thead><tr><th>Rule</th><th>Trigger</th><th>Recipients</th><th>Timing</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
                 {!loading && rules.length === 0 && <tr><td colSpan={6} className={styles.empty}><Bell aria-hidden="true" /> No announcements configured.</td></tr>}
-                {rules.map((rule) => <tr key={rule.id}><td><strong>{rule.name}</strong>{rule.condition && <small>{rule.condition}</small>}</td><td>{triggerLabels[rule.trigger]}</td><td>{recipientLabels[rule.recipient]}</td><td>{rule.offset_minutes ? `${rule.offset_minutes} min before` : "At trigger"}</td><td>{rule.enabled ? "Enabled" : "Disabled"}</td><td><span className={styles.actions}><Button size="sm" variant="outline" onClick={() => toggleRule(rule)}>{rule.enabled ? "Disable" : "Enable"}</Button><Button size="sm" variant="outline" icon={<Trash2 aria-hidden="true" />} aria-label={`Delete ${rule.name}`} onClick={() => deleteRule(rule.id)}>Delete</Button></span></td></tr>)}
+                {rules.map((rule) => <tr key={rule.id}><td><strong>{rule.name}</strong>{rule.condition && <small>{rule.condition}</small>}</td><td>{triggerLabels[rule.trigger]}</td><td>{recipientLabels[rule.recipient]}</td><td>{rule.offset_minutes ? `${rule.offset_minutes} min before` : "At trigger"}</td><td>{rule.enabled ? "Enabled" : "Disabled"}</td><td><span className={styles.actions}><Button size="sm" variant="outline" onClick={() => openTest(rule)}>Test</Button><Button size="sm" variant="outline" onClick={() => toggleRule(rule)}>{rule.enabled ? "Disable" : "Enable"}</Button><Button size="sm" variant="outline" icon={<Trash2 aria-hidden="true" />} aria-label={`Delete ${rule.name}`} onClick={() => deleteRule(rule.id)}>Delete</Button></span></td></tr>)}
               </tbody>
             </table>
           </div>

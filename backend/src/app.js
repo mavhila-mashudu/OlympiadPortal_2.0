@@ -66,6 +66,7 @@ app.use("/rounds", require("./routes/questions"));
 app.use("/rounds", require("./routes/examStatus"));
 app.use("/rounds", require("./routes/submissions"));
 app.use("/rounds", require("./routes/marking"));
+app.use("/rounds", require("./routes/standings"));
 // Root parametrised last
 app.use("/rounds", require("./routes/roundDetail"));
 app.use("/papers", require("./routes/papers"));
