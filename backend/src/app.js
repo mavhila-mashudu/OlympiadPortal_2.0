@@ -3,10 +3,16 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const errorHandler = require("./middlewares/errorHandler");
+const { ForbiddenError } = require("./errors/AppError");
 require("./config/env");
 require("dotenv").config();
 
 const app = express();
+
+// Render (and most hosts) put one proxy in front of the app. Trusting that
+// hop makes req.ip the real client address, which the rate limits key on;
+// otherwise every user would share the proxy's single limit.
+app.set("trust proxy", 1);
 
 // Security
 const configuredFrontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
@@ -29,7 +35,7 @@ app.use(
       // API clients such as Postman do not send Origin; browser clients must
       // match a known application origin.
       if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-      return callback(new Error("Origin is not allowed by CORS"));
+      return callback(new ForbiddenError("Origin is not allowed by CORS"));
     },
     credentials: true,
   }),

@@ -20,8 +20,10 @@ const markAnswer = async (req, res, next) => {
     const { is_correct, points_awarded } = req.body;
 
     const result = await markingService.markAnswer(
+      req.params.roundId,
       req.params.id,
       req.user.userId,
+      req.user.role,
       { is_correct, points_awarded },
     );
 

@@ -17,6 +17,11 @@ const {
 } = require("../controllers/authController");
 const { requireAuth, requireRole, requireSchoolMembership } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
+const { createRateLimiter } = require("../middlewares/rateLimit");
+
+// Shared by every public endpoint that takes an invitation code, link or a
+// new account
+const publicAuthLimiter = createRateLimiter();
 
 const router = express.Router();
 
@@ -33,8 +38,8 @@ const organiserRules = [
   body("email")
     .trim()
     .isEmail()
-    .normalizeEmail()
-    .withMessage("Valid email required"),
+    .withMessage("Valid email required")
+    .toLowerCase(),
   passwordRule,
 ];
 
@@ -43,8 +48,8 @@ const registerRules = [
   body("email")
     .trim()
     .isEmail()
-    .normalizeEmail()
-    .withMessage("Valid email required"),
+    .withMessage("Valid email required")
+    .toLowerCase(),
   passwordRule,
   body().custom((value) => {
     if (!value.code && !value.invite_token) throw new Error("Invitation link or code required");
@@ -69,14 +74,14 @@ const studentCodesRules = [
 ];
 
 const inviteStudentRules = [
-  body("email").trim().isEmail().normalizeEmail().withMessage("Valid student email required"),
+  body("email").trim().isEmail().withMessage("Valid student email required").toLowerCase(),
   body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
 ];
 
-router.post("/register/organiser", organiserRules, validate, registerOrganiser);
-router.post("/register", registerRules, validate, registerWithCode);
-router.get("/validate-code/:code", validateCode);
-router.get("/validate-invite/:token", validateInviteToken);
+router.post("/register/organiser", publicAuthLimiter, organiserRules, validate, registerOrganiser);
+router.post("/register", publicAuthLimiter, registerRules, validate, registerWithCode);
+router.get("/validate-code/:code", publicAuthLimiter, validateCode);
+router.get("/validate-invite/:token", publicAuthLimiter, validateInviteToken);
 
 router.get("/me", requireAuth, me);
 router.delete("/account", requireAuth, deleteAccount);
@@ -112,10 +117,13 @@ router.post(
   inviteEducator,
 );
 
+// Like the other invitation routes, only an active member of the school may
+// issue codes for it
 router.post(
   "/generate-student-codes",
   requireAuth,
   requireRole("educator"),
+  requireSchoolMembership("coordinator", "educator"),
   studentCodesRules,
   validate,
   generateStudentCodes,

@@ -63,8 +63,7 @@ describe("educator round page", () => {
     state: "open",
     status: "open",
     paper: { id: "paper-1", title: "Regional paper", has_paper: true, has_memo: true },
-    has_submitted: false,
-    submission: null,
+    submissions: [] as Array<Record<string, unknown>>,
     results_available: false,
     school: fx.school,
     ...overrides,
@@ -95,15 +94,26 @@ describe("educator round page", () => {
     expect(downloads[0].path).toBe("/educator/rounds/round-1/paper/download");
   });
 
-  it("submits an entrant's offline results and shows the receipt", async () => {
+  // A submission row as GET /educator/rounds/:id lists it
+  const submitted = (entrant: (typeof entrants)[number], overrides: Record<string, unknown> = {}) => ({
+    id: `sub-${entrant.id}`,
+    entrant: { id: entrant.id, full_name: entrant.full_name },
+    received_at: "2026-09-01T09:00:00.000Z",
+    status: "received",
+    route: "offline",
+    ...overrides,
+  });
+
+  it("submits results for one learner after another, showing each receipt", async () => {
     const state = mockRound(roundDetail());
     const submissions = mockApi(
       "post",
       "/rounds/round-1/submissions",
       (req) => {
-        state.round = { ...state.round, has_submitted: true };
+        const entrant = entrants.find((e) => e.id === (req.body as { entrant_id: string }).entrant_id)!;
+        state.round = { ...state.round, submissions: [...state.round.submissions, submitted(entrant)] };
         return {
-          submission: { id: "sub-42", round_id: "round-1", entrant_id: (req.body as { entrant_id: string }).entrant_id, received_at: new Date().toISOString(), status: "queued_for_marking", route: "offline" },
+          submission: { id: `sub-${entrant.id}`, round_id: "round-1", entrant_id: entrant.id, received_at: new Date().toISOString(), status: "received", route: "offline" },
           answers: [],
           totalPoints: 0,
           autoMarked: false,
@@ -115,14 +125,27 @@ describe("educator round page", () => {
 
     const submit = await screen.findByRole("button", { name: "Submit results" });
     expect(submit).toBeDisabled();
-    expect(screen.getByRole("option", { name: "Ayanda Khumalo (Grade 11)" })).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText("Select entrant"), "ent-2");
     await user.click(submit);
 
     expect(await screen.findByText("Submission confirmed")).toBeInTheDocument();
-    expect(screen.getByText("sub-42")).toBeInTheDocument();
-    expect(screen.getByText(/queued_for_marking/)).toBeInTheDocument();
-    expect(submissions[0].body).toEqual({ entrant_id: "ent-2", route: "offline", answers: [] });
+    expect(screen.getByText("sub-ent-2")).toBeInTheDocument();
+    expect(screen.queryByText(/auto-marked/)).not.toBeInTheDocument();
+
+    // The form stays for the rest: Lerato is listed as submitted and no longer offered
+    const section = screen.getByRole("heading", { name: "Submit results" }).closest("section")!;
+    expect(await within(section).findByRole("heading", { name: "Submitted (1 of 2)" })).toBeInTheDocument();
+    expect(within(section).getByText("Lerato Nkosi")).toBeInTheDocument();
+    expect(within(section).queryByRole("option", { name: "Lerato Nkosi" })).not.toBeInTheDocument();
+    expect(within(section).getByLabelText("Select entrant")).toHaveValue("");
+
+    await user.selectOptions(within(section).getByLabelText("Select entrant"), "ent-1");
+    await user.click(within(section).getByRole("button", { name: "Submit results" }));
+
+    expect(await within(section).findByText("Results have been submitted for all 2 registered entrants.")).toBeInTheDocument();
+    expect(within(section).queryByRole("button", { name: "Submit results" })).not.toBeInTheDocument();
+    expect(within(section).getByRole("heading", { name: "Submitted (2 of 2)" })).toBeInTheDocument();
+    expect(submissions.map((s) => (s.body as { entrant_id: string }).entrant_id)).toEqual(["ent-2", "ent-1"]);
   });
 
   it("alerts the backend's reason when a submission is rejected", async () => {
@@ -158,11 +181,22 @@ describe("educator round page", () => {
     expect(screen.getByText(/Results will be available once the round closes/)).toBeInTheDocument();
   });
 
-  it("tells the educator results were already submitted", async () => {
-    mockRound(roundDetail({ has_submitted: true, submission: { id: "sub-1", received_at: "2026-09-01T09:00:00.000Z", status: "marked", route: "offline" } }));
+  it("offers only the learners still without results, including ones who sat online", async () => {
+    mockRound(roundDetail({ submissions: [submitted(entrants[0], { route: "online", status: "automarked" })] }));
     renderApp("/educator/rounds/round-1");
 
-    expect(await screen.findByText(/Results were submitted before the round closed\. Received/)).toBeInTheDocument();
+    const section = (await screen.findByRole("heading", { name: "Submit results" })).closest("section")!;
+    expect(await within(section).findByText(/Sat online/)).toBeInTheDocument();
+    expect(within(section).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose an entrant…", "Lerato Nkosi"]);
+  });
+
+  it("lists what was submitted once the round has closed", async () => {
+    mockRound(roundDetail({ state: "closed", status: "closed", submissions: [submitted(entrants[1], { status: "marked" })] }));
+    renderApp("/educator/rounds/round-1");
+
+    expect(await screen.findByText("The submission window has closed.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Submitted (1 of 2)" })).toBeInTheDocument();
+    expect(screen.getByText(/Captured · .* · marked/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Submit results" })).not.toBeInTheDocument();
   });
 
@@ -283,7 +317,7 @@ describe("educator entrants and invitations", () => {
       "/educator/olympiads/:olympiadId/entrants",
       (req) => {
         const [entrant] = (req.body as { entrants: Record<string, string>[] }).entrants;
-        const created = olympiadEntrant({ ...entrant, rounds: [] });
+        const created = olympiadEntrant({ ...entrant, rounds: [{ id: "round-1", name: "Round 1" }, { id: "round-2", name: "Round 2" }] });
         state.entrants["oly-1"] = [...state.entrants["oly-1"], created];
         return { entrants: [created] };
       },
@@ -297,11 +331,23 @@ describe("educator entrants and invitations", () => {
     await user.selectOptions(screen.getByLabelText("Grade"), "9");
     await user.click(screen.getByRole("button", { name: "Add entrant" }));
 
-    expect(await screen.findByText("Lerato Nkosi has been registered for the olympiad.")).toBeInTheDocument();
+    expect(await screen.findByText("Lerato Nkosi has been registered for Round 1, Round 2.")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Registered entrants (2)" })).toBeInTheDocument();
     expect(registrations[0].path).toBe("/educator/olympiads/oly-1/entrants");
     expect(registrations[0].body).toEqual({ entrants: [{ full_name: "Lerato Nkosi", grade: "9", external_ref: "S002" }] });
     expect(screen.getByLabelText(/Full name/)).toHaveValue("");
+  });
+
+  it("says when a saved learner isn't eligible for any open round", async () => {
+    mockEntrantsPage();
+    mockApi("post", "/educator/olympiads/:olympiadId/entrants", { entrants: [olympiadEntrant({ full_name: "Late Learner", rounds: [] })] }, { status: 201 });
+    const { user } = renderApp("/educator/entrants");
+
+    await screen.findByText("Ayanda Khumalo");
+    await user.type(screen.getByLabelText(/Full name/), "Late Learner");
+    await user.click(screen.getByRole("button", { name: "Add entrant" }));
+
+    expect(await screen.findByText("Late Learner was saved, but isn't eligible for any open round yet.")).toBeInTheDocument();
   });
 
   it("shows the backend's reason when registration is refused", async () => {

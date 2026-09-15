@@ -42,6 +42,14 @@ describe("listRules", () => {
 describe("createRule", () => {
   const create = (data) => createRule({ olympiadId: "oly-1", organiserId: "org-1", data });
 
+  it.each(["trigger", "recipient"])("requires a %s", async (field) => {
+    await expect(create(validRule({ [field]: undefined }))).rejects.toMatchObject({
+      statusCode: 400,
+      message: `${field} is required`,
+    });
+    expect(prisma.notification_rules.create).not.toHaveBeenCalled();
+  });
+
   it("creates an email rule with trimmed text", async () => {
     prisma.notification_rules.create.mockResolvedValue({ id: "rule-1" });
 
@@ -153,6 +161,27 @@ describe("updateRule", () => {
 
   it("validates changed fields", async () => {
     await expect(update({ recipient: "nobody" })).rejects.toMatchObject({ statusCode: 400 });
+  });
+});
+
+describe("the olympiad named in the request", () => {
+  beforeEach(() => {
+    prisma.notification_rules.findUnique.mockResolvedValue({ id: "rule-1", olympiad_id: "oly-1" });
+  });
+
+  it("reports another olympiad's rule as not found when updating or deleting", async () => {
+    await expect(updateRule({ ruleId: "rule-1", organiserId: "org-1", data: { enabled: false }, olympiadId: "oly-2" })).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Notification rule not found",
+    });
+    await expect(deleteRule("rule-1", "org-1", "oly-2")).rejects.toMatchObject({ statusCode: 404 });
+    expect(prisma.notification_rules.update).not.toHaveBeenCalled();
+    expect(prisma.notification_rules.delete).not.toHaveBeenCalled();
+  });
+
+  it("accepts the rule's own olympiad", async () => {
+    await deleteRule("rule-1", "org-1", "oly-1");
+    expect(prisma.notification_rules.delete).toHaveBeenCalled();
   });
 });
 

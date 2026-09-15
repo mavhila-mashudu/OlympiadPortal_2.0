@@ -175,17 +175,22 @@ describe("getEducatorRoundDetail", () => {
         papers: [{ id: "paper-1", title: "Paper", file_url: "p.pdf", memo_file_url: null }],
       }),
     );
-    prisma.submissions.findFirst.mockResolvedValue({
-      id: "sub-1",
-      received_at: "2026-07-01T09:00:00Z",
-      status: "received",
-      route: "offline",
-    });
+    prisma.submissions.findMany.mockResolvedValue([
+      {
+        id: "sub-1",
+        received_at: "2026-07-01T09:00:00Z",
+        status: "received",
+        route: "offline",
+        entrants: { id: "ent-1", full_name: "Ayanda Khumalo" },
+      },
+    ]);
 
     const detail = await svc.getEducatorRoundDetail("round-2", "u");
 
-    expect(prisma.submissions.findFirst).toHaveBeenCalledWith({
-      where: { round_id: "round-2", submitted_by: "edu-1" },
+    // Every submission for the school's learners, whoever captured it
+    expect(prisma.submissions.findMany).toHaveBeenCalledWith({
+      where: { round_id: "round-2", entrants: { school_id: "school-1" } },
+      include: { entrants: { select: { id: true, full_name: true } } },
       orderBy: { received_at: "desc" },
     });
     expect(detail).toMatchObject({
@@ -193,23 +198,36 @@ describe("getEducatorRoundDetail", () => {
       olympiad_name: "Maths Olympiad",
       status: "closed",
       paper: { id: "paper-1", title: "Paper", has_paper: true, has_memo: false },
-      has_submitted: true,
-      submission: { id: "sub-1", status: "received", route: "offline" },
-      results_available: true,
+      submissions: [
+        {
+          id: "sub-1",
+          entrant: { id: "ent-1", full_name: "Ayanda Khumalo" },
+          received_at: "2026-07-01T09:00:00Z",
+          status: "received",
+          route: "offline",
+        },
+      ],
+      // Still being marked, so there are no results to fetch yet
+      results_available: false,
       school: { id: "school-1", name: "Parktown High" },
     });
   });
 
+  it("reports results as available once they are released", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(round({ state: "results_released" }));
+    prisma.submissions.findMany.mockResolvedValue([]);
+    expect((await svc.getEducatorRoundDetail("round-2", "u")).results_available).toBe(true);
+  });
+
   it("reports no paper, no submission and no results for a new round", async () => {
     prisma.rounds.findUnique.mockResolvedValue(round());
-    prisma.submissions.findFirst.mockResolvedValue(null);
+    prisma.submissions.findMany.mockResolvedValue([]);
 
     const detail = await svc.getEducatorRoundDetail("round-2", "u");
     expect(detail).toMatchObject({
       status: "upcoming",
       paper: null,
-      has_submitted: false,
-      submission: null,
+      submissions: [],
       results_available: false,
     });
   });
@@ -226,6 +244,21 @@ describe("registerEntrants", () => {
     prisma.rounds.findFirst.mockResolvedValue(null);
     prisma.entrants.findFirst.mockResolvedValue(null);
     prisma.entrants.create.mockImplementation(async ({ data }) => ({ id: `id-${data.full_name}`, ...data }));
+  });
+
+  it.each(["closed", "marking", "results_released"])("refuses registrations once the round is %s", async (state) => {
+    prisma.rounds.findUnique.mockResolvedValue(round({ state }));
+    await expect(svc.registerEntrants("round-2", "u", learners)).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Entrants can't be registered once a round has closed",
+    });
+    expect(prisma.entrant_registrations.upsert).not.toHaveBeenCalled();
+  });
+
+  it("still accepts registrations while the round is open", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(round({ state: "open" }));
+    await svc.registerEntrants("round-2", "u", learners);
+    expect(prisma.entrant_registrations.upsert).toHaveBeenCalledTimes(2);
   });
 
   it("creates new entrants and registers them for the round", async () => {
@@ -300,6 +333,24 @@ describe("registerEntrants", () => {
 });
 
 describe("listEntrants", () => {
+  beforeEach(() => {
+    prisma.rounds.findUnique.mockResolvedValue({ olympiad_id: "oly-1" });
+  });
+
+  it("rejects an unknown round", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(null);
+    await expect(svc.listEntrants("round-x", "u")).rejects.toMatchObject({ statusCode: 404, message: "Round not found" });
+  });
+
+  it("rejects a school that isn't registered for the round's olympiad", async () => {
+    prisma.school_registrations.findFirst.mockResolvedValue(null);
+    await expect(svc.listEntrants("round-2", "u")).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Your school is not registered for this olympiad",
+    });
+    expect(prisma.entrant_registrations.findMany).not.toHaveBeenCalled();
+  });
+
   it("returns the school's registered entrants for the round", async () => {
     prisma.entrant_registrations.findMany.mockResolvedValue([
       {
@@ -519,8 +570,8 @@ describe("getProgressionInfo", () => {
 
 describe("registerEntrantsForOlympiad", () => {
   const rounds = [
-    { id: "r1", name: "Round 1", state: "results_released" },
-    { id: "r2", name: "Round 2", state: "closed" },
+    { id: "r1", name: "Round 1", state: "scheduled" },
+    { id: "r2", name: "Round 2", state: "scheduled" },
     { id: "r3", name: "Round 3", state: "scheduled" },
   ];
 
@@ -539,9 +590,11 @@ describe("registerEntrantsForOlympiad", () => {
     });
   });
 
-  it("always registers for the first round, and skips a round whose released predecessor wasn't passed", async () => {
-    // r1 is released and the learner did not qualify, so r2 is skipped.
-    // r2 isn't released, so r3 is registered tentatively.
+  it("skips closed rounds, and a round whose released predecessor wasn't passed", async () => {
+    // r1 has released results (closed), and the learner did not qualify in
+    // it, so r2 is skipped too. r2 isn't released, so r3 is registered
+    // tentatively.
+    prisma.rounds.findMany.mockResolvedValue([{ ...rounds[0], state: "results_released" }, rounds[1], rounds[2]]);
     prisma.results.findFirst.mockResolvedValue(null);
 
     const [entrant] = await svc.registerEntrantsForOlympiad("oly-1", "u", [
@@ -557,18 +610,31 @@ describe("registerEntrantsForOlympiad", () => {
       full_name: "Ayanda",
       grade: "9",
       external_ref: "STU-9",
-      rounds: [
-        { id: "r1", name: "Round 1" },
-        { id: "r3", name: "Round 3" },
-      ],
+      rounds: [{ id: "r3", name: "Round 3" }],
     });
-    expect(prisma.entrant_registrations.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.entrant_registrations.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("registers for a later round when the learner qualified", async () => {
+    prisma.rounds.findMany.mockResolvedValue([{ ...rounds[0], state: "results_released" }, rounds[1], rounds[2]]);
     prisma.results.findFirst.mockResolvedValue({ id: "res" });
     const [entrant] = await svc.registerEntrantsForOlympiad("oly-1", "u", [{ full_name: "Ayanda" }]);
+    expect(entrant.rounds.map((r) => r.id)).toEqual(["r2", "r3"]);
+  });
+
+  it("registers for every round while none has released results", async () => {
+    const [entrant] = await svc.registerEntrantsForOlympiad("oly-1", "u", [{ full_name: "Ayanda" }]);
     expect(entrant.rounds.map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
+    expect(prisma.results.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects an olympiad whose rounds have all closed", async () => {
+    prisma.rounds.findMany.mockResolvedValue(rounds.map((r) => ({ ...r, state: "closed" })));
+    await expect(svc.registerEntrantsForOlympiad("oly-1", "u", [{ full_name: "A" }])).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Every round in this olympiad has closed, so no one can be registered",
+    });
+    expect(prisma.entrants.create).not.toHaveBeenCalled();
   });
 
   it("updates an existing entrant instead of creating one", async () => {

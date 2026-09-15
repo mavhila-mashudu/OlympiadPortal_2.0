@@ -99,17 +99,21 @@ function Entrants() {
     if (!fullName.trim() || !olympiadId) return;
 
     try {
-      await registerMutation.mutateAsync([
+      const result = await registerMutation.mutateAsync([
         {
           full_name: fullName.trim(),
           grade,
           external_ref: studentNumber.trim() || undefined,
         },
       ]);
+      const rounds = result.entrants[0]?.rounds ?? [];
       setFullName("");
       setStudentNumber("");
+      // Closed rounds, and rounds needing a pass they don't have, are skipped
       setSuccessMessage(
-        `${fullName.trim()} has been registered for the olympiad.`,
+        rounds.length > 0
+          ? `${fullName.trim()} has been registered for ${rounds.map((r) => r.name).join(", ")}.`
+          : `${fullName.trim()} was saved, but isn't eligible for any open round yet.`,
       );
       setTimeout(() => setSuccessMessage(""), 5000);
     } catch (err) {

@@ -33,6 +33,9 @@ const createRule = async ({ olympiadId, organiserId, data }) => {
   await assertOwnsOlympiad(olympiadId, organiserId);
   validateRule(data);
   if (!data.name?.trim()) throw new BadRequestError("Rule name is required");
+  // Required columns — without them the insert itself would fail
+  if (data.trigger === undefined) throw new BadRequestError("trigger is required");
+  if (data.recipient === undefined) throw new BadRequestError("recipient is required");
 
   return prisma.notification_rules.create({
     data: {
@@ -48,12 +51,18 @@ const createRule = async ({ olympiadId, organiserId, data }) => {
   });
 };
 
-const updateRule = async ({ ruleId, organiserId, data }) => {
+// A rule outside the olympiad named in the request is reported as missing
+const isOutside = (rule, olympiadId) =>
+  olympiadId !== undefined && rule.olympiad_id !== olympiadId;
+
+const updateRule = async ({ ruleId, organiserId, data, olympiadId }) => {
   const rule = await prisma.notification_rules.findUnique({
     where: { id: ruleId },
     include: { olympiads: true },
   });
-  if (!rule) throw new NotFoundError("Notification rule not found");
+  if (!rule || isOutside(rule, olympiadId)) {
+    throw new NotFoundError("Notification rule not found");
+  }
   await assertOwnsOlympiad(rule.olympiad_id, organiserId);
   validateRule(data);
 
@@ -70,9 +79,11 @@ const updateRule = async ({ ruleId, organiserId, data }) => {
   return prisma.notification_rules.update({ where: { id: ruleId }, data: update });
 };
 
-const deleteRule = async (ruleId, organiserId) => {
+const deleteRule = async (ruleId, organiserId, olympiadId) => {
   const rule = await prisma.notification_rules.findUnique({ where: { id: ruleId } });
-  if (!rule) throw new NotFoundError("Notification rule not found");
+  if (!rule || isOutside(rule, olympiadId)) {
+    throw new NotFoundError("Notification rule not found");
+  }
   await assertOwnsOlympiad(rule.olympiad_id, organiserId);
   await prisma.notification_rules.delete({ where: { id: ruleId } });
 };

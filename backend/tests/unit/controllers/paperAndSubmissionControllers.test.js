@@ -110,8 +110,8 @@ describe("submissionController", () => {
       handler: "getSubmission",
       service: submissionService,
       method: "getSubmission",
-      req: mockReq({ user: organiser, params: { id: "sub-1" } }),
-      args: ["sub-1", "org-1", "organiser"],
+      req: mockReq({ user: organiser, params: { roundId: "round-1", id: "sub-1" } }),
+      args: ["sub-1", "org-1", "organiser", "round-1"],
       json: (result) => ok({ submission: result }),
     },
   ]);

@@ -187,6 +187,17 @@ const startExam = async (req, res, next) => {
       });
     }
 
+    // The school may already have captured this learner's answers on paper
+    const offline = await prisma.submissions.findFirst({
+      where: { round_id: round.id, entrant_id: entrant.id, route: "offline" },
+      select: { id: true },
+    });
+    if (offline) {
+      throw new ConflictError(
+        "Your school has already submitted your results for this round",
+      );
+    }
+
     // Create new submission with empty answers
     const idempotencyKey = `${round.id}:${entrant.id}:online`;
 

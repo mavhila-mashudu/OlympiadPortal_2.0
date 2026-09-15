@@ -194,6 +194,16 @@ describe("POST /:roundId/exam/start", () => {
     expect(prisma.submissions.create).not.toHaveBeenCalled();
   });
 
+  it("won't start when the school already captured the learner's answers on paper", async () => {
+    prisma.submissions.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({ id: "sub-offline" });
+    expectError((await run(startExam, studentReq())).next, 409, "Your school has already submitted your results for this round");
+    expect(prisma.submissions.findFirst).toHaveBeenLastCalledWith({
+      where: { round_id: "round-1", entrant_id: "ent-1", route: "offline" },
+      select: { id: true },
+    });
+    expect(prisma.submissions.create).not.toHaveBeenCalled();
+  });
+
   it("creates an online submission with an empty answer for every question", async () => {
     prisma.submissions.findFirst.mockResolvedValue(null);
     prisma.submissions.create.mockResolvedValue({ id: "sub-new", status: "received" });

@@ -24,6 +24,7 @@ const updateRule = async (req, res, next) => {
       ruleId: req.params.ruleId,
       organiserId: req.user.userId,
       data: req.body,
+      olympiadId: req.params.olympiadId,
     });
     res.json({ success: true, data: { rule } });
   } catch (err) { next(err); }
@@ -31,7 +32,7 @@ const updateRule = async (req, res, next) => {
 
 const deleteRule = async (req, res, next) => {
   try {
-    await notificationRuleService.deleteRule(req.params.ruleId, req.user.userId);
+    await notificationRuleService.deleteRule(req.params.ruleId, req.user.userId, req.params.olympiadId);
     res.json({ success: true, data: { message: "Notification rule deleted" } });
   } catch (err) { next(err); }
 };

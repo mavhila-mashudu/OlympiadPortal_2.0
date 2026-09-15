@@ -285,27 +285,63 @@ describe("markAnswer", () => {
   const storedAnswer = {
     id: "ans-1",
     submission_id: "sub-1",
-    submissions: { id: "sub-1", round_id: "round-1", entrant_id: "ent-1" },
+    submissions: { id: "sub-1", round_id: "round-1", entrant_id: "ent-1", entrants: { school_id: "school-1" } },
     questions: { max_points: "5" },
   };
+  // The organiser who owns round-1 marks an answer on it
+  const mark = (points, answerId = "ans-1") =>
+    markAnswer("round-1", answerId, "org-1", "organiser", { is_correct: true, points_awarded: points });
+
+  beforeEach(() => {
+    prisma.rounds.findUnique.mockResolvedValue(organiserRound());
+  });
 
   it("throws when the answer doesn't exist", async () => {
     prisma.answers.findUnique.mockResolvedValue(null);
-    await expect(markAnswer("x", "marker", { is_correct: true, points_awarded: 1 })).rejects.toMatchObject({
-      statusCode: 404,
-    });
+    await expect(mark(1, "x")).rejects.toMatchObject({ statusCode: 404, message: "Answer not found" });
+  });
+
+  it("treats an answer from a different round as not found", async () => {
+    prisma.answers.findUnique.mockResolvedValue({ ...storedAnswer, submissions: { ...storedAnswer.submissions, round_id: "round-2" } });
+    await expect(mark(1)).rejects.toMatchObject({ statusCode: 404, message: "Answer not found" });
+    expect(prisma.answers.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an organiser who doesn't own the round", async () => {
+    await expect(
+      markAnswer("round-1", "ans-1", "org-2", "organiser", { is_correct: true, points_awarded: 1 }),
+    ).rejects.toMatchObject({ statusCode: 403, message: "Not your round" });
+    expect(prisma.answers.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["their own school's entrant", "school-1", null],
+    ["another school's entrant", "school-2", { statusCode: 403, message: "Not your school's submission" }],
+  ])("lets an educator mark %s only", async (_label, educatorSchool, error) => {
+    prisma.educators.findUnique.mockResolvedValue({ school_id: educatorSchool });
+    prisma.school_registrations.findFirst.mockResolvedValue({ id: "reg" });
+    prisma.answers.findUnique.mockResolvedValue(storedAnswer);
+    prisma.answers.findMany.mockResolvedValue([]);
+
+    const attempt = markAnswer("round-1", "ans-1", "edu-user", "educator", { is_correct: true, points_awarded: 2 });
+    if (error) {
+      await expect(attempt).rejects.toMatchObject(error);
+      expect(prisma.answers.update).not.toHaveBeenCalled();
+    } else {
+      await expect(attempt).resolves.toMatchObject({ points_awarded: 2 });
+    }
   });
 
   it("records the marker, the mark and the time", async () => {
     prisma.answers.findUnique.mockResolvedValue(storedAnswer);
     prisma.answers.findMany.mockResolvedValue([{ points_awarded: 3, marked_at: new Date() }]);
 
-    const result = await markAnswer("ans-1", "marker-1", { is_correct: true, points_awarded: 3 });
+    const result = await mark(3);
 
     expect(result).toEqual({ answerId: "ans-1", is_correct: true, points_awarded: 3 });
     expect(prisma.answers.update).toHaveBeenCalledWith({
       where: { id: "ans-1" },
-      data: { is_correct: true, points_awarded: 3, marked_by: "marker-1", marked_at: expect.any(Date) },
+      data: { is_correct: true, points_awarded: 3, marked_by: "org-1", marked_at: expect.any(Date) },
     });
   });
 
@@ -316,7 +352,7 @@ describe("markAnswer", () => {
     prisma.answers.findUnique.mockResolvedValue(storedAnswer);
     prisma.answers.findMany.mockResolvedValue([]);
 
-    const result = await markAnswer("ans-1", "m", { is_correct: true, points_awarded: given });
+    const result = await mark(given);
     expect(result.points_awarded).toBe(expected);
   });
 
@@ -324,7 +360,7 @@ describe("markAnswer", () => {
     prisma.answers.findUnique.mockResolvedValue(storedAnswer);
     prisma.answers.findMany.mockResolvedValue([{ points_awarded: 2, marked_at: new Date() }]);
 
-    await markAnswer("ans-1", "m", { is_correct: true, points_awarded: 2 });
+    await mark(2);
     expect(prisma.results.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ update: { total_points: 2 } }),
     );
@@ -334,7 +370,7 @@ describe("markAnswer", () => {
     prisma.answers.findUnique.mockResolvedValue(storedAnswer);
     prisma.answers.findMany.mockResolvedValue([{ marked_at: new Date() }, { marked_at: new Date() }]);
 
-    await markAnswer("ans-1", "m", { is_correct: true, points_awarded: 2 });
+    await mark(2);
     expect(prisma.submissions.update).toHaveBeenCalledWith({
       where: { id: "sub-1" },
       data: { status: "marked" },
@@ -345,7 +381,7 @@ describe("markAnswer", () => {
     prisma.answers.findUnique.mockResolvedValue(storedAnswer);
     prisma.answers.findMany.mockResolvedValue([{ marked_at: new Date() }, { marked_at: null }]);
 
-    await markAnswer("ans-1", "m", { is_correct: true, points_awarded: 2 });
+    await mark(2);
     expect(prisma.submissions.update).not.toHaveBeenCalled();
   });
 });

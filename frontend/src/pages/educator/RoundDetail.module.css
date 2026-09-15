@@ -330,3 +330,24 @@
   height: 1rem;
   flex-shrink: 0;
 }
+
+.submittedHeading {
+  margin-bottom: 0.5rem;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.submittedList {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+}
+
+.submittedItem {
+  display: grid;
+  gap: 0.125rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.5rem 0.75rem;
+}

@@ -103,7 +103,7 @@ describe("educator: registering entrants", () => {
     ]);
   });
 
-  it("registers learners for every round they're eligible for across an olympiad", async () => {
+  it("registers learners for every open round they're eligible for across an olympiad", async () => {
     const { olympiad, educatorUser } = await setupTwoRounds();
 
     const registered = await educatorService.registerEntrantsForOlympiad(olympiad.id, educatorUser.id, [
@@ -112,10 +112,11 @@ describe("educator: registering entrants", () => {
       { full_name: "New Learner" },
     ]);
 
+    // Round 1 has closed; Round 2 needs a pass in Round 1
     const roundsFor = (name) => registered.find((e) => e.full_name === name).rounds.map((r) => r.name);
-    expect(roundsFor("Ayanda Khumalo")).toEqual(["Round 1", "Round 2"]);
-    expect(roundsFor("Ben Smith")).toEqual(["Round 1"]);
-    expect(roundsFor("New Learner")).toEqual(["Round 1"]);
+    expect(roundsFor("Ayanda Khumalo")).toEqual(["Round 2"]);
+    expect(roundsFor("Ben Smith")).toEqual([]);
+    expect(roundsFor("New Learner")).toEqual([]);
 
     const listed = await educatorService.listOlympiadEntrants(olympiad.id, educatorUser.id);
     expect(listed.find((e) => e.full_name === "Ayanda Khumalo").rounds.map((r) => r.name)).toEqual(["Round 1", "Round 2"]);
@@ -190,11 +191,15 @@ describe("educator: rounds, results and papers", () => {
     expect(supabase.storage.from).toHaveBeenCalledWith("papers");
   });
 
-  it("describes a round with the educator's latest submission", async () => {
+  it("describes a round with every submission from the educator's school", async () => {
     const { olympiad, school, educatorUser, educator } = await f.createOlympiadWithSchool();
     const round = await f.createRound({ olympiad, state: "marking" });
     await f.createPaper({ round, title: "Paper", file_url: "p.pdf" });
-    const entrant = await f.createEntrant({ school });
+    const entrant = await f.createEntrant({ school, full_name: "Ayanda" });
+    const stranger = await f.createEntrant({ school: await f.createSchool() });
+    await prisma.submissions.create({
+      data: { round_id: round.id, entrant_id: stranger.id, idempotency_key: "other", round_close_snapshot: round.closes_at },
+    });
     await prisma.submissions.create({
       data: {
         round_id: round.id,
@@ -208,9 +213,8 @@ describe("educator: rounds, results and papers", () => {
     await expect(educatorService.getEducatorRoundDetail(round.id, educatorUser.id)).resolves.toMatchObject({
       status: "closed",
       paper: { title: "Paper", has_paper: true, has_memo: false },
-      has_submitted: true,
-      submission: { route: "offline", status: "received" },
-      results_available: true,
+      submissions: [{ id: expect.any(String), entrant: { id: entrant.id, full_name: "Ayanda" }, route: "offline", status: "received", received_at: expect.any(Date) }],
+      results_available: false,
     });
   });
 });

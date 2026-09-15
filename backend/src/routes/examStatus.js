@@ -149,8 +149,10 @@ router.patch(
   "/:roundId/exam-status",
   requireRole("organiser"),
   [
-    param("roundId").isUUID(),
-    body("status").trim().notEmpty().isIn(["draft", "ready", "live"]),
+    param("roundId").isUUID().withMessage("roundId must be a valid UUID"),
+    body("status")
+      .isIn(["draft", "ready", "live"])
+      .withMessage("status must be one of: draft, ready, live"),
   ],
   validate,
   updateExamStatus,

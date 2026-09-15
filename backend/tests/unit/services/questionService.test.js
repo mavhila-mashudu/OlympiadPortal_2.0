@@ -266,6 +266,24 @@ describe("updateQuestion", () => {
   });
 });
 
+describe("the round named in the request", () => {
+  it.each([
+    ["updating", () => updateQuestion("q-1", "org-1", "organiser", { prompt: "x" }, "round-2")],
+    ["deleting", () => deleteQuestion("q-1", "org-1", "organiser", "round-2")],
+  ])("reports a question from another round as not found when %s", async (_label, act) => {
+    prisma.questions.findUnique.mockResolvedValue(questionIn());
+    await expect(act()).rejects.toMatchObject({ statusCode: 404, message: "Question not found" });
+    expect(prisma.questions.update).not.toHaveBeenCalled();
+    expect(prisma.questions.delete).not.toHaveBeenCalled();
+  });
+
+  it("accepts the question's own round", async () => {
+    prisma.questions.findUnique.mockResolvedValue(questionIn());
+    await deleteQuestion("q-1", "org-1", "organiser", "round-1");
+    expect(prisma.questions.delete).toHaveBeenCalled();
+  });
+});
+
 describe("deleteQuestion", () => {
   it("deletes a question from a draft exam", async () => {
     prisma.questions.findUnique.mockResolvedValue(questionIn());

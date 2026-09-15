@@ -31,6 +31,7 @@ const arrangeValidSubmission = ({ round = openRound(), existing = null } = {}) =
   prisma.rounds.findUnique.mockResolvedValue(round);
   prisma.educators.findUnique.mockResolvedValue({ id: "edu-1", school_id: "school-1" });
   prisma.entrants.findUnique.mockResolvedValue({ id: "ent-1", school_id: "school-1" });
+  prisma.entrant_registrations.findFirst.mockResolvedValue({ id: "reg-1" });
   prisma.submissions.findUnique.mockResolvedValue(existing);
   prisma.submissions.create.mockResolvedValue({ id: "sub-1" });
   prisma.answers.create.mockImplementation(async ({ data }) => ({ id: `row-${data.question_id}`, ...data }));
@@ -79,6 +80,41 @@ describe("createSubmission", () => {
       statusCode: 403,
       message: "Entrant does not belong to your school",
     });
+  });
+
+  it("rejects an entrant who isn't registered for the round", async () => {
+    arrangeValidSubmission();
+    prisma.entrant_registrations.findFirst.mockResolvedValue(null);
+    await expect(createSubmission("round-1", "u", body())).rejects.toMatchObject({
+      statusCode: 403,
+      message: "Entrant is not registered for this round",
+    });
+    expect(prisma.entrant_registrations.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { entrant_id: "ent-1", round_id: "round-1" } }),
+    );
+    expect(prisma.submissions.create).not.toHaveBeenCalled();
+  });
+
+  it("checks for a duplicate under the default route when none is given", async () => {
+    arrangeValidSubmission({ existing: { id: "sub-old" } });
+    await expect(createSubmission("round-1", "u", body({ route: undefined }))).rejects.toMatchObject({ statusCode: 409 });
+    expect(prisma.submissions.findUnique).toHaveBeenCalledWith({
+      where: { idempotency_key: "round-1:ent-1:offline" },
+    });
+  });
+
+  it("rejects a capture for a learner who already sat the round online", async () => {
+    arrangeValidSubmission();
+    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-online" });
+    await expect(createSubmission("round-1", "u", body())).rejects.toMatchObject({
+      statusCode: 409,
+      message: "This entrant already has a submission for this round",
+    });
+    expect(prisma.submissions.findFirst).toHaveBeenCalledWith({
+      where: { round_id: "round-1", entrant_id: "ent-1", route: { not: "offline" } },
+      select: { id: true },
+    });
+    expect(prisma.submissions.create).not.toHaveBeenCalled();
   });
 
   it("rejects a duplicate for the same round, entrant and route", async () => {
@@ -193,6 +229,8 @@ describe("createSubmission", () => {
     expect(prisma.submissions.update).toHaveBeenCalledWith({ where: { id: "sub-1" }, data: { status: "received" } });
     expect(prisma.results.upsert).not.toHaveBeenCalled();
     expect(result.answers).toEqual([]);
+    // Nothing was marked, so it must not be reported as auto-marked
+    expect(result.allAutoMarked).toBe(false);
   });
 });
 
@@ -237,6 +275,7 @@ describe("listSubmissions", () => {
 describe("getSubmission", () => {
   const stored = {
     id: "sub-1",
+    round_id: "round-1",
     rounds: { olympiads: { organiser_id: "org-1" } },
     entrants: { school_id: "school-1" },
     answers: [],
@@ -245,6 +284,15 @@ describe("getSubmission", () => {
   it("rejects an unknown submission", async () => {
     prisma.submissions.findUnique.mockResolvedValue(null);
     await expect(getSubmission("x", "org-1", "organiser")).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("reports a submission from a different round as not found", async () => {
+    prisma.submissions.findUnique.mockResolvedValue(stored);
+    await expect(getSubmission("sub-1", "org-1", "organiser", "round-2")).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Submission not found",
+    });
+    await expect(getSubmission("sub-1", "org-1", "organiser", "round-1")).resolves.toBe(stored);
   });
 
   it("returns the submission to the owning organiser", async () => {

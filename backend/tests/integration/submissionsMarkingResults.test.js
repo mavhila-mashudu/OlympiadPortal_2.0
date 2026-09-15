@@ -30,6 +30,7 @@ const setup = async ({ threshold } = {}) => {
   });
   const ayanda = await f.createEntrant({ school: world.school, full_name: "Ayanda" });
   const ben = await f.createEntrant({ school: world.school, full_name: "Ben" });
+  for (const entrant of [ayanda, ben]) await f.registerEntrant({ entrant, round, educator: world.educator });
   const [mcq, essay] = questions;
   return { ...world, round, paper, mcq, essay, ayanda, ben };
 };
@@ -67,7 +68,24 @@ describe("offline submissions", () => {
     await expect(submissionService.createSubmission(round.id, educatorUser.id, body)).rejects.toMatchObject({
       statusCode: 409,
     });
+    // Naming the default route explicitly is still the same capture
+    await expect(
+      submissionService.createSubmission(round.id, educatorUser.id, { ...body, route: "offline" }),
+    ).rejects.toMatchObject({ statusCode: 409 });
     expect(await prisma.submissions.count()).toBe(1);
+  });
+
+  it("won't capture answers for a learner who isn't registered for the round", async () => {
+    const { round, school, educatorUser, mcq } = await setup();
+    const unregistered = await f.createEntrant({ school });
+
+    await expect(
+      submissionService.createSubmission(round.id, educatorUser.id, {
+        entrant_id: unregistered.id,
+        answers: [{ question_id: mcq.id, answer_value: "1" }],
+      }),
+    ).rejects.toMatchObject({ statusCode: 403, message: "Entrant is not registered for this round" });
+    expect(await prisma.submissions.count()).toBe(0);
   });
 
   it("won't capture answers for a learner from another school", async () => {
@@ -89,6 +107,7 @@ describe("offline submissions", () => {
     await f.registerSchool(otherSchool, olympiad);
     const otherTeacher = await f.createEducator({ school: otherSchool });
     const otherLearner = await f.createEntrant({ school: otherSchool });
+    await f.registerEntrant({ entrant: otherLearner, round, educator: otherTeacher.educator });
     const answer = [{ question_id: mcq.id, answer_value: "0" }];
 
     const mine = await submissionService.createSubmission(round.id, educatorUser.id, { entrant_id: ayanda.id, answers: answer });
@@ -156,7 +175,7 @@ describe("auto-marking and the marking queue", () => {
     expect(queue[0].answers.map((a) => a.question_id)).toEqual([essay.id]);
 
     const essayAnswer = queue[0].answers[0];
-    const marked = await markingService.markAnswer(essayAnswer.id, organiser.id, { is_correct: true, points_awarded: 7.5 });
+    const marked = await markingService.markAnswer(round.id, essayAnswer.id, organiser.id, "organiser", { is_correct: true, points_awarded: 7.5 });
     expect(marked.points_awarded).toBe(7.5);
 
     expect(await prisma.answers.findUnique({ where: { id: essayAnswer.id } })).toMatchObject({
@@ -173,7 +192,7 @@ describe("auto-marking and the marking queue", () => {
     const submission = await onlineSubmission({ round, entrant: ayanda, answers: [{ question_id: essay.id, answer_value: "x" }] });
     const [answer] = await prisma.answers.findMany({ where: { submission_id: submission.id } });
 
-    await markingService.markAnswer(answer.id, organiser.id, { is_correct: true, points_awarded: 99 });
+    await markingService.markAnswer(round.id, answer.id, organiser.id, "organiser", { is_correct: true, points_awarded: 99 });
     expect(await pointsOf(round.id, ayanda.id)).toBe("10");
   });
 

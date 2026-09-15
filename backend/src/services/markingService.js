@@ -265,19 +265,35 @@ const autoMarkRound = async (roundId, userId, role) => {
 // sets is_correct and points_awarded.
 // ─────────────────────────────────────────
 const markAnswer = async (
+  roundId,
   answerId,
   markerUserId,
+  role,
   { is_correct, points_awarded },
 ) => {
+  // Same access rules as the marking queue: the organiser who owns the
+  // round, or an educator marking their own school's entrants
+  const round = await assertRoundOwnership(roundId, markerUserId, role);
+
   const answer = await prisma.answers.findUnique({
     where: { id: answerId },
     include: {
-      submissions: true,
+      submissions: { include: { entrants: { select: { school_id: true } } } },
       questions: { select: { max_points: true } },
     },
   });
 
-  if (!answer) throw new NotFoundError("Answer not found");
+  // An answer from another round is reported as missing, so a marker can't
+  // reach other rounds' answers through a round they do have access to
+  if (!answer || answer.submissions.round_id !== roundId) {
+    throw new NotFoundError("Answer not found");
+  }
+  if (
+    round._educatorSchoolId &&
+    answer.submissions.entrants?.school_id !== round._educatorSchoolId
+  ) {
+    throw new ForbiddenError("Not your school's submission");
+  }
 
   // Clamp points to [0, max_points]
   const maxPoints = Number(answer.questions?.max_points ?? 0);

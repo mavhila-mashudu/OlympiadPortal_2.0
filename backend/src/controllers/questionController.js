@@ -73,6 +73,7 @@ const updateQuestion = async (req, res, next) => {
         negative_pct,
         max_points,
       },
+      req.params.roundId,
     );
 
     res.json({ success: true, data: { question } });
@@ -87,6 +88,7 @@ const deleteQuestion = async (req, res, next) => {
       req.params.id,
       req.user.userId,
       req.user.role,
+      req.params.roundId,
     );
     res.json({ success: true, data: { message: "Question deleted" } });
   } catch (err) {

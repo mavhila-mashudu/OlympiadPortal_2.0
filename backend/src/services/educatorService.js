@@ -23,6 +23,9 @@ const resolveEducator = async (userId) => {
 };
 
 // Map DB round_state → frontend-friendly status
+// Learners can be registered until a round closes
+const REGISTRABLE_STATES = new Set(["scheduled", "open"]);
+
 const mapRoundState = (state) => {
   switch (state) {
     case "scheduled":
@@ -131,12 +134,12 @@ const getEducatorRoundDetail = async (roundId, userId) => {
     );
   }
 
-  // Check if the educator has submitted for this round
-  const submission = await prisma.submissions.findFirst({
-    where: {
-      round_id: roundId,
-      submitted_by: educator.id,
-    },
+  // Every submission for this school's learners in the round (captured by
+  // any educator, or sat online), so the page can show who is done and
+  // offer the rest
+  const submissions = await prisma.submissions.findMany({
+    where: { round_id: roundId, entrants: { school_id: educator.school_id } },
+    include: { entrants: { select: { id: true, full_name: true } } },
     orderBy: { received_at: "desc" },
   });
 
@@ -160,17 +163,15 @@ const getEducatorRoundDetail = async (roundId, userId) => {
           has_memo: !!paper.memo_file_url,
         }
       : null,
-    has_submitted: !!submission,
-    submission: submission
-      ? {
-          id: submission.id,
-          received_at: submission.received_at,
-          status: submission.status,
-          route: submission.route,
-        }
-      : null,
-    results_available:
-      round.state === "results_released" || round.state === "marking",
+    submissions: submissions.map((s) => ({
+      id: s.id,
+      entrant: s.entrants,
+      received_at: s.received_at,
+      status: s.status,
+      route: s.route,
+    })),
+    // Matches getResults, which only serves released results
+    results_available: round.state === "results_released",
     school: {
       id: educator.schools.id,
       name: educator.schools.name,
@@ -211,6 +212,12 @@ const registerEntrants = async (roundId, userId, entrantsData) => {
   if (!registration) {
     throw new ForbiddenError(
       "Your school is not registered for this olympiad",
+    );
+  }
+
+  if (!REGISTRABLE_STATES.has(round.state)) {
+    throw new BadRequestError(
+      "Entrants can't be registered once a round has closed",
     );
   }
 
@@ -314,6 +321,21 @@ const registerEntrants = async (roundId, userId, entrantsData) => {
 // ─────────────────────────────────────────
 const listEntrants = async (roundId, userId) => {
   const educator = await resolveEducator(userId);
+
+  const round = await prisma.rounds.findUnique({
+    where: { id: roundId },
+    select: { olympiad_id: true },
+  });
+  if (!round) throw new NotFoundError("Round not found");
+
+  const schoolRegistration = await prisma.school_registrations.findFirst({
+    where: { school_id: educator.school_id, olympiad_id: round.olympiad_id },
+  });
+  if (!schoolRegistration) {
+    throw new ForbiddenError(
+      "Your school is not registered for this olympiad",
+    );
+  }
 
   const registrations = await prisma.entrant_registrations.findMany({
     where: {
@@ -701,6 +723,11 @@ const registerEntrantsForOlympiad = async (olympiadId, userId, entrantsData) => 
   if (rounds.length === 0) {
     throw new BadRequestError("No rounds found for this olympiad");
   }
+  if (!rounds.some((r) => REGISTRABLE_STATES.has(r.state))) {
+    throw new BadRequestError(
+      "Every round in this olympiad has closed, so no one can be registered",
+    );
+  }
 
   const registered = await prisma.$transaction(async (tx) => {
     const results = [];
@@ -737,6 +764,9 @@ const registerEntrantsForOlympiad = async (olympiadId, userId, entrantsData) => 
 
       for (let i = 0; i < rounds.length; i++) {
         const round = rounds[i];
+
+        // Closed rounds take no new registrations
+        if (!REGISTRABLE_STATES.has(round.state)) continue;
 
         // First round: always register
         if (i > 0) {

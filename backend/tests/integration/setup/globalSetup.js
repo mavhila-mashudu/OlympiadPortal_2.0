@@ -49,6 +49,8 @@ module.exports = async () => {
     SMTP_USER: "",
     SMTP_PASS: "",
     LIFECYCLE_INTERVAL_MS: "3600000",
+    // Tests make many auth requests from one address
+    AUTH_RATE_LIMIT_MAX: "100000",
   });
 
   globalThis.__INTEGRATION_DB__ = { db, server, migrations };
