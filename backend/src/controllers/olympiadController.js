@@ -36,4 +36,26 @@ const getOlympiad = async (req, res, next) => {
   }
 };
 
-module.exports = { createOlympiad, listOlympiads, getOlympiad };
+const updateOlympiad = async (req, res, next) => {
+  try {
+    const olympiad = await olympiadService.updateOlympiad(
+      req.params.id,
+      req.user.userId,
+      { name: req.body.name },
+    );
+    res.json({ success: true, data: { olympiad } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const deleteOlympiad = async (req, res, next) => {
+  try {
+    await olympiadService.deleteOlympiad(req.params.id, req.user.userId);
+    res.json({ success: true, data: { message: "Olympiad deleted" } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { createOlympiad, listOlympiads, getOlympiad, updateOlympiad, deleteOlympiad };

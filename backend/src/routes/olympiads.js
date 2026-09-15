@@ -7,6 +7,8 @@ const {
   createOlympiad,
   listOlympiads,
   getOlympiad,
+  updateOlympiad,
+  deleteOlympiad,
 } = require("../controllers/olympiadController");
 const { requireAuth, requireRole } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
@@ -19,6 +21,10 @@ const createOlympiadRules = [
   body("timezone").optional().trim().notEmpty(),
 ];
 
+const updateOlympiadRules = [
+  body("name").trim().notEmpty().withMessage("Olympiad name is required"),
+];
+
 // === Routes ===
 // All olympiad routes are organiser-only
 
@@ -27,6 +33,8 @@ router.use(requireAuth, requireRole("organiser"));
 router.post("/", createOlympiadRules, validate, createOlympiad);
 router.get("/", listOlympiads);
 router.get("/:id", getOlympiad);
+router.patch("/:id", updateOlympiadRules, validate, updateOlympiad);
+router.delete("/:id", deleteOlympiad);
 router.get("/:olympiadId/schools", listSchools);
 router.get("/:olympiadId/archive", listArchive);
 

@@ -77,9 +77,50 @@ const assertOwnsOlympiad = async (olympiadId, organiserId) => {
   return olympiad;
 };
 
+// ========================================
+// UPDATE OLYMPIAD
+// Only the owning organiser can rename it
+// ========================================
+const updateOlympiad = async (olympiadId, organiserId, { name }) => {
+  await assertOwnsOlympiad(olympiadId, organiserId);
+
+  const data = {};
+  if (name !== undefined) data.name = name;
+
+  if (Object.keys(data).length === 0) {
+    throw new BadRequestError("No fields to update");
+  }
+
+  const olympiad = await prisma.olympiads.update({
+    where: { id: olympiadId },
+    data,
+  });
+
+  return olympiad;
+};
+
+// ========================================
+// DELETE OLYMPIAD
+// Only allowed when the olympiad has no rounds —
+// deleting one with rounds would orphan submissions
+// ========================================
+const deleteOlympiad = async (olympiadId, organiserId) => {
+  const olympiad = await getOlympiad(olympiadId, organiserId);
+
+  if (olympiad.rounds.length > 0) {
+    throw new BadRequestError(
+      "Cannot delete an olympiad that has rounds — delete the rounds first",
+    );
+  }
+
+  await prisma.olympiads.delete({ where: { id: olympiadId } });
+};
+
 module.exports = {
   createOlympiad,
   listOlympiads,
   getOlympiad,
+  updateOlympiad,
+  deleteOlympiad,
   assertOwnsOlympiad,
 };
