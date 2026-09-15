@@ -2,6 +2,7 @@
 const prisma = require("../config/database").default;
 const { assertOwnsOlympiad } = require("./olympiadService");
 const { autoMarkRoundInternal } = require("./markingService");
+const { checkDatesForHolidays } = require("./holidayService");
 const {
   NotFoundError,
   ForbiddenError,
@@ -35,6 +36,8 @@ const createRound = async ({
     throw new BadRequestError("closes_at must be after opens_at");
   }
 
+  const warnings = await checkDatesForHolidays([opens, closes]);
+
   const round = await prisma.rounds.create({
     data: {
       olympiad_id: olympiadId,
@@ -49,7 +52,7 @@ const createRound = async ({
     },
   });
 
-  return round;
+  return { round, warnings };
 };
 
 // ─────────────────────────────────────────
@@ -100,7 +103,7 @@ const getRound = async (roundId, organiserId) => {
 const updateRound = async (
   roundId,
   organiserId,
-  { name, opensAt, closesAt, qualifyingThreshold },
+  { name, opensAt, closesAt, qualifyingThreshold, notes },
 ) => {
   const round = await getRound(roundId, organiserId);
 
@@ -112,6 +115,7 @@ const updateRound = async (
 
   const data = {};
   if (name !== undefined) data.name = name;
+  if (notes !== undefined) data.notes = notes;
   if (qualifyingThreshold !== undefined) {
     data.qualifying_threshold =
       qualifyingThreshold === "" || qualifyingThreshold === null
@@ -133,12 +137,14 @@ const updateRound = async (
     data.closes_at = closes;
   }
 
+  const warnings = await checkDatesForHolidays([opens, closes]);
+
   const updated = await prisma.rounds.update({
     where: { id: roundId },
     data,
   });
 
-  return updated;
+  return { round: updated, warnings };
 };
 
 // ─────────────────────────────────────────
