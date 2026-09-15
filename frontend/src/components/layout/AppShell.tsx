@@ -5,7 +5,8 @@ import {
   Trophy,
   type LucideIcon,
 } from "lucide-react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { clearToken } from "../../lib/api";
 import type { NavItem } from "../../lib/mockData";
 import { Button } from "../ui/Button";
 import styles from "./AppShell.module.css";
@@ -47,6 +48,13 @@ export function AppShell({
   userInitials,
   userName,
 }: AppShellProps) {
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    clearToken();
+    navigate("/login");
+  }
+
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -54,40 +62,13 @@ export function AppShell({
           <Brand organisation={organisation} />
 
           <div>
-            <p className={styles.roleLabel}>Demo role</p>
-            <div
-              className={styles.roleSwitch}
-              role="group"
-              aria-label="Switch demo role"
-            >
-              <Link
-                aria-pressed={activeRole === "organiser"}
-                className={`${styles.roleOption} ${
-                  activeRole === "organiser" ? styles.roleOptionActive : ""
-                }`}
-                to="/organiser"
-              >
-                organiser
-              </Link>
-              <Link
-                aria-pressed={activeRole === "educator"}
-                className={`${styles.roleOption} ${
-                  activeRole === "educator" ? styles.roleOptionActive : ""
-                }`}
-                to="/educator"
-              >
-                educator
-              </Link>
-              <Link
-                aria-pressed={activeRole === "student"}
-                className={`${styles.roleOption} ${
-                  activeRole === "student" ? styles.roleOptionActive : ""
-                }`}
-                to="/student"
-              >
-                student
-              </Link>
-            </div>
+            <p className={styles.roleLabel}>
+              {activeRole === "organiser"
+                ? "Organiser portal"
+                : activeRole === "educator"
+                  ? "Educator portal"
+                  : "Student portal"}
+            </p>
           </div>
 
           <nav className={styles.nav} aria-label="Main">
@@ -128,7 +109,7 @@ export function AppShell({
               fullWidth
               icon={<LogOut aria-hidden="true" />}
               justify="start"
-              to="/login"
+              onClick={handleLogout}
               variant="outline"
             >
               Log out

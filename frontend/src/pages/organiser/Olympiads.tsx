@@ -98,7 +98,14 @@ export default function Olympiads() {
   };
 
   return (
-    <AppShell navItems={organiserNav} role="Organiser">
+    <AppShell
+      activeRole="organiser"
+      navItems={organiserNav}
+      organisation="National Olympiad Office"
+      portalLabel="Organiser console"
+      userInitials="NO"
+      userName="Admin user"
+    >
       <PageHeader
         title="Olympiads"
         description="Manage and create competition editions."

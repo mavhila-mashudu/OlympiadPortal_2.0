@@ -1,67 +1,58 @@
-import nodemailer from "nodemailer";
-
 type Email = { to: string; subject: string; html: string };
 
-const emailFrom = () =>
-  process.env.RESEND_FROM || process.env.EMAIL_FROM || "Olympiad Portal <onboarding@resend.dev>";
-
-const smtpTransporter = () => nodemailer.createTransport({
-  host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: process.env.SMTP_SECURE === "true",
-  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  connectionTimeout: 8_000,
-  greetingTimeout: 8_000,
-  socketTimeout: 10_000,
-});
+const EMAILJS_API_URL = "https://api.emailjs.com/api/v1.0/email/send";
 
 const logUndeliveredEmail = (email: Email, reason: string) => {
   console.warn(`Invitation email was not delivered (${reason}).`, { to: email.to, subject: email.subject });
 };
 
-/** Production uses Resend's HTTPS API; Render free instances can block SMTP. */
+/** Deliver via EmailJS REST API. */
 async function deliver(email: Email): Promise<{ delivered: boolean }> {
-  if (process.env.RESEND_API_KEY) {
-    try {
-      const response = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-          "User-Agent": "OlympiadPortal/1.0",
-        },
-        body: JSON.stringify({ from: emailFrom(), to: [email.to], subject: email.subject, html: email.html }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok) {
-        const details = await response.text();
-        logUndeliveredEmail(email, `Resend ${response.status}: ${details.slice(0, 300)}`);
-        return { delivered: false };
-      }
-      return { delivered: true };
-    } catch (error) {
-      logUndeliveredEmail(email, `Resend request failed: ${error instanceof Error ? error.message : "unknown error"}`);
-      return { delivered: false };
-    }
-  }
+  const serviceId  = process.env.EMAILJS_SERVICE_ID;
+  const templateId = process.env.EMAILJS_TEMPLATE_ID;
+  const userId     = process.env.EMAILJS_USER_ID;
+  const privateKey = process.env.EMAILJS_PRIVATE_KEY;
 
-  // Never wait on blocked SMTP from a Render service. The invitation remains
-  // valid and the frontend receives a clear delivery warning instead of 500.
-  if (process.env.NODE_ENV === "production") {
-    logUndeliveredEmail(email, "RESEND_API_KEY is not configured");
-    return { delivered: false };
-  }
-
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    console.log("Invitation email preview (development):", { to: email.to, subject: email.subject });
+  if (!serviceId || !templateId || !userId || !privateKey) {
+    console.log("[EmailJS] NOT CONFIGURED — missing env vars:", {
+      EMAILJS_SERVICE_ID: serviceId ? "set" : "MISSING",
+      EMAILJS_TEMPLATE_ID: templateId ? "set" : "MISSING",
+      EMAILJS_USER_ID: userId ? "set" : "MISSING",
+      EMAILJS_PRIVATE_KEY: privateKey ? "set" : "MISSING",
+    });
+    console.log("Invitation email preview (EmailJS not configured):", { to: email.to, subject: email.subject });
     return { delivered: false };
   }
 
   try {
-    await smtpTransporter().sendMail({ from: emailFrom(), ...email });
+    const response = await fetch(EMAILJS_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        service_id: serviceId,
+        template_id: templateId,
+        user_id: userId,
+        accessToken: privateKey,
+        template_params: {
+          to_email: email.to,
+          subject: email.subject,
+          html_content: email.html,
+        },
+      }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      console.error(`[EmailJS] API error ${response.status}:`, details);
+      logUndeliveredEmail(email, `EmailJS ${response.status}: ${details.slice(0, 300)}`);
+      return { delivered: false };
+    }
+
+    console.log(`[EmailJS] Email sent successfully to ${email.to}`);
     return { delivered: true };
   } catch (error) {
-    logUndeliveredEmail(email, `SMTP failed: ${error instanceof Error ? error.message : "unknown error"}`);
+    logUndeliveredEmail(email, `EmailJS request failed: ${error instanceof Error ? error.message : "unknown error"}`);
     return { delivered: false };
   }
 }

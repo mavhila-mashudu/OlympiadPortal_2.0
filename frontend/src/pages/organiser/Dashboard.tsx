@@ -5,6 +5,7 @@ import {
   FilePlusCorner,
   ShieldCheck,
   Timer,
+  Trophy,
 } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
 import { AppShell } from "../../components/layout/AppShell";
@@ -252,6 +253,22 @@ function OrganiserDashboard() {
         </header>
 
         {error && <Card className={styles.tableCard}>{error}</Card>}
+
+        {!loading && !olympiad && (
+          <Card className={styles.tableCard} style={{ textAlign: "center", padding: "3rem 2rem" }}>
+            <Trophy aria-hidden="true" size={48} style={{ margin: "0 auto 1rem", color: "#9ca3af" }} />
+            <h2 style={{ marginBottom: "0.5rem" }}>No olympiads yet</h2>
+            <p style={{ color: "#6b7280", marginBottom: "1.5rem" }}>
+              Create your first olympiad to start adding rounds and inviting schools.
+            </p>
+            <Button icon={<Trophy aria-hidden="true" />} to="/organiser/olympiads">
+              Create olympiad
+            </Button>
+          </Card>
+        )}
+
+        {olympiad && (
+        <>
 
         <section className={styles.statsGrid} aria-label="Dashboard summary">
           {stats.map((stat) => {
@@ -516,6 +533,8 @@ function OrganiserDashboard() {
             </table>
           </div>
         </Card>
+        </>
+        )}
       </div>
     </AppShell>
   );

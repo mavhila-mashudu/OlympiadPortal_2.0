@@ -10,12 +10,9 @@ export type Olympiad = {
 
 // Not cached in localStorage on purpose: olympiads are organiser-scoped, so a
 // cached id from a previous account would 403 under a new one.
-export async function getCurrentOlympiad(): Promise<Olympiad> {
+// Returns null when no olympiads exist — callers should prompt the user to create one.
+export async function getCurrentOlympiad(): Promise<Olympiad | null> {
   const { olympiads } = await api.get<{ olympiads: Olympiad[] }>("/olympiads");
   if (olympiads.length > 0) return olympiads[0];
-
-  const { olympiad } = await api.post<{ olympiad: Olympiad }>("/olympiads", {
-    name: "Demo Olympiad",
-  });
-  return olympiad;
+  return null;
 }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
@@ -176,7 +176,11 @@ function CreateRound() {
               </Select>
               {!loadingOlympiads && olympiads.length === 0 && (
                 <p className={styles.hint}>
-                  Create an olympiad before creating a round.
+                  No olympiads found.{" "}
+                  <Link to="/organiser/olympiads" style={{ textDecoration: "underline" }}>
+                    Create one first
+                  </Link>{" "}
+                  before creating a round.
                 </p>
               )}
             </div>
