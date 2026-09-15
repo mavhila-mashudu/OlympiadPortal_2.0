@@ -33,23 +33,36 @@ function Archive() {
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const olympiad = await getCurrentOlympiad();
-        const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
-          `/olympiads/${olympiad.id}/archive`,
-        );
-        if (!cancelled) setRounds(list);
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load archive");
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+   async function load() {
+  setLoading(true);
+  setError(null);
+
+  try {
+   const olympiad = await getCurrentOlympiad();
+
+if (!olympiad) {
+  throw new Error("No current olympiad found");
+}
+
+const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
+  `/olympiads/${olympiad.id}/archive`,
+);
+
+    if (!cancelled) {
+      setRounds(list);
     }
+  } catch (err) {
+    if (!cancelled) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load archive"
+      );
+    }
+  } finally {
+    if (!cancelled) {
+      setLoading(false);
+    }
+  }
+}
 
     load();
     return () => {
