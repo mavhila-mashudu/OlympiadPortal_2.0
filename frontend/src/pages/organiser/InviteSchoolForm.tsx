@@ -34,6 +34,7 @@ export function InviteSchoolForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successCode, setSuccessCode] = useState<string | null>(null);
+  const [emailDelivered, setEmailDelivered] = useState<boolean | null>(null);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,6 +54,7 @@ export function InviteSchoolForm({
       });
 
       setSuccessCode(result.code);
+      setEmailDelivered(result.emailDelivered);
       onSuccess?.();
     } catch (err) {
       setError(
@@ -76,6 +78,12 @@ export function InviteSchoolForm({
         <p>
           Invitation code: <strong>{successCode}</strong>
         </p>
+        {emailDelivered === false && (
+          <p style={{ color: "#92400e" }}>
+            The invitation was created, but the email could not be delivered.
+            Check the server email configuration before asking the school to register.
+          </p>
+        )}
         <Button onClick={onCancel}>Close</Button>
       </Card>
     );

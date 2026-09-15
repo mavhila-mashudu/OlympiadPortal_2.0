@@ -96,12 +96,32 @@ Expected response:
 | `SUPABASE_ANON_KEY`    | Supabase public key             | Supabase → Settings → API              |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key       | Supabase → Settings → API              |
 | `ORGANISER_SECRET`     | Gate for organiser registration | Generate and share with team privately |
+| `RESEND_API_KEY`       | Production email API key         | Resend â†’ API Keys                    |
+| `RESEND_FROM`          | Verified production sender       | e.g. `Olympiad Portal <invites@your-domain>` |
 
 Generate `ORGANISER_SECRET`:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
+
+### Render email configuration
+
+Render free services may time out on direct SMTP. Production invitations use
+Resend's HTTPS API instead. Set these environment variables in the Render
+backend service, then redeploy:
+
+```env
+NODE_ENV=production
+FRONTEND_URL=https://your-frontend.onrender.com
+RESEND_API_KEY=re_your_resend_api_key
+RESEND_FROM=Olympiad Portal <invites@your-verified-domain.example>
+```
+
+`FRONTEND_URL` must be the deployed frontend origin (without a trailing path),
+otherwise invitation emails will contain localhost registration links. The
+sender domain must be verified in Resend. Do not set production SMTP settings;
+they are only a local-development fallback.
 
 ## Project Structure
 
