@@ -6,17 +6,12 @@ import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { api, setToken } from "../../lib/api";
+import { dashboardForRole } from "../../lib/auth";
 import { getSupabaseClient } from "../../lib/supabase";
 import styles from "./Login.module.css";
 
 type MeResponse = {
   user: { role: "organiser" | "educator" | "student" };
-};
-
-const dashboardForRole = (role: MeResponse["user"]["role"]) => {
-  if (role === "organiser") return "/organiser";
-  if (role === "educator") return "/educator";
-  return "/student";
 };
 
 function Login() {

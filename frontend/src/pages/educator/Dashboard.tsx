@@ -6,40 +6,13 @@ import { educatorNav } from "../../lib/mockData";
 import {
   useEducatorRounds,
   formatDate,
-  type EducatorRound,
 } from "../../lib/educatorApi";
+import {
+  getCountdown,
+  getRoundNote,
+  getSecondaryAction,
+} from "./dashboardHelpers";
 import styles from "./Dashboard.module.css";
-
-function getCountdown(target: string): string {
-  const diff = new Date(target).getTime() - Date.now();
-  if (diff <= 0) return "";
-  const days = Math.floor(diff / 86_400_000);
-  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
-  const mins = Math.floor((diff % 3_600_000) / 60_000);
-  if (days > 0) return `${days}d ${hours}h`;
-  return `${hours}h ${mins}m`;
-}
-
-function getRoundNote(round: EducatorRound): string {
-  switch (round.status) {
-    case "open":
-      return round.submission_count > 0
-        ? "Submission received"
-        : "Closes in";
-    case "upcoming":
-      return "Opens in";
-    default:
-      return round.submission_count > 0
-        ? "Submission received"
-        : "Closed";
-  }
-}
-
-function getSecondaryAction(round: EducatorRound): string | null {
-  if (round.status === "closed") return "View results";
-  if (round.status === "upcoming") return "Register entrants";
-  return null;
-}
 
 function EducatorDashboard() {
   const { data, isLoading, error } = useEducatorRounds();

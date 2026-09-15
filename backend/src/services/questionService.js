@@ -218,6 +218,7 @@ const deleteQuestion = async (questionId, userId, role) => {
 };
 
 module.exports = {
+  assertRoundAccess,
   createQuestion,
   listQuestions,
   updateQuestion,

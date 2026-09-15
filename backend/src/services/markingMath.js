@@ -37,8 +37,10 @@ const parseOptionList = (value) =>
 
 const scoreMcq = ({ maxPoints, correctOption, selected, negativePct }) => {
   const max = Number(maxPoints) || 0;
-  const correct = parseOptionList(correctOption);
-  const picked = parseOptionList(selected);
+  // Selections are a set — a repeated index ("0,0") must not
+  // earn the same option's credit twice
+  const correct = [...new Set(parseOptionList(correctOption))];
+  const picked = [...new Set(parseOptionList(selected))];
 
   // Even split across the correct options
   const perCorrect = correct.length > 0 ? max / correct.length : 0;

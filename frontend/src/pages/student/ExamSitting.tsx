@@ -18,6 +18,8 @@ import { Input } from "../../components/ui/Input";
 import { Textarea } from "../../components/ui/Textarea";
 import { studentNav } from "../../lib/mockData";
 import styles from "./ExamSitting.module.css";
+import { readStored, writeStored } from "./examStorage";
+import { useCountdown } from "./useCountdown";
 
 type QuestionType = "mcq" | "true_false" | "short_answer" | "essay";
 
@@ -49,81 +51,6 @@ type ExamData = {
   total_points: number;
   server_time?: string;
   submission: { id: string; status: string; answers: Answer[] } | null;
-};
-
-function useCountdown(closesAt: string, offsetMs = 0) {
-  const [remaining, setRemaining] = useState("");
-  const [expired, setExpired] = useState(false);
-  const [urgent, setUrgent] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(
-    undefined,
-  );
-
-  useEffect(() => {
-    const closes = new Date(closesAt).getTime();
-
-    function tick() {
-      // Apply the server-clock offset so a skewed
-      // local clock can't extend or shorten the exam
-      const now = Date.now() + offsetMs;
-      const diff = closes - now;
-
-      if (diff <= 0) {
-        setRemaining("Time expired");
-        setExpired(true);
-        setUrgent(false);
-        if (intervalRef.current) clearInterval(intervalRef.current);
-        return;
-      }
-
-      const hours = Math.floor(diff / 3600000);
-      const minutes = Math.floor((diff % 3600000) / 60000);
-      const seconds = Math.floor((diff % 60000) / 1000);
-
-      // Final five minutes — the timer turns red
-      setUrgent(diff <= 5 * 60 * 1000);
-      setRemaining(
-        `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`,
-      );
-    }
-
-    tick();
-    intervalRef.current = setInterval(tick, 1000);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [closesAt, offsetMs]);
-
-  return { remaining, expired, urgent };
-}
-
-// ── Offline resilience ──────────────────────────────
-// Answers persist to localStorage so a refresh or
-// network drop never loses work.  The dirty list
-// tracks answers whose last save failed — they are
-// replayed on reconnect and before submitting.
-type StoredAnswers = { answers: Record<string, string>; dirty: string[] };
-
-const readStored = (key: string): StoredAnswers => {
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return { answers: {}, dirty: [] };
-    const parsed = JSON.parse(raw);
-    return {
-      answers: parsed.answers ?? {},
-      dirty: Array.isArray(parsed.dirty) ? parsed.dirty : [],
-    };
-  } catch {
-    return { answers: {}, dirty: [] };
-  }
-};
-
-const writeStored = (key: string, state: StoredAnswers) => {
-  try {
-    localStorage.setItem(key, JSON.stringify(state));
-  } catch {
-    // Quota exceeded / private mode — degrade gracefully
-  }
 };
 
 function ExamSitting() {
