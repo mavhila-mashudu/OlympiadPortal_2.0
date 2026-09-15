@@ -183,6 +183,21 @@ List the organiser's olympiads.
 
 Single olympiad. `404` if not found or not owned by caller.
 
+### `PATCH /olympiads/:id`
+
+Rename an olympiad.
+
+- **Auth:** organiser (must own the olympiad)
+- **Body:** `{ "name": "New Name" }` (required)
+- **Response:** `data.olympiad`
+
+### `DELETE /olympiads/:id`
+
+Delete an olympiad. Fails with `400` if the olympiad has any rounds — delete the rounds first.
+
+- **Auth:** organiser (must own the olympiad)
+- **Response:** `data.message`
+
 ### `GET /olympiads/:olympiadId/schools`
 
 Schools registered for the olympiad, incl. educator contacts and entrant counts.
@@ -210,11 +225,27 @@ Closed rounds with downloadable paper/memo files.
 | `closes_at` | ISO 8601 date | required |
 | `qualifying_threshold` | number ≥ 0 | optional |
 
-- **Response `201`:** `data.round`
+- **Response `201`:** `data.round`; optional `data.warnings` (array of strings) when `opens_at` or `closes_at` falls on a SA public holiday — e.g. `"2026-12-16 falls on a public holiday: Day of Reconciliation"`. The round is still created; warnings are advisory only.
 
 #### `GET /olympiads/:olympiadId/rounds`
 
 List rounds for the olympiad.
+
+#### `POST /rounds/check-dates`
+
+Pre-flight holiday check. Call before creating or updating a round to surface public holiday clashes without persisting anything.
+
+- **Auth:** organiser
+- **Body:**
+
+| Field | Type | Rules |
+|---|---|---|
+| `opens_at` | ISO 8601 date | optional |
+| `closes_at` | ISO 8601 date | optional |
+
+- **Response:** `data.warnings` — array of strings, e.g. `["2026-12-16 falls on a public holiday: Day of Reconciliation"]`. Empty array when no clashes.
+
+> **External dependency:** Holiday data is fetched from [date.nager.at](https://date.nager.at) (free, no API key, `ZA` country code). If the external service is unreachable, warnings are silently skipped — the check never blocks round creation.
 
 ### Read / update / delete (standalone)
 
@@ -224,7 +255,7 @@ Round detail incl. state, timing, and paper info. Organiser must own the round.
 
 #### `PATCH /rounds/:id`
 
-Update round metadata. Same body fields as create, all optional.
+Update round metadata. Same body fields as create, all optional. Response includes `data.warnings` (same shape as create) when dates fall on public holidays.
 
 #### `PATCH /rounds/:id/state`
 
