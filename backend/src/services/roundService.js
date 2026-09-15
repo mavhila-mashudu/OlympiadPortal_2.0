@@ -155,7 +155,14 @@ const deleteRound = async (roundId, organiserId) => {
     );
   }
 
-  await prisma.rounds.delete({ where: { id: roundId } });
+  // Papers and entrant registrations reference the round with ON DELETE
+  // RESTRICT, so remove them first (a paper's questions cascade with it).
+  // A scheduled round can't have submissions or results yet.
+  await prisma.$transaction([
+    prisma.entrant_registrations.deleteMany({ where: { round_id: roundId } }),
+    prisma.papers.deleteMany({ where: { round_id: roundId } }),
+    prisma.rounds.delete({ where: { id: roundId } }),
+  ]);
 };
 
 // ─────────────────────────────────────────

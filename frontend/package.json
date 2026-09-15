@@ -9,10 +9,11 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:unit": "vitest run tests/unit",
-    "test:watch": "vitest tests/unit",
-    "test:coverage": "vitest run tests/unit --coverage",
-    "typecheck:tests": "tsc -p tests --noEmit"
+    "test:unit": "vitest run --project unit",
+    "test:watch": "vitest --project unit",
+    "test:coverage": "vitest run --project unit --coverage",
+    "typecheck:tests": "tsc -p tests --noEmit",
+    "test:integration": "vitest run --project integration"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
@@ -33,6 +34,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^5.0.0",
     "jsdom": "^29.1.1",
+    "msw": "^2.15.0",
     "oxlint": "^1.75.0",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",

@@ -12,6 +12,14 @@ export function useCountdown(closesAt: string, offsetMs = 0) {
 
   useEffect(() => {
     const closes = new Date(closesAt).getTime();
+    // No close time yet (the exam is still loading): show nothing rather
+    // than counting down to an invalid date
+    if (Number.isNaN(closes)) {
+      setRemaining("");
+      setExpired(false);
+      setUrgent(false);
+      return;
+    }
 
     function tick() {
       // Apply the server-clock offset so a skewed

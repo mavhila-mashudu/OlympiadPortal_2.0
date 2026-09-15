@@ -118,6 +118,20 @@ describe("formatCountdown", () => {
   });
 });
 
+describe("clearStudentProfile", () => {
+  it("makes the next call load the profile again", async () => {
+    const { getStudentProfile, clearStudentProfile, get } = await loadStudent();
+    get.mockResolvedValueOnce({ user: { full_name: "Ayanda Khumalo" } });
+    get.mockResolvedValueOnce({ user: { full_name: "Lerato Nkosi" } });
+
+    expect((await getStudentProfile()).userName).toBe("Ayanda Khumalo");
+    expect((await getStudentProfile()).userName).toBe("Ayanda Khumalo");
+    clearStudentProfile();
+    expect((await getStudentProfile()).userName).toBe("Lerato Nkosi");
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("date formatting", () => {
   // Midday UTC keeps the calendar date the same in any timezone
   const ISO = "2026-03-15T12:00:00Z";

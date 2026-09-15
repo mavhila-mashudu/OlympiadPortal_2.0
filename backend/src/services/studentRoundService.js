@@ -1,6 +1,9 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
-const { NotFoundError } = require("../errors/AppError");
+const supabase = require("../config/supabase");
+const { BadRequestError, NotFoundError } = require("../errors/AppError");
+
+const BUCKET = "papers";
 
 // ==========================================
 // Shared Helpers
@@ -83,6 +86,15 @@ const formatRoundResult = (resultRow, maxPoints, isResultsReleased) => {
 };
 
 /**
+ * An online sitting creates its submission (status "received") when the
+ * student starts, so that alone means the exam is still in progress and can be
+ * resumed. Anything else is a finished submission.
+ */
+const isSubmitted = (submission) =>
+  Boolean(submission) &&
+  !(submission.route === "online" && submission.status === "received");
+
+/**
  * Returns contextual helper note based on round status.
  */
 const getPaperNote = (status) => {
@@ -139,7 +151,7 @@ const getRegisteredRounds = async (entrantId) => {
       status,
       paperFile: paper?.file_url ? paper.file_url.split("/").pop() : null,
       paperTitle: paper?.title || null,
-      hasSubmitted: Boolean(submission),
+      hasSubmitted: isSubmitted(submission),
       result,
     };
   });
@@ -195,10 +207,10 @@ const getStudentRoundDetail = async (roundId, entrantId) => {
     closes_at: round.closes_at,
     status,
     canSitOnline: round.state === "open" && round.exam_status === "live",
-    hasSubmitted: Boolean(submission),
+    hasSubmitted: isSubmitted(submission),
     submissionStatus: submission?.status || null,
     paperFile: paper?.file_url ? paper.file_url.split("/").pop() : "question-paper.pdf",
-    paperFileUrl: paper?.file_url || null,
+    hasPaper: Boolean(paper?.file_url),
     paperNote: getPaperNote(status),
     result,
   };
@@ -247,8 +259,50 @@ const getStudentResults = async (entrantId) => {
   return { results };
 };
 
+/**
+ * Signed, short-lived download link for the question paper of a round the
+ * student is registered for. Like educators, students get the paper once the
+ * round has opened; the memo stays with the organiser.
+ */
+const getStudentPaperUrl = async (roundId, entrantId) => {
+  if (!supabase) {
+    throw new BadRequestError("File storage is not configured on this server");
+  }
+
+  const reg = await prisma.entrant_registrations.findFirst({
+    where: { entrant_id: entrantId, round_id: roundId },
+    include: { rounds: { include: { papers: true } } },
+  });
+  if (!reg) {
+    throw new NotFoundError(
+      "Round not found or you are not registered for this round",
+    );
+  }
+
+  if (mapRoundStatus(reg.rounds.state) === "upcoming") {
+    throw new BadRequestError(
+      "Paper is not available yet — the round has not opened",
+    );
+  }
+
+  const path = reg.rounds.papers?.[0]?.file_url;
+  if (!path) throw new NotFoundError("No paper uploaded for this round");
+
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(path, 60);
+  if (error) {
+    throw new BadRequestError(
+      `Could not generate download link: ${error.message}`,
+    );
+  }
+
+  return data.signedUrl;
+};
+
 module.exports = {
   getRegisteredRounds,
   getStudentRoundDetail,
   getStudentResults,
+  getStudentPaperUrl,
 };

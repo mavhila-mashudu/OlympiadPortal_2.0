@@ -31,7 +31,8 @@ export function QuestionCard({
             : ""}
         </span>
         <span className={styles.points}>
-          {question.max_points} pt{question.max_points !== 1 ? "s" : ""}
+          {Number(question.max_points)} pt
+          {Number(question.max_points) !== 1 ? "s" : ""}
         </span>
         <div className={styles.questionActions}>
           <button

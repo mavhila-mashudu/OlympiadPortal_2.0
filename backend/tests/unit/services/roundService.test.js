@@ -197,10 +197,19 @@ describe("deleteRound", () => {
     expect(prisma.rounds.delete).toHaveBeenCalledWith({ where: { id: "round-1" } });
   });
 
+  it("removes the round's paper and registrations with it, in one transaction", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(storedRound());
+    await deleteRound("round-1", "org-1");
+    expect(prisma.entrant_registrations.deleteMany).toHaveBeenCalledWith({ where: { round_id: "round-1" } });
+    expect(prisma.papers.deleteMany).toHaveBeenCalledWith({ where: { round_id: "round-1" } });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses to delete a round that has opened", async () => {
     prisma.rounds.findUnique.mockResolvedValue(storedRound({ state: "closed" }));
     await expect(deleteRound("round-1", "org-1")).rejects.toMatchObject({ statusCode: 400 });
     expect(prisma.rounds.delete).not.toHaveBeenCalled();
+    expect(prisma.papers.deleteMany).not.toHaveBeenCalled();
   });
 });
 

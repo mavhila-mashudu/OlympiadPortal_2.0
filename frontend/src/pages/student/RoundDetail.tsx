@@ -26,7 +26,7 @@ type RoundDetailData = {
   hasSubmitted: boolean;
   submissionStatus: string | null;
   paperFile: string;
-  paperFileUrl: string | null;
+  hasPaper: boolean;
   paperNote: string;
   result: {
     score: string;
@@ -46,6 +46,8 @@ function StudentRoundDetail() {
   const [round, setRound] = useState<RoundDetailData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,6 +127,25 @@ function StudentRoundDetail() {
   const paperAvailable = round.status === "open" || round.status === "closed";
   const showResult = round.status === "closed";
 
+  // The paper lives in private storage, so ask the backend for a short-lived
+  // signed link and open that
+  const handleDownloadPaper = async () => {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const { url } = await api.get<{ url: string }>(
+        `/rounds/${round.id}/paper/download`,
+      );
+      window.open(url, "_blank");
+    } catch (err) {
+      setDownloadError(
+        err instanceof Error ? err.message : "Could not download the paper",
+      );
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <AppShell
       activeRole="student"
@@ -188,13 +209,18 @@ function StudentRoundDetail() {
               <Button
                 icon={<Download aria-hidden="true" />}
                 variant={round.status === "open" ? "outline" : "primary"}
-                disabled={!paperAvailable || !round.paperFileUrl}
-                onClick={() => window.open(round.paperFileUrl!, "_blank")}
+                disabled={!paperAvailable || !round.hasPaper || downloading}
+                onClick={handleDownloadPaper}
               >
-                Download paper
+                {downloading ? "Preparing download…" : "Download paper"}
               </Button>
             </div>
           </div>
+          {downloadError && (
+            <p className={styles.downloadError} role="alert">
+              {downloadError}
+            </p>
+          )}
         </Card>
 
         {showResult ? (

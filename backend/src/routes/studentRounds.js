@@ -8,6 +8,7 @@ const {
   listRegisteredRounds,
   getRoundDetail,
   getStudentResults,
+  downloadPaper,
 } = require("../controllers/studentRoundController");
 
 // All routes require authenticated student
@@ -23,6 +24,15 @@ router.get(
   [param("roundId").isUUID().withMessage("Valid round UUID required")],
   validate,
   getRoundDetail,
+);
+
+// GET /rounds/:roundId/paper/download — signed link to the round's question paper
+router.get(
+  "/:roundId/paper/download",
+  requireRole("student"),
+  [param("roundId").isUUID().withMessage("Valid round UUID required")],
+  validate,
+  downloadPaper,
 );
 
 // GET /rounds/my-results — list completed/released round results for the student

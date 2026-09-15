@@ -43,10 +43,9 @@ function EducatorRoundDetail() {
   const [receipt, setReceipt] = useState<SubmissionReceipt | null>(null);
   const submitMutation = useSubmitResults(roundId!);
 
-  // Results (B15) — only fetch when round allows it
-  const resultsEnabled =
-    !!round &&
-    (round.state === "results_released" || round.state === "marking");
+  // Results (B15) — only fetch once released; the backend refuses
+  // results for any other state
+  const resultsEnabled = round?.state === "results_released";
   const { data: resultsData } = useEducatorResults(
     resultsEnabled ? roundId! : "",
   );

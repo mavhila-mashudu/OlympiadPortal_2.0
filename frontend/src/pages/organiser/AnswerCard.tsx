@@ -29,7 +29,11 @@ export function AnswerCard({
   onMarked: () => void;
 }) {
   const maxPoints = Number(answer.questions.max_points);
-  const [points, setPoints] = useState<number>(maxPoints);
+  // What the marker typed; may be empty while they retype it
+  const [points, setPoints] = useState(String(maxPoints));
+  const pointsValue = Number(points);
+  const pointsValid =
+    points.trim() !== "" && pointsValue >= 0 && pointsValue <= maxPoints;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,15 +111,27 @@ export function AnswerCard({
             max={maxPoints}
             step={maxPoints > 1 ? 0.5 : 1}
             value={points}
-            onChange={(e) =>
-              setPoints(
-                Math.max(0, Math.min(maxPoints, Number(e.target.value) || 0)),
-              )
-            }
+            onChange={(e) => {
+              const raw = e.target.value;
+              const typed = Number(raw);
+              // Keep partial input such as "" or "2." as typed; pull anything
+              // outside 0..max back into range
+              if (raw === "" || (typed >= 0 && typed <= maxPoints)) {
+                setPoints(raw);
+              } else if (Number.isFinite(typed)) {
+                setPoints(String(Math.max(0, Math.min(maxPoints, typed))));
+              } else {
+                setPoints("");
+              }
+            }}
             disabled={saving}
           />
         </div>
-        <Button size="sm" onClick={() => saveMark(points)} disabled={saving}>
+        <Button
+          size="sm"
+          onClick={() => saveMark(pointsValue)}
+          disabled={saving || !pointsValid}
+        >
           {saving ? "Saving..." : "Award"}
         </Button>
         <Button

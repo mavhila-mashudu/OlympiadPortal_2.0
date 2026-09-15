@@ -1,6 +1,8 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { ClipboardList, LayoutDashboard, Trophy } from "lucide-react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { AppShell } from "../../../../src/components/layout/AppShell";
 import shellStyles from "../../../../src/components/layout/AppShell.module.css";
@@ -105,8 +107,39 @@ describe("AppShell", () => {
     expect(screen.getByText(accountLabel)).toBeInTheDocument();
   });
 
-  it("has a log out link to the login page", () => {
+  it("logs out: clears the session and cached data, then opens the login page", async () => {
+    localStorage.setItem("op_access_token", "jwt");
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(["educator", "rounds"], { rounds: [] });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/organiser"]}>
+          <Routes>
+            <Route
+              path="/organiser"
+              element={
+                <AppShell activeRole="organiser" navItems={navItems} organisation="o" portalLabel="p" userInitials="TM" userName="Thandi">
+                  <p>Page content</p>
+                </AppShell>
+              }
+            />
+            <Route path="/login" element={<h1>Log in</h1>} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Log out" }));
+
+    expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
+    expect(localStorage.getItem("op_access_token")).toBeNull();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it("can log out outside a query client provider", async () => {
+    localStorage.setItem("op_access_token", "jwt");
     renderShell("/organiser");
-    expect(screen.getByRole("link", { name: "Log out" })).toHaveAttribute("href", "/login");
+    await userEvent.click(screen.getByRole("button", { name: "Log out" }));
+    expect(localStorage.getItem("op_access_token")).toBeNull();
   });
 });

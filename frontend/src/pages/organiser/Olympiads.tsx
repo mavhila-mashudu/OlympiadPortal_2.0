@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AppShell as AppShellComponent } from "../../components/layout/AppShell";
+import { AppShell } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -7,8 +7,6 @@ import { Input } from "../../components/ui/Input";
 import { api } from "../../lib/api";
 import { organiserNav } from "../../lib/mockData";
 import { InviteSchoolForm } from "./InviteSchoolForm";
-
-const AppShell = AppShellComponent as any;
 
 export default function Olympiads() {
   const [olympiads, setOlympiads] = useState<any[]>([]);
@@ -48,7 +46,14 @@ export default function Olympiads() {
   };
 
   return (
-    <AppShell navItems={organiserNav} role="Organiser">
+    <AppShell
+      activeRole="organiser"
+      navItems={organiserNav}
+      organisation="National Olympiad Office"
+      portalLabel="Organiser console"
+      userInitials="NO"
+      userName="Admin user"
+    >
       <PageHeader
         title="Olympiads"
         description="Manage and create competition editions."
@@ -102,7 +107,7 @@ export default function Olympiads() {
                   <tr key={item.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "1rem 1.25rem", fontWeight: 600 }}>{item.name}</td>
                     <td style={{ padding: "1rem 1.25rem", color: "#6b7280", fontFamily: "monospace" }}>{item.id}</td>
-                    <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.roundsCount ?? item.rounds?.length ?? 0}</td>
+                    <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.roundsCount ?? item._count?.rounds ?? item.rounds?.length ?? 0}</td>
                     <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.schoolsCount ?? item._count?.school_registrations ?? 0}</td>
                     <td style={{ padding: "1rem 1.25rem", textAlign: "right" }}>
                       <Button onClick={() => setInviteOlympiadId(item.id)} style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}>

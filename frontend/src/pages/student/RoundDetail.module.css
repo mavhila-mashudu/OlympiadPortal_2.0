@@ -158,6 +158,13 @@
   color: var(--status-open);
 }
 
+.downloadError {
+  padding: 0 1rem 1rem;
+  color: var(--destructive, #b91c1c);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
 .noResult {
   color: var(--muted-foreground);
   font-size: 0.875rem;

@@ -5,13 +5,34 @@ export default mergeConfig(
   viteConfig,
   defineConfig({
     test: {
-      environment: "jsdom",
-      include: ["tests/unit/**/*.test.{ts,tsx}"],
-      setupFiles: ["tests/unit/setup.ts"],
       // Every test starts from clean mocks, env vars and globals
       restoreMocks: true,
       unstubEnvs: true,
       unstubGlobals: true,
+      projects: [
+        {
+          extends: true,
+          test: {
+            // Components, hooks and helpers in isolation; dependencies mocked
+            name: "unit",
+            environment: "jsdom",
+            include: ["tests/unit/**/*.test.{ts,tsx}"],
+            setupFiles: ["tests/unit/setup.ts"],
+          },
+        },
+        {
+          extends: true,
+          test: {
+            // Whole pages through the real router, API client and Supabase
+            // client, with the network mocked by MSW
+            name: "integration",
+            environment: "jsdom",
+            include: ["tests/integration/**/*.test.{ts,tsx}"],
+            setupFiles: ["tests/integration/setup.ts"],
+            testTimeout: 20_000,
+          },
+        },
+      ],
       coverage: {
         provider: "v8",
         include: ["src/**/*.{ts,tsx}"],

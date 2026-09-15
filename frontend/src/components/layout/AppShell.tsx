@@ -5,7 +5,10 @@ import {
   Trophy,
   type LucideIcon,
 } from "lucide-react";
-import { Link, NavLink } from "react-router-dom";
+import { QueryClientContext } from "@tanstack/react-query";
+import { useContext } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
+import { logout } from "../../lib/session";
 import type { NavItem } from "../../lib/mockData";
 import { Button } from "../ui/Button";
 import styles from "./AppShell.module.css";
@@ -47,6 +50,17 @@ export function AppShell({
   userInitials,
   userName,
 }: AppShellProps) {
+  const navigate = useNavigate();
+  // Read the context directly so the shell also renders without a provider
+  const queryClient = useContext(QueryClientContext);
+
+  const handleLogout = () => {
+    logout();
+    // Drop cached API data so the next user starts clean
+    queryClient?.clear();
+    navigate("/login", { replace: true });
+  };
+
   return (
     <div className={styles.shell}>
       <aside className={styles.sidebar}>
@@ -128,7 +142,7 @@ export function AppShell({
               fullWidth
               icon={<LogOut aria-hidden="true" />}
               justify="start"
-              to="/login"
+              onClick={handleLogout}
               variant="outline"
             >
               Log out

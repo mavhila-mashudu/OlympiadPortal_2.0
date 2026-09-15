@@ -7,8 +7,10 @@ export type Question = {
   options: string[] | null;
   correct_option: string | null;
   correct_answer: string | null;
-  negative_pct: number | null;
-  max_points: number;
+  // Decimal columns: the API sends them as strings ("2"), so convert with
+  // Number() before doing arithmetic or comparisons
+  negative_pct: number | string | null;
+  max_points: number | string;
 };
 
 export const TYPE_LABELS: Record<QuestionType, string> = {

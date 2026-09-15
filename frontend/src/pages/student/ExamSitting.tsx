@@ -28,9 +28,9 @@ type Question = {
   type: QuestionType;
   prompt: string;
   options: string[] | null;
-  max_points: number;
+  max_points: number | string; // Decimal, sent as a string
   multi_select?: boolean;
-  negative_pct?: number | null;
+  negative_pct?: number | string | null;
 };
 
 type Answer = {
@@ -80,8 +80,10 @@ function ExamSitting() {
   );
   const [dirtyCount, setDirtyCount] = useState(0);
   const [showConfirm, setShowConfirm] = useState(false);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined,
+  // One debounce timer per question, so answering the next question quickly
+  // can't cancel the previous one's save
+  const saveTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
   );
   // A final submit that failed while offline is retried
   // through this ref so reconnect handlers always use the
@@ -209,7 +211,11 @@ function ExamSitting() {
         dirtyRef.current.add(questionId);
         setSaveState("idle");
       } finally {
-        setDirtyCount(dirtyRef.current.size);
+        // Answers still inside their debounce window aren't failures
+        setDirtyCount(
+          [...dirtyRef.current].filter((qid) => !saveTimersRef.current.has(qid))
+            .length,
+        );
         persistLocal();
       }
     },
@@ -232,15 +238,23 @@ function ExamSitting() {
   // Debounced auto-save
   const saveAnswer = useCallback(
     (questionId: string, value: string) => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      const timers = saveTimersRef.current;
+      clearTimeout(timers.get(questionId));
 
       answersRef.current = new Map(answersRef.current).set(questionId, value);
       setAnswers(answersRef.current);
+      // Unsaved until the server confirms, so a refresh inside the debounce
+      // window restores this answer from local storage
+      dirtyRef.current.add(questionId);
       persistLocal();
 
-      saveTimerRef.current = setTimeout(() => {
-        pushAnswer(questionId);
-      }, 800);
+      timers.set(
+        questionId,
+        setTimeout(() => {
+          timers.delete(questionId);
+          pushAnswer(questionId);
+        }, 800),
+      );
     },
     [persistLocal, pushAnswer],
   );
@@ -309,7 +323,8 @@ function ExamSitting() {
       // Flush every answer before finalising — includes
       // anything still inside the debounce window or
       // the dirty set from an earlier network drop
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      for (const timer of saveTimersRef.current.values()) clearTimeout(timer);
+      saveTimersRef.current.clear();
       await pushAll();
 
       const res = await api.post<{
@@ -587,7 +602,10 @@ function ExamSitting() {
                   <Flag />
                   {flagged.has(currentQ.id) ? "Flagged" : "Flag"}
                 </button>
-                <span className={styles.points}>{currentQ.max_points} pts</span>
+                <span className={styles.points}>
+                  {Number(currentQ.max_points)} pt
+                  {Number(currentQ.max_points) !== 1 ? "s" : ""}
+                </span>
               </div>
 
               <p className={styles.prompt}>{currentQ.prompt}</p>

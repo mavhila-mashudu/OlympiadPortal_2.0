@@ -96,6 +96,16 @@ describe("AnswerCard", () => {
     expect(pointsInput()).toHaveValue(2.5);
   });
 
+  it("lets the marker clear the points and type a new mark", async () => {
+    const { user } = setup(answer());
+    await user.clear(pointsInput());
+    expect(pointsInput()).toHaveValue(null);
+    expect(screen.getByRole("button", { name: "Award" })).toBeDisabled();
+    await user.type(pointsInput(), "3");
+    expect(pointsInput()).toHaveValue(3);
+    expect(screen.getByRole("button", { name: "Award" })).toBeEnabled();
+  });
+
   it.each([
     ["Award (partial)", "Award", "2.5", { is_correct: true, points_awarded: 2.5 }],
     ["Full", /full/i, null, { is_correct: true, points_awarded: 4 }],

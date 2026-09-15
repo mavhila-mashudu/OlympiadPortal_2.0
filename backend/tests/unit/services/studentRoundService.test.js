@@ -2,12 +2,18 @@ jest.mock("../../../src/config/database", () => ({
   __esModule: true,
   default: require("../helpers/prismaMock").prisma,
 }));
+jest.mock("../../../src/config/supabase", () => {
+  const bucket = { createSignedUrl: jest.fn() };
+  return { storage: { from: jest.fn(() => bucket), bucket } };
+});
 
 const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
+const supabase = require("../../../src/config/supabase");
 const {
   getRegisteredRounds,
   getStudentRoundDetail,
   getStudentResults,
+  getStudentPaperUrl,
 } = require("../../../src/services/studentRoundService");
 
 beforeEach(resetPrismaMock);
@@ -170,7 +176,7 @@ describe("getStudentRoundDetail", () => {
       hasSubmitted: false,
       submissionStatus: null,
       paperFile: "paper-123-maths.pdf",
-      paperFileUrl: "rounds/round-1/paper-123-maths.pdf",
+      hasPaper: true,
       paperNote: "Paper is available for download or online sitting.",
       result: null,
     });
@@ -203,8 +209,24 @@ describe("getStudentRoundDetail", () => {
       hasSubmitted: true,
       submissionStatus: "automarked",
       paperFile: "question-paper.pdf",
-      paperFileUrl: null,
+      hasPaper: false,
     });
+  });
+
+  it.each([
+    [{ route: "online", status: "received" }, false],
+    [{ route: "online", status: "queued_for_marking" }, true],
+    [{ route: "offline", status: "received" }, true],
+  ])("treats a %o submission as submitted: %s", async (submission, submitted) => {
+    // A started-but-unsubmitted online sitting must stay resumable
+    prisma.entrant_registrations.findFirst.mockResolvedValue(registration({ submissions: [submission] }));
+    prisma.entrant_registrations.findMany.mockResolvedValue([registration({ submissions: [submission] })]);
+
+    const detail = await getStudentRoundDetail("round-1", "ent-1");
+    const { rounds } = await getRegisteredRounds("ent-1");
+
+    expect(detail).toMatchObject({ hasSubmitted: submitted, submissionStatus: submission.status });
+    expect(rounds[0].hasSubmitted).toBe(submitted);
   });
 });
 
@@ -260,5 +282,67 @@ describe("getStudentResults", () => {
     ]);
     const { results } = await getStudentResults("ent-1");
     expect(results[0]).toMatchObject({ score: "2 / 3", percentage: "67%" });
+  });
+});
+
+describe("getStudentPaperUrl", () => {
+  const registration = (roundOverrides = {}) => ({ rounds: round(roundOverrides) });
+
+  beforeEach(() => {
+    supabase.storage.from.mockClear();
+    supabase.storage.bucket.createSignedUrl
+      .mockReset()
+      .mockResolvedValue({ data: { signedUrl: "https://signed.test/paper" }, error: null });
+  });
+
+  it("signs a one-minute link to the paper of an open round the student is registered for", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue(registration());
+
+    await expect(getStudentPaperUrl("round-1", "ent-1")).resolves.toBe("https://signed.test/paper");
+    expect(prisma.entrant_registrations.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { entrant_id: "ent-1", round_id: "round-1" } }),
+    );
+    expect(supabase.storage.from).toHaveBeenCalledWith("papers");
+    expect(supabase.storage.bucket.createSignedUrl).toHaveBeenCalledWith("rounds/round-1/paper-123-maths.pdf", 60);
+  });
+
+  it.each(["closed", "marking", "results_released"])("allows the download once the round is %s", async (state) => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue(registration({ state }));
+    await expect(getStudentPaperUrl("round-1", "ent-1")).resolves.toBe("https://signed.test/paper");
+  });
+
+  it("rejects a round the student isn't registered for", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue(null);
+    await expect(getStudentPaperUrl("round-1", "ent-1")).rejects.toMatchObject({ statusCode: 404 });
+    expect(supabase.storage.bucket.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it("keeps the paper back until the round opens", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue(registration({ state: "scheduled" }));
+    await expect(getStudentPaperUrl("round-1", "ent-1")).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Paper is not available yet — the round has not opened",
+    });
+    expect(supabase.storage.bucket.createSignedUrl).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no paper", []],
+    ["a paper without a file", [{ file_url: null }]],
+  ])("responds 404 when the round has %s", async (_label, papers) => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue(registration({ papers }));
+    await expect(getStudentPaperUrl("round-1", "ent-1")).rejects.toMatchObject({
+      statusCode: 404,
+      message: "No paper uploaded for this round",
+    });
+  });
+
+  it("reports a storage failure", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue(registration());
+    supabase.storage.bucket.createSignedUrl.mockResolvedValue({ data: null, error: { message: "bucket missing" } });
+    await expect(getStudentPaperUrl("round-1", "ent-1")).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Could not generate download link: bucket missing",
+    });
   });
 });

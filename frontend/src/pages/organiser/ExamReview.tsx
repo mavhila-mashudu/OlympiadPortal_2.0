@@ -133,7 +133,7 @@ function ExamReview() {
     }
   };
 
-  const totalPoints = questions.reduce((sum, q) => sum + q.max_points, 0);
+  const totalPoints = questions.reduce((sum, q) => sum + Number(q.max_points), 0);
   const mcqCount = questions.filter((q) => q.type === "mcq").length;
   const tfCount = questions.filter((q) => q.type === "true_false").length;
   const shortCount = questions.filter((q) => q.type === "short_answer").length;
@@ -292,7 +292,7 @@ function ExamReview() {
                         : ""}
                     </span>
                     <span className={styles.points}>
-                      {q.max_points} pt{q.max_points !== 1 ? "s" : ""}
+                      {Number(q.max_points)} pt{Number(q.max_points) !== 1 ? "s" : ""}
                     </span>
                     {isReady && (
                       <div className={styles.questionActions}>

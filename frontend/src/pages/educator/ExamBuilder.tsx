@@ -122,7 +122,7 @@ function ExamBuilder() {
     }
   };
 
-  const totalPoints = questions.reduce((sum, q) => sum + q.max_points, 0);
+  const totalPoints = questions.reduce((sum, q) => sum + Number(q.max_points), 0);
   const isDraft = examStatus === "draft";
   const isReady = examStatus === "ready";
 

@@ -9,14 +9,28 @@ import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
 import { InviteSchoolForm } from "./InviteSchoolForm";
 import styles from "./Schools.module.css";
 
+// GET /olympiads/:id/schools merges school invitations with schools that
+// registered without one
 type RegisteredSchool = {
   id: string;
   name: string;
-  created_at: string;
-  _count?: {
-    educators?: number;
-    entrant_registrations?: number;
-  };
+  address: string | null;
+  entrants: number;
+  educators: { name: string; email: string }[];
+  contactEmail: string | null;
+  status: "pending" | "accepted" | "expired";
+};
+
+const statusLabels: Record<RegisteredSchool["status"], string> = {
+  pending: "Pending",
+  accepted: "Accepted",
+  expired: "Expired",
+};
+
+const statusClasses: Record<RegisteredSchool["status"], string> = {
+  pending: styles.statusPending,
+  accepted: styles.statusAccepted,
+  expired: styles.statusExpired,
 };
 
 export function SchoolsPage() {
@@ -106,13 +120,14 @@ export function SchoolsPage() {
                   <th>School Name</th>
                   <th>Registered Educators</th>
                   <th>Entrants</th>
-                  <th>Date Joined</th>
+                  <th>Contact</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {!loading && schools.length === 0 && (
                   <tr>
-                    <td colSpan={4}>
+                    <td colSpan={5}>
                       No schools registered yet. Click "Invite school" to send an invitation.
                     </td>
                   </tr>
@@ -124,10 +139,28 @@ export function SchoolsPage() {
                         <Building2 size={16} />
                         <strong>{school.name}</strong>
                       </div>
+                      {school.address && <small>{school.address}</small>}
                     </td>
-                    <td>{school._count?.educators ?? 0}</td>
-                    <td>{school._count?.entrant_registrations ?? 0}</td>
-                    <td>{new Date(school.created_at).toLocaleDateString("en-ZA")}</td>
+                    <td>
+                      <strong>{school.educators.length}</strong>
+                      {school.educators.length > 0 && (
+                        <ul className={styles.educators}>
+                          {school.educators.map((educator) => (
+                            <li key={educator.email}>
+                              <span className={styles.educatorName}>{educator.name}</span>
+                              <a href={`mailto:${educator.email}`}>{educator.email}</a>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                    <td>{school.entrants}</td>
+                    <td>{school.contactEmail ?? "—"}</td>
+                    <td>
+                      <span className={`${styles.status} ${statusClasses[school.status] ?? ""}`}>
+                        {statusLabels[school.status] ?? school.status}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

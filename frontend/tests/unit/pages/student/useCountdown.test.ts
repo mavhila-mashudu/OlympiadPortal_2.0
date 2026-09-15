@@ -71,6 +71,17 @@ describe("useCountdown", () => {
     expect(vi.getTimerCount()).toBe(1);
   });
 
+  it("shows nothing and doesn't tick until there is a close time", () => {
+    const { result, rerender } = renderHook(({ closesAt }) => useCountdown(closesAt), {
+      initialProps: { closesAt: "" },
+    });
+    expect(result.current).toEqual({ remaining: "", expired: false, urgent: false });
+    expect(vi.getTimerCount()).toBe(0);
+
+    rerender({ closesAt: closesIn(MIN) });
+    expect(result.current.remaining).toBe("00:01:00");
+  });
+
   it("stops its timer when the exam page unmounts", () => {
     const { unmount } = renderHook(() => useCountdown(closesIn(10 * MIN)));
     expect(vi.getTimerCount()).toBe(1);

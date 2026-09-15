@@ -35,10 +35,23 @@ export function QuestionForm({
   const [correctAnswer, setCorrectAnswer] = useState(
     initial?.correct_answer ?? "",
   );
+  // Number fields keep what the educator typed (so they can be cleared and
+  // retyped) and are checked before saving
   const [negativePct, setNegativePct] = useState(
-    Number(initial?.negative_pct) || 0,
+    String(Number(initial?.negative_pct) || 0),
   );
-  const [maxPoints, setMaxPoints] = useState(initial?.max_points ?? 1);
+  const [maxPoints, setMaxPoints] = useState(
+    String(Number(initial?.max_points ?? 1)),
+  );
+  const pointsValue = Number(maxPoints);
+  const pointsValid =
+    maxPoints.trim() !== "" && Number.isInteger(pointsValue) && pointsValue >= 1;
+  const negativeValue = Number(negativePct);
+  const negativeValid =
+    negativePct.trim() !== "" &&
+    Number.isFinite(negativeValue) &&
+    negativeValue >= 0 &&
+    negativeValue <= 100;
 
   const toggleCorrect = (idx: string) => {
     setCorrectOptions((prev) =>
@@ -89,12 +102,14 @@ export function QuestionForm({
           ? correct.join(",")
           : null,
       correct_answer: type === "short_answer" ? correctAnswer.trim() : null,
-      negative_pct: type === "mcq" ? negativePct : 0,
-      max_points: maxPoints,
+      negative_pct: type === "mcq" ? negativeValue : 0,
+      max_points: pointsValue,
     });
   };
 
   const canSave =
+    pointsValid &&
+    (type !== "mcq" || negativeValid) &&
     prompt.trim().length > 0 &&
     (type === "essay" ||
       (type === "mcq" &&
@@ -198,13 +213,24 @@ export function QuestionForm({
             max={100}
             step={1}
             value={negativePct}
-            onChange={(e) => setNegativePct(Number(e.target.value) || 0)}
+            onChange={(e) => setNegativePct(e.target.value)}
+            onBlur={() => {
+              if (negativePct.trim() === "") setNegativePct("0");
+            }}
+            aria-invalid={!negativeValid}
+            aria-describedby="q-negative-hint"
             className={styles.pointsInput}
           />
-          <p className={styles.hint}>
-            Set to 0 to disable. Each wrongly selected option deducts this
-            percentage of the question&apos;s points.
-          </p>
+          {negativeValid ? (
+            <p id="q-negative-hint" className={styles.hint}>
+              Set to 0 to disable. Each wrongly selected option deducts this
+              percentage of the question&apos;s points.
+            </p>
+          ) : (
+            <p id="q-negative-hint" className={styles.fieldError}>
+              Enter a percentage from 0 to 100.
+            </p>
+          )}
         </div>
       )}
 
@@ -254,9 +280,19 @@ export function QuestionForm({
           min={1}
           step={1}
           value={maxPoints}
-          onChange={(e) => setMaxPoints(Number(e.target.value) || 1)}
+          onChange={(e) => setMaxPoints(e.target.value)}
+          onBlur={() => {
+            if (maxPoints.trim() === "") setMaxPoints("1");
+          }}
+          aria-invalid={!pointsValid}
+          aria-describedby={pointsValid ? undefined : "q-points-error"}
           className={styles.pointsInput}
         />
+        {!pointsValid && (
+          <p id="q-points-error" className={styles.fieldError}>
+            Points must be a whole number of 1 or more.
+          </p>
+        )}
       </div>
 
       <div className={styles.formActions}>

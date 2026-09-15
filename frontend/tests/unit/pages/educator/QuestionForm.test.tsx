@@ -165,12 +165,53 @@ describe("QuestionForm — multiple choice", () => {
     expect(correctBoxes().some((box) => (box as HTMLInputElement).checked)).toBe(false);
   });
 
-  it("treats an invalid negative percentage as 0 and invalid points as 1", () => {
-    setup();
-    fireEvent.change(screen.getByLabelText("Negative marking per wrong selection (%)"), { target: { value: "abc" } });
-    fireEvent.change(screen.getByLabelText("Points"), { target: { value: "" } });
-    expect(screen.getByLabelText("Negative marking per wrong selection (%)")).toHaveValue(0);
+  it("lets the points be cleared and retyped, without appending to the old value", async () => {
+    const { user, onSave } = setup();
+    await typePrompt(user, "Pick the primes");
+    await fillOptions(user, ["2", "4"]);
+    await user.click(correctBoxes()[0]);
+
+    const points = screen.getByLabelText("Points");
+    await user.clear(points);
+    expect(points).toHaveValue(null);
+    expect(saveButton()).toBeDisabled();
+    await user.type(points, "4");
+    expect(points).toHaveValue(4);
+
+    const negative = screen.getByLabelText("Negative marking per wrong selection (%)");
+    await user.clear(negative);
+    await user.type(negative, "25");
+    expect(negative).toHaveValue(25);
+
+    await user.click(saveButton());
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ max_points: 4, negative_pct: 25 }));
+  });
+
+  it("puts an emptied field back to its default when the educator moves on", async () => {
+    const { user } = setup();
+    await user.clear(screen.getByLabelText("Points"));
+    await user.clear(screen.getByLabelText("Negative marking per wrong selection (%)"));
+    await user.tab();
     expect(screen.getByLabelText("Points")).toHaveValue(1);
+    expect(screen.getByLabelText("Negative marking per wrong selection (%)")).toHaveValue(0);
+  });
+
+  it.each([
+    ["0 points", "Points", "0", "Points must be a whole number of 1 or more."],
+    ["fractional points", "Points", "2.5", "Points must be a whole number of 1 or more."],
+    ["a percentage over 100", "Negative marking per wrong selection (%)", "150", "Enter a percentage from 0 to 100."],
+  ])("explains and blocks saving for %s", async (_label, field, value, message) => {
+    const { user } = setup();
+    await typePrompt(user, "Pick the primes");
+    await fillOptions(user, ["2", "4"]);
+    await user.click(correctBoxes()[0]);
+    expect(saveButton()).toBeEnabled();
+
+    fireEvent.change(screen.getByLabelText(field), { target: { value } });
+
+    expect(screen.getByText(message)).toBeInTheDocument();
+    expect(screen.getByLabelText(field)).toHaveAttribute("aria-invalid", "true");
+    expect(saveButton()).toBeDisabled();
   });
 });
 
