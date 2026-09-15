@@ -45,6 +45,7 @@ app.get("/health", (_req, res) => {
     status: "ok",
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || "development",
+    frontend_url: process.env.FRONTEND_URL || "NOT SET (fallback: localhost:5173)",
   });
 });
 
