@@ -2,11 +2,13 @@ import {
   GraduationCap,
   LogOut,
   Menu,
+  Trash2,
   Trophy,
   type LucideIcon,
 } from "lucide-react";
 import { QueryClientContext } from "@tanstack/react-query";
-import { useContext } from "react";
+import { useContext, useState } from "react";
+import { api } from "../../lib/api";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { logout } from "../../lib/session";
 import type { NavItem } from "../../lib/mockData";
@@ -53,6 +55,30 @@ export function AppShell({
   const navigate = useNavigate();
   // Read the context directly so the shell also renders without a provider
   const queryClient = useContext(QueryClientContext);
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Deleting the account removes the login from Supabase and marks the
+  // account deleted, so the session that is open must end with it
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.delete("/auth/account");
+      logout();
+      queryClient?.clear();
+      navigate("/login", { replace: true });
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error && err.message
+          ? err.message
+          : "We couldn’t delete your account. Please try again.",
+      );
+      setDeleting(false);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -147,9 +173,51 @@ export function AppShell({
             >
               Log out
             </Button>
+            <Button
+              fullWidth
+              icon={<Trash2 aria-hidden="true" />}
+              justify="start"
+              onClick={() => {
+                setDeleteError(null);
+                setConfirmingDelete(true);
+              }}
+              variant="ghost"
+            >
+              Delete account
+            </Button>
           </div>
         </div>
       </aside>
+
+      {confirmingDelete && (
+        <div className={styles.overlay}>
+          <div
+            aria-labelledby="delete-account-heading"
+            aria-modal="true"
+            className={styles.confirmDialog}
+            role="dialog"
+          >
+            <h2 id="delete-account-heading">Delete your account?</h2>
+            <p>
+              This removes your login and your access to the portal. It can’t be
+              undone.
+            </p>
+            {deleteError && <p className={styles.confirmError}>{deleteError}</p>}
+            <div className={styles.confirmActions}>
+              <Button
+                disabled={deleting}
+                onClick={() => setConfirmingDelete(false)}
+                variant="outline"
+              >
+                Keep my account
+              </Button>
+              <Button disabled={deleting} onClick={handleDeleteAccount}>
+                {deleting ? "Deleting..." : "Delete account"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <header className={styles.mobileHeader}>
         <Button

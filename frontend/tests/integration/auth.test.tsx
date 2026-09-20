@@ -1,7 +1,14 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as fx from "./support/fixtures";
-import { mockApi, mockApiError, mockNetworkFailure, mockSupabaseSignIn, mockSupabaseSignOut } from "./support/network";
+import {
+  mockApi,
+  mockApiError,
+  mockNetworkFailure,
+  mockSupabasePasswordReset,
+  mockSupabaseSignIn,
+  mockSupabaseSignOut,
+} from "./support/network";
 import { renderApp } from "./support/renderApp";
 
 // Stops the dashboard each role lands on from making unhandled requests
@@ -237,5 +244,124 @@ describe("logging out", () => {
 
     expect(currentPath()).toBe("/login");
     expect(localStorage.getItem("op_access_token")).toBeNull();
+  });
+});
+
+describe("resetting a forgotten password", () => {
+  it("asks Supabase to email a reset link back to this site", async () => {
+    const { requests } = mockSupabasePasswordReset();
+    const { user } = renderApp("/login");
+
+    await user.click(screen.getByRole("link", { name: "Forgot password?" }));
+    await user.type(screen.getByLabelText("Email address"), "thandi@olympiad.test");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    expect(await screen.findByText(/a reset link is on its way/i)).toBeInTheDocument();
+    expect(requests).toEqual([
+      { email: "thandi@olympiad.test", redirect_to: "http://localhost:3000/reset-password" },
+    ]);
+  });
+
+  it("says the same thing for an address without an account", async () => {
+    mockSupabasePasswordReset();
+    const { user } = renderApp("/forgot-password");
+
+    await user.type(screen.getByLabelText("Email address"), "nobody@olympiad.test");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    // The form must not reveal who has an account
+    expect(await screen.findByText(/a reset link is on its way/i)).toBeInTheDocument();
+    expect(screen.queryByText(/not found|no account/i)).not.toBeInTheDocument();
+  });
+
+  it("sets a new password from the emailed link", async () => {
+    const { verifications, updates } = mockSupabasePasswordReset({ token: "recovery-token" });
+    const { user } = renderApp("/reset-password?token_hash=recovery-token&type=recovery");
+
+    await waitFor(() => expect(verifications).toHaveLength(1));
+    await user.type(screen.getByLabelText("New password"), "BrandNew456");
+    await user.type(screen.getByLabelText("Confirm new password"), "BrandNew456");
+    await user.click(screen.getByRole("button", { name: "Save new password" }));
+
+    expect(await screen.findByText("Your password has been changed. You can now log in with it.")).toBeInTheDocument();
+    expect(verifications[0]).toMatchObject({ token_hash: "recovery-token", type: "recovery" });
+    expect(updates).toHaveLength(1);
+    expect(updates[0]).toMatchObject({ password: "BrandNew456" });
+  });
+
+  it.each([
+    ["short", "Short1", "Short1", "Use at least 8 characters."],
+    ["mismatched", "BrandNew456", "BrandNew457", "The two passwords don’t match."],
+  ])("refuses a %s password without calling Supabase", async (_label, password, confirmation, message) => {
+    const { updates } = mockSupabasePasswordReset({ token: "recovery-token" });
+    const { user } = renderApp("/reset-password?token_hash=recovery-token&type=recovery");
+
+    await user.type(screen.getByLabelText("New password"), password);
+    await user.type(screen.getByLabelText("Confirm new password"), confirmation);
+    await user.click(screen.getByRole("button", { name: "Save new password" }));
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(updates).toHaveLength(0);
+  });
+
+  it("explains when the link has already been used or expired", async () => {
+    mockSupabasePasswordReset({ token: "recovery-token", verifyError: "Email link is invalid or has expired" });
+    renderApp("/reset-password?token_hash=used-token&type=recovery");
+
+    expect(await screen.findByText("Email link is invalid or has expired")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save new password" })).toBeDisabled();
+  });
+
+  it("explains a link with no token at all", async () => {
+    mockSupabasePasswordReset();
+    renderApp("/reset-password");
+
+    expect(await screen.findByText("This reset link is invalid. Please request a new one.")).toBeInTheDocument();
+  });
+});
+
+describe("deleting an account", () => {
+  const signedInOrganiser = () => {
+    localStorage.setItem("op_access_token", "test-token");
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
+  };
+
+  it("asks for confirmation, then deletes the account and returns to login", async () => {
+    signedInOrganiser();
+    const deletions = mockApi("delete", "/auth/account", { message: "Account deleted" });
+    mockSupabaseSignOut();
+    const { user, currentPath, queryClient } = renderApp("/organiser");
+
+    await screen.findByRole("heading", { name: "Organiser dashboard" });
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+    expect(screen.getByRole("heading", { name: "Delete your account?" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Keep my account" }));
+    expect(screen.queryByRole("heading", { name: "Delete your account?" })).not.toBeInTheDocument();
+    expect(deletions).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete account" }));
+
+    expect(await screen.findByRole("heading", { name: "Log in" })).toBeInTheDocument();
+    expect(currentPath()).toBe("/login");
+    expect(deletions).toHaveLength(1);
+    expect(localStorage.getItem("op_access_token")).toBeNull();
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+  });
+
+  it("keeps the user signed in when the deletion fails", async () => {
+    signedInOrganiser();
+    mockApiError("delete", "/auth/account", 500, "Something went wrong");
+    const { user, currentPath } = renderApp("/organiser");
+
+    await screen.findByRole("heading", { name: "Organiser dashboard" });
+    await user.click(screen.getByRole("button", { name: "Delete account" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete account" }));
+
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    expect(currentPath()).toBe("/organiser");
+    expect(localStorage.getItem("op_access_token")).toBe("test-token");
   });
 });

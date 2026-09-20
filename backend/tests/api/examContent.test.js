@@ -57,6 +57,41 @@ describe("POST /rounds/:roundId/questions", () => {
     expect(expectOk(res, 201).question).toMatchObject({ type: "essay", max_points: "1", negative_pct: "0", correct_option: null });
   });
 
+  // The question form sends every field on every question type, using null
+  // for the ones that don't apply — an empty value is not a validation error
+  it.each([
+    [
+      "multiple choice",
+      { type: "mcq", prompt: "Which are prime?", options: ["2", "4", "5"], correct_option: "0,2", correct_answer: null, negative_pct: 0, max_points: 2 },
+      { correct_answer: null, correct_option: "0,2", max_points: "2" },
+    ],
+    [
+      "short answer",
+      { type: "short_answer", prompt: "Capital city?", options: null, correct_option: null, correct_answer: "Pretoria", negative_pct: 0, max_points: 2 },
+      { options: null, correct_option: null, correct_answer: "Pretoria" },
+    ],
+    [
+      "essay",
+      { type: "essay", prompt: "Explain photosynthesis", options: null, correct_option: null, correct_answer: null, negative_pct: 0, max_points: 10 },
+      { options: null, correct_option: null, correct_answer: null, max_points: "10" },
+    ],
+  ])("saves a %s question sent the way the form sends it", async (_label, body, expected) => {
+    const { round, educatorApi } = await setup();
+    const res = await educatorApi.post(`/rounds/${round.id}/questions`).send(body);
+    expect(expectOk(res, 201).question).toMatchObject(expected);
+  });
+
+  it("corrects an answer key sent with the unused field as null", async () => {
+    const { round, organiserApi } = await setup({ exam_status: "ready" });
+    const { questions } = await f.createPaper({ round, questions: [mcq()] });
+
+    const res = await organiserApi
+      .patch(`/rounds/${round.id}/questions/${questions[0].id}`)
+      .send({ correct_option: "1", correct_answer: null });
+
+    expect(expectOk(res).question).toMatchObject({ correct_option: "1", correct_answer: null });
+  });
+
   it.each([
     [{ type: undefined }, "Question type is required"],
     [{ type: "matching" }, "type must be one of: mcq, true_false, short_answer, essay"],
@@ -247,8 +282,19 @@ describe("GET /rounds/:roundId/exam-status", () => {
     });
   });
 
+  it("is readable by an educator of a school in the olympiad", async () => {
+    const { round, educatorApi } = await setup();
+    await f.createPaper({ round, questions: [mcq(), mcq({ type: "essay" })] });
+    expect(expectOk(await educatorApi.get(`/rounds/${round.id}/exam-status`))).toMatchObject({
+      exam_status: "draft",
+      question_count: 2,
+      questions_by_type: { mcq: 1, essay: 1 },
+    });
+  });
+
   it("responds 403 to another organiser and 404 for an unknown round", async () => {
-    const { round, otherOrganiserApi, organiserApi } = await setup();
+    const { round, otherOrganiserApi, organiserApi, outsiderApi } = await setup();
+    expectError(await outsiderApi.get(`/rounds/${round.id}/exam-status`), 403, "Your school is not registered for this olympiad");
     expectError(await otherOrganiserApi.get(`/rounds/${round.id}/exam-status`), 403, "Not your round");
     expectError(await organiserApi.get(`/rounds/${MISSING}/exam-status`), 404, "Round not found");
   });
@@ -278,6 +324,37 @@ describe("PATCH /rounds/:roundId/exam-status", () => {
     expectOk(await status(organiserApi, round, "draft"));
 
     expect(await prisma.rounds.findUnique({ where: { id: round.id } })).toMatchObject({ exam_status: "draft", approved_by: null, approved_at: null });
+  });
+
+  // The educator digitises the paper and hands it over; only the organiser
+  // verifies it or sends it back
+  it("lets the educator who built the exam submit it for review", async () => {
+    const { round, educatorApi } = await setup();
+    await f.createPaper({ round, questions: [mcq()] });
+
+    expect(expectOk(await status(educatorApi, round, "ready"))).toEqual({ exam_status: "ready" });
+    expect(expectOk(await educatorApi.get(`/rounds/${round.id}/exam-status`))).toMatchObject({
+      exam_status: "ready",
+      question_count: 1,
+    });
+  });
+
+  it.each(["live", "draft"])("refuses to let an educator move an exam to %s", async (target) => {
+    const { round, educatorApi } = await setup({ exam_status: "ready" });
+    await f.createPaper({ round, questions: [mcq()] });
+
+    expectError(
+      await status(educatorApi, round, target),
+      403,
+      "Only the organiser can approve an exam or send it back for edits",
+    );
+    expect((await prisma.rounds.findUnique({ where: { id: round.id } })).exam_status).toBe("ready");
+  });
+
+  it("refuses an educator whose school is not in the olympiad", async () => {
+    const { round, outsiderApi } = await setup();
+    await f.createPaper({ round, questions: [mcq()] });
+    expectError(await status(outsiderApi, round, "ready"), 403, "Your school is not registered for this olympiad");
   });
 
   it("responds 400 when marking an exam without questions as ready", async () => {

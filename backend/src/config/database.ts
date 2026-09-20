@@ -7,7 +7,15 @@ if (!connectionString) {
   throw new Error("DATABASE_URL is required to initialize Prisma");
 }
 
-const adapter = new PrismaPg({ connectionString });
+// DATABASE_POOL_MAX caps how many connections the pool opens. It is left
+// to the driver default in production; the end-to-end tests set it to 1
+// because their database serves one connection at a time.
+const poolMax = Number(process.env.DATABASE_POOL_MAX);
+
+const adapter = new PrismaPg({
+  connectionString,
+  ...(Number.isFinite(poolMax) && poolMax > 0 ? { max: poolMax } : {}),
+});
 
 const prisma = new PrismaClient({
   adapter,

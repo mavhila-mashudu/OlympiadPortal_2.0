@@ -127,3 +127,58 @@ export function mockSupabaseSignOut() {
   );
   return calls;
 }
+
+// Supabase password reset: the emailed link (POST /auth/v1/recover), the
+// one-time token it carries (POST /auth/v1/verify) and the change itself
+// (PUT /auth/v1/user)
+export function mockSupabasePasswordReset({
+  token = "recovery-token",
+  verifyError,
+}: { token?: string; verifyError?: string } = {}) {
+  const requests: Array<{ email: string; redirect_to: string }> = [];
+  const verifications: Array<{ token_hash: string; type: string }> = [];
+  const updates: Array<{ password: string }> = [];
+
+  const user = {
+    id: "organiser-user",
+    aud: "authenticated",
+    role: "authenticated",
+    email: "thandi@olympiad.test",
+    app_metadata: {},
+    user_metadata: {},
+    created_at: new Date().toISOString(),
+  };
+
+  server.use(
+    http.post(`${SUPABASE_URL}/auth/v1/recover`, async ({ request }) => {
+      const body = (await request.json()) as { email: string };
+      const redirect = new URL(request.url).searchParams.get("redirect_to") ?? "";
+      requests.push({ email: body.email, redirect_to: redirect });
+      return HttpResponse.json({});
+    }),
+    http.post(`${SUPABASE_URL}/auth/v1/verify`, async ({ request }) => {
+      const body = (await request.json()) as { token_hash: string; type: string };
+      verifications.push(body);
+      if (verifyError || body.token_hash !== token) {
+        const message = verifyError ?? "Email link is invalid or has expired";
+        return HttpResponse.json({ code: 403, error_code: "otp_expired", msg: message, message }, { status: 403 });
+      }
+      return HttpResponse.json({
+        access_token: "recovery-access-token",
+        token_type: "bearer",
+        expires_in: 3600,
+        expires_at: Math.floor(Date.now() / 1000) + 3600,
+        refresh_token: "recovery-refresh-token",
+        user,
+      });
+    }),
+    // The recovery session is ended once the password is changed
+    http.post(`${SUPABASE_URL}/auth/v1/logout`, () => new HttpResponse(null, { status: 204 })),
+    http.put(`${SUPABASE_URL}/auth/v1/user`, async ({ request }) => {
+      updates.push((await request.json()) as { password: string });
+      return HttpResponse.json(user);
+    }),
+  );
+
+  return { requests, verifications, updates };
+}

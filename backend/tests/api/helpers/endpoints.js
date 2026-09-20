@@ -55,8 +55,8 @@ const endpoints = [
   { method: "get", path: "/rounds/:roundId/questions", roles: STAFF },
   { method: "patch", path: "/rounds/:roundId/questions/:id", roles: STAFF },
   { method: "delete", path: "/rounds/:roundId/questions/:id", roles: STAFF },
-  { method: "get", path: "/rounds/:roundId/exam-status", roles: ORGANISER },
-  { method: "patch", path: "/rounds/:roundId/exam-status", roles: ORGANISER },
+  { method: "get", path: "/rounds/:roundId/exam-status", roles: STAFF },
+  { method: "patch", path: "/rounds/:roundId/exam-status", roles: STAFF },
 
   // Papers
   { method: "get", path: "/papers/by-round/:roundId", roles: STAFF },

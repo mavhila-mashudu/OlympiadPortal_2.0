@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
+import ForgotPassword from "./pages/auth/ForgotPassword";
 import Login from "./pages/auth/Login";
+import ResetPassword from "./pages/auth/ResetPassword";
 import Signup from "./pages/auth/Signup";
 import EducatorDashboard from "./pages/educator/Dashboard";
 import Entrants from "./pages/educator/Entrants";
@@ -26,6 +28,8 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
       <Route path="/register" element={<Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/educator" element={<EducatorDashboard />} />
       <Route path="/educator/results" element={<Results />} />
       <Route path="/educator/entrants" element={<Entrants />} />

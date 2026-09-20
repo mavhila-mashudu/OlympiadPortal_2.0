@@ -87,7 +87,12 @@ function Login() {
             </div>
 
             <div className={styles.field}>
-              <Label htmlFor="password">Password</Label>
+              <span className={styles.fieldHeader}>
+                <Label htmlFor="password">Password</Label>
+                <Link className={styles.inlineLink} to="/forgot-password">
+                  Forgot password?
+                </Link>
+              </span>
               <Input
                 autoComplete="current-password"
                 id="password"

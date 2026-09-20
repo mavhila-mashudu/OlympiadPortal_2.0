@@ -261,3 +261,49 @@
     padding: 2rem;
   }
 }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 0.5);
+}
+
+.confirmDialog {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 26rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+.confirmDialog h2 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.confirmDialog p {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.confirmError {
+  color: var(--destructive, #b91c1c);
+  font-size: 0.875rem;
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
