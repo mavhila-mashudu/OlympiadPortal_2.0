@@ -1,0 +1,129 @@
+# Olympiad Portal — Bug Tracking
+
+This log records the bugs found in the Olympiad Portal and how each one was fixed. They were found by automated testing (unit, integration, API and end-to-end), during deployment, and through use of the portal.
+
+Every bug fixed in the application code has an automated test that reproduces it, so it cannot come back unnoticed. See the [test policy](testing.md#5-test-policy).
+
+## How bugs are recorded
+
+| Field | Meaning |
+|---|---|
+| **ID** | Unique reference (BUG-001, BUG-002, …) |
+| **Area** | The part of the system affected |
+| **Priority** | Critical, High, Medium or Low (see [priority levels](testing.md#recording-and-triage)) |
+| **Found by** | Unit, integration, API or end-to-end tests; deployment; or user feedback |
+| **Bug** | What went wrong |
+| **Fix** | What was changed |
+| **Status** | Fixed, or open with the reason |
+
+## Summary
+
+| Priority | Count |
+|---|---|
+| Critical | 7 |
+| High | 18 |
+| Medium | 16 |
+| Low | 6 |
+| **Total** | **47** (all fixed) |
+
+---
+
+## Security and data protection
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-001 | Marking | Critical | API tests | Any organiser, or an educator from any school, could change the marks on any answer in any round. The endpoint checked the user's role but not whether they owned the round or the learner. | Marking now checks the user is the organiser who owns the round, or an educator marking a learner from their own school. An answer from another round is reported as not found. | Fixed |
+| BUG-002 | Invitations | Critical | API tests | An educator removed from their school could still create student invitation codes. | Creating codes requires an active school membership, like every other invitation endpoint. | Fixed |
+| BUG-003 | Invitations | High | API tests | The public endpoints for checking invitation codes and registering had no limit on repeated requests, so short codes could be guessed by trying many in a row. | Rate limiting on the public authentication endpoints: 100 requests per 15 minutes per IP address, adjustable with `AUTH_RATE_LIMIT_MAX`. The app trusts the hosting proxy so each user is counted separately. | Fixed |
+| BUG-004 | Error handling | High | API tests | An ID that wasn't a valid UUID (e.g. `/olympiads/abc`) caused a server error whose message exposed internal database details and server file paths. | Invalid IDs return 400 "Invalid ID format", with no internal detail. | Fixed |
+| BUG-005 | Student papers | High | Use of the portal | The student "Download paper" button opened the paper's raw storage path, which doesn't work for private files and revealed where files are kept. | A student endpoint returns a short-lived signed link for rounds the student is registered for, once the round has opened. Storage paths are no longer sent to students. | Fixed |
+| BUG-006 | Invitations | Low | API tests | Invitation responses included the stored hash of the invitation link's secret token. | Removed from the response. | Fixed |
+| BUG-007 | Logout | High | Use of the portal | "Log out" only returned to the login page: the token, cached profile and cached data stayed in the browser, so the next person on a shared computer saw the previous user's name and data. | Logging out clears the token, cached profile, cached data and saved exam progress, and ends the Supabase session. | Fixed |
+
+## Accounts
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-008 | Sign-up | Critical | API tests | Sign-up rewrote some email addresses — `first.last+olympiad@gmail.com` was saved as `firstlast@gmail.com` — so the user could not log in with the address they typed, and invitations stopped matching. | The address is only trimmed and lowercased; otherwise it is kept exactly as typed. | Fixed |
+| BUG-009 | Password reset | Critical | End-to-end tests | There was no way to reset a forgotten password: no link, no page, no flow. | Added "Forgot password?" on the login page, a page that sends the reset link, and a page that sets the new password from that link. | Fixed |
+| BUG-010 | Account deletion | High | End-to-end tests | There was no way for a user to delete their account, although the API supported it. | Added "Delete account" to the sidebar, with a confirmation dialog. It deletes the login, clears the session and returns to the login page. | Fixed |
+
+## Exams and exam sitting
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-011 | Question builder | Critical | End-to-end tests | No question could be added from the exam builder at all: the form sends `null` for fields that don't apply (such as `correct_answer` on a multiple-choice question) and the API rejected `null` as invalid. The organiser's answer-correction form failed the same way. | Empty fields are treated as "not sent" rather than invalid. | Fixed |
+| BUG-012 | Exam approval | Critical | End-to-end tests | An educator could never submit a finished exam for review: "Mark as ready for review" called an endpoint only organisers could use. | Educators can now submit their own exam and read its status; only the organiser can approve it or send it back. | Fixed |
+| BUG-013 | Exam sitting | Critical | Integration tests | Answers could be lost: autosave used one shared timer, so answering the next question within 0.8 seconds cancelled the previous save, and that answer was not marked unsaved, so a refresh lost it. | Each question has its own save timer, and answers stay marked unsaved until the server confirms them, so a refresh restores them. | Fixed |
+| BUG-014 | Exam sitting | Critical | Integration tests | A student who had started but not submitted an online exam was shown as "submitted", with no way back into the exam. | A started-but-unsubmitted sitting no longer counts as submitted, so it can be resumed. | Fixed |
+| BUG-015 | Exam sitting | Medium | Integration tests | The exam timer briefly showed "NaN:NaN:NaN" while the exam loaded. | The timer stays blank until the closing time is known. | Fixed |
+| BUG-016 | Exam sitting | High | API tests | A learner could end up with two sets of results for one round: one captured on paper by the school and one from sitting online. | Either route is refused once the other has produced a submission (409). | Fixed |
+| BUG-017 | Marking | Medium | Unit tests | Selecting the same multiple-choice option more than once could be counted more than once when scoring. | Duplicate selections are ignored. | Fixed |
+| BUG-018 | Question builder | High | Unit tests | Leaving an option blank shifted the options after it on save, but not the answer key, so the saved correct answer pointed at the wrong option. | The correct answers are renumbered to skip blank options. | Fixed |
+| BUG-019 | Exam totals | High | Integration tests | Point totals on the exam builder and review pages were joined as text instead of added — "2" + "3" showed as "23" — because the database sends points as text. | Points are converted to numbers before being added. | Fixed |
+| BUG-020 | Exam display | Low | Integration tests | A question worth one point showed "1 pts". | Converted to a number before choosing "pt" or "pts". | Fixed |
+| BUG-021 | Question builder | Medium | Integration tests | Editing a question and saving without changing its points sent the points as text. | Sent as a number. | Fixed |
+| BUG-022 | Question builder | Medium | Integration tests | The points and negative-marking fields couldn't be cleared: clearing put the old value straight back, so typing "4" produced "14". | The fields can be emptied while typing; an empty field returns to its default when the user leaves it, and invalid values show a message and block saving. The same fix was applied to the marking queue. | Fixed |
+| BUG-023 | Questions | Low | API tests | A question could be edited or deleted through the address of a round it doesn't belong to. | Reported as not found. | Fixed |
+| BUG-024 | Paper viewer | High | Unit tests | The side-by-side paper and memo viewer crashed with "is not a function" because a shared access-check function was never exported. | Exported, with a test that keeps it available. | Fixed |
+
+## Submissions, results and registration
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-025 | Offline results | High | API tests | After submitting results for one learner, the round page hid the form, so an educator could only submit for one learner per round. | The page lists every submission for the school and keeps the form open for the learners who still need one. | Fixed |
+| BUG-026 | Offline results | High | API tests | The same learner could be submitted twice by leaving `route` out of one request and including it in another. | The default route is applied before the duplicate check. | Fixed |
+| BUG-027 | Offline results | High | API tests | Results could be submitted for a learner not registered for the round. | Refused with 403. | Fixed |
+| BUG-028 | Offline results | Medium | API tests | A submission with no answers was reported as "auto-marked", so every educator receipt said "(auto-marked)". | Reported correctly. | Fixed |
+| BUG-029 | Submissions | Low | API tests | A submission could be viewed through the address of a round it doesn't belong to. | Reported as not found. | Fixed |
+| BUG-030 | Learner registration | High | API tests | Learners could be registered for rounds that had already closed, been marked or released results. | Registration is accepted only while a round is scheduled or open; registering for a whole olympiad skips closed rounds, and returns an error if every round has closed. The page names the rounds the learner was registered for. | Fixed |
+| BUG-031 | Learner registration | Medium | API tests | The list of registered learners returned an empty list for an unknown round, or for a school not taking part, instead of an error. | Returns 404 and 403 like the other educator endpoints. | Fixed |
+| BUG-032 | Results | Medium | Integration and API tests | The educator round page showed results as available, and asked for them, while the round was still being marked — a request the server rejects. | Results are shown and requested only after release. | Fixed |
+
+## Rounds, olympiads and schools
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-033 | Rounds | High | Integration tests | Deleting a scheduled round that had a question paper or registered learners failed with a database error. | Its paper, questions and registrations are deleted with it in one transaction. | Fixed |
+| BUG-034 | Rounds | Medium | API tests | Editing a round with a non-numeric qualifying threshold caused a server error. | Validated as it is when a round is created (422). | Fixed |
+| BUG-035 | Schools page | High | Integration tests | The organiser's Schools page read fields the server doesn't send, showing "Invalid Date" and zero educators and learners for every school. | Uses the real data: educator names and count, learner count, contact email and invitation status. | Fixed |
+| BUG-036 | Olympiads page | Medium | Integration tests | The page passed the wrong settings to the layout, so the sidebar didn't show the signed-in role, and the Rounds column always showed 0. | Both corrected. | Fixed |
+| BUG-037 | Paper archive | Medium | Deployment | The frontend build failed because the archive page used the current olympiad without checking there was one. | The page checks first and shows an empty archive when there is no olympiad. | Fixed |
+
+## Notifications
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-038 | Announcement rules | Medium | Integration tests | Saving a new rule showed an error even though it had saved. | The form is cleared using a reference kept from before the save. | Fixed |
+| BUG-039 | Announcement rules | Medium | API tests | Creating a rule without a trigger or recipient caused a server error that exposed internal database detail. | Both are required, with a clear 400. | Fixed |
+| BUG-040 | Announcement rules | Low | API tests | A rule could be updated or deleted through the address of a different olympiad owned by the same organiser. | Reported as not found. | Fixed |
+
+## Error handling and validation
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-041 | Error handling | Medium | API tests | A badly formed JSON body caused a server error instead of telling the client what was wrong. | Returns 400 "Malformed JSON in request body". | Fixed |
+| BUG-042 | Error handling | Medium | API tests | A request from a site not allowed to use the API (CORS) caused a server error. | Returns 403. | Fixed |
+| BUG-043 | Error handling | Medium | API tests | Deleting a record still used by others (such as a question that already has answers) caused a server error. | Returns 409, and nothing is deleted. | Fixed |
+| BUG-044 | Paper upload | Medium | API tests | A file over 20 MB, or a file under an unexpected field name, caused a server error. | Returns 413 and 400 respectively. | Fixed |
+| BUG-045 | Validation | Low | API tests | Several validation errors only said "Invalid value", or repeated the same message twice. | Each field has a specific message. | Fixed |
+
+## Deployment
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-046 | Frontend deployment (Vercel) | High | Deployment | The deployed frontend was built without its settings (API address and Supabase keys), so login and sign-up didn't work: the variables were marked sensitive, so the build step couldn't read them. | Re-added as non-sensitive — they are public by design — and redeployed. | Fixed |
+| BUG-047 | Backend deployment | High | Deployment | The step that tells Render to deploy the new image failed because the stored Render service ID was wrong, and the Docker image failed to build on the Gitea runner because the build had no network access. | Corrected the `RENDER_SERVICE_ID` secret and built the image with `--network=host`. | Fixed |
+
+---
+
+## Reporting a new bug
+
+New bugs are logged as issues in the project's Gitea repository, following the [user feedback process](testing.md#6-user-feedback-process). Include:
+
+1. **Role** (organiser, educator or student) and the **page or endpoint**
+2. **Steps** to reproduce
+3. **Expected** result and **actual** result
+4. A **screenshot** or error message where possible
+
+Once fixed, with a test that reproduces it, the bug is added to this log with the next ID.

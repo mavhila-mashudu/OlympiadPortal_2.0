@@ -1,19 +1,39 @@
 name: CI
 
+# One pipeline for the whole project: checks first, then deploys.
+#
+#   every push / pull request : backend and frontend checks + fast test suites
+#   push to main              : the above, then the end-to-end suite, then deploy
+#
+# Deploying lives here (rather than in its own workflow file) because a job can
+# only wait for jobs in the same workflow. That is what keeps a failing test
+# from reaching Render or Vercel.
 on:
+  # Pull requests cover work in progress; pushes to main cover what ships.
+  # (A branch push and its pull request would otherwise run the same checks twice
+  # on the shared runners.)
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+# A newer push to a branch replaces the run in progress, but a deploy on main
+# is never cancelled half way through.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   backend:
-    name: Backend checks
+    name: Backend checks & tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
     env:
       # prisma.config.ts reads DIRECT_URL; validate/generate don't connect, so a placeholder is fine.
+      # The integration and API suites start their own throwaway database.
       DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
       - uses: actions/checkout@v4
@@ -33,14 +53,20 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      # No backend test or lint scripts exist yet. Once `npm test` is added, enable:
-      # - name: Run tests
-      #   run: npm test
+      # Separate steps so a failure names the suite that broke
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: API tests
+        run: npm run test:api
 
   frontend:
-    name: Frontend lint & build
+    name: Frontend checks & tests
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -59,9 +85,180 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Type-check tests
+        run: npm run typecheck:tests
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Integration tests
+        run: npm run test:integration
+
       - name: Build
         run: npm run build
 
-      # No frontend test script exists yet. Once `npm test` is added, enable:
-      # - name: Run tests
-      #   run: npm test
+  e2e:
+    name: End-to-end tests
+    # Slow and heavy for the shared runners, so it guards main rather than
+    # every pull request. It must pass before anything is deployed.
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      # The tests start the real backend, so it needs its dependencies and client
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: backend
+        env:
+          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+        run: npx prisma generate
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Browsers are ~150MB, so they are kept between runs
+      - name: Restore browser cache
+        id: browser-cache
+        uses: actions/cache@v4
+        continue-on-error: true
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        working-directory: frontend
+        run: npm run test:e2e -- --project=chromium
+
+      # Screenshots and traces for anything that failed
+      - name: Upload report
+        if: failure()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
+  changes:
+    name: Work out what changed
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      backend: ${{ steps.check.outputs.backend }}
+      frontend: ${{ steps.check.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Only the side that changed is rebuilt and redeployed. A manual run, or
+      # a push whose previous commit isn't known, deploys both.
+      - name: Compare with the previous commit
+        id: check
+        run: |
+          before="${{ github.event.before }}"
+          if [ "${{ github.event_name }}" != "push" ] || [ -z "$before" ] || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "$before" "${{ github.sha }}")
+          echo "$changed"
+          echo "backend=$(echo "$changed" | grep -q '^backend/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "frontend=$(echo "$changed" | grep -q '^frontend/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  deploy-backend:
+    name: Build image & deploy to Render
+    needs: [backend, frontend, e2e, changes]
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/olympiad-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build image
+        # --network=host: this runner's Docker build sandbox (the isolated bridge
+        # network BuildKit uses for RUN steps) can't reach the internet, even though
+        # the daemon itself can pull images fine. Building with the host's network
+        # directly routes RUN steps (npm ci, prisma generate) around that bridge.
+        run: docker build --network=host -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" backend
+
+      - name: Push image
+        run: |
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      - name: Trigger Render deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+        run: |
+          curl --fail-with-body -sS -X POST \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Accept: application/json" \
+            -H "Content-Type: application/json" \
+            -d "{\"imageUrl\": \"${IMAGE}:${{ github.sha }}\"}"
+
+      - name: Log out of Docker Hub
+        if: always()
+        run: docker logout docker.io || true
+
+  deploy-frontend:
+    name: Build & deploy to Vercel
+    needs: [backend, frontend, e2e, changes]
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Pulls project settings and production env vars (VITE_*) configured in the Vercel dashboard.
+      - name: Pull Vercel environment
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Build
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy
+        run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
