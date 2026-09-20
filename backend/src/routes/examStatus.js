@@ -10,6 +10,7 @@ const {
   ForbiddenError,
   BadRequestError,
 } = require("../errors/AppError");
+const { assertRoundAccess } = require("../services/questionService");
 
 // Auth at router level; role per route. Role guards must NOT be applied
 // with router.use — other routers are also mounted on /rounds in app.js,
@@ -33,9 +34,8 @@ const getExamStatus = async (req, res, next) => {
     });
 
     if (!round) throw new NotFoundError("Round not found");
-    if (round.olympiads.organiser_id !== req.user.userId) {
-      throw new ForbiddenError("Not your round");
-    }
+    // The educator building the exam needs to see its status too
+    await assertRoundAccess(req.params.roundId, req.user.userId, req.user.role);
 
     const paper = round.papers[0];
     const questionCount = paper ? paper.questions.length : 0;
@@ -92,9 +92,7 @@ const updateExamStatus = async (req, res, next) => {
     });
 
     if (!round) throw new NotFoundError("Round not found");
-    if (round.olympiads.organiser_id !== req.user.userId) {
-      throw new ForbiddenError("Not your round");
-    }
+    await assertRoundAccess(req.params.roundId, req.user.userId, req.user.role);
 
     // Validate transitions
     const current = round.exam_status;
@@ -107,6 +105,14 @@ const updateExamStatus = async (req, res, next) => {
     if (!allowed[current].includes(status)) {
       throw new BadRequestError(
         `Cannot transition from ${current} to ${status}`,
+      );
+    }
+
+    // Two-person integrity: the educator hands the finished exam over for
+    // review, and only the organiser verifies it or sends it back
+    if (req.user.role !== "organiser" && status !== "ready") {
+      throw new ForbiddenError(
+        "Only the organiser can approve an exam or send it back for edits",
       );
     }
 
@@ -144,13 +150,15 @@ const updateExamStatus = async (req, res, next) => {
   }
 };
 
-router.get("/:roundId/exam-status", requireRole("organiser"), getExamStatus);
+router.get("/:roundId/exam-status", requireRole("organiser", "educator"), getExamStatus);
 router.patch(
   "/:roundId/exam-status",
-  requireRole("organiser"),
+  requireRole("organiser", "educator"),
   [
-    param("roundId").isUUID(),
-    body("status").trim().notEmpty().isIn(["draft", "ready", "live"]),
+    param("roundId").isUUID().withMessage("roundId must be a valid UUID"),
+    body("status")
+      .isIn(["draft", "ready", "live"])
+      .withMessage("status must be one of: draft, ready, live"),
   ],
   validate,
   updateExamStatus,

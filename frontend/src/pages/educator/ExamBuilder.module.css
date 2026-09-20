@@ -307,6 +307,11 @@
   font-style: italic;
 }
 
+.fieldError {
+  color: var(--destructive, #b91c1c);
+  font-size: 0.8125rem;
+}
+
 .formActions {
   display: flex;
   gap: 0.5rem;

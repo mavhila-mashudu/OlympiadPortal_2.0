@@ -31,7 +31,8 @@ const ensurePaperForRound = async (roundId) => {
 // Walk  question → paper → round → olympiad  and
 // assert the caller has permission (organiser owns it,
 // or educator's school is registered for the olympiad).
-const assertQuestionAccess = async (questionId, userId, role) => {
+// When the request names a round, the question must be on it.
+const assertQuestionAccess = async (questionId, userId, role, roundId) => {
   const question = await prisma.questions.findUnique({
     where: { id: questionId },
     include: {
@@ -43,9 +44,11 @@ const assertQuestionAccess = async (questionId, userId, role) => {
     },
   });
 
-  if (!question) throw new NotFoundError("Question not found");
+  const round = question?.papers.rounds;
+  if (!question || (roundId !== undefined && round.id !== roundId)) {
+    throw new NotFoundError("Question not found");
+  }
 
-  const round = question.papers.rounds;
   const olympiad = round.olympiads;
 
   if (role === "organiser") {
@@ -163,8 +166,8 @@ const listQuestions = async (roundId, userId, role) => {
 // ─────────────────────────────────────────
 // UPDATE QUESTION
 // ─────────────────────────────────────────
-const updateQuestion = async (questionId, userId, role, data) => {
-  const { round } = await assertQuestionAccess(questionId, userId, role);
+const updateQuestion = async (questionId, userId, role, data, roundId) => {
+  const { round } = await assertQuestionAccess(questionId, userId, role, roundId);
 
   // Editing is locked once digitization moves on:
   //   • educators may edit only while the exam is draft
@@ -205,8 +208,8 @@ const updateQuestion = async (questionId, userId, role, data) => {
 // ─────────────────────────────────────────
 // DELETE QUESTION
 // ─────────────────────────────────────────
-const deleteQuestion = async (questionId, userId, role) => {
-  const { round } = await assertQuestionAccess(questionId, userId, role);
+const deleteQuestion = async (questionId, userId, role, roundId) => {
+  const { round } = await assertQuestionAccess(questionId, userId, role, roundId);
 
   if (round.exam_status !== "draft") {
     throw new BadRequestError(
@@ -218,6 +221,7 @@ const deleteQuestion = async (questionId, userId, role) => {
 };
 
 module.exports = {
+  assertRoundAccess,
   createQuestion,
   listQuestions,
   updateQuestion,

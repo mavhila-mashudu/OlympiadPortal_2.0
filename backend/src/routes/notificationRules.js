@@ -6,12 +6,21 @@ const controller = require("../controllers/notificationRuleController");
 
 const router = express.Router({ mergeParams: true });
 const ruleFields = [
-  body("name").optional().isString(),
-  body("trigger").optional().isIn(["round_opens", "round_closes", "results_released"]),
-  body("offset_minutes").optional().isInt({ min: 0 }),
-  body("recipient").optional().isIn(["registered_educators", "registered_schools", "qualifying_entrants"]),
-  body("condition").optional({ values: "null" }).isString(),
-  body("enabled").optional().isBoolean(),
+  body("name").optional().isString().withMessage("name must be text"),
+  body("trigger")
+    .optional()
+    .isIn(["round_opens", "round_closes", "results_released"])
+    .withMessage("trigger must be one of: round_opens, round_closes, results_released"),
+  body("offset_minutes")
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage("offset_minutes must be a non-negative integer"),
+  body("recipient")
+    .optional()
+    .isIn(["registered_educators", "registered_schools", "qualifying_entrants"])
+    .withMessage("recipient must be one of: registered_educators, registered_schools, qualifying_entrants"),
+  body("condition").optional({ values: "null" }).isString().withMessage("condition must be text"),
+  body("enabled").optional().isBoolean().withMessage("enabled must be true or false"),
 ];
 
 router.use(requireAuth, requireRole("organiser"));

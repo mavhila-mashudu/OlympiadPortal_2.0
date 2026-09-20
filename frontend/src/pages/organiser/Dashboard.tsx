@@ -12,10 +12,10 @@ import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import type { RoundStatus } from "../../lib/mockData";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
 import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
+import { toBadgeStatus, type RoundState } from "./roundStatus";
 import styles from "./Dashboard.module.css";
 
 type Round = {
@@ -25,7 +25,7 @@ type Round = {
   closes_at: string;
   notes?: string;
   qualifying_threshold?: number | null;
-  state: "scheduled" | "open" | "closed" | "marking" | "results_released";
+  state: RoundState;
   exam_status?: "draft" | "ready" | "live";
   _count: { submissions?: number; entrant_registrations?: number };
 };
@@ -42,12 +42,6 @@ const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-function toBadgeStatus(state: Round["state"]): RoundStatus {
-  if (state === "open") return "open";
-  if (state === "scheduled") return "upcoming";
-  return "closed";
-}
 
 // Formats an ISO datetime string to "YYYY-MM-DDTHH:mm" for datetime-local inputs (UTC).
 function toDatetimeLocal(iso: string): string {

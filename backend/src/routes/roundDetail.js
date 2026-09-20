@@ -14,10 +14,11 @@ const {
 const { requireAuth, requireRole } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
 
+// Same checks as creating a round (routes/rounds.js)
 const updateRoundRules = [
-  body("name").optional().trim().notEmpty(),
-  body("opens_at").optional().isISO8601(),
-  body("closes_at").optional().isISO8601(),
+  body("name").optional().trim().notEmpty().withMessage("Round name can't be empty"),
+  body("opens_at").optional().isISO8601().withMessage("opens_at must be a valid date"),
+  body("closes_at").optional().isISO8601().withMessage("closes_at must be a valid date"),
   body("notes").optional(),
   body("qualifying_threshold")
     .optional({ values: "null" })

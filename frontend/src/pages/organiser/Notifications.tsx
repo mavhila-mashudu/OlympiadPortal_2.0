@@ -101,7 +101,9 @@ function Notifications() {
     if (!olympiad?.id) return;
     setSaving(true);
     setError(null);
-    const form = new FormData(event.currentTarget);
+    // React clears currentTarget once the handler yields, so keep the element
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     try {
       await api.post(`/olympiads/${olympiad.id}/notification-rules`, {
         name: String(form.get("name")),
@@ -112,7 +114,7 @@ function Notifications() {
       });
       await loadRules(olympiad.id);
       setShowForm(false);
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create announcement rule");
     } finally {

@@ -13,154 +13,20 @@ import { AppShell } from "../../components/layout/AppShell";
 import { api } from "../../lib/api";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
-import { Input } from "../../components/ui/Input";
 import { organiserNav } from "../../lib/mockData";
+import {
+  TYPE_LABELS,
+  perCorrectPoints,
+  splitCorrect,
+  type Question,
+} from "../../lib/questions";
+import { CorrectAnswerEditor } from "./CorrectAnswerEditor";
 import styles from "./ExamReview.module.css";
-
-type QuestionType = "mcq" | "true_false" | "short_answer" | "essay";
-
-type Question = {
-  id: string;
-  type: QuestionType;
-  prompt: string;
-  options: string[] | null;
-  correct_option: string | null;
-  correct_answer: string | null;
-  negative_pct: number | null;
-  max_points: number;
-};
-
-const TYPE_LABELS: Record<QuestionType, string> = {
-  mcq: "Multiple choice",
-  true_false: "True / False",
-  short_answer: "Short answer",
-  essay: "Essay / long answer",
-};
 
 const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
   dateStyle: "medium",
   timeStyle: "short",
 });
-
-// correct_option holds option indexes as a
-// comma-separated string ("0,2") — split it
-// so multi-answer MCQs highlight every
-// correct option.
-const splitCorrect = (v: string | null) =>
-  (v ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-const perCorrectPoints = (q: Question) => {
-  const n = splitCorrect(q.correct_option).length;
-  return n > 0 ? Math.round((Number(q.max_points) / n) * 100) / 100 : 0;
-};
-
-// Inline editor the organiser uses to correct a question's
-// expected answer before approving.  The backend enforces
-// that corrections are allowed only while the exam is
-// "ready" (awaiting verification).
-function CorrectAnswerEditor({
-  question,
-  onSave,
-  onCancel,
-  saving,
-}: {
-  question: Question;
-  onSave: (data: {
-    correct_option?: string | null;
-    correct_answer?: string | null;
-  }) => void;
-  onCancel: () => void;
-  saving: boolean;
-}) {
-  const [correctOptions, setCorrectOptions] = useState<string[]>(
-    splitCorrect(question.correct_option),
-  );
-  const [correctAnswer, setCorrectAnswer] = useState(
-    question.correct_answer ?? "",
-  );
-
-  const isChoice = question.type === "mcq" || question.type === "true_false";
-
-  const canSave =
-    question.type === "essay" ||
-    (question.type === "short_answer" && correctAnswer.trim().length > 0) ||
-    (isChoice && correctOptions.length > 0);
-
-  return (
-    <div className={styles.correctEditor}>
-      <p className={styles.correctLabel}>Correct this answer</p>
-
-      {isChoice && question.options && (
-        <div className={styles.correctOptions}>
-          {question.options.map((opt, idx) => (
-            <label key={idx} className={styles.correctOptionRow}>
-              <input
-                type={question.type === "mcq" ? "checkbox" : "radio"}
-                name={`correct-${question.id}`}
-                checked={correctOptions.includes(String(idx))}
-                onChange={() =>
-                  question.type === "mcq"
-                    ? setCorrectOptions((prev) =>
-                        prev.includes(String(idx))
-                          ? prev.filter((c) => c !== String(idx))
-                          : [...prev, String(idx)],
-                      )
-                    : setCorrectOptions([String(idx)])
-                }
-                className={styles.correctRadio}
-              />
-              <span>
-                {String.fromCharCode(65 + idx)}. {opt}
-              </span>
-            </label>
-          ))}
-        </div>
-      )}
-
-      {question.type === "short_answer" && (
-        <Input
-          placeholder="Expected answer"
-          value={correctAnswer}
-          onChange={(e) => setCorrectAnswer(e.target.value)}
-        />
-      )}
-
-      {question.type === "essay" && (
-        <p className={styles.essayNote}>
-          Essays have no reference answer — mark them against the memo after
-          submissions close.
-        </p>
-      )}
-
-      <div className={styles.correctActions}>
-        <Button
-          size="sm"
-          disabled={!canSave || saving}
-          onClick={() =>
-            onSave({
-              correct_option: isChoice ? correctOptions.join(",") : null,
-              correct_answer:
-                question.type === "short_answer" ? correctAnswer.trim() : null,
-            })
-          }
-        >
-          {saving ? "Saving..." : "Save correction"}
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onCancel}
-          disabled={saving}
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 function ExamReview() {
   const { id: roundId } = useParams<{ id: string }>();
@@ -267,7 +133,7 @@ function ExamReview() {
     }
   };
 
-  const totalPoints = questions.reduce((sum, q) => sum + q.max_points, 0);
+  const totalPoints = questions.reduce((sum, q) => sum + Number(q.max_points), 0);
   const mcqCount = questions.filter((q) => q.type === "mcq").length;
   const tfCount = questions.filter((q) => q.type === "true_false").length;
   const shortCount = questions.filter((q) => q.type === "short_answer").length;
@@ -426,7 +292,7 @@ function ExamReview() {
                         : ""}
                     </span>
                     <span className={styles.points}>
-                      {q.max_points} pt{q.max_points !== 1 ? "s" : ""}
+                      {Number(q.max_points)} pt{Number(q.max_points) !== 1 ? "s" : ""}
                     </span>
                     {isReady && (
                       <div className={styles.questionActions}>

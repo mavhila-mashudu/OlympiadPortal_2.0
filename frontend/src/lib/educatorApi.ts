@@ -33,6 +33,7 @@ export type EducatorRoundPaper = {
 
 export type EducatorRoundSubmission = {
   id: string;
+  entrant: { id: string; full_name: string };
   received_at: string;
   status: string;
   route: string;
@@ -49,8 +50,8 @@ export type EducatorRoundDetail = {
   state: string;
   status: RoundStatus;
   paper: EducatorRoundPaper | null;
-  has_submitted: boolean;
-  submission: EducatorRoundSubmission | null;
+  // Every submission for the school's learners in this round
+  submissions: EducatorRoundSubmission[];
   results_available: boolean;
   school: EducatorSchool;
 };

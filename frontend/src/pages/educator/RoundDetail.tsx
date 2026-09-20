@@ -43,10 +43,9 @@ function EducatorRoundDetail() {
   const [receipt, setReceipt] = useState<SubmissionReceipt | null>(null);
   const submitMutation = useSubmitResults(roundId!);
 
-  // Results (B15) — only fetch when round allows it
-  const resultsEnabled =
-    !!round &&
-    (round.state === "results_released" || round.state === "marking");
+  // Results (B15) — only fetch once released; the backend refuses
+  // results for any other state
+  const resultsEnabled = round?.state === "results_released";
   const { data: resultsData } = useEducatorResults(
     resultsEnabled ? roundId! : "",
   );
@@ -103,6 +102,12 @@ function EducatorRoundDetail() {
   // B8: Results cannot be submitted after the round closes.
   const canSubmitResults = round.state === "open";
 
+  // Learners who already have results in, and those still to submit
+  const submittedIds = new Set(round.submissions.map((s) => s.entrant.id));
+  const remainingEntrants = (entrants ?? []).filter(
+    (ent) => !submittedIds.has(ent.id),
+  );
+
   // B15: Results are only visible once released.
   const showResults =
     round.state === "results_released" &&
@@ -128,6 +133,7 @@ function EducatorRoundDetail() {
         answers: [], // Educator submits without per-question answers (bulk upload)
       });
       setReceipt(result);
+      setSelectedEntrantId("");
     } catch (err) {
       alert((err as Error).message);
     }
@@ -278,7 +284,7 @@ function EducatorRoundDetail() {
           </div>
           <div className={styles.submitBody}>
             {/* B13: Show receipt after successful submission */}
-            {receipt ? (
+            {receipt && (
               <div className={styles.receipt}>
                 <div className={styles.receiptHeader}>
                   <CheckCircle2 aria-hidden="true" />
@@ -301,18 +307,14 @@ function EducatorRoundDetail() {
                   </span>
                 </div>
               </div>
-            ) : round.has_submitted ? (
+            )}
+
+            {canSubmitResults && entrants && entrants.length > 0 && remainingEntrants.length === 0 ? (
               <div className={`${styles.noticeBanner} ${styles.noticeOk}`}>
                 <CheckCircle2 aria-hidden="true" />
                 <span>
-                  Results were submitted before the round closed.
-                  {round.submission && (
-                    <>
-                      {" "}
-                      Received{" "}
-                      {formatDate(round.submission.received_at)}.
-                    </>
-                  )}
+                  Results have been submitted for all {entrants.length}{" "}
+                  registered {entrants.length === 1 ? "entrant" : "entrants"}.
                 </span>
               </div>
             ) : canSubmitResults ? (
@@ -327,7 +329,7 @@ function EducatorRoundDetail() {
                       required
                     >
                       <option value="">Choose an entrant…</option>
-                      {entrants.map((ent) => (
+                      {remainingEntrants.map((ent) => (
                         <option key={ent.id} value={ent.id}>
                           {ent.full_name}
                           {ent.grade ? ` (Grade ${ent.grade})` : ""}
@@ -361,6 +363,28 @@ function EducatorRoundDetail() {
                     ? "Submissions open when the round opens."
                     : "The submission window has closed."}
                 </span>
+              </div>
+            )}
+
+            {round.submissions.length > 0 && (
+              <div>
+                <h3 className={styles.submittedHeading}>
+                  Submitted ({round.submissions.length}
+                  {entrants && entrants.length > 0 ? ` of ${entrants.length}` : ""})
+                </h3>
+                <ul className={styles.submittedList}>
+                  {round.submissions.map((s) => (
+                    <li key={s.id} className={styles.submittedItem}>
+                      <span className={styles.pastPaperName}>
+                        {s.entrant.full_name}
+                      </span>
+                      <span className={styles.pastPaperRound}>
+                        {s.route === "online" ? "Sat online" : "Captured"} ·{" "}
+                        {formatDate(s.received_at)} · {s.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>

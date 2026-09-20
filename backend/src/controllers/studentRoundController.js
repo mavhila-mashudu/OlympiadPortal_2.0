@@ -42,8 +42,22 @@ const getStudentResults = async (req, res, next) => {
   }
 };
 
+const downloadPaper = async (req, res, next) => {
+  try {
+    const entrantId = resolveEntrantId(req);
+    const url = await studentRoundService.getStudentPaperUrl(
+      req.params.roundId,
+      entrantId,
+    );
+    res.json({ success: true, data: { url } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   listRegisteredRounds,
   getRoundDetail,
   getStudentResults,
+  downloadPaper,
 };

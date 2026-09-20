@@ -28,16 +28,19 @@ router.get("/rounds/:roundId", getRound);
 
 // ── Entrants (B4) ───────────────────────────────────
 const registerEntrantsRules = [
-  param("roundId").isUUID(),
+  param("roundId").isUUID().withMessage("roundId must be a valid UUID"),
   body("entrants")
     .isArray({ min: 1 })
     .withMessage("entrants array with at least one entry is required"),
   body("entrants.*.full_name")
     .isString()
+    .withMessage("full_name is required")
+    .bail()
+    .trim()
     .notEmpty()
     .withMessage("full_name is required"),
   body("entrants.*.grade").optional(),
-  body("entrants.*.external_ref").optional().isString(),
+  body("entrants.*.external_ref").optional().isString().withMessage("external_ref must be text"),
 ];
 
 router.post(
@@ -51,16 +54,19 @@ router.get("/rounds/:roundId/progression", getProgressionInfo);
 
 // ── Olympiad-level Entrants ─────────────────────────
 const registerOlympiadEntrantsRules = [
-  param("olympiadId").isUUID(),
+  param("olympiadId").isUUID().withMessage("olympiadId must be a valid UUID"),
   body("entrants")
     .isArray({ min: 1 })
     .withMessage("entrants array with at least one entry is required"),
   body("entrants.*.full_name")
     .isString()
+    .withMessage("full_name is required")
+    .bail()
+    .trim()
     .notEmpty()
     .withMessage("full_name is required"),
   body("entrants.*.grade").optional(),
-  body("entrants.*.external_ref").optional().isString(),
+  body("entrants.*.external_ref").optional().isString().withMessage("external_ref must be text"),
 ];
 
 router.post(

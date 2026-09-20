@@ -18,7 +18,7 @@ const {
 // several for multi-answer MCQs.
 const correctOptionRule = () =>
   body("correct_option")
-    .optional()
+    .optional({ values: "null" })
     .isString()
     .custom((value) => {
       const parts = String(value)
@@ -39,38 +39,40 @@ const correctOptionRule = () =>
 // wrongly selected option.  0 (default) disables it.
 const negativePctRule = () =>
   body("negative_pct")
-    .optional()
+    .optional({ values: "null" })
     .isFloat({ min: 0, max: 100 })
     .withMessage("negative_pct must be a percentage between 0 and 100");
 
 const createQuestionRules = [
-  param("roundId").isUUID(),
+  param("roundId").isUUID().withMessage("roundId must be a valid UUID"),
   body("type")
     .trim()
     .notEmpty()
     .withMessage("Question type is required")
+    .bail()
     .isIn(["mcq", "true_false", "short_answer", "essay"])
     .withMessage("type must be one of: mcq, true_false, short_answer, essay"),
   body("prompt").trim().notEmpty().withMessage("Prompt is required"),
-  body("options").optional().isArray(),
+  body("options").optional({ values: "null" }).isArray().withMessage("options must be an array"),
   correctOptionRule(),
-  body("correct_answer").optional().isString(),
+  body("correct_answer").optional({ values: "null" }).isString().withMessage("correct_answer must be text"),
   negativePctRule(),
-  body("max_points").optional().isFloat({ min: 0.01 }),
+  body("max_points").optional({ values: "null" }).isFloat({ min: 0.01 }).withMessage("max_points must be a number greater than 0"),
 ];
 
 const updateQuestionRules = [
-  param("id").isUUID(),
+  param("id").isUUID().withMessage("Question id must be a valid UUID"),
   body("type")
-    .optional()
+    .optional({ values: "null" })
     .trim()
-    .isIn(["mcq", "true_false", "short_answer", "essay"]),
-  body("prompt").optional().trim().notEmpty(),
-  body("options").optional().isArray(),
+    .isIn(["mcq", "true_false", "short_answer", "essay"])
+    .withMessage("type must be one of: mcq, true_false, short_answer, essay"),
+  body("prompt").optional({ values: "null" }).trim().notEmpty().withMessage("Prompt can't be empty"),
+  body("options").optional({ values: "null" }).isArray().withMessage("options must be an array"),
   correctOptionRule(),
-  body("correct_answer").optional().isString(),
+  body("correct_answer").optional({ values: "null" }).isString().withMessage("correct_answer must be text"),
   negativePctRule(),
-  body("max_points").optional().isFloat({ min: 0.01 }),
+  body("max_points").optional({ values: "null" }).isFloat({ min: 0.01 }).withMessage("max_points must be a number greater than 0"),
 ];
 
 // ── Routes ──────────────────────────────────────────

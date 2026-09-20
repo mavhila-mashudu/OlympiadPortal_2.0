@@ -45,6 +45,7 @@ const getSubmission = async (req, res, next) => {
       req.params.id,
       req.user.userId,
       req.user.role,
+      req.params.roundId,
     );
 
     res.json({ success: true, data: { submission } });

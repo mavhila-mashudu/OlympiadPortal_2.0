@@ -24,6 +24,10 @@ const SAFE_USER_FIELDS = {
   created_at: true,
 };
 
+// The invitation as returned to the inviter: the link token's hash stays in
+// the database (the link itself is returned separately as registrationUrl)
+const publicInvitation = ({ token_hash: _hash, inviteToken: _token, ...invitation }) => invitation;
+
 const ensureSupabaseConfigured = () => {
   if (!supabase) {
     throw new BadRequestError("Supabase is not configured on the server");
@@ -328,7 +332,7 @@ const inviteSchool = async ({
   });
 
   return {
-    invitation: result.invitation,
+    invitation: publicInvitation(result.invitation),
     code: result.invitation.code,
     registrationUrl: registrationUrl.toString(),
     emailDelivered: email.delivered,
@@ -396,7 +400,7 @@ const inviteEducator = async ({ email, schoolId, olympiadId, createdById }) => {
     inviteCode: code,
     registrationUrl: registrationUrl.toString(),
   });
-  return { invitation, code, registrationUrl: registrationUrl.toString(), emailDelivered: delivery.delivered };
+  return { invitation: publicInvitation(invitation), code, registrationUrl: registrationUrl.toString(), emailDelivered: delivery.delivered };
 };
 
 const generateStudentCodes = async ({
@@ -497,7 +501,7 @@ const inviteStudent = async ({ email, schoolId, olympiadId, createdById }) => {
   });
 
   return {
-    invitation,
+    invitation: publicInvitation(invitation),
     code: invitation.code,
     registrationUrl: registrationUrl.toString(),
     emailDelivered: delivery.delivered,

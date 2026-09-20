@@ -1,0 +1,343 @@
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
+import * as fx from "./support/fixtures";
+import { mockApi, mockApiError } from "./support/network";
+import { renderApp } from "./support/renderApp";
+
+describe("organiser dashboard", () => {
+  const rounds = () => [
+    fx.organiserRound({ id: "r-open", name: "Round 1", state: "open", exam_status: "live", _count: { submissions: 14, entrant_registrations: 30 } }),
+    fx.organiserRound({ id: "r-ready", name: "Round 2", state: "scheduled", exam_status: "ready", _count: { submissions: 0, entrant_registrations: 12 } }),
+    fx.organiserRound({ id: "r-done", name: "Round 0", state: "results_released", exam_status: "live", _count: { submissions: 6, entrant_registrations: 6 } }),
+  ];
+
+  it("summarises the olympiad and lists its rounds with the right actions", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad({ _count: { rounds: 3, school_registrations: 4 } })] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: rounds() });
+    renderApp("/organiser");
+
+    const table = await screen.findByRole("table");
+    await within(table).findByText("Round 1");
+
+    // Each stat is a Card (<section>) holding its label and value
+    const stat = (label: string) => screen.getByText(label).closest("section")!;
+    expect(within(stat("Schools registered") as HTMLElement).getByText("4")).toBeInTheDocument();
+    expect(within(stat("Submissions received") as HTMLElement).getByText("20")).toBeInTheDocument();
+    expect(within(stat("Rounds currently open") as HTMLElement).getByText("1")).toBeInTheDocument();
+    expect(within(stat("Exams awaiting review") as HTMLElement).getByText("1")).toBeInTheDocument();
+
+    const row = (name: string) => within(table).getByText(name).closest("tr")!;
+    expect(within(row("Round 1")).getByText("Open")).toBeInTheDocument();
+    expect(within(row("Round 1")).getByRole("button", { name: "Close round" })).toBeInTheDocument();
+    expect(within(row("Round 2")).getByText("Exam ready for review")).toBeInTheDocument();
+    expect(within(row("Round 2")).getByRole("button", { name: "Open round" })).toBeInTheDocument();
+    expect(within(row("Round 0")).getByRole("button", { name: "Closed" })).toBeDisabled();
+    expect(within(row("Round 2")).getByRole("link", { name: "Review" })).toHaveAttribute("href", "/organiser/rounds/r-ready/review");
+    expect(screen.getByRole("heading", { name: "Maths Olympiad 2026 — Rounds" })).toBeInTheDocument();
+  });
+
+  it("opens a round and shows its new state", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    let current = rounds();
+    mockApi("get", "/olympiads/oly-1/rounds", () => ({ rounds: current }));
+    const stateChanges = mockApi("patch", "/rounds/:id/state", (req) => {
+      current = current.map((r) => (r.id === "r-ready" ? { ...r, state: "open" } : r));
+      return { round: { id: req.path.split("/")[2] } };
+    });
+    const { user } = renderApp("/organiser");
+
+    const table = await screen.findByRole("table");
+    const round2 = (await within(table).findByText("Round 2")).closest("tr")!;
+    await user.click(within(round2).getByRole("button", { name: "Open round" }));
+
+    await waitFor(() => expect(within(round2).getByRole("button", { name: "Close round" })).toBeInTheDocument());
+    expect(stateChanges.map((c) => [c.path, c.body])).toEqual([["/rounds/r-ready/state", { state: "open" }]]);
+  });
+
+  it("shows why a state change was refused", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: rounds() });
+    mockApiError("patch", "/rounds/:id/state", 400, 'Cannot transition from "open" to "closed"');
+    const { user } = renderApp("/organiser");
+
+    const round1 = (await screen.findByText("Round 1")).closest("tr")!;
+    await user.click(within(round1).getByRole("button", { name: "Close round" }));
+
+    expect(await screen.findByText('Cannot transition from "open" to "closed"')).toBeInTheDocument();
+  });
+
+  it("asks a brand-new organiser to create their first olympiad", async () => {
+    mockApi("get", "/olympiads", { olympiads: [] });
+    const created = mockApi("post", "/olympiads", { olympiad: fx.olympiad() }, { status: 201 });
+    renderApp("/organiser");
+
+    expect(await screen.findByRole("heading", { name: "No olympiads yet" })).toBeInTheDocument();
+    expect(created).toHaveLength(0);
+  });
+
+  it("shows an error when the olympiad can't be loaded", async () => {
+    mockApiError("get", "/olympiads", 401, "Invalid or expired token");
+    renderApp("/organiser");
+    expect(await screen.findByText("Invalid or expired token")).toBeInTheDocument();
+  });
+
+  it("navigates to create a round", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
+    const { user, currentPath } = renderApp("/organiser");
+
+    await screen.findByText(/No rounds created yet/);
+    await user.click(screen.getAllByRole("link", { name: "Create round" })[0]);
+    expect(currentPath()).toBe("/organiser/rounds/new");
+    expect(await screen.findByRole("heading", { name: "Create a round" })).toBeInTheDocument();
+  });
+});
+
+describe("olympiads page", () => {
+  it("lists olympiads with their counts and creates a new one", async () => {
+    let olympiads = [fx.olympiad({ _count: { rounds: 2, school_registrations: 3 } })];
+    mockApi("get", "/olympiads", () => ({ olympiads }));
+    const created = mockApi(
+      "post",
+      "/olympiads",
+      (req) => {
+        const next = fx.olympiad({ id: "oly-2", name: (req.body as { name: string }).name, _count: { rounds: 0, school_registrations: 0 } });
+        olympiads = [next, ...olympiads];
+        return { olympiad: next };
+      },
+      { status: 201 },
+    );
+    const { user } = renderApp("/organiser/olympiads");
+
+    const first = (await screen.findByText("Maths Olympiad 2026")).closest("tr")!;
+    expect(within(first).getAllByRole("cell").map((c) => c.textContent)).toEqual([
+      expect.stringContaining("Maths Olympiad 2026"),
+      "oly-1",
+      "2",
+      "3",
+      "Invite SchoolEditDelete",
+    ]);
+
+    await user.type(screen.getByPlaceholderText("e.g. 2026 National Competition"), "Science Olympiad");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    expect(await screen.findByText("Science Olympiad")).toBeInTheDocument();
+    expect(created[0].body).toEqual({ name: "Science Olympiad" });
+    expect(screen.getByPlaceholderText("e.g. 2026 National Competition")).toHaveValue("");
+  });
+
+  it("labels the signed-in user as an organiser", async () => {
+    mockApi("get", "/olympiads", { olympiads: [] });
+    renderApp("/organiser/olympiads");
+    await screen.findByText("No olympiads registered yet.");
+    expect(within(screen.getByRole("complementary")).getByText("Organiser")).toBeInTheDocument();
+  });
+
+  it("shows the reason a new olympiad was rejected", async () => {
+    mockApi("get", "/olympiads", { olympiads: [] });
+    mockApiError("post", "/olympiads", 422, "Name is required");
+    const { user } = renderApp("/organiser/olympiads");
+
+    await user.type(await screen.findByPlaceholderText("e.g. 2026 National Competition"), "x");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+    expect(await screen.findByText("Name is required")).toBeInTheDocument();
+  });
+
+  it("invites a school to the olympiad chosen in the table", async () => {
+    mockApi("get", "/olympiads", {
+      olympiads: [fx.olympiad(), fx.olympiad({ id: "oly-2", name: "Science Olympiad" })],
+    });
+    const invites = mockApi("post", "/auth/invite-school", { code: "SCH-AB12", emailDelivered: true }, { status: 201 });
+    const { user } = renderApp("/organiser/olympiads");
+
+    const science = (await screen.findByText("Science Olympiad")).closest("tr")!;
+    await user.click(within(science).getByRole("button", { name: "Invite School" }));
+
+    expect(screen.getByLabelText("Olympiad")).toHaveValue("oly-2");
+    await user.type(screen.getByLabelText("School name"), "Parktown High");
+    await user.type(screen.getByLabelText("Contact email"), "head@parktown.test");
+    await user.click(screen.getByRole("button", { name: "Send invitation" }));
+
+    expect(await screen.findByText("SCH-AB12")).toBeInTheDocument();
+    expect(invites[0].body).toEqual({ school_name: "Parktown High", contact_email: "head@parktown.test", olympiad_id: "oly-2" });
+  });
+});
+
+describe("schools page", () => {
+  // GET /olympiads/:id/schools returns invitations merged with registered schools
+  const schools = [
+    {
+      id: "inv-1",
+      name: "Parktown High",
+      address: "1 Park Rd",
+      entrants: 35,
+      educators: [
+        { name: "Ms Naidoo", email: "naidoo@parktown.test" },
+        { name: "Mr Pillay", email: "pillay@parktown.test" },
+      ],
+      contactEmail: "head@parktown.test",
+      status: "accepted",
+    },
+    { id: "inv-2", name: "Northview College", address: null, entrants: 0, educators: [], contactEmail: "principal@northview.test", status: "pending" },
+    { id: "inv-3", name: "Old Invite School", address: null, entrants: 0, educators: [], contactEmail: null, status: "expired" },
+  ];
+
+  it("shows each school's educators, entrants and invitation status", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/schools", { schools });
+    renderApp("/organiser/schools");
+
+    const row = async (name: string) => (await screen.findByText(name)).closest("tr")!;
+    const parktown = await row("Parktown High");
+    expect(within(parktown).getByText("2")).toBeInTheDocument();
+    expect(within(parktown).getByRole("link", { name: "pillay@parktown.test" })).toHaveAttribute("href", "mailto:pillay@parktown.test");
+    expect(within(parktown).getByText("35")).toBeInTheDocument();
+    expect(within(parktown).getByText("Accepted")).toBeInTheDocument();
+    expect(within(parktown).getByText("head@parktown.test")).toBeInTheDocument();
+    expect(within(await row("Northview College")).getByText("Pending")).toBeInTheDocument();
+    expect(within(await row("Old Invite School")).getByText("Expired")).toBeInTheDocument();
+    expect(screen.queryByText("Invalid Date")).not.toBeInTheDocument();
+  });
+
+  it("invites a school from the dialog and refreshes the list", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    let list: typeof schools = [];
+    const listCalls = mockApi("get", "/olympiads/oly-1/schools", () => ({ schools: list }));
+    const invites = mockApi(
+      "post",
+      "/auth/invite-school",
+      () => {
+        list = [schools[1]];
+        return { code: "SCH-NV01", emailDelivered: true };
+      },
+      { status: 201 },
+    );
+    const { user } = renderApp("/organiser/schools");
+
+    expect(await screen.findByText(/No schools registered yet/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Invite school" }));
+    expect(screen.queryByLabelText("Olympiad")).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText("School name"), "Northview College");
+    await user.type(screen.getByLabelText("Contact email"), "principal@northview.test");
+    await user.click(screen.getByRole("button", { name: "Send invitation" }));
+
+    expect(await screen.findByText("SCH-NV01")).toBeInTheDocument();
+    expect(invites[0].body).toMatchObject({ olympiad_id: "oly-1" });
+    await waitFor(() => expect(listCalls).toHaveLength(2));
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(await screen.findByText("Northview College")).toBeInTheDocument();
+  });
+});
+
+describe("creating a round", () => {
+  const localInput = "2026-10-01T08:00";
+  const localClose = "2026-10-01T10:30";
+
+  // Before creating a round, the form asks the server whether its dates fall
+  // on a public holiday
+  let dateChecks: ReturnType<typeof mockApi>;
+  beforeEach(() => {
+    dateChecks = mockApi("post", "/rounds/check-dates", { warnings: [] });
+  });
+
+  const fillRoundForm = async (user: ReturnType<typeof renderApp>["user"]) => {
+    await user.selectOptions(await screen.findByLabelText(/^Olympiad/), "oly-1");
+    await user.type(screen.getByLabelText(/^Round name/), "Round 3 — Provincial");
+    await user.type(screen.getByLabelText("Qualifying threshold"), "62.5");
+    await user.type(screen.getByLabelText("Instructions for educators"), "Calculators allowed");
+    fireEvent.change(screen.getByLabelText(/^Opens at/), { target: { value: localInput } });
+    fireEvent.change(screen.getByLabelText(/^Closes at/), { target: { value: localClose } });
+  };
+
+  it("creates the round, uploads its paper and returns to the dashboard", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
+    const created = mockApi("post", "/olympiads/oly-1/rounds", { round: { id: "round-new" } }, { status: 201 });
+    const uploads = mockApi("post", "/rounds/round-new/papers", { paper: { id: "paper-1" } }, { status: 201 });
+    const { user, currentPath } = renderApp("/organiser/rounds/new");
+
+    await fillRoundForm(user);
+    await user.upload(screen.getByLabelText("Paper file"), new File(["%PDF-1.4"], "round3.pdf", { type: "application/pdf" }));
+    await user.click(screen.getByRole("button", { name: "Create round" }));
+
+    await waitFor(() => expect(currentPath()).toBe("/organiser"));
+    expect(created[0].body).toEqual({
+      name: "Round 3 — Provincial",
+      notes: "Calculators allowed",
+      opens_at: `${localInput}:00.000Z`,
+      closes_at: `${localClose}:00.000Z`,
+      qualifying_threshold: 62.5,
+    });
+    expect(dateChecks[0].body).toEqual({
+      opens_at: "2026-10-01T08:00:00.000Z",
+      closes_at: "2026-10-01T10:30:00.000Z",
+    });
+    expect(uploads).toHaveLength(1);
+    expect(uploads[0].headers.get("authorization")).toBe("Bearer test-token");
+    expect(uploads[0].headers.get("content-type")).toMatch(/^multipart\/form-data/);
+    const paper = (uploads[0].body as FormData).get("paper") as File;
+    expect([paper.name, paper.type, await paper.text()]).toEqual(["round3.pdf", "application/pdf", "%PDF-1.4"]);
+    expect((uploads[0].body as FormData).has("memo")).toBe(false);
+  });
+
+  it("skips the upload when no files are chosen", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
+    const created = mockApi("post", "/olympiads/oly-1/rounds", { round: { id: "round-new" } }, { status: 201 });
+    const uploads = mockApi("post", "/rounds/round-new/papers", {});
+    const { user, currentPath } = renderApp("/organiser/rounds/new");
+
+    await fillRoundForm(user);
+    await user.clear(screen.getByLabelText("Qualifying threshold"));
+    await user.click(screen.getByRole("button", { name: "Create round" }));
+
+    await waitFor(() => expect(currentPath()).toBe("/organiser"));
+    expect(created[0].body).toMatchObject({ qualifying_threshold: null });
+    expect(uploads).toHaveLength(0);
+  });
+
+  it("warns about a public holiday and creates the round only once confirmed", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
+    dateChecks = mockApi("post", "/rounds/check-dates", {
+      warnings: ["2026-10-01 falls on a public holiday: Heritage Day"],
+    });
+    const created = mockApi("post", "/olympiads/oly-1/rounds", { round: { id: "round-new" } }, { status: 201 });
+    const { user, currentPath } = renderApp("/organiser/rounds/new");
+
+    await fillRoundForm(user);
+    await user.click(screen.getByRole("button", { name: "Create round" }));
+
+    // Nothing is created until the organiser decides
+    expect(await screen.findByText("Public holiday clashes detected")).toBeInTheDocument();
+    expect(screen.getByText("2026-10-01 falls on a public holiday: Heritage Day")).toBeInTheDocument();
+    expect(created).toHaveLength(0);
+
+    await user.click(screen.getByRole("button", { name: "Create anyway" }));
+
+    await waitFor(() => expect(currentPath()).toBe("/organiser"));
+    expect(created).toHaveLength(1);
+  });
+
+  it("keeps the organiser on the form with the server's error", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApiError("post", "/olympiads/oly-1/rounds", 400, "closes_at must be after opens_at");
+    const { user, currentPath } = renderApp("/organiser/rounds/new");
+
+    await fillRoundForm(user);
+    await user.click(screen.getByRole("button", { name: "Create round" }));
+
+    expect(await screen.findByText("closes_at must be after opens_at")).toBeInTheDocument();
+    expect(currentPath()).toBe("/organiser/rounds/new");
+    expect(screen.getByRole("button", { name: "Create round" })).toBeEnabled();
+  });
+
+  it("asks for an olympiad first when the organiser has none", async () => {
+    mockApi("get", "/olympiads", { olympiads: [] });
+    renderApp("/organiser/rounds/new");
+
+    expect(await screen.findByText(/No olympiads found/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create round" })).toBeDisabled();
+  });
+});

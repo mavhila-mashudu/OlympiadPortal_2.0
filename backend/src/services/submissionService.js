@@ -55,7 +55,11 @@ const buildIdempotencyKey = (roundId, entrantId, route) =>
 // marking rules (markingMath.scoreMcq).
 // ─────────────────────────────────────────
 const createSubmission = async (roundId, educatorUserId, body) => {
-  const { entrant_id, route, answers } = body;
+  const { entrant_id, answers } = body;
+  // Resolve the default first: the duplicate check and the stored row must
+  // use the same route, or omitting it once and sending "offline" later
+  // would record two submissions for the same entrant
+  const route = body.route || "offline";
 
   // 1. Round must be open
   const round = await assertRoundOpen(roundId);
@@ -71,6 +75,15 @@ const createSubmission = async (roundId, educatorUserId, body) => {
     throw new ForbiddenError("Entrant does not belong to your school");
   }
 
+  // Results only count for entrants registered for this round
+  const registration = await prisma.entrant_registrations.findFirst({
+    where: { entrant_id, round_id: roundId },
+    select: { id: true },
+  });
+  if (!registration) {
+    throw new ForbiddenError("Entrant is not registered for this round");
+  }
+
   // 3. Idempotency — reject duplicate (round + entrant + route)
   const idempotencyKey = buildIdempotencyKey(roundId, entrant_id, route);
 
@@ -81,6 +94,15 @@ const createSubmission = async (roundId, educatorUserId, body) => {
     throw new ConflictError(
       "A submission already exists for this entrant, round, and route",
     );
+  }
+
+  // One set of results per learner: not also when they sat it online
+  const otherRoute = await prisma.submissions.findFirst({
+    where: { round_id: roundId, entrant_id, route: { not: route } },
+    select: { id: true },
+  });
+  if (otherRoute) {
+    throw new ConflictError("This entrant already has a submission for this round");
   }
 
   // 4. Validate that every question_id belongs to the round's paper
@@ -109,7 +131,7 @@ const createSubmission = async (roundId, educatorUserId, body) => {
         round_id: roundId,
         entrant_id,
         submitted_by: educator.id,
-        route: route || "offline",
+        route,
         status: "received",
         idempotency_key: idempotencyKey,
         round_close_snapshot: round.closes_at,
@@ -162,13 +184,11 @@ const createSubmission = async (roundId, educatorUserId, body) => {
       answerRows.push(row);
     }
 
+    // With no answers nothing was marked, so it is not "auto-marked" either
+    if ((answers?.length ?? 0) === 0) allAutoMarked = false;
+
     // Update submission status
-    const submissionStatus =
-      allAutoMarked && (answers?.length ?? 0) > 0
-        ? "automarked"
-        : answers?.length > 0
-          ? "received"
-          : "received";
+    const submissionStatus = allAutoMarked ? "automarked" : "received";
 
     await tx.submissions.update({
       where: { id: submission.id },
@@ -245,7 +265,8 @@ const listSubmissions = async (roundId, userId, role) => {
 // ─────────────────────────────────────────
 // GET A SINGLE SUBMISSION WITH ANSWERS
 // ─────────────────────────────────────────
-const getSubmission = async (submissionId, userId, role) => {
+// When the request names a round, the submission must belong to it.
+const getSubmission = async (submissionId, userId, role, roundId) => {
   const submission = await prisma.submissions.findUnique({
     where: { id: submissionId },
     include: {
@@ -262,7 +283,9 @@ const getSubmission = async (submissionId, userId, role) => {
     },
   });
 
-  if (!submission) throw new NotFoundError("Submission not found");
+  if (!submission || (roundId !== undefined && submission.round_id !== roundId)) {
+    throw new NotFoundError("Submission not found");
+  }
 
   if (role === "organiser") {
     if (submission.rounds.olympiads.organiser_id !== userId) {

@@ -57,6 +57,12 @@ export async function getStudentProfile(): Promise<StudentProfile> {
   }
 }
 
+// Forget the cached profile, so the next student to sign in on this tab
+// doesn't see the previous student's name and school
+export function clearStudentProfile() {
+  cachedProfile = null;
+}
+
 export function formatCountdown(opensAtIso: string): string {
   const diffMs = new Date(opensAtIso).getTime() - Date.now();
   if (diffMs <= 0) return "Starting soon";
