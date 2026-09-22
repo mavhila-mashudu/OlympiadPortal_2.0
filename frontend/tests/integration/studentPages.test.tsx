@@ -35,6 +35,8 @@ describe("student dashboard", () => {
         registeredRound({ id: "r-closed", title: "Round 1 — School", status: "closed", result: { score: "17 / 20", percentage: "85%", rankInSchool: 1, hasCertificate: true } }),
       ],
     });
+    // The round detail page the dashboard links to loads its own round
+    mockApi("get", "/rounds/r-open/details", { round: { id: "r-open", title: "Round 2 — Regional", status: "open" } });
     const { user, currentPath } = renderApp("/student");
 
     const card = async (title: string) => (await screen.findByRole("heading", { name: title })).closest("section")!;
@@ -99,6 +101,14 @@ describe("student round page", () => {
 
   it("offers the online exam while the round is open", async () => {
     mockApi("get", "/rounds/round-1/details", { round: details() });
+    // The exam page the link opens loads the paper itself; sitting it is covered in examSitting
+    mockApi("get", "/rounds/round-1/exam", {
+      round: { id: "round-1", name: "Round 2 — Regional", opens_at: fx.inHours(-1), closes_at: fx.inHours(2), state: "open" },
+      questions: [],
+      total_points: 0,
+      server_time: new Date().toISOString(),
+      submission: null,
+    });
     const { user, currentPath } = renderApp("/student/rounds/round-1");
 
     expect(await screen.findByRole("heading", { name: "Round 2 — Regional" })).toBeInTheDocument();
@@ -212,6 +222,8 @@ describe("student results", () => {
         { id: "round-1", round: "Round 1 — School", olympiadTitle: "Maths Olympiad 2026", closes_at: "2026-05-01T10:00:00.000Z", resultStatus: "released", score: "17 / 20", percentage: "85%", rank: 1, hasCertificate: true },
       ],
     });
+    // The round detail page each result links to loads its own round
+    mockApi("get", "/rounds/round-1/details", { round: { id: "round-1", title: "Round 1 — School", status: "closed" } });
     const { user, currentPath } = renderApp("/student/results");
 
     const released = (await screen.findByRole("link", { name: "Round 1 — School" })).closest("tr")!;

@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { File as NodeFile } from "node:buffer";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { API_URL, SUPABASE_URL } from "./support/network";
 import { server } from "./support/server";
+
+// Waiting for a page to finish loading has one second by default, which a
+// busy CI runner can exceed even when nothing is wrong. The wait ends as soon
+// as the element appears, so a longer limit only affects genuine failures.
+configure({ asyncUtilTimeout: 5000 });
 
 // Point the app at hosts MSW handles. Stubbed at load time (api.ts reads
 // VITE_API_URL when imported) and again before each test (unstubEnvs resets

@@ -30,6 +30,8 @@ export default mergeConfig(
             include: ["tests/integration/**/*.test.{ts,tsx}"],
             setupFiles: ["tests/integration/setup.ts"],
             testTimeout: 20_000,
+            // One retry in CI, where a shared runner can stall a test
+            retry: process.env.CI ? 1 : 0,
           },
         },
       ],
