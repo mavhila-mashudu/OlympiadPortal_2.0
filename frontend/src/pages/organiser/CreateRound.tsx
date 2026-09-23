@@ -11,13 +11,10 @@ import { Select } from "../../components/ui/Select";
 import { Textarea } from "../../components/ui/Textarea";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
-import type { Olympiad } from "../../lib/olympiad";
 import styles from "./CreateRound.module.css";
 
 type Round = { id: string };
 
-// Treats the datetime-local input value (e.g. "2026-12-25T08:00") as UTC
-// so that the date portion is preserved regardless of the user's timezone.
 function toUTCISO(localValue: string): string {
   const [date, time] = localValue.split("T");
   return `${date}T${time || "00:00"}:00.000Z`;
@@ -25,7 +22,7 @@ function toUTCISO(localValue: string): string {
 
 function CreateRound() {
   const navigate = useNavigate();
-  const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
+  const [olympiads, setOlympiads] = useState<any[]>([]);
   const [selectedOlympiadId, setSelectedOlympiadId] = useState("");
   const [loadingOlympiads, setLoadingOlympiads] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +37,7 @@ function CreateRound() {
   useEffect(() => {
     async function loadOlympiads() {
       try {
-        const data = await api.get<{ olympiads: Olympiad[] }>("/olympiads");
+        const data = await api.get<{ olympiads: any[] }>("/olympiads");
         setOlympiads(data.olympiads || []);
       } catch (err) {
         setError(

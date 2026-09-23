@@ -205,7 +205,10 @@ export default function Olympiads() {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => { setEditingId(item.id); setEditingName(item.name); }}
+                        onClick={() => {
+                          setEditingId(item.id);
+                          setEditingName(item.name);
+                        }}
                         style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}
                       >
                         Edit
@@ -239,7 +242,7 @@ export default function Olympiads() {
                   </tr>
                   {expandedId === item.id && (
                     <tr>
-                      <td colSpan={5} style={{ padding: 0, borderBottom: "1px solid #f3f4f6" }}>
+                          <td colSpan={5} style={{ padding: 0, borderBottom: "1px solid #f3f4f6" }}>
                         <div style={{ padding: "1rem 1.25rem", background: "#f9fafb" }}>
                           {loadingRounds ? (
                             <p style={{ margin: 0, color: "#9ca3af", fontSize: "0.875rem" }}>Loading rounds...</p>

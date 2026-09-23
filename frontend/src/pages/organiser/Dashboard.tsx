@@ -37,18 +37,15 @@ type EditRoundForm = {
   qualifyingThreshold: string;
   notes: string;
 };
-
 const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
-// Formats an ISO datetime string to "YYYY-MM-DDTHH:mm" for datetime-local inputs (UTC).
 function toDatetimeLocal(iso: string): string {
   return iso.slice(0, 16);
 }
 
-// Converts a datetime-local value to a UTC ISO string, preserving the date.
 function toUTCISO(localValue: string): string {
   const [date, time] = localValue.split("T");
   return `${date}T${time || "00:00"}:00.000Z`;
