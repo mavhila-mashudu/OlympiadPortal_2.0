@@ -1,0 +1,73 @@
+.card {
+  display: grid;
+  gap: 1rem;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--card-foreground);
+}
+
+.header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.875rem 1rem;
+  background: color-mix(in oklab, var(--muted) 35%, transparent);
+}
+
+.details {
+  display: grid;
+  gap: 0.1875rem;
+  min-width: 14rem;
+  flex: 1;
+}
+
+.details strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.meta {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+}
+
+.message {
+  margin: 0.25rem 0;
+  color: var(--card-foreground);
+  font-size: 0.8125rem;
+  line-height: 1.25rem;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.error {
+  margin: 0;
+  color: var(--destructive, #b91c1c);
+  font-size: 0.8125rem;
+}

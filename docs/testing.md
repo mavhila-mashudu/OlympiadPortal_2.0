@@ -68,9 +68,9 @@ No suite needs a database, a `.env` file or an internet connection. Everything r
 
 **Why:** they run in seconds, so they can be run on every change, and a failure points at one exact place. They also make it practical to cover every branch — each validation rule, each error path.
 
-**Backend** — services (auth and invitations, olympiads, rounds, questions, papers, submissions, marking, results, lifecycle, schools, notification rules, educator and student views), controllers, middleware (authentication, roles, validation, error handling, rate limiting), the scheduled round-lifecycle job, the email sender and helpers. The database client is replaced by a mock, so each test decides what the database returns and checks what the code asked for.
+**Backend** — services (auth and invitations, olympiads, rounds, questions, papers, submissions, marking, results, lifecycle, schools, notification rules, educator and student views), controllers, middleware (authentication, roles, validation, error handling, rate limiting), the scheduled round-lifecycle job and helpers. The database client is replaced by a mock, so each test decides what the database returns and checks what the code asked for.
 
-**Frontend** — UI components, the API client, the Supabase client, login/logout helpers, data-fetching hooks, and the building blocks of each page (question form and cards, marking card, answer-key editor, invitation form, round status labels, dashboard helpers, exam timer, exam storage).
+**Frontend** — UI components, the API client, the Supabase client, login/logout helpers, data-fetching hooks, and the building blocks of each page (question form and cards, marking card, answer-key editor, invitation inbox and invite form, round status labels, dashboard helpers, exam timer, exam storage).
 
 ### 2.3 Integration tests
 
@@ -84,10 +84,10 @@ No suite needs a database, a `.env` file or an internet connection. Everything r
 2. The app connects through its normal database code; only the connection address changes.
 3. Every setting is given a safe test value before the app loads, so a developer's real `.env` can never be used.
 4. Every table is emptied before each test, and the reset refuses to run against anything but the local test database.
-5. Test data is built with shared factories (organisers, schools, educators, rounds, papers, learners, invitations).
+5. Test data is built with shared factories (organisers, schools, educators, rounds, papers, learners, olympiad invitations).
 6. Supabase and email are replaced by fakes.
 
-Covered: the database schema itself, the invitation chain (organiser → school → educator → student), olympiads and rounds, exam building and approval, the online exam, offline submissions and marking, results, educator and student views, schools, notification rules and papers.
+Covered: the database schema itself, open sign-up in all three roles and the invitation chain (organiser → educator → student), olympiads and rounds, exam building and approval, the online exam, offline submissions and marking, results, educator and student views, schools, notification rules and papers.
 
 **Frontend** — whole pages inside the real app, with its real routes, API client and data fetching; only the network is faked. MSW answers with the backend's exact response format and records every request, so tests can check what was sent. Any request without a prepared answer fails the test.
 
@@ -120,11 +120,11 @@ Each area then covers the normal case, ownership (users from another olympiad or
 
 | Area | Journey |
 |---|---|
-| Accounts | Sign in as each role · wrong password refused · log out · organiser sign-up · student sign-up with an invitation code · **password reset from end to end** · **account deletion** |
-| Organiser | Create a round and upload its question paper, then open it · invite a school and receive the code |
+| Accounts | Sign in as each role · wrong password refused · log out · organiser sign-up · student sign-up by picking a school · educator sign-up with a new school · **password reset from end to end** · **account deletion** |
+| Organiser | Create a round and upload its question paper, then open it · invite an educator, whose school then shows as invited |
 | Exam workflow | The educator builds the exam and submits it for review → the organiser checks it and puts it live |
 | Competition | A student sits the exam online and submits → the organiser closes the round and releases results → the student sees their score |
-| Educator | Register a learner and invite a student |
+| Educator | Register a learner and invite a student · a student accepts and gets the olympiad |
 
 **Deliberately left to the faster suites:** every validation message, permission checks for all 66 endpoints, offline exam behaviour, and page-by-page detail.
 

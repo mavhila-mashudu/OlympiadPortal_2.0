@@ -96,32 +96,12 @@ Expected response:
 | `SUPABASE_ANON_KEY`    | Supabase public key             | Supabase → Settings → API              |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key       | Supabase → Settings → API              |
 | `ORGANISER_SECRET`     | Gate for organiser registration | Generate and share with team privately |
-| `RESEND_API_KEY`       | Production email API key         | Resend â†’ API Keys                    |
-| `RESEND_FROM`          | Verified production sender       | e.g. `Olympiad Portal <invites@your-domain>` |
 
 Generate `ORGANISER_SECRET`:
 
 ```bash
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
-
-### Render email configuration
-
-Render free services may time out on direct SMTP. Production invitations use
-Resend's HTTPS API instead. Set these environment variables in the Render
-backend service, then redeploy:
-
-```env
-NODE_ENV=production
-FRONTEND_URL=https://your-frontend.onrender.com
-RESEND_API_KEY=re_your_resend_api_key
-RESEND_FROM=Olympiad Portal <invites@your-verified-domain.example>
-```
-
-`FRONTEND_URL` must be the deployed frontend origin (without a trailing path),
-otherwise invitation emails will contain localhost registration links. The
-sender domain must be verified in Resend. Do not set production SMTP settings;
-they are only a local-development fallback.
 
 ## Project Structure
 
@@ -146,21 +126,29 @@ they are only a local-development fallback.
 
 ### Authentication
 
-| Method | Endpoint                    | Description                   | Auth Required |
-| ------ | --------------------------- | ----------------------------- | ------------- |
-| POST   | `/auth/register/organiser`  | Register as organiser         | Secret key    |
-| POST   | `/auth/register`            | Register with invitation code | Code          |
-| GET    | `/auth/validate-code/:code` | Validate an invitation code   | No            |
-| GET    | `/auth/me`                  | Get current user profile      | Yes           |
-| DELETE | `/auth/account`             | Delete account                | Yes           |
+| Method | Endpoint                   | Description                   | Auth Required |
+| ------ | -------------------------- | ----------------------------- | ------------- |
+| POST   | `/auth/register`           | Sign up in any role           | No            |
+| POST   | `/auth/register/organiser` | Sign up as organiser (legacy) | No            |
+| GET    | `/auth/schools`            | Schools for the signup form   | No            |
+| GET    | `/auth/me`                 | Get current user profile      | Yes           |
+| DELETE | `/auth/account`            | Delete account                | Yes           |
 
 ### Invitations
 
-| Method | Endpoint                       | Description                  | Auth Required |
-| ------ | ------------------------------ | ---------------------------- | ------------- |
-| POST   | `/auth/invite-school`          | Invite a school to olympiad  | Organiser     |
-| POST   | `/auth/invite-educator`        | Invite an educator colleague | Educator      |
-| POST   | `/auth/generate-student-codes` | Generate bulk student codes  | Educator      |
+Invitations are delivered in the app, not by email, and go only to people who
+already have an account. Accepting one registers an educator's school for the
+olympiad, or enters a student into its rounds.
+
+| Method | Endpoint                 | Description                   | Auth Required       |
+| ------ | ------------------------ | ----------------------------- | ------------------- |
+| GET    | `/invites/mine`          | Invitations addressed to me   | Yes                 |
+| POST   | `/invites/:id/accept`    | Accept an invitation          | Yes (the invitee)   |
+| POST   | `/invites/:id/reject`    | Decline an invitation         | Yes (the invitee)   |
+| POST   | `/invites`               | Invite someone to an olympiad | Organiser, educator |
+| DELETE | `/invites/:id`           | Withdraw an invitation I sent | Organiser, educator |
+| GET    | `/invites/sent`          | Invitations I have sent       | Organiser, educator |
+| GET    | `/invites/candidates`    | Who I may still invite        | Organiser, educator |
 
 > Full API documentation is available on our documentation site.
 
@@ -172,14 +160,16 @@ The database has 15 tables covering:
 - **Olympiad Structure** — olympiads, rounds, papers, questions
 - **Participation** — schools, school_registrations, entrant_registrations
 - **Submissions** — submissions, answers, results
-- **Auth** — invitations
+- **Invitations** — olympiad_invites
 
 See `prisma/schema.prisma` for the full schema definition.
 
 ## Authentication Flow
 
-This project uses **Supabase Authentication** for token management combined
-with a custom invitation system for role-based registration.
+This project uses **Supabase Authentication** for token management.
+Registration is open: anyone may sign up as an organiser, educator or student
+without an invitation. Educators and students name the school they belong to,
+and take part in a particular olympiad by accepting an in-app invitation.
 
 All protected API routes require a valid Supabase JWT token in the
 `Authorization: Bearer <token>` header.

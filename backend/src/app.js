@@ -61,6 +61,7 @@ app.get("/", (_req, res) => {
 
 // ── Routes ──────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
+app.use("/invites", require("./routes/invites"));
 app.use("/educator", require("./routes/educator"));
 
 //registering olympiads and rounds routes

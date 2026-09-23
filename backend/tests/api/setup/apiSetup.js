@@ -1,11 +1,10 @@
 // Runs before every API test file.
 //
-// Supabase and the mailer are replaced for the whole file (the app loads them
-// when it is first required), and Supabase Auth is taught to accept the test
-// tokens made by helpers/api.js#tokenFor. Everything else — routing,
+// Supabase is replaced for the whole file (the app loads it when it is first
+// required), and Supabase Auth is taught to accept the test tokens made by
+// helpers/api.js#tokenFor. Everything else — routing,
 // middleware, validation, services, Prisma and Postgres — is real.
 jest.mock("../../../src/config/supabase", () => require("../../integration/helpers/externalMocks").supabase);
-jest.mock("../../../src/lib/mailer", () => require("../../integration/helpers/externalMocks").mailer);
 
 const { resetExternalMocks } = require("../../integration/helpers/externalMocks");
 const { acceptTestTokens } = require("../helpers/api");

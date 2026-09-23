@@ -2,25 +2,19 @@
 const express = require("express");
 const { body } = require("express-validator");
 const {
+  register,
   registerOrganiser,
-  registerWithCode,
-  validateCode,
-  validateInviteToken,
+  listSchools,
   me,
   deleteAccount,
-  inviteSchool,
-  inviteEducator,
-  generateStudentCodes,
   getEducatorOlympiads,
-  inviteStudent,
-  getStudentInvitations,
 } = require("../controllers/authController");
 const { requireAuth, requireRole, requireSchoolMembership } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
 const { createRateLimiter } = require("../middlewares/rateLimit");
 
-// Shared by every public endpoint that takes an invitation code, link or a
-// new account
+// Shared by every public endpoint that creates an account or reads the
+// school list that the signup form offers
 const publicAuthLimiter = createRateLimiter();
 
 const router = express.Router();
@@ -33,7 +27,7 @@ const passwordRule = body("password")
   .matches(/[0-9]/)
   .withMessage("Needs a number");
 
-const organiserRules = [
+const accountRules = [
   body("full_name").trim().notEmpty().withMessage("Full name is required"),
   body("email")
     .trim()
@@ -43,90 +37,41 @@ const organiserRules = [
   passwordRule,
 ];
 
+// Anyone may sign up in any role. Educators and students say which school
+// they belong to; a student must pick one that already exists, while an
+// educator may name a new school and bring it onto the platform.
 const registerRules = [
-  body("full_name").trim().notEmpty().withMessage("Full name is required"),
-  body("email")
-    .trim()
-    .isEmail()
-    .withMessage("Valid email required")
-    .toLowerCase(),
-  passwordRule,
+  ...accountRules,
+  body("role")
+    .isIn(["organiser", "educator", "student"])
+    .withMessage("Choose organiser, educator or student"),
+  body("school_id").optional({ values: "falsy" }).isUUID().withMessage("Select a valid school"),
+  body("school_name").optional({ values: "falsy" }).trim().isLength({ max: 200 }),
   body().custom((value) => {
-    if (!value.code && !value.invite_token) throw new Error("Invitation link or code required");
+    if (value.role === "student" && !value.school_id) {
+      throw new Error("Select your school from the list");
+    }
+    if (value.role === "educator" && !value.school_id && !(value.school_name || "").trim()) {
+      throw new Error("Select your school, or enter its name");
+    }
     return true;
   }),
 ];
 
-const inviteSchoolRules = [
-  body("school_name").trim().notEmpty().withMessage("School name required"),
-  body("contact_email").trim().isEmail().withMessage("Valid email required"),
-  body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
-];
-
-const inviteEducatorRules = [
-  body("email").trim().isEmail().withMessage("Valid email required"),
-  body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
-];
-
-const studentCodesRules = [
-  body("count").isInt({ min: 1, max: 200 }).withMessage("Count 1-200"),
-  body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
-];
-
-const inviteStudentRules = [
-  body("email").trim().isEmail().withMessage("Valid student email required").toLowerCase(),
-  body("olympiad_id").notEmpty().withMessage("Olympiad ID required"),
-];
-
-router.post("/register/organiser", publicAuthLimiter, organiserRules, validate, registerOrganiser);
-router.post("/register", publicAuthLimiter, registerRules, validate, registerWithCode);
-router.get("/validate-code/:code", publicAuthLimiter, validateCode);
-router.get("/validate-invite/:token", publicAuthLimiter, validateInviteToken);
+router.post("/register", publicAuthLimiter, registerRules, validate, register);
+// Kept so existing organiser sign-up links and clients keep working
+router.post("/register/organiser", publicAuthLimiter, accountRules, validate, registerOrganiser);
+router.get("/schools", publicAuthLimiter, listSchools);
 
 router.get("/me", requireAuth, me);
 router.delete("/account", requireAuth, deleteAccount);
 
-router.post(
-  "/invite-school",
-  requireAuth,
-  requireRole("organiser"),
-  inviteSchoolRules,
-  validate,
-  inviteSchool,
-);
-
-router.get("/educator-olympiads", requireAuth, requireRole("educator"), requireSchoolMembership("coordinator", "educator"), getEducatorOlympiads);
-router.get("/student-invitations", requireAuth, requireRole("educator"), requireSchoolMembership("coordinator", "educator"), getStudentInvitations);
-router.post(
-  "/invite-student",
+router.get(
+  "/educator-olympiads",
   requireAuth,
   requireRole("educator"),
   requireSchoolMembership("coordinator", "educator"),
-  inviteStudentRules,
-  validate,
-  inviteStudent,
-);
-
-router.post(
-  "/invite-educator",
-  requireAuth,
-  requireRole("educator"),
-  requireSchoolMembership("coordinator"),
-  inviteEducatorRules,
-  validate,
-  inviteEducator,
-);
-
-// Like the other invitation routes, only an active member of the school may
-// issue codes for it
-router.post(
-  "/generate-student-codes",
-  requireAuth,
-  requireRole("educator"),
-  requireSchoolMembership("coordinator", "educator"),
-  studentCodesRules,
-  validate,
-  generateStudentCodes,
+  getEducatorOlympiads,
 );
 
 module.exports = router;

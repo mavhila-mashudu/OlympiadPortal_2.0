@@ -12,37 +12,75 @@ const f = require("./helpers/factories");
 beforeEach(resetExternalMocks);
 
 describe("schools list", () => {
-  it("merges invitations and registered schools into one list with statuses", async () => {
+  it("shows participating schools and outstanding educator invitations with statuses", async () => {
     const organiser = await f.createOrganiser();
     const olympiad = await f.createOlympiad({ organiser });
 
-    await f.createInvitation({ type: "school", olympiad_id: olympiad.id, school_name: "Pending High", email: "p@school.test" });
-    await f.createInvitation({ type: "school", olympiad_id: olympiad.id, school_name: "Late High", expires_at: f.hoursFromNow(-1) });
+    // Invited, no answer yet
+    const pendingSchool = await f.createSchool({ name: "Pending High" });
+    const pendingHead = await f.createEducator({
+      school: pendingSchool,
+      userOverrides: { full_name: "Head Teacher", email: "p@school.test" },
+    });
+    await f.createInvite({
+      olympiad,
+      invitee: pendingHead.user,
+      invitedBy: organiser,
+      school: pendingSchool,
+    });
 
+    // Invited and turned down
+    const declinedSchool = await f.createSchool({ name: "Declined High" });
+    const declinedHead = await f.createEducator({ school: declinedSchool });
+    await f.createInvite({
+      olympiad,
+      invitee: declinedHead.user,
+      invitedBy: organiser,
+      school: declinedSchool,
+      status: "rejected",
+    });
+
+    // Invited and accepted: registered, so listed as a participant
     const accepted = await f.createSchool({ name: "Accepted High" });
+    const head = await f.createEducator({
+      school: accepted,
+      userOverrides: { full_name: "Ms Naidoo", email: "naidoo@accepted.test" },
+    });
+    await f.createInvite({
+      olympiad,
+      invitee: head.user,
+      invitedBy: organiser,
+      school: accepted,
+      status: "accepted",
+    });
     await f.registerSchool(accepted, olympiad);
-    await f.createEducator({ school: accepted, userOverrides: { full_name: "Ms Naidoo", email: "naidoo@accepted.test" } });
     await f.createEntrant({ school: accepted });
-    const head = await f.createUser("educator");
-    await f.createInvitation({ type: "school", olympiad_id: olympiad.id, school_id: accepted.id, used_by_id: head.id });
 
-    const direct = await f.createSchool({ name: "Direct High" });
-    await f.registerSchool(direct, olympiad);
-
-    await f.createInvitation({ type: "school", olympiad_id: (await f.createOlympiad()).id, school_name: "Other Olympiad" });
+    // Another olympiad's invitation must not leak in
+    const elsewhere = await f.createOlympiad();
+    const otherHead = await f.createEducator();
+    await f.createInvite({
+      olympiad: elsewhere,
+      invitee: otherHead.user,
+      invitedBy: organiser,
+      school: otherHead.school,
+    });
 
     const rows = await schoolService.listSchools(olympiad.id, organiser.id);
     const byName = Object.fromEntries(rows.map((r) => [r.name, r]));
 
-    expect(Object.keys(byName).sort()).toEqual(["Accepted High", "Direct High", "Late High", "Pending High"]);
-    expect(byName["Pending High"]).toMatchObject({ status: "pending", contactEmail: "p@school.test", entrants: 0 });
-    expect(byName["Late High"].status).toBe("expired");
+    expect(Object.keys(byName).sort()).toEqual(["Accepted High", "Declined High", "Pending High"]);
+    expect(byName["Pending High"]).toMatchObject({
+      status: "pending",
+      contactEmail: "p@school.test",
+      entrants: 0,
+    });
+    expect(byName["Declined High"].status).toBe("declined");
     expect(byName["Accepted High"]).toMatchObject({
       status: "accepted",
       entrants: 1,
       educators: [{ name: "Ms Naidoo", email: "naidoo@accepted.test" }],
     });
-    expect(byName["Direct High"]).toMatchObject({ status: "accepted", contactEmail: null });
   });
 });
 

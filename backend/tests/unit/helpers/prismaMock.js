@@ -12,7 +12,7 @@
 
 const MODELS = [
   "users",
-  "invitations",
+  "olympiad_invites",
   "schools",
   "school_memberships",
   "educators",
