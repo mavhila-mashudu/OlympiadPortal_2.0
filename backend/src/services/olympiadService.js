@@ -18,6 +18,10 @@ const createOlympiad = async ({ name, timezone, organiserId }) => {
     },
   });
 
+  const { defaultRules } = require("./notificationDeliveryService");
+  await prisma.notification_rules.createMany({
+    data: defaultRules.map((rule) => ({ ...rule, olympiad_id: olympiad.id, channel: "in_app" })),
+  });
   return olympiad;
 };
 

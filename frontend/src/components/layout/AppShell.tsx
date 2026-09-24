@@ -1,4 +1,5 @@
 import {
+  Bell,
   GraduationCap,
   LogOut,
   Menu,
@@ -7,7 +8,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { QueryClientContext } from "@tanstack/react-query";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { logout } from "../../lib/session";
@@ -56,6 +57,16 @@ export function AppShell({
   // Read the context directly so the shell also renders without a provider
   const queryClient = useContext(QueryClientContext);
 
+  const [notifications, setNotifications] = useState<{ id: string; title: string; body: string; read_at: string | null }[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => api.get<{ notifications: typeof notifications }>("/notifications")
+      .then((data) => { if (active) setNotifications(data.notifications); }).catch(() => {});
+    refresh();
+    const timer = setInterval(refresh, 60_000);
+    return () => { active = false; clearInterval(timer); };
+  }, []);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -208,6 +219,16 @@ export function AppShell({
       </header>
 
       <div className={styles.contentFrame}>
+        <div style={{ padding: "0.75rem 1.5rem" }}>
+          <Button variant="outline" icon={<Bell aria-hidden="true" />} onClick={() => setShowNotifications(!showNotifications)}>Notifications ({notifications.filter((n) => !n.read_at).length})</Button>
+          {showNotifications && <section aria-label="Notifications" style={{ padding: "1rem", background: "white", border: "1px solid #ddd", maxHeight: "20rem", overflowY: "auto" }}>
+            {notifications.length === 0 && <p>No notifications yet.</p>}
+            {notifications.map((n) => <div key={n.id} style={{ borderBottom: "1px solid #ddd", padding: "0.5rem" }}>
+              <strong>{n.title}</strong><p>{n.body}</p>
+              {!n.read_at && <button type="button" onClick={() => api.patch(`/notifications/${n.id}/read`).then(() => setNotifications((list) => list.map((entry) => entry.id === n.id ? { ...entry, read_at: new Date().toISOString() } : entry)))}>Mark read</button>}
+            </div>)}
+          </section>}
+        </div>
         <main className={styles.main}>{children}</main>
       </div>
     </div>

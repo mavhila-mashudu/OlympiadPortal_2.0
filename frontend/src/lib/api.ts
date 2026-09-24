@@ -68,3 +68,21 @@ export const api = {
     }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
+export async function downloadCertificate(roundId: string) {
+  const token = getToken();
+  const response = await fetch(`${API_URL}/rounds/${roundId}/certificate`, {
+    headers: { Authorization: `Bearer ${token ?? ""}` },
+  });
+  if (!response.ok) {
+    const message = await response.json().catch(() => null);
+    throw new Error(message?.error || "Could not download certificate");
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `olympiad-certificate-${roundId}.pdf`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}

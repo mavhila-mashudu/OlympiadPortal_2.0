@@ -11,7 +11,7 @@ import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
 import { organiserNav } from "../../lib/mockData";
 import styles from "./Notifications.module.css";
 
-type Trigger = "round_opens" | "round_closes" | "results_released";
+type Trigger = "round_opens" | "round_closes" | "results_released" | "missing_submission";
 type Recipient = "registered_educators" | "registered_schools" | "qualifying_entrants";
 
 type NotificationRule = {
@@ -44,6 +44,7 @@ const triggerLabels: Record<Trigger, string> = {
   round_opens: "Round opens",
   round_closes: "Round closes",
   results_released: "Results released",
+  missing_submission: "School has not submitted",
 };
 
 const recipientLabels: Record<Recipient, string> = {
@@ -180,12 +181,12 @@ function Notifications() {
         {showForm && (
           <Card>
             <form className={styles.form} onSubmit={createRule}>
-              <h2>New announcement</h2>
+              <h2>New in-app announcement</h2>
               <label>Announcement name<Input name="name" placeholder="Round opening announcement" required /></label>
-              <label>Trigger<Select name="trigger" defaultValue="round_opens"><option value="round_opens">Round opens</option><option value="round_closes">Round closes</option><option value="results_released">Results released</option></Select></label>
+              <label>Trigger<Select name="trigger" defaultValue="round_opens"><option value="round_opens">Round opens</option><option value="round_closes">Round closes</option><option value="results_released">Results released</option><option value="missing_submission">Missing school submission</option></Select></label>
               <label>Minutes before trigger<Input name="offset_minutes" type="number" min="0" defaultValue="0" /></label>
               <label>Recipients<Select name="recipient" defaultValue="registered_educators"><option value="registered_educators">Registered educators</option><option value="registered_schools">Registered schools</option><option value="qualifying_entrants">Qualifying entrants</option></Select></label>
-              <label>Condition (optional)<Input name="condition" placeholder="Only rounds with submissions" /></label>
+              <label>Condition (optional)<Select name="condition" defaultValue=""><option value="">Always</option><option value="Only rounds with submissions">Only rounds with submissions</option><option value="Only rounds without submissions">Only rounds without submissions</option></Select></label>
               <div className={styles.actions}><Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save rule"}</Button><Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button></div>
             </form>
           </Card>

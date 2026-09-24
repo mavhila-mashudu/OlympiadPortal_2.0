@@ -13,6 +13,15 @@ const {
 
 // All routes require authenticated student
 router.use(requireAuth);
+router.get("/:roundId/certificate", requireRole("student"), async (req, res, next) => {
+  try {
+    const { certificateForStudent } = require("../services/certificateService");
+    const pdf = await certificateForStudent(req.params.roundId, req.user.userId);
+    res.set("Content-Type", "application/pdf");
+    res.set("Content-Disposition", `attachment; filename="certificate-${req.params.roundId}.pdf"`);
+    res.send(pdf);
+  } catch (err) { next(err); }
+});
 
 // GET /rounds/registered — list enrolled rounds + dashboard stats for the student
 router.get("/registered", requireRole("student"), listRegisteredRounds);
