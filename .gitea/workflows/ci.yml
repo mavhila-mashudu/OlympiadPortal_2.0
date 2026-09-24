@@ -5,13 +5,17 @@ name: CI
 #   every push / pull request : backend and frontend checks + fast test suites
 #   push to main              : the above, then the end-to-end suite, then deploy
 #
+# Everything runs on our own runner (label: prompt-engineers-azure) except the
+# end-to-end suite, which needs more memory than that VM has and so stays on
+# the shared runners.
+#
 # Deploying lives here (rather than in its own workflow file) because a job can
 # only wait for jobs in the same workflow. That is what keeps a failing test
-# from reaching Render or Vercel.
+# from reaching Azure.
 on:
   # Pull requests cover work in progress; pushes to main cover what ships.
-  # (A branch push and its pull request would otherwise run the same checks twice
-  # on the shared runners.)
+  # (A branch push and its pull request would otherwise run the same checks
+  # twice, and our runner takes one job at a time.)
   push:
     branches: [main]
   pull_request:
@@ -26,7 +30,7 @@ concurrency:
 jobs:
   backend:
     name: Backend checks & tests
-    runs-on: ubuntu-latest
+    runs-on: prompt-engineers-azure
     timeout-minutes: 20
     defaults:
       run:
@@ -65,7 +69,7 @@ jobs:
 
   frontend:
     name: Frontend checks & tests
-    runs-on: ubuntu-latest
+    runs-on: prompt-engineers-azure
     timeout-minutes: 20
     defaults:
       run:
@@ -104,6 +108,9 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [backend, frontend]
     runs-on: ubuntu-latest
+    # The one suite that stays on the shared runners: Playwright,
+    # Chromium, the real backend and a PGlite database together need
+    # more than our runner's 891 MB of RAM.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +168,7 @@ jobs:
   changes:
     name: Work out what changed
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: prompt-engineers-azure
     timeout-minutes: 5
     outputs:
       backend: ${{ steps.check.outputs.backend }}
@@ -188,59 +195,129 @@ jobs:
           echo "frontend=$(echo "$changed" | grep -q '^frontend/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   deploy-backend:
-    name: Build image & deploy to Render
+    name: Deploy backend to Azure App Service
     needs: [backend, frontend, e2e, changes]
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Our own runner. Shared runners do not advertise this label.
+    runs-on: prompt-engineers-azure
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
     env:
-      IMAGE: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/olympiad-backend
+      AZURE_APP_NAME: olympiad-portal-api
+      AZURE_RESOURCE_GROUP: olympiad-portal-rg
+      APP_URL: https://olympiad-portal-api.azurewebsites.net
     steps:
       - uses: actions/checkout@v4
 
-      - name: Log in to Docker Hub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-      - name: Build image
-        # --network=host: this runner's Docker build sandbox (the isolated bridge
-        # network BuildKit uses for RUN steps) can't reach the internet, even though
-        # the daemon itself can pull images fine. Building with the host's network
-        # directly routes RUN steps (npm ci, prisma generate) around that bridge.
-        run: docker build --network=host -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" backend
+      # The runner image has no Azure CLI; installing it takes ~40s.
+      - name: Install the Azure CLI
+        run: curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-      - name: Push image
-        run: |
-          docker push "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
-
-      - name: Trigger Render deploy
+      - name: Sign in to Azure
         env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
-          curl --fail-with-body -sS -X POST \
-            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys" \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            -H "Accept: application/json" \
-            -H "Content-Type: application/json" \
-            -d "{\"imageUrl\": \"${IMAGE}:${{ github.sha }}\"}"
+          az login --service-principal \
+            -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" \
+            --tenant "$AZURE_TENANT_ID" --output none
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
 
-      - name: Log out of Docker Hub
+      - name: Install dependencies
+        run: npm ci
+
+      # prisma.config.ts reads DIRECT_URL; generate never connects, so a
+      # placeholder is enough here.
+      - name: Generate the Prisma client
+        env:
+          DIRECT_URL: postgresql://build:build@localhost:5432/build
+        run: npx prisma generate
+
+      # The connection strings live on the App Service, so they never have to
+      # be duplicated as Gitea secrets. Migrations run here rather than at app
+      # startup: on the Free tier the app unloads when idle, and re-running
+      # them on every cold start would be pure latency.
+      - name: Apply database migrations
+        run: |
+          settings=$(az webapp config appsettings list \
+            --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" -o json)
+          DATABASE_URL=$(echo "$settings" | jq -r '.[] | select(.name=="DATABASE_URL") | .value')
+          DIRECT_URL=$(echo "$settings" | jq -r '.[] | select(.name=="DIRECT_URL") | .value')
+          if [ -z "$DATABASE_URL" ] || [ -z "$DIRECT_URL" ]; then
+            echo "DATABASE_URL or DIRECT_URL missing from the App Service settings"
+            exit 1
+          fi
+          export DATABASE_URL DIRECT_URL
+          npx prisma migrate deploy
+
+      # Ships node_modules rather than letting Azure build, which would eat the
+      # Free tier's 60 CPU-minutes/day. Pruning drops the Prisma CLI, jest and
+      # PGlite, keeping the package well inside the 1 GB storage quota.
+      - name: Drop development dependencies
+        run: npm prune --omit=dev
+
+      - name: Package the app
+        run: |
+          zip -qry ../backend.zip . \
+            -x ".git/*" "tests/*" "coverage/*" ".env" ".env.*"
+          echo "package size: $(du -h ../backend.zip | cut -f1)"
+
+      # --async: on the Free tier the SCM site takes longer to unpack the
+      # package than the deployment API will wait, so a synchronous call
+      # returns 504 even while the deployment is progressing normally. The
+      # health check below is what actually decides whether it worked.
+      - name: Deploy to App Service
+        run: |
+          az webapp deploy \
+            --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --src-path ../backend.zip --type zip --async true
+
+      # The Free tier cold-starts, so the first request can take a while.
+      - name: Wait for the backend to answer
+        run: |
+          for attempt in $(seq 1 30); do
+            body=$(curl -fsS --max-time 20 "$APP_URL/health" 2>/dev/null || true)
+            if echo "$body" | grep -q '"status":"ok"'; then
+              echo "healthy after ${attempt} attempt(s): $body"
+              exit 0
+            fi
+            echo "attempt ${attempt}: not ready yet"
+            sleep 10
+          done
+          echo "backend did not become healthy; recent log:"
+          az webapp log tail --name "$AZURE_APP_NAME" --resource-group "$AZURE_RESOURCE_GROUP" &
+          sleep 20
+          exit 1
+
+      - name: Sign out of Azure
         if: always()
-        run: docker logout docker.io || true
+        run: az logout || true
+
 
   deploy-frontend:
-    name: Build & deploy to Vercel
+    name: Deploy frontend to Azure Storage
     needs: [backend, frontend, e2e, changes]
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Our own runner. Shared runners do not advertise this label.
+    runs-on: prompt-engineers-azure
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
     env:
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      AZURE_STORAGE_ACCOUNT: olympiadportalfe
+      SITE_URL: https://olympiadportalfe.z1.web.core.windows.net
+      API_URL: https://olympiad-portal-api.azurewebsites.net
     steps:
       - uses: actions/checkout@v4
 
@@ -250,15 +327,76 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+      - name: Install the Azure CLI
+        run: curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 
-      # Pulls project settings and production env vars (VITE_*) configured in the Vercel dashboard.
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+      - name: Sign in to Azure
+        env:
+          AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          az login --service-principal \
+            -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" \
+            --tenant "$AZURE_TENANT_ID" --output none
+          az account set --subscription "$AZURE_SUBSCRIPTION_ID"
 
+      - name: Install dependencies
+        run: npm ci
+
+      # Vite inlines VITE_* at build time, so these must be present here rather
+      # than configured on the host. The anon key is public by design: it ends
+      # up in the shipped bundle either way, and Supabase row-level security is
+      # what actually protects the data.
       - name: Build
-        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VITE_API_URL: https://olympiad-portal-api.azurewebsites.net
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
 
-      - name: Deploy
-        run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
+      # Catch a build that silently picked up the wrong backend before it is
+      # ever served to anyone.
+      - name: Check the bundle points at the Azure backend
+        run: |
+          if ! grep -rq "olympiad-portal-api.azurewebsites.net" dist/assets/; then
+            echo "built bundle does not reference the Azure backend URL"
+            exit 1
+          fi
+          if grep -rq "localhost:3000" dist/assets/; then
+            echo "built bundle still references localhost"
+            exit 1
+          fi
+
+      # Two passes. Everything is uploaded uncacheable first, so index.html can
+      # never be served stale; the hashed asset filenames are then re-uploaded
+      # with a long cache, since their contents can never change.
+      # Superseded assets are deliberately left in place, so a browser holding
+      # an older index.html can still fetch the chunks it refers to.
+      - name: Upload to blob storage
+        run: |
+          az storage blob upload-batch \
+            --account-name "$AZURE_STORAGE_ACCOUNT" --auth-mode login \
+            --destination '$web' --source dist --overwrite \
+            --content-cache-control "no-cache" --output none
+          az storage blob upload-batch \
+            --account-name "$AZURE_STORAGE_ACCOUNT" --auth-mode login \
+            --destination '$web' --source dist --pattern "assets/*" --overwrite \
+            --content-cache-control "public, max-age=31536000, immutable" --output none
+
+      - name: Check the site serves and routes
+        run: |
+          shell=$(curl -fsS --max-time 30 "$SITE_URL")
+          echo "$shell" | grep -q '<div id="root">' || { echo "site did not serve the app shell"; exit 1; }
+          # Blob storage answers unknown paths with index.html (as a 404), which
+          # is what makes React Router deep links work.
+          deep=$(curl -s --max-time 30 "$SITE_URL/organiser/schools")
+          echo "$deep" | grep -q '<div id="root">' || { echo "deep link did not fall back to the app"; exit 1; }
+          curl -fsS --max-time 30 "$API_URL/health" | grep -q '"status":"ok"' \
+            || { echo "backend is not answering"; exit 1; }
+          echo "frontend serving, deep links routing, backend reachable"
+
+      - name: Sign out of Azure
+        if: always()
+        run: az logout || true
