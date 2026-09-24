@@ -37,7 +37,10 @@ let running: Running | undefined;
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Polls a URL until it answers, so tests never start against a half-ready server. */
-async function waitForServer(url: string, name: string, timeoutMs = 90_000) {
+// The small CI runner needs considerably longer to get three servers up.
+const STARTUP_TIMEOUT_MS = process.env.CI ? 240_000 : 90_000;
+
+async function waitForServer(url: string, name: string, timeoutMs = STARTUP_TIMEOUT_MS) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
