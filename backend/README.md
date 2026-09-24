@@ -95,13 +95,6 @@ Expected response:
 | `SUPABASE_URL`         | Supabase project URL            | Supabase → Settings → API              |
 | `SUPABASE_ANON_KEY`    | Supabase public key             | Supabase → Settings → API              |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key       | Supabase → Settings → API              |
-| `ORGANISER_SECRET`     | Gate for organiser registration | Generate and share with team privately |
-
-Generate `ORGANISER_SECRET`:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-```
 
 ## Project Structure
 
