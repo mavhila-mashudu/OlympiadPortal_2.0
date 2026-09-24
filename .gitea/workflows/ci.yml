@@ -5,13 +5,17 @@ name: CI
 #   every push / pull request : backend and frontend checks + fast test suites
 #   push to main              : the above, then the end-to-end suite, then deploy
 #
+# Everything runs on our own runner (label: prompt-engineers-azure) except the
+# end-to-end suite, which needs more memory than that VM has and so stays on
+# the shared runners.
+#
 # Deploying lives here (rather than in its own workflow file) because a job can
 # only wait for jobs in the same workflow. That is what keeps a failing test
 # from reaching Azure.
 on:
   # Pull requests cover work in progress; pushes to main cover what ships.
-  # (A branch push and its pull request would otherwise run the same checks twice
-  # on the shared runners.)
+  # (A branch push and its pull request would otherwise run the same checks
+  # twice, and our runner takes one job at a time.)
   push:
     branches: [main]
   pull_request:
@@ -26,7 +30,7 @@ concurrency:
 jobs:
   backend:
     name: Backend checks & tests
-    runs-on: ubuntu-latest
+    runs-on: prompt-engineers-azure
     timeout-minutes: 20
     defaults:
       run:
@@ -65,7 +69,7 @@ jobs:
 
   frontend:
     name: Frontend checks & tests
-    runs-on: ubuntu-latest
+    runs-on: prompt-engineers-azure
     timeout-minutes: 20
     defaults:
       run:
@@ -104,6 +108,9 @@ jobs:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [backend, frontend]
     runs-on: ubuntu-latest
+    # The one suite that stays on the shared runners: Playwright,
+    # Chromium, the real backend and a PGlite database together need
+    # more than our runner's 891 MB of RAM.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +168,7 @@ jobs:
   changes:
     name: Work out what changed
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: prompt-engineers-azure
     timeout-minutes: 5
     outputs:
       backend: ${{ steps.check.outputs.backend }}
