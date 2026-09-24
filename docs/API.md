@@ -59,25 +59,14 @@ API welcome message. No auth.
 
 ## Authentication & Registration
 
-### `POST /auth/register/organiser`
-
-Create an organiser account. Open registration — anyone may sign up as an organiser.
-
-- **Auth:** none
-- **Body:**
-
-| Field | Type | Rules |
-|---|---|---|
-| `full_name` | string | required |
-| `email` | string | required, valid email |
-| `password` | string | required, ≥8 chars, ≥1 uppercase, ≥1 number |
-
-- **Response `201`:** `data.user` — `{ id, full_name, email, role, created_at }`
-- **Errors:** `409` email already registered
+Registration is open: anyone may sign up in any role, and no invitation code
+is involved. Educators and students say which school they belong to when they
+sign up; taking part in a particular olympiad is then arranged through the
+in-app invitations below.
 
 ### `POST /auth/register`
 
-Create an educator or student account using an invitation code or invite link token.
+Create an account in any role.
 
 - **Auth:** none
 - **Body:**
@@ -86,22 +75,34 @@ Create an educator or student account using an invitation code or invite link to
 |---|---|---|
 | `full_name` | string | required |
 | `email` | string | required, valid email |
-| `password` | string | required, same rules as above |
-| `code` | string | invitation code (e.g. `SCH-ABC123`) |
-| `invite_token` | string | token from an invite link |
+| `password` | string | required, >=8 chars, >=1 uppercase, >=1 number |
+| `role` | string | required, one of `organiser`, `educator`, `student` |
+| `school_id` | uuid | required for a student; optional for an educator |
+| `school_name` | string | educator only, when their school is not listed yet |
 
-One of `code` or `invite_token` is required. The invitation determines the resulting role and school linkage.
+An educator supplies either `school_id` (a school already on the platform) or
+`school_name` (a new one, matched case-insensitively against existing schools
+before being created). The first educator at a school becomes its
+`coordinator`; later ones join as `educator`. A student must supply
+`school_id`, and is linked to an entrant record at that school — claiming the
+unclaimed entrant an educator already listed under the same name, if there is
+one.
 
-- **Response `201`:** `data.user` — `{ id, full_name, email, role, created_at }`
-- **Errors:** `400` invalid/expired/already-used invitation; `409` email already registered
+- **Response `201`:** `data.user` - `{ id, full_name, email, role, created_at }`
+- **Errors:** `400` missing/invalid school; `404` school not found; `409` email already registered
 
-### `GET /auth/validate-code/:code`
+### `POST /auth/register/organiser`
 
-Check an invitation code before signup. No auth. Returns invitation details (role, school, olympiad, expiry) or an error if the code is invalid, expired, or used.
+Registers an organiser. Kept so existing sign-up links keep working; the body
+is `full_name`, `email` and `password`, and the behaviour matches
+`POST /auth/register` with `role: "organiser"`.
 
-### `GET /auth/validate-invite/:token`
+### `GET /auth/schools`
 
-Same as above but for email invite-link tokens. No auth.
+The schools on the platform, as `{ id, name }` ordered by name. No auth: the
+signup form needs it before anyone has an account.
+
+- **Response:** `data.schools`
 
 ### `GET /auth/me`
 
@@ -117,51 +118,92 @@ Soft-deletes the authenticated account. Cannot be undone.
 - **Auth:** Bearer token (any role)
 - **Response:** `data.message: "Account deleted"`
 
-### `POST /auth/invite-school`
-
-Invite a school to an olympiad. Creates the school, registers it for the olympiad, generates an invitation code, and emails the school contact.
-
-- **Auth:** organiser
-- **Body:** `school_name` (required), `contact_email` (required, valid email), `olympiad_id` (required)
-- **Response `201`:** invitation details incl. generated code
-
-### `POST /auth/invite-educator`
-
-Invite another educator to the inviter's school.
-
-- **Auth:** educator with `coordinator` school membership
-- **Body:** `email` (required), `olympiad_id` (required)
-- **Response `201`:** invitation details
-
-### `POST /auth/invite-student`
-
-Email a student an invitation.
-
-- **Auth:** educator with `coordinator` or `educator` school membership
-- **Body:** `email` (required), `olympiad_id` (required)
-- **Response `201`:** invitation details
-
-### `POST /auth/generate-student-codes`
-
-Bulk-generate self-registration codes for entrants.
-
-- **Auth:** educator
-- **Body:** `count` (integer 1–200), `olympiad_id`
-- **Response `201`:** `data.codes` — list of generated codes
-
 ### `GET /auth/educator-olympiads`
 
-Olympiads the educator's school is registered for.
+Olympiads the educator's school is approved for.
 
 - **Auth:** educator
 - **Response:** `data.olympiads`
 
-### `GET /auth/student-invitations`
+---
 
-Student invitations issued by the educator's school.
+## Invitations
 
-- **Auth:** educator
-- **Response:** `data.invitations`
+Invitations are delivered in the app, not by email, and are only ever sent to
+people who already have an account. An invitation appears on the invitee's
+dashboard, where they accept or reject it:
+
+- an **organiser** invites an **educator**; accepting registers that educator's
+  school for the olympiad, which is what makes it appear on their dashboard;
+- an **educator** invites a **student of their own school**; accepting enters
+  that student into every round of the olympiad that still takes registrations.
+
+An invitation object is
+`{ id, role, status, message, createdAt, respondedAt, olympiad, school, invitee, invitedBy }`,
+where `status` is `pending`, `accepted` or `rejected`.
+
+### `GET /invites/mine`
+
+The invitations addressed to the signed-in user.
+
+- **Auth:** Bearer token (any role)
+- **Response:** `data.invites`
+
+### `POST /invites/:inviteId/accept`
+
+Accept an invitation addressed to you, performing the registration it stands for.
+
+- **Auth:** Bearer token (any role); must be the invitee
+- **Response:** `data.invite`
+- **Errors:** `400` already answered; `403` not your invitation; `404` unknown invitation
+
+### `POST /invites/:inviteId/reject`
+
+Decline an invitation. Nothing is registered.
+
+- **Auth:** Bearer token (any role); must be the invitee
+- **Response:** `data.invite`
+
+### `POST /invites`
+
+Send an invitation.
+
+- **Auth:** organiser or educator
+- **Body:** `olympiad_id` (uuid, required), `invitee_id` (uuid, required), `message` (optional, <=500 chars)
+
+An organiser may only invite educators, and only to their own olympiads. An
+educator may only invite students of their own school, and only to an olympiad
+their school is approved for.
+
+- **Response `201`:** `data.invite`
+- **Errors:** `400` wrong role for the inviter; `403` not yours / not your school; `409` already invited to this olympiad
+
+### `DELETE /invites/:inviteId`
+
+Withdraw an invitation you sent that has not been answered yet.
+
+- **Auth:** organiser or educator; must be the sender
+- **Response:** `data.id`
+- **Errors:** `400` already answered; `403` not the sender
+
+### `GET /invites/sent`
+
+For an organiser, the invitations for one of their olympiads (requires
+`olympiad_id`). For an educator, the student invitations for their school.
+
+- **Auth:** organiser or educator
+- **Query:** `olympiad_id` (organiser only)
+- **Response:** `data.invites`
+
+### `GET /invites/candidates`
+
+The people the caller may still invite to an olympiad: every educator on the
+platform for an organiser, and the school's own students for an educator.
+Anyone already invited to that olympiad is left out.
+
+- **Auth:** organiser or educator
+- **Query:** `olympiad_id` (uuid, required)
+- **Response:** `data.candidates` - `[{ id, name, email, school }]`
 
 ---
 
@@ -200,7 +242,7 @@ Delete an olympiad. Fails with `400` if the olympiad has any rounds — delete t
 
 ### `GET /olympiads/:olympiadId/schools`
 
-Schools registered for the olympiad, incl. educator contacts and entrant counts.
+Schools taking part in the olympiad, plus the educators who have been invited and have not accepted yet. Each row carries a `status` of `accepted` (participating), `pending` (invited) or `declined`; a pending row is keyed by the invitation rather than the school.
 
 ### `GET /olympiads/:olympiadId/archive`
 

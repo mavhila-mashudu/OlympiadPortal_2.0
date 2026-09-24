@@ -65,14 +65,18 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 
 | Method | Path                                  | Role      | Purpose                       |
 | ------ | ------------------------------------- | --------- | ----------------------------- |
-| POST   | /auth/register/organiser              | Public    | Self-register as organiser    |
-| POST   | /auth/register                        | Public    | Register with invitation code |
-| GET    | /auth/validate-code/:code             | Public    | Verify invitation code        |
+| POST   | /auth/register                        | Public    | Sign up in any role           |
+| POST   | /auth/register/organiser              | Public    | Sign up as organiser (legacy) |
+| GET    | /auth/schools                         | Public    | Schools for the signup form   |
 | GET    | /auth/me                              | Any       | Get current user              |
 | DELETE | /auth/account                         | Any       | Soft-delete account           |
-| POST   | /auth/invite-school                   | Organiser | Generate school invitation    |
-| POST   | /auth/invite-educator                 | Educator  | Generate educator invitation  |
-| POST   | /auth/generate-student-codes          | Educator  | Bulk-generate student codes   |
+| GET    | /invites/mine                         | Any       | Invitations addressed to me   |
+| POST   | /invites/:id/accept                   | Any       | Accept an invitation          |
+| POST   | /invites/:id/reject                   | Any       | Decline an invitation         |
+| POST   | /invites                              | Staff     | Invite someone to an olympiad |
+| DELETE | /invites/:id                          | Staff     | Withdraw an invitation        |
+| GET    | /invites/sent                         | Staff     | Invitations I have sent       |
+| GET    | /invites/candidates                   | Staff     | Who I may still invite        |
 | POST   | /olympiads                            | Organiser | Create olympiad               |
 | GET    | /olympiads                            | Organiser | List olympiads                |
 | GET    | /olympiads/:id                        | Organiser | Get olympiad detail           |
@@ -99,7 +103,7 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 ### Entity-Relationship Diagram
 
 ```
-users ─────┬──── invitations
+users ─────┬──── olympiad_invites
            ├──── olympiads ────── rounds ────┬──── papers ────── questions
            │              │                  │                     │
            │              │                  ├──── submissions ──── answers
@@ -116,7 +120,7 @@ users ─────┬──── invitations
 | Model                 | Key Fields                                                           | Purpose                                           |
 | --------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
 | users                 | id, email, full_name, role, auth_provider_id                         | Core user accounts (organiser, educator, student) |
-| invitations           | code, type, olympiad_id, school_id, expires_at                       | Invitation-based registration with expiry         |
+| olympiad_invites      | olympiad_id, school_id, invitee_id, invited_by_id, role, status      | In-app invitations to take part in an olympiad    |
 | schools               | name, address                                                        | School records                                    |
 | educators             | user_id, school_id                                                   | Links users to schools                            |
 | entrants              | user_id, school_id, full_name, grade                                 | Student participants                              |
@@ -135,7 +139,7 @@ users ─────┬──── invitations
 | Enum              | Values                                                      |
 | ----------------- | ----------------------------------------------------------- |
 | user_role         | organiser, educator, student                                |
-| invite_type       | school, educator, student                                   |
+| invite_status     | pending, accepted, rejected                                 |
 | round_state       | scheduled, open, closed, marking, results_released          |
 | submission_route  | online, offline                                             |
 | submission_status | received, automarked, queued_for_marking, marked, moderated |
@@ -155,10 +159,13 @@ users ─────┬──── invitations
 
 ### Authentication Flow
 
-1. **Organiser self-registration:** POST /auth/register/organiser with organiser_secret environment variable, creates Supabase Auth user and users row with role=organiser
-2. **School invitation:** Organiser creates school, generates SCH-XXXX-XXXX code, emails school contact
-3. **Educator registration:** Educator visits /signup, enters code, verifies school details, creates account linked to school
-4. **Student registration:** Educator bulk-generates codes, each maps to an entrant record, student signs up with code
+Registration is open to everyone: no invitation code exists, and nobody has to
+be invited before they can have an account.
+
+1. **Sign-up:** POST /auth/register with a role of organiser, educator or student. It creates the Supabase Auth user and the users row, plus an educators row and school membership for an educator, or an entrant row for a student.
+2. **Choosing a school:** educators and students pick from GET /auth/schools. An educator whose school is not listed may name a new one, and becomes its coordinator; later educators at that school join as ordinary members. A student must pick an existing school.
+3. **Joining an olympiad (organiser to educator):** the organiser sends an in-app invitation to an educator. It appears on the educator's dashboard; accepting registers their school for the olympiad.
+4. **Joining an olympiad (educator to student):** the educator invites a student of their own school. Accepting enters that student into every round still taking registrations.
 
 All API requests include `Authorization: Bearer <access_token>`. The requireAuth middleware validates the JWT via Supabase. The requireRole middleware checks user.role.
 

@@ -1,0 +1,42 @@
+name: Runner smoke test
+
+# Temporary. Proves prompt-engineers-runner-1 picks up a job from Gitea, pulls
+# its container image and runs steps to completion. It also warms the runner
+# image cache, so the first real CI run is much faster.
+#
+# Deliberately scoped to branches other than main, so it never competes with
+# ci.yml (which triggers on pull requests and pushes to main).
+#
+# Delete this file once stage 2 is signed off.
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    name: Confirm the runner works
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Report the runner and its container
+        run: |
+          echo "runner name : ${RUNNER_NAME:-unset}"
+          echo "runner os   : ${RUNNER_OS:-unset}"
+          echo "kernel      : $(uname -srm)"
+          echo "node        : $(node --version 2>/dev/null || echo 'not on PATH')"
+          echo "npm         : $(npm --version 2>/dev/null || echo 'not on PATH')"
+          echo "--- memory available to the job ---"
+          free -m | head -3
+          echo "--- disk ---"
+          df -h / | tail -1
+
+      # The repository must actually be present, not just the container.
+      - name: Confirm the checkout landed
+        run: |
+          test -f backend/package.json || { echo "backend/package.json missing"; exit 1; }
+          test -f frontend/package.json || { echo "frontend/package.json missing"; exit 1; }
+          echo "checkout OK: $(git rev-parse --short HEAD)"

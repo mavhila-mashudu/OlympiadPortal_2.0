@@ -151,16 +151,30 @@ describe("olympiad rounds", () => {
 });
 
 describe("GET /olympiads/:olympiadId/schools", () => {
-  it("merges invitations with registered schools", async () => {
+  it("lists participating schools alongside outstanding invitations", async () => {
     const { organiser, olympiad, school, educatorUser } = await f.createOlympiadWithSchool();
     await f.createEntrant({ school });
-    await f.createInvitation({ type: "school", school_name: "Northview College", olympiad_id: olympiad.id, email: "p@n.test", school_id: null });
+
+    const invitedSchool = await f.createSchool({ name: "Northview College" });
+    const head = await f.createEducator({
+      school: invitedSchool,
+      userOverrides: { full_name: "Mr Pillay", email: "p@n.test" },
+    });
+    await f.createInvite({ olympiad, invitee: head.user, invitedBy: organiser, school: invitedSchool });
 
     const { schools } = expectOk(await as(organiser).get(`/olympiads/${olympiad.id}/schools`));
 
     expect(schools).toEqual(
       expect.arrayContaining([
-        { id: expect.any(String), name: "Northview College", address: null, entrants: 0, educators: [], contactEmail: "p@n.test", status: "pending" },
+        {
+          id: expect.any(String),
+          name: "Northview College",
+          address: null,
+          entrants: 0,
+          educators: [{ name: "Mr Pillay", email: "p@n.test" }],
+          contactEmail: "p@n.test",
+          status: "pending",
+        },
         {
           id: school.id,
           name: school.name,

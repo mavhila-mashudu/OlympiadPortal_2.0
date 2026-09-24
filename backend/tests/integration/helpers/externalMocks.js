@@ -1,9 +1,9 @@
 // Stand-ins for the external services the backend talks to. The database is
-// real in integration tests; Supabase (auth + file storage) and SMTP are not.
+// real in integration tests; Supabase (auth + file storage) is not.
+// Invitations are delivered in-app, so nothing is emailed.
 //
 // Usage at the top of a test file:
 //   jest.mock("../../src/config/supabase", () => require("./helpers/externalMocks").supabase);
-//   jest.mock("../../src/lib/mailer", () => require("./helpers/externalMocks").mailer);
 //   beforeEach(() => require("./helpers/externalMocks").resetExternalMocks());
 const crypto = require("node:crypto");
 
@@ -15,12 +15,6 @@ const supabase = {
     admin: { createUser: jest.fn(), deleteUser: jest.fn() },
   },
   storage: { from: jest.fn(() => bucket), bucket },
-};
-
-const mailer = {
-  sendSchoolInviteEmail: jest.fn(),
-  sendStudentInviteEmail: jest.fn(),
-  sendEducatorInviteEmail: jest.fn(),
 };
 
 const resetExternalMocks = () => {
@@ -37,7 +31,6 @@ const resetExternalMocks = () => {
       data: { signedUrl: `https://storage.test/${path}?expires=${expiresIn}` },
       error: null,
     }));
-  for (const fn of Object.values(mailer)) fn.mockReset().mockResolvedValue({ delivered: true });
 };
 
 // Makes Supabase accept a bearer token as belonging to this user
@@ -47,4 +40,4 @@ const signInAs = (user) => {
 
 resetExternalMocks();
 
-module.exports = { supabase, mailer, resetExternalMocks, signInAs };
+module.exports = { supabase, resetExternalMocks, signInAs };

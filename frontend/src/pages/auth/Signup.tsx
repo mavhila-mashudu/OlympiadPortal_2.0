@@ -1,6 +1,6 @@
 import { Trophy } from "lucide-react";
-import { useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
@@ -16,14 +16,48 @@ type MeResponse = {
   user: { role: Role };
 };
 
+type School = { id: string; name: string };
+
+const NEW_SCHOOL = "__new__";
+
+const roleOptions: { value: Role; title: string; blurb: string }[] = [
+  { value: "organiser", title: "Organiser", blurb: "Create and manage olympiads" },
+  { value: "educator", title: "Educator", blurb: "Enter your school's students" },
+  { value: "student", title: "Student", blurb: "Sit rounds and see your results" },
+];
+
 function Signup() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [accountType, setAccountType] = useState<"organiser" | "invited">(
-    searchParams.get("code") || searchParams.get("token") ? "invited" : "organiser"
-  );
+  const [role, setRole] = useState<Role>("organiser");
+  const [schools, setSchools] = useState<School[]>([]);
+  const [schoolsError, setSchoolsError] = useState<string | null>(null);
+  const [schoolId, setSchoolId] = useState("");
+  const [newSchoolName, setNewSchoolName] = useState("");
+
+  const needsSchool = role !== "organiser";
+  const addingSchool = schoolId === NEW_SCHOOL;
+
+  // The list is public so it can fill the dropdown before anyone has an account.
+  useEffect(() => {
+    let cancelled = false;
+
+    api
+      .get<{ schools: School[] }>("/auth/schools")
+      .then((data) => {
+        if (!cancelled) setSchools(data.schools || []);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSchoolsError("We couldn't load the list of schools. You can still type yours below.");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className={styles.page}>
@@ -38,7 +72,8 @@ function Signup() {
         <Card className={styles.card}>
           <h1>Create account</h1>
           <p className={styles.subtitle}>
-            Sign up as an organiser to create your own olympiad, or use an invitation code to join as an educator or student.
+            Choose how you take part. Educators and students tell us which school they
+            belong to; olympiad invitations then arrive on your dashboard.
           </p>
 
           <form
@@ -52,21 +87,16 @@ function Signup() {
               const full_name = (formData.get("full_name") as string) || "";
               const email = (formData.get("email") as string) || "";
               const password = (formData.get("password") as string) || "";
-              const code = (formData.get("code") as string) || "";
-              const invite_token = searchParams.get("token") || "";
 
               try {
-                const payload = { full_name, email, password };
-
-                if (accountType === "organiser") {
-                  await api.post("/auth/register/organiser", payload);
-                } else {
-                  await api.post("/auth/register", {
-                    ...payload,
-                    code,
-                    invite_token,
-                  });
-                }
+                await api.post("/auth/register", {
+                  full_name,
+                  email,
+                  password,
+                  role,
+                  school_id: needsSchool && !addingSchool ? schoolId : undefined,
+                  school_name: needsSchool && addingSchool ? newSchoolName.trim() : undefined,
+                });
 
                 const supabase = getSupabaseClient();
                 const { data, error: signInError } =
@@ -97,41 +127,25 @@ function Signup() {
           >
             <div className={styles.field}>
               <Label>Account type</Label>
-              <div className={styles.roleSelector} style={{ display: "flex", gap: "0.5rem" }}>
-                <button
-                  type="button"
-                  onClick={() => setAccountType("organiser")}
-                  style={{
-                    flex: 1,
-                    padding: "0.75rem",
-                    border: accountType === "organiser" ? "2px solid #2563eb" : "1px solid #d1d5db",
-                    borderRadius: "0.5rem",
-                    backgroundColor: accountType === "organiser" ? "#eff6ff" : "white",
-                    cursor: "pointer",
-                    textAlign: "center",
-                  }}
-                >
-                  <strong>Organiser</strong>
-                  <br />
-                  <small style={{ color: "#6b7280" }}>Create and manage olympiads</small>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAccountType("invited")}
-                  style={{
-                    flex: 1,
-                    padding: "0.75rem",
-                    border: accountType === "invited" ? "2px solid #2563eb" : "1px solid #d1d5db",
-                    borderRadius: "0.5rem",
-                    backgroundColor: accountType === "invited" ? "#eff6ff" : "white",
-                    cursor: "pointer",
-                    textAlign: "center",
-                  }}
-                >
-                  <strong>Educator / Student</strong>
-                  <br />
-                  <small style={{ color: "#6b7280" }}>Join with invitation code</small>
-                </button>
+              <div className={styles.roleSelector} role="radiogroup" aria-label="Account type">
+                {roleOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={role === option.value}
+                    onClick={() => {
+                      setRole(option.value);
+                      setError(null);
+                    }}
+                    className={`${styles.roleOption} ${
+                      role === option.value ? styles.roleOptionActive : ""
+                    }`}
+                  >
+                    <strong>{option.title}</strong>
+                    <small>{option.blurb}</small>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -147,18 +161,52 @@ function Signup() {
               />
             </div>
 
-            {accountType === "invited" && (
+            {needsSchool && (
               <div className={styles.field}>
-                <Label htmlFor="code">Invitation code</Label>
+                <Label htmlFor="school">School</Label>
+                <select
+                  className={styles.select}
+                  id="school"
+                  name="school"
+                  required
+                  value={schoolId}
+                  onChange={(event) => setSchoolId(event.target.value)}
+                >
+                  <option value="">Select your school…</option>
+                  {schools.map((school) => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))}
+                  {role === "educator" && (
+                    <option value={NEW_SCHOOL}>My school isn’t listed…</option>
+                  )}
+                </select>
+                {schoolsError && <small className={styles.hint}>{schoolsError}</small>}
+                {role === "student" && (
+                  <small className={styles.hint}>
+                    Students join a school an educator has already added. If yours is
+                    missing, ask your teacher to sign up first.
+                  </small>
+                )}
+              </div>
+            )}
+
+            {needsSchool && addingSchool && (
+              <div className={styles.field}>
+                <Label htmlFor="school_name">School name</Label>
                 <Input
-                  autoComplete="one-time-code"
-                  id="code"
-                  name="code"
-                  placeholder="SCH-ABC123 or STU-ABC123"
-                  defaultValue={searchParams.get("code") || ""}
-                  required={accountType === "invited"}
+                  id="school_name"
+                  name="school_name"
+                  placeholder="e.g. Parktown Boys High"
+                  required
                   type="text"
+                  value={newSchoolName}
+                  onChange={(event) => setNewSchoolName(event.target.value)}
                 />
+                <small className={styles.hint}>
+                  You’ll become its coordinator and can invite the rest of your staff.
+                </small>
               </div>
             )}
 
