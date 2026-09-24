@@ -9,8 +9,8 @@ const ruleFields = [
   body("name").optional().isString().withMessage("name must be text"),
   body("trigger")
     .optional()
-    .isIn(["round_opens", "round_closes", "results_released"])
-    .withMessage("trigger must be one of: round_opens, round_closes, results_released"),
+    .isIn(["round_opens", "round_closes", "results_released", "missing_submission"])
+    .withMessage("trigger must be one of: round_opens, round_closes, results_released, missing_submission"),
   body("offset_minutes")
     .optional()
     .isInt({ min: 0 })

@@ -50,11 +50,11 @@ describe("createRule", () => {
     expect(prisma.notification_rules.create).not.toHaveBeenCalled();
   });
 
-  it("creates an email rule with trimmed text", async () => {
+  it("creates an in-app rule with trimmed text", async () => {
     prisma.notification_rules.create.mockResolvedValue({ id: "rule-1" });
 
     await expect(
-      create(validRule({ name: "  Reminder  ", condition: "  grade >= 10 ", enabled: false })),
+      create(validRule({ name: "  Reminder  ", condition: "  Only rounds with submissions ", enabled: false })),
     ).resolves.toEqual({ id: "rule-1" });
     expect(prisma.notification_rules.create).toHaveBeenCalledWith({
       data: {
@@ -63,8 +63,8 @@ describe("createRule", () => {
         trigger: "round_opens",
         offset_minutes: 60,
         recipient: "registered_educators",
-        channel: "email",
-        condition: "grade >= 10",
+        channel: "in_app",
+        condition: "Only rounds with submissions",
         enabled: false,
       },
     });
@@ -90,7 +90,7 @@ describe("createRule", () => {
     expect(prisma.notification_rules.create).not.toHaveBeenCalled();
   });
 
-  it.each(["round_opens", "round_closes", "results_released"])("accepts the %s trigger", async (trigger) => {
+  it.each(["round_opens", "round_closes", "results_released", "missing_submission"])("accepts the %s trigger", async (trigger) => {
     await expect(create(validRule({ trigger }))).resolves.toBeUndefined();
   });
 
@@ -144,7 +144,7 @@ describe("updateRule", () => {
   });
 
   it.each([
-    ["  qualified only ", "qualified only"],
+    ["  Only rounds with submissions ", "Only rounds with submissions"],
     ["   ", null],
     [null, null],
   ])("stores condition %p as %p", async (condition, stored) => {
@@ -152,6 +152,12 @@ describe("updateRule", () => {
     expect(prisma.notification_rules.update).toHaveBeenCalledWith({
       where: { id: "rule-1" },
       data: { condition: stored },
+    });
+  });
+
+  it("rejects a condition the delivery engine cannot evaluate", async () => {
+    await expect(update({ condition: "grade >= 10" })).rejects.toMatchObject({
+      statusCode: 400, message: "Unsupported condition",
     });
   });
 
