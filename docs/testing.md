@@ -177,9 +177,8 @@ Everything runs through one Gitea Actions pipeline: [`.gitea/workflows/ci.yml`](
 | Backend checks & tests | ours | Yes | Yes | Prisma schema check, unit, integration and API tests |
 | Frontend checks & tests | ours | Yes | Yes | Lint, test type-check, unit and integration tests, production build |
 | End-to-end tests | shared | No | Yes | The Playwright journeys in Chromium |
-| Work out what changed | ours | No | Yes | Decides whether the backend, the frontend or both need deploying |
-| Deploy backend | ours | No | Yes, if `backend/` changed | Builds, migrates the database, then zip-deploys to Azure App Service |
-| Deploy frontend | ours | No | Yes, if `frontend/` changed | Builds the site and uploads it to the Azure Storage `$web` container |
+| Deploy backend | ours | No | Yes | Builds, migrates the database, then zip-deploys to Azure App Service |
+| Deploy frontend | ours | No | Yes | Builds the site and uploads it to the Azure Storage `$web` container |
 
 ### Where the jobs run
 
@@ -208,7 +207,7 @@ Rules the pipeline applies:
 
 - **Nothing deploys unless every test job passed.** Both deploy jobs wait for the backend, frontend and end-to-end jobs.
 - **End-to-end tests run on `main`, not on every pull request.** They are the slowest and heaviest job. Pull requests still get every other suite, which is where nearly all failures show up.
-- **Only what changed is deployed.** A frontend-only change doesn't rebuild and redeploy the backend.
+- **Every push to `main` deploys both sides.** There is no path filter: a change anywhere, including one that only touches docs, redeploys the backend and the frontend. It costs a few minutes of runner time and removes a whole class of “why didn’t it deploy?” confusion, and it guarantees what is running always matches `main`.
 - **A newer push replaces a run in progress**, except on `main`, where a deploy is never cancelled half way.
 - A failing end-to-end run uploads its Playwright report (screenshots and traces) as an artifact.
 - The pipeline can also be started by hand (`workflow_dispatch`), which runs everything and deploys both sides.

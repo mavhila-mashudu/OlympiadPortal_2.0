@@ -3,7 +3,8 @@ name: CI
 # One pipeline for the whole project: checks first, then deploys.
 #
 #   every push / pull request : backend and frontend checks + fast test suites
-#   push to main              : the above, then the end-to-end suite, then deploy
+#   push to main              : the above, then the end-to-end suite, then both
+#                               deploys — unconditionally, whatever changed
 #
 # Everything runs on our own runner (label: prompt-engineers-azure) except the
 # end-to-end suite, which needs more memory than that VM has and so stays on
@@ -165,39 +166,10 @@ jobs:
           path: frontend/playwright-report
           retention-days: 7
 
-  changes:
-    name: Work out what changed
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: prompt-engineers-azure
-    timeout-minutes: 5
-    outputs:
-      backend: ${{ steps.check.outputs.backend }}
-      frontend: ${{ steps.check.outputs.frontend }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # Only the side that changed is rebuilt and redeployed. A manual run, or
-      # a push whose previous commit isn't known, deploys both.
-      - name: Compare with the previous commit
-        id: check
-        run: |
-          before="${{ github.event.before }}"
-          if [ "${{ github.event_name }}" != "push" ] || [ -z "$before" ] || ! git cat-file -e "$before^{commit}" 2>/dev/null; then
-            echo "backend=true" >> "$GITHUB_OUTPUT"
-            echo "frontend=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          changed=$(git diff --name-only "$before" "${{ github.sha }}")
-          echo "$changed"
-          echo "backend=$(echo "$changed" | grep -q '^backend/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "frontend=$(echo "$changed" | grep -q '^frontend/' && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
   deploy-backend:
     name: Deploy backend to Azure App Service
-    needs: [backend, frontend, e2e, changes]
-    if: needs.changes.outputs.backend == 'true'
+    needs: [backend, frontend, e2e]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     # Our own runner. Shared runners do not advertise this label.
     runs-on: prompt-engineers-azure
     timeout-minutes: 30
@@ -306,8 +278,8 @@ jobs:
 
   deploy-frontend:
     name: Deploy frontend to Azure Storage
-    needs: [backend, frontend, e2e, changes]
-    if: needs.changes.outputs.frontend == 'true'
+    needs: [backend, frontend, e2e]
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     # Our own runner. Shared runners do not advertise this label.
     runs-on: prompt-engineers-azure
     timeout-minutes: 20
