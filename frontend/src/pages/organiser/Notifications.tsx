@@ -13,6 +13,7 @@ import styles from "./Notifications.module.css";
 
 type Trigger = "round_opens" | "round_closes" | "results_released" | "missing_submission";
 type Recipient = "registered_educators" | "registered_schools" | "qualifying_entrants";
+type RuleAction = "notify_recipients" | "alert_organiser";
 
 type NotificationRule = {
   id: string;
@@ -20,6 +21,7 @@ type NotificationRule = {
   trigger: Trigger;
   offset_minutes: number;
   recipient: Recipient;
+  action: RuleAction;
   condition: string | null;
   enabled: boolean;
 };
@@ -35,7 +37,8 @@ type RuleTestResult = {
   round: { name: string; state: string };
   trigger: { type: Trigger; fires_at: string | null; source_time: string | null; offset_minutes: number };
   condition: { expression: string | null; matched: boolean };
-  recipients: { type: Recipient; count: number };
+  action: RuleAction;
+  recipients: { type: Recipient | "organiser"; count: number };
   would_send: boolean;
   warnings: string[];
 };
@@ -47,10 +50,11 @@ const triggerLabels: Record<Trigger, string> = {
   missing_submission: "School has not submitted",
 };
 
-const recipientLabels: Record<Recipient, string> = {
+const recipientLabels: Record<Recipient | "organiser", string> = {
   registered_educators: "Registered educators",
   registered_schools: "Registered schools",
   qualifying_entrants: "Qualifying entrants",
+  organiser: "Organiser",
 };
 
 function Notifications() {
@@ -111,6 +115,7 @@ function Notifications() {
         trigger: String(form.get("trigger")),
         offset_minutes: Number(form.get("offset_minutes") || 0),
         recipient: String(form.get("recipient")),
+        action: String(form.get("action")),
         condition: String(form.get("condition") || "").trim() || null,
       });
       await loadRules(olympiad.id);
@@ -186,6 +191,7 @@ function Notifications() {
               <label>Trigger<Select name="trigger" defaultValue="round_opens"><option value="round_opens">Round opens</option><option value="round_closes">Round closes</option><option value="results_released">Results released</option><option value="missing_submission">Missing school submission</option></Select></label>
               <label>Minutes before trigger<Input name="offset_minutes" type="number" min="0" defaultValue="0" /></label>
               <label>Recipients<Select name="recipient" defaultValue="registered_educators"><option value="registered_educators">Registered educators</option><option value="registered_schools">Registered schools</option><option value="qualifying_entrants">Qualifying entrants</option></Select></label>
+              <label>Action<Select name="action" defaultValue="notify_recipients"><option value="notify_recipients">Notify selected recipients</option><option value="alert_organiser">Alert organiser</option></Select></label>
               <label>Condition (optional)<Select name="condition" defaultValue=""><option value="">Always</option><option value="Only rounds with submissions">Only rounds with submissions</option><option value="Only rounds without submissions">Only rounds without submissions</option></Select></label>
               <div className={styles.actions}><Button type="submit" disabled={saving}>{saving ? "Saving..." : "Save rule"}</Button><Button type="button" variant="outline" onClick={() => setShowForm(false)}>Cancel</Button></div>
             </form>
@@ -205,6 +211,7 @@ function Notifications() {
             {testResult && <div className={testResult.would_send ? styles.testSuccess : styles.testWarning}>
               <strong>{testResult.would_send ? "This rule would send an announcement." : "This rule would not send an announcement."}</strong>
               <p>Recipients: {recipientLabels[testResult.recipients.type]} ({testResult.recipients.count})</p>
+              <p>Action: {testResult.action === "alert_organiser" ? "Alert organiser" : "Notify selected recipients"}</p>
               <p>Condition: {testResult.condition.matched ? "matched" : "not matched"}</p>
               <p>Scheduled: {testResult.trigger.fires_at ? new Date(testResult.trigger.fires_at).toLocaleString() : "not scheduled"}</p>
               {testResult.warnings.map((warning) => <p key={warning}>{warning}</p>)}

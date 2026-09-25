@@ -24,7 +24,10 @@ const supportedConditions = new Set([
   "Only rounds without submissions",
 ]);
 
-function validateRule({ trigger, offset_minutes, recipient, condition }) {
+function validateRule({ trigger, offset_minutes, recipient, condition, action }) {
+  if (action !== undefined && !["notify_recipients", "alert_organiser"].includes(action)) {
+    throw new BadRequestError("Invalid notification action");
+  }
   if (trigger !== undefined && !triggers.has(trigger)) {
     throw new BadRequestError("Invalid notification trigger");
   }
@@ -77,6 +80,7 @@ const createRule = async ({ olympiadId, organiserId, data }) => {
       offset_minutes: data.offset_minutes ?? 0,
       recipient: data.recipient,
       channel: "in_app",
+      action: data.action ?? "notify_recipients",
       condition: data.condition?.trim() || null,
       enabled: data.enabled ?? true,
     },
@@ -108,7 +112,7 @@ const updateRule = async ({ ruleId, organiserId, data, olympiadId }) => {
     update.name = data.name.trim();
   }
 
-  for (const field of ["trigger", "recipient", "condition", "enabled"]) {
+  for (const field of ["trigger", "recipient", "condition", "enabled", "action"]) {
     if (data[field] !== undefined) {
       update[field] =
         field === "condition" ? data[field]?.trim() || null : data[field];
@@ -206,7 +210,8 @@ const testRule = async ({ ruleId, organiserId, roundId }) => {
     warnings.push("The configured condition does not match this round.");
   }
 
-  const recipientCount = (await resolveRecipients(rule, round)).length;
+  const recipientCount = rule.action === "alert_organiser"
+    ? 1 : (await resolveRecipients(rule, round)).length;
 
   return {
     rule: {
@@ -234,8 +239,9 @@ const testRule = async ({ ruleId, organiserId, roundId }) => {
       expression: rule.condition,
       matched: conditionMatched,
     },
+    action: rule.action || "notify_recipients",
     recipients: {
-      type: rule.recipient,
+      type: rule.action === "alert_organiser" ? "organiser" : rule.recipient,
       count: recipientCount,
     },
     would_send:

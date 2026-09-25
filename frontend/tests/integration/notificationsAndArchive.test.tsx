@@ -12,6 +12,7 @@ const rule = (overrides: Record<string, unknown> = {}) => ({
   trigger: "round_opens",
   offset_minutes: 60,
   recipient: "registered_educators",
+  action: "notify_recipients",
   channel: "email",
   condition: null,
   enabled: true,
@@ -85,6 +86,7 @@ describe("announcement rules", () => {
       trigger: "round_closes",
       offset_minutes: 30,
       recipient: "registered_schools",
+      action: "notify_recipients",
       condition: "Only rounds with submissions",
     });
   });

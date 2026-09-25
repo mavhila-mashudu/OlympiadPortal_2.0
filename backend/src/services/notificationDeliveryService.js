@@ -66,7 +66,9 @@ async function deliverDueNotifications(now = new Date()) {
       // historical reminders after a restart or during initial deployment.
       if (dueAt > now.getTime() || dueAt <= now.getTime() - 5 * 60_000) continue;
       if (!conditionMatches(rule.condition, round)) continue;
-      const recipients = await resolveRecipients(rule, round);
+      const recipients = rule.action === "alert_organiser"
+        ? [(await prisma.olympiads.findUnique({ where: { id: rule.olympiad_id }, select: { organiser_id: true } }))?.organiser_id].filter(Boolean)
+        : await resolveRecipients(rule, round);
       if (!recipients.length) continue;
       const message = rule.trigger === "missing_submission"
         ? `Your school's results for ${round.name} have not arrived. This round closes at ${round.closes_at.toISOString()}.`

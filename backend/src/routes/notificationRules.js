@@ -20,6 +20,8 @@ const ruleFields = [
     .isIn(["registered_educators", "registered_schools", "qualifying_entrants"])
     .withMessage("recipient must be one of: registered_educators, registered_schools, qualifying_entrants"),
   body("condition").optional({ values: "null" }).isString().withMessage("condition must be text"),
+  body("action").optional().isIn(["notify_recipients", "alert_organiser"])
+    .withMessage("action must be notify_recipients or alert_organiser"),
   body("enabled").optional().isBoolean().withMessage("enabled must be true or false"),
 ];
 
