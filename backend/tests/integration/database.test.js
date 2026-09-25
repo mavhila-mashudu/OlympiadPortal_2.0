@@ -20,8 +20,9 @@ describe("migrations", () => {
       "olympiads",
       "papers",
       "portal_notifications",
+      "portal_remark_requests",
       "questions",
-      "remark_requests",
+      
       "results",
       "rounds",
       "school_memberships",

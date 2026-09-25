@@ -370,6 +370,7 @@ model remark_requests {
   entrants entrants @relation(fields: [entrant_id], references: [id], onDelete: Cascade)
   users users? @relation(fields: [reviewer_id], references: [id], onDelete: SetNull)
   @@unique([round_id, entrant_id])
+  @@map("portal_remark_requests")
 }
 
 model marking_reviews {
