@@ -6,6 +6,7 @@ import Signup from "./pages/auth/Signup";
 import EducatorDashboard from "./pages/educator/Dashboard";
 import Entrants from "./pages/educator/Entrants";
 import ExamBuilder from "./pages/educator/ExamBuilder";
+import EducatorRemarks from "./pages/educator/Remarks";
 import EducatorRoundDetail from "./pages/educator/RoundDetail";
 import Results from "./pages/educator/Results";
 import Archive from "./pages/organiser/Archive";
@@ -34,6 +35,7 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/educator" element={<EducatorDashboard />} />
       <Route path="/educator/results" element={<Results />} />
+      <Route path="/educator/remarks" element={<EducatorRemarks />} />
       <Route path="/educator/entrants" element={<Entrants />} />
       <Route path="/educator/rounds/:id" element={<EducatorRoundDetail />} />
       <Route path="/educator/rounds/:id/exam" element={<ExamBuilder />} />

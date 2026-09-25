@@ -11,7 +11,7 @@ const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
 const supabase = require("../../../src/config/supabase");
 const svc = require("../../../src/services/educatorService");
 
-const educator = { id: "edu-1", school_id: "school-1", schools: { id: "school-1", name: "Parktown High" } };
+const educator = { id: "edu-1", user_id: "u", school_id: "school-1", schools: { id: "school-1", name: "Parktown High" } };
 
 const round = (overrides = {}) => ({
   id: "round-2",
@@ -720,3 +720,288 @@ describe("when file storage isn't configured", () => {
     });
   });
 });
+
+describe("listRemarks", () => {
+  it("lists remarks specifically assigned to this educator", async () => {
+    prisma.remark_requests.findMany.mockResolvedValue([
+      {
+        id: "rem-1",
+        reason: "Please check question 3",
+        status: "pending",
+        review_note: null,
+        created_at: new Date("2026-09-25T12:00:00Z"),
+        reviewed_at: null,
+        results: {
+          total_points: 38,
+          entrants: { full_name: "John Doe", schools: { name: "Parktown High" } },
+          rounds: { name: "Round 1", olympiads: { name: "Maths Olympiad" } },
+        },
+      },
+    ]);
+
+    const result = await svc.listRemarks("u");
+    expect(result).toEqual([
+      {
+        id: "rem-1",
+        studentName: "John Doe",
+        studentSchool: "Parktown High",
+        roundName: "Round 1",
+        olympiadName: "Maths Olympiad",
+        score: 38,
+        reason: "Please check question 3",
+        status: "pending",
+        review_note: null,
+        created_at: expect.any(Date),
+        reviewed_at: null,
+      },
+    ]);
+  });
+});
+
+describe("resolveRemark", () => {
+  it("updates remark status and review note when educator is assigned", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "u",
+    });
+    prisma.remark_requests.update.mockResolvedValue({
+      id: "rem-1",
+      status: "reviewed",
+      review_note: "Recount confirmed, mark adjusted",
+    });
+
+    const result = await svc.resolveRemark("rem-1", "u", {
+      status: "reviewed",
+      review_note: "Recount confirmed, mark adjusted",
+    });
+
+    expect(result).toMatchObject({
+      id: "rem-1",
+      status: "reviewed",
+      review_note: "Recount confirmed, mark adjusted",
+    });
+    expect(prisma.remark_requests.update).toHaveBeenCalledWith({
+      where: { id: "rem-1" },
+      data: {
+        status: "reviewed",
+        review_note: "Recount confirmed, mark adjusted",
+        reviewed_at: expect.any(Date),
+      },
+    });
+  });
+
+  it("rejects an educator who is not assigned to this remark", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "other-user",
+    });
+
+    await expect(
+      svc.resolveRemark("rem-1", "u", { status: "reviewed", review_note: "Test" }),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You are not assigned to review this remark",
+    });
+  });
+
+  it("throws NotFoundError if remark does not exist", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(null);
+
+    await expect(
+      svc.resolveRemark("rem-missing", "u", { status: "reviewed" }),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Remark request not found",
+    });
+  });
+});
+
+describe("getRemarkSubmissionAnswers", () => {
+  it("rejects an educator who is not assigned to this remark", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "other-user",
+      results: { entrants: { id: "ent-1" }, rounds: { id: "round-1" } },
+    });
+
+    await expect(svc.getRemarkSubmissionAnswers("rem-1", "u")).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You are not assigned to review this remark",
+    });
+  });
+
+  it("throws NotFoundError if remark does not exist", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(null);
+
+    await expect(svc.getRemarkSubmissionAnswers("rem-missing", "u")).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Remark request not found",
+    });
+  });
+
+  it("returns question-by-question submission answers", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "u",
+      result_id: "res-1",
+      results: {
+        round_id: "round-1",
+        entrant_id: "ent-1",
+        total_points: 10,
+        entrants: { id: "ent-1", full_name: "Ayanda" },
+        rounds: { id: "round-1", name: "Round 1" },
+      },
+    });
+
+    prisma.submissions.findFirst.mockResolvedValue({
+      id: "sub-1",
+      answers: [
+        {
+          id: "ans-1",
+          question_id: "q-1",
+          answer_value: "B",
+          points_awarded: 2,
+          is_correct: true,
+          marked_at: new Date("2026-09-25T10:00:00Z"),
+          questions: {
+            id: "q-1",
+            prompt: "What is 2+2?",
+            type: "mcq",
+            options: ["2", "4"],
+            correct_option: 1,
+            correct_answer: null,
+            max_points: 2,
+          },
+        },
+      ],
+    });
+
+    const result = await svc.getRemarkSubmissionAnswers("rem-1", "u");
+    expect(result).toMatchObject({
+      remarkId: "rem-1",
+      submissionId: "sub-1",
+      studentName: "Ayanda",
+      roundName: "Round 1",
+      totalPoints: 10,
+      answers: [
+        {
+          id: "ans-1",
+          questionId: "q-1",
+          prompt: "What is 2+2?",
+          type: "mcq",
+          maxPoints: 2,
+          studentAnswer: "B",
+          pointsAwarded: 2,
+          isCorrect: true,
+        },
+      ],
+    });
+  });
+});
+
+describe("updateRemarkAnswer", () => {
+  const remarkRecord = {
+    id: "rem-1",
+    reviewer_id: "u",
+    status: "pending",
+    result_id: "res-1",
+    results: {
+      round_id: "round-1",
+      entrant_id: "ent-1",
+      rounds: { id: "round-1", qualifying_threshold: "15" },
+    },
+  };
+
+  const answerRecord = {
+    id: "ans-1",
+    submission_id: "sub-1",
+    points_awarded: 2,
+    submissions: { round_id: "round-1", entrant_id: "ent-1" },
+    questions: { max_points: 5 },
+  };
+
+  it("rejects non-assigned reviewer", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      ...remarkRecord,
+      reviewer_id: "other",
+    });
+
+    await expect(
+      svc.updateRemarkAnswer("rem-1", "ans-1", "u", { points_awarded: 3 }),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You are not assigned to review this remark",
+    });
+  });
+
+  it("rejects updating an already reviewed remark", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      ...remarkRecord,
+      status: "reviewed",
+    });
+
+    await expect(
+      svc.updateRemarkAnswer("rem-1", "ans-1", "u", { points_awarded: 3 }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Cannot adjust marks on an already reviewed remark",
+    });
+  });
+
+  it("rejects an answer not matching the remark submission", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(remarkRecord);
+    prisma.answers.findUnique.mockResolvedValue({
+      ...answerRecord,
+      submissions: { round_id: "round-different", entrant_id: "ent-1" },
+    });
+
+    await expect(
+      svc.updateRemarkAnswer("rem-1", "ans-1", "u", { points_awarded: 3 }),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Answer not found for this remark request",
+    });
+  });
+
+  it("updates answer points clamped to maxPoints and recalculates total_points", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(remarkRecord);
+    prisma.answers.findUnique.mockResolvedValue(answerRecord);
+    prisma.answers.update.mockResolvedValue({ id: "ans-1" });
+    prisma.answers.findMany.mockResolvedValue([
+      { points_awarded: 5 },
+      { points_awarded: 11 },
+    ]);
+    prisma.results.update.mockResolvedValue({ id: "res-1" });
+
+    const result = await svc.updateRemarkAnswer("rem-1", "ans-1", "u", {
+      points_awarded: 10,
+    });
+
+    expect(result).toEqual({
+      answerId: "ans-1",
+      pointsAwarded: 5,
+      isCorrect: true,
+      totalPoints: 16,
+    });
+
+    expect(prisma.answers.update).toHaveBeenCalledWith({
+      where: { id: "ans-1" },
+      data: {
+        points_awarded: 5,
+        is_correct: true,
+        marked_by: "u",
+        marked_at: expect.any(Date),
+      },
+    });
+
+    expect(prisma.results.update).toHaveBeenCalledWith({
+      where: { id: "res-1" },
+      data: {
+        total_points: 16,
+        qualified: true,
+      },
+    });
+  });
+});
+
+

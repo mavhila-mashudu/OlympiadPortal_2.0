@@ -177,6 +177,7 @@ export const organiserNav: NavItem[] = [
 export const educatorNav: NavItem[] = [
   { label: "Dashboard", to: "/educator", icon: LayoutDashboard },
   { label: "Results", to: "/educator/results", icon: ClipboardList },
+  { label: "Remarks", to: "/educator/remarks", icon: ClipboardList },
   { label: "Register entrants", to: "/educator/entrants", icon: UserPlus },
 ];
 

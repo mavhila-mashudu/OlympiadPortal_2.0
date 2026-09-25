@@ -982,6 +982,250 @@ const getOlympiadProgressionInfo = async (olympiadId, userId) => {
   return { rounds: roundProgression };
 };
 
+/**
+ * List remarks specifically assigned to this educator for review.
+ */
+const listRemarks = async (userId) => {
+  const educator = await resolveEducator(userId);
+
+  const remarks = await prisma.remark_requests.findMany({
+    where: {
+      reviewer_id: educator.user_id,
+    },
+    include: {
+      results: {
+        include: {
+          entrants: {
+            select: { full_name: true, schools: { select: { name: true } } },
+          },
+          rounds: {
+            select: { name: true, olympiads: { select: { name: true } } },
+          },
+        },
+      },
+    },
+    orderBy: { created_at: "desc" },
+  });
+
+  return remarks.map((remark) => ({
+    id: remark.id,
+    resultId: remark.result_id,
+    studentName: remark.results?.entrants?.full_name || "Student",
+    studentSchool: remark.results?.entrants?.schools?.name || "School",
+    roundName: remark.results?.rounds?.name || "Round",
+    olympiadName: remark.results?.rounds?.olympiads?.name || "Olympiad",
+    score: Number(remark.results?.total_points ?? 0),
+    reason: remark.reason,
+    status: remark.status,
+    review_note: remark.review_note,
+    created_at: remark.created_at,
+    reviewed_at: remark.reviewed_at,
+  }));
+};
+
+/**
+ * Get question-by-question answers for an assigned remark.
+ */
+const getRemarkSubmissionAnswers = async (remarkId, userId) => {
+  const educator = await resolveEducator(userId);
+
+  const remark = await prisma.remark_requests.findUnique({
+    where: { id: remarkId },
+    include: {
+      results: {
+        include: {
+          entrants: { select: { id: true, full_name: true } },
+          rounds: { select: { id: true, name: true } },
+        },
+      },
+    },
+  });
+
+  if (!remark) {
+    throw new NotFoundError("Remark request not found");
+  }
+
+  if (remark.reviewer_id !== educator.user_id) {
+    throw new ForbiddenError("You are not assigned to review this remark");
+  }
+
+  const submission = await prisma.submissions.findFirst({
+    where: {
+      round_id: remark.results.round_id,
+      entrant_id: remark.results.entrant_id,
+    },
+    include: {
+      answers: {
+        include: {
+          questions: {
+            select: {
+              id: true,
+              prompt: true,
+              type: true,
+              options: true,
+              correct_option: true,
+              correct_answer: true,
+              max_points: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return {
+    remarkId: remark.id,
+    submissionId: submission?.id || null,
+    studentName: remark.results?.entrants?.full_name || "Student",
+    roundName: remark.results?.rounds?.name || "Round",
+    totalPoints: Number(remark.results?.total_points ?? 0),
+    answers: (submission?.answers || []).map((a) => ({
+      id: a.id,
+      questionId: a.question_id,
+      prompt: a.questions?.prompt || "",
+      type: a.questions?.type || "",
+      options: a.questions?.options || null,
+      correctOption: a.questions?.correct_option || null,
+      correctAnswer: a.questions?.correct_answer || null,
+      maxPoints: Number(a.questions?.max_points || 0),
+      studentAnswer: a.answer_value,
+      pointsAwarded: a.points_awarded !== null ? Number(a.points_awarded) : null,
+      isCorrect: a.is_correct,
+      markedAt: a.marked_at,
+    })),
+  };
+};
+
+/**
+ * Re-mark an individual question answer during a remark review.
+ * Updates the answer mark and automatically recalculates the student's total_points in results.
+ */
+const updateRemarkAnswer = async (
+  remarkId,
+  answerId,
+  userId,
+  { points_awarded, is_correct },
+) => {
+  const educator = await resolveEducator(userId);
+
+  const remark = await prisma.remark_requests.findUnique({
+    where: { id: remarkId },
+    include: {
+      results: {
+        include: {
+          rounds: { select: { id: true, qualifying_threshold: true } },
+        },
+      },
+    },
+  });
+
+  if (!remark) {
+    throw new NotFoundError("Remark request not found");
+  }
+
+  if (remark.reviewer_id !== educator.user_id) {
+    throw new ForbiddenError("You are not assigned to review this remark");
+  }
+
+  if (remark.status === "reviewed") {
+    throw new BadRequestError("Cannot adjust marks on an already reviewed remark");
+  }
+
+  const answer = await prisma.answers.findUnique({
+    where: { id: answerId },
+    include: {
+      submissions: true,
+      questions: { select: { max_points: true } },
+    },
+  });
+
+  if (
+    !answer ||
+    answer.submissions?.round_id !== remark.results.round_id ||
+    answer.submissions?.entrant_id !== remark.results.entrant_id
+  ) {
+    throw new NotFoundError("Answer not found for this remark request");
+  }
+
+  const maxPoints = Number(answer.questions?.max_points || 0);
+  const clampedPoints = Math.max(0, Math.min(Number(points_awarded), maxPoints));
+  const resolvedIsCorrect =
+    is_correct !== undefined ? is_correct : clampedPoints > 0;
+
+  let newTotalPoints = 0;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.answers.update({
+      where: { id: answerId },
+      data: {
+        points_awarded: clampedPoints,
+        is_correct: resolvedIsCorrect,
+        marked_by: educator.user_id,
+        marked_at: new Date(),
+      },
+    });
+
+    const allAnswers = await tx.answers.findMany({
+      where: { submission_id: answer.submission_id },
+      select: { points_awarded: true },
+    });
+
+    newTotalPoints = allAnswers.reduce(
+      (sum, a) => sum + (Number(a.points_awarded) || 0),
+      0,
+    );
+
+    const round = remark.results.rounds;
+    const threshold = round.qualifying_threshold
+      ? Number(round.qualifying_threshold)
+      : null;
+    const qualified = threshold !== null ? newTotalPoints >= threshold : false;
+
+    await tx.results.update({
+      where: { id: remark.result_id },
+      data: {
+        total_points: newTotalPoints,
+        ...(threshold !== null ? { qualified } : {}),
+      },
+    });
+  });
+
+  return {
+    answerId,
+    pointsAwarded: clampedPoints,
+    isCorrect: resolvedIsCorrect,
+    totalPoints: newTotalPoints,
+  };
+};
+
+/**
+ * Resolve an assigned remark with review feedback.
+ */
+const resolveRemark = async (remarkId, userId, { status, review_note }) => {
+  const educator = await resolveEducator(userId);
+
+  const remark = await prisma.remark_requests.findUnique({
+    where: { id: remarkId },
+  });
+
+  if (!remark) {
+    throw new NotFoundError("Remark request not found");
+  }
+
+  if (remark.reviewer_id !== educator.user_id) {
+    throw new ForbiddenError("You are not assigned to review this remark");
+  }
+
+  return prisma.remark_requests.update({
+    where: { id: remarkId },
+    data: {
+      status,
+      review_note: review_note ?? null,
+      reviewed_at: new Date(),
+    },
+  });
+};
+
 module.exports = {
   listEducatorRounds,
   getEducatorRoundDetail,
@@ -995,4 +1239,10 @@ module.exports = {
   listAllResults,
   listPastPapers,
   getPaperDownloadUrl,
+  listRemarks,
+  getRemarkSubmissionAnswers,
+  updateRemarkAnswer,
+  resolveRemark,
 };
+
+
