@@ -1,7 +1,7 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
 const supabase = require("../config/supabase");
-const { BadRequestError, NotFoundError } = require("../errors/AppError");
+const { BadRequestError, NotFoundError, ConflictError } = require("../errors/AppError");
 
 const BUCKET = "papers";
 
@@ -24,7 +24,21 @@ const buildRoundInclude = (entrantId, includeSubmissions = true) => {
     },
     results: {
       where: { entrant_id: entrantId },
-      select: { id: true, total_points: true, rank: true, qualified: true },
+      select: {
+        id: true,
+        total_points: true,
+        rank: true,
+        qualified: true,
+        remark_requests: {
+          select: {
+            id: true,
+            status: true,
+            reason: true,
+            review_note: true,
+            reviewed_at: true,
+          },
+        },
+      },
     },
   };
 
@@ -198,6 +212,11 @@ const getStudentRoundDetail = async (roundId, entrantId) => {
   const isResultsReleased = round.state === "results_released";
   const status = mapRoundStatus(round.state);
   const result = formatRoundResult(resultRow, maxPoints, isResultsReleased);
+  const remarkReq = resultRow?.remark_requests?.[0] || null;
+  const remarkStatus = remarkReq?.status || null;
+  const remarkReason = remarkReq?.reason || null;
+  const remarkNote = remarkReq?.review_note || null;
+  const remarkReviewedAt = remarkReq?.reviewed_at || null;
   return {
     id: round.id,
     title: round.name,
@@ -213,6 +232,10 @@ const getStudentRoundDetail = async (roundId, entrantId) => {
     hasPaper: Boolean(paper?.file_url),
     paperNote: getPaperNote(status),
     result,
+    remarkStatus,
+    remarkReason,
+    remarkNote,
+    remarkReviewedAt,
   };
 };
 
@@ -244,6 +267,7 @@ const getStudentResults = async (entrantId) => {
     const { score, percentage } = isReleased
       ? formatScoreAndPercentage(resultRow, maxPoints)
       : { score: "—", percentage: "—" };
+    const remarkStatus = resultRow?.remark_requests?.[0]?.status || null;
     return {
       id: round.id,
       round: round.name,
@@ -254,6 +278,7 @@ const getStudentResults = async (entrantId) => {
       percentage,
       rank: resultRow?.rank ?? null,
       hasCertificate: Boolean(resultRow?.qualified),
+      remarkStatus,
     };
   });
   return { results };
@@ -300,9 +325,70 @@ const getStudentPaperUrl = async (roundId, entrantId) => {
   return data.signedUrl;
 };
 
+/**
+ * Submit a remark request for a released round result.
+ * Starts in pending state with reviewer_id: null (waiting for organiser assignment).
+ */
+const submitRemarkRequest = async (entrantId, roundId, reason) => {
+  const reg = await prisma.entrant_registrations.findFirst({
+    where: { entrant_id: entrantId, round_id: roundId },
+    include: {
+      entrants: { select: { id: true, school_id: true, full_name: true } },
+      rounds: { select: { id: true, olympiad_id: true, state: true, name: true } },
+    },
+  });
+
+  if (!reg) {
+    throw new NotFoundError(
+      "Round not found or you are not registered for this round",
+    );
+  }
+
+  if (reg.rounds.state !== "results_released") {
+    throw new BadRequestError("Results are not released yet");
+  }
+
+  const result = await prisma.results.findFirst({
+    where: { entrant_id: entrantId, round_id: roundId },
+  });
+
+  if (!result) {
+    throw new BadRequestError("Results are not available for this round yet");
+  }
+
+  const existing = await prisma.remark_requests.findFirst({
+    where: { result_id: result.id },
+  });
+
+  if (existing) {
+    throw new ConflictError("A remark request already exists for this result");
+  }
+
+  const schoolRegistration = await prisma.school_registrations.findFirst({
+    where: {
+      school_id: reg.entrants.school_id,
+      olympiad_id: reg.rounds.olympiad_id,
+    },
+  });
+
+  if (!schoolRegistration) {
+    throw new BadRequestError("This school is not registered for the olympiad");
+  }
+
+  return prisma.remark_requests.create({
+    data: {
+      result_id: result.id,
+      reason,
+      status: "pending",
+      reviewer_id: null,
+    },
+  });
+};
+
 module.exports = {
   getRegisteredRounds,
   getStudentRoundDetail,
   getStudentResults,
   getStudentPaperUrl,
+  submitRemarkRequest,
 };

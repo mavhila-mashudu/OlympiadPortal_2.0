@@ -27,6 +27,7 @@ const MODELS = [
   "submissions",
   "entrant_registrations",
   "results",
+  "remark_requests",
 ];
 
 const METHODS = [

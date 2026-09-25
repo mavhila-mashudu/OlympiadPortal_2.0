@@ -25,6 +25,7 @@ type StudentResultItem = {
   percentage: string;
   rank: number | null;
   hasCertificate: boolean;
+  remarkStatus?: "pending" | "reviewed" | null;
 };
 
 function StudentResults() {
@@ -99,6 +100,7 @@ function StudentResults() {
               <Th>Status</Th>
               <Th numeric>Score</Th>
               <Th numeric>Percentage</Th>
+              <Th numeric>Remark</Th>
               <Th numeric>Certificate</Th>
             </tr>
           </thead>
@@ -106,7 +108,7 @@ function StudentResults() {
             {loading ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: "1rem",
                     textAlign: "center",
@@ -118,7 +120,7 @@ function StudentResults() {
             ) : results.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: "1rem",
                     textAlign: "center",
@@ -157,6 +159,15 @@ function StudentResults() {
                   </Td>
                   <Td numeric strong muted={false}>
                     {row.percentage}
+                  </Td>
+                  <Td numeric muted={false}>
+                    {row.remarkStatus ? (
+                      <span className={styles.badge}>
+                        {row.remarkStatus === "pending" ? "Pending" : "Reviewed"}
+                      </span>
+                    ) : (
+                      <span className={styles.dash}>—</span>
+                    )}
                   </Td>
                   <Td numeric muted={false}>
                     {row.hasCertificate ? (

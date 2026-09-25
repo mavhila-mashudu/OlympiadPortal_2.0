@@ -34,6 +34,10 @@ type RoundDetailData = {
     rankInSchool: number | null;
     hasCertificate: boolean;
   } | null;
+  remarkStatus?: "pending" | "reviewed" | null;
+  remarkReason?: string | null;
+  remarkNote?: string | null;
+  remarkReviewedAt?: string | null;
 };
 
 function StudentRoundDetail() {
@@ -48,6 +52,10 @@ function StudentRoundDetail() {
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [remarkReason, setRemarkReason] = useState("");
+  const [remarkSubmitting, setRemarkSubmitting] = useState(false);
+  const [remarkError, setRemarkError] = useState<string | null>(null);
+  const [remarkSuccess, setRemarkSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -265,6 +273,74 @@ function StudentRoundDetail() {
                       </Button>
                     </div>
                   ) : null}
+
+                  <div className={styles.remarkBox}>
+                    <div className={styles.remarkHeader}>
+                      <h3>Remark request</h3>
+                      {round.remarkStatus ? (
+                        <span className={`${styles.remarkBadge} ${styles[round.remarkStatus]}`}>
+                          {round.remarkStatus === "pending" ? "Pending review" : "Reviewed"}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    {round.remarkStatus ? (
+                      <p className={styles.remarkStatusText}>
+                        {round.remarkStatus === "pending"
+                          ? "Your remark request has been submitted and is currently being processed."
+                          : "This result has been reviewed."}
+                      </p>
+                    ) : (
+                      <>
+                        <textarea
+                          className={styles.remarkInput}
+                          value={remarkReason}
+                          onChange={(event) => setRemarkReason(event.target.value)}
+                          placeholder="Explain why you think this result should be reviewed."
+                          rows={3}
+                        />
+                        {remarkError && (
+                          <p className={styles.remarkError} role="alert">{remarkError}</p>
+                        )}
+                        {remarkSuccess && (
+                          <p className={styles.remarkSuccess}>{remarkSuccess}</p>
+                        )}
+                        <div className={styles.remarkActions}>
+                          <Button
+                            variant="primary"
+                            onClick={async () => {
+                              if (!round || !remarkReason.trim()) {
+                                setRemarkError("Please add a reason for the remark request.");
+                                return;
+                              }
+                              setRemarkSubmitting(true);
+                              setRemarkError(null);
+                              setRemarkSuccess(null);
+                              try {
+                                await api.post(`/rounds/${round.id}/remark`, {
+                                  reason: remarkReason.trim(),
+                                });
+                                setRemarkReason("");
+                                setRemarkSuccess("Remark request submitted. It will be reviewed by an educator.");
+                                setRound((current) =>
+                                  current ? { ...current, remarkStatus: "pending" } : current,
+                                );
+                              } catch (err) {
+                                setRemarkError(
+                                  err instanceof Error ? err.message : "Could not submit remark request",
+                                );
+                              } finally {
+                                setRemarkSubmitting(false);
+                              }
+                            }}
+                            disabled={remarkSubmitting}
+                          >
+                            {remarkSubmitting ? "Submitting…" : "Request remark"}
+                          </Button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </>
               ) : (
                 <p className={styles.noResult}>Results not released yet.</p>

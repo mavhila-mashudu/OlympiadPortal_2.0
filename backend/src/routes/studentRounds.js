@@ -1,6 +1,6 @@
 // @ts-nocheck
 const express = require("express");
-const { param } = require("express-validator");
+const { body, param } = require("express-validator");
 const router = express.Router();
 const { requireAuth, requireRole } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
@@ -9,6 +9,7 @@ const {
   getRoundDetail,
   getStudentResults,
   downloadPaper,
+  submitRemark,
 } = require("../controllers/studentRoundController");
 
 // All routes require authenticated student
@@ -38,4 +39,17 @@ router.get(
 // GET /rounds/my-results — list completed/released round results for the student
 router.get("/my-results", requireRole("student"), getStudentResults);
 
+// POST /rounds/:roundId/remark — student requests a remark on a released result
+router.post(
+  "/:roundId/remark",
+  requireRole("student"),
+  [
+    param("roundId").isUUID().withMessage("Valid round UUID required"),
+    body("reason").trim().notEmpty().withMessage("Reason is required"),
+  ],
+  validate,
+  submitRemark,
+);
+
 module.exports = router;
+

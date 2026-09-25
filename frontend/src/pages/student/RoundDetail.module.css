@@ -177,6 +177,88 @@
   line-height: 1.25rem;
 }
 
+.remarkBox {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 1rem;
+  background: color-mix(in oklab, var(--muted) 16%, transparent);
+}
+
+.remarkHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.remarkHeader h3 {
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.remarkBadge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pending {
+  background: color-mix(in oklab, var(--status-upcoming) 12%, transparent);
+  color: var(--status-upcoming);
+}
+
+.reviewed {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+
+.remarkInput {
+  width: 100%;
+  min-height: 5.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--foreground);
+  padding: 0.75rem 0.875rem;
+  resize: vertical;
+}
+
+.remarkInput:focus {
+  outline: 2px solid color-mix(in oklab, var(--primary) 30%, transparent);
+  outline-offset: 2px;
+}
+
+.remarkError,
+.remarkSuccess,
+.remarkStatusText {
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.remarkError {
+  color: var(--destructive, #b91c1c);
+}
+
+.remarkSuccess {
+  color: var(--primary);
+}
+
+.remarkStatusText {
+  color: var(--muted-foreground);
+}
+
+.remarkActions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 @media (min-width: 40rem) {
   .pageHeader {
     flex-direction: row;
