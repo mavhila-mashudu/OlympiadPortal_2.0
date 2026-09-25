@@ -16,6 +16,17 @@ const endpoints = [
   { method: "get", path: "/health", roles: "public" },
   { method: "get", path: "/", roles: "public" },
 
+  // Portal notifications
+  { method: "get", path: "/notifications", roles: "any" },
+  { method: "patch", path: "/notifications/:id/read", roles: "any" },
+
+  // Marking review and remarks
+  { method: "get", path: "/rounds/:roundId/review-sample", roles: ORGANISER },
+  { method: "patch", path: "/rounds/:roundId/review-sample/:answerId", roles: ORGANISER },
+  { method: "get", path: "/rounds/:roundId/remarks", roles: ORGANISER },
+  { method: "post", path: "/rounds/:roundId/remark", roles: STUDENT },
+  { method: "get", path: "/rounds/:roundId/my-remark", roles: STUDENT },
+  { method: "patch", path: "/rounds/:roundId/remarks/:remarkId", roles: ORGANISER },
   // Auth
   { method: "post", path: "/auth/register", roles: "public" },
   { method: "post", path: "/auth/register/organiser", roles: "public" },
@@ -96,6 +107,7 @@ const endpoints = [
   // Student portal
   { method: "get", path: "/rounds/registered", roles: STUDENT },
   { method: "get", path: "/rounds/:roundId/details", roles: STUDENT },
+  { method: "get", path: "/rounds/:roundId/certificate", roles: STUDENT },
   { method: "get", path: "/rounds/my-results", roles: STUDENT },
   { method: "get", path: "/rounds/:roundId/paper/download", roles: STUDENT },
   { method: "get", path: "/rounds/:roundId/exam", roles: STUDENT },
@@ -106,6 +118,8 @@ const endpoints = [
 
 // Where each route file is mounted (see src/app.js and src/routes/olympiads.js)
 const mounts = {
+  "portalNotifications.js": "/notifications",
+  "reviews.js": "/rounds",
   "auth.js": "/auth",
   "invites.js": "/invites",
   "educator.js": "/educator",
