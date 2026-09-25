@@ -1,6 +1,6 @@
 ALTER TABLE "notification_rules" ALTER COLUMN "channel" SET DEFAULT 'in_app';
 UPDATE "notification_rules" SET "channel" = 'in_app' WHERE "channel" = 'email';
-CREATE TABLE "portal_notifications" (
+CREATE TABLE IF NOT EXISTS "portal_notifications" (
  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  "user_id" UUID NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
  "rule_id" UUID REFERENCES "notification_rules"("id") ON DELETE SET NULL,
@@ -11,8 +11,8 @@ CREATE TABLE "portal_notifications" (
  "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT now(),
  "read_at" TIMESTAMPTZ(6)
 );
-CREATE INDEX "portal_notifications_user_id_created_at_idx" ON "portal_notifications"("user_id", "created_at");
-CREATE TABLE "remark_requests" (
+CREATE INDEX IF NOT EXISTS "portal_notifications_user_id_created_at_idx" ON "portal_notifications"("user_id", "created_at");
+CREATE TABLE "portal_remark_requests" (
  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
  "round_id" UUID NOT NULL REFERENCES "rounds"("id") ON DELETE CASCADE,
  "entrant_id" UUID NOT NULL REFERENCES "entrants"("id") ON DELETE CASCADE,
