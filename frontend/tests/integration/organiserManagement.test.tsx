@@ -256,7 +256,8 @@ describe("creating a round", () => {
   });
 
   const fillRoundForm = async (user: ReturnType<typeof renderApp>["user"]) => {
-    await user.selectOptions(await screen.findByLabelText(/^Olympiad/), "oly-1");
+    await screen.findByRole("option", { name: "Maths Olympiad 2026" });
+    await user.selectOptions(screen.getByLabelText(/^Olympiad/), "oly-1");
     await user.type(screen.getByLabelText(/^Round name/), "Round 3 — Provincial");
     await user.type(screen.getByLabelText("Qualifying threshold"), "62.5");
     await user.type(screen.getByLabelText("Instructions for educators"), "Calculators allowed");

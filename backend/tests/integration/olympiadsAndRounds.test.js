@@ -243,6 +243,11 @@ describe("round lifecycle", () => {
     const olympiad = await f.createOlympiad({ organiser });
     const round = await f.createRound({ olympiad });
     const { paper } = await f.createPaper({ round });
+    const school = await f.createSchool();
+    const entrant = await f.createEntrant({ school });
+    await prisma.results.create({
+      data: { round_id: round.id, entrant_id: entrant.id, total_points: 0 },
+    });
 
     for (const state of ["open", "closed", "marking", "results_released"]) {
       await roundService.setRoundState(round.id, organiser.id, state);

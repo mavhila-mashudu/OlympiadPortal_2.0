@@ -96,7 +96,7 @@ describe("notification rules", () => {
     });
     expect(await prisma.notification_rules.findUnique({ where: { id: rule.id } })).toMatchObject({
       name: "Opening reminder",
-      channel: "email",
+      channel: "in_app",
       enabled: true,
       offset_minutes: 60,
       condition: null,
@@ -107,9 +107,9 @@ describe("notification rules", () => {
     const updated = await notificationRuleService.updateRule({
       ruleId: rule.id,
       organiserId: organiser.id,
-      data: { enabled: false, condition: " grade 12 only " },
+      data: { enabled: false, condition: " Only rounds with submissions " },
     });
-    expect(updated).toMatchObject({ enabled: false, condition: "grade 12 only", name: "Opening reminder" });
+    expect(updated).toMatchObject({ enabled: false, condition: "Only rounds with submissions", name: "Opening reminder" });
     expect(updated.updated_at.getTime()).toBeGreaterThan(before.getTime());
 
     expect(await notificationRuleService.listRules(olympiad.id, organiser.id)).toHaveLength(1);
