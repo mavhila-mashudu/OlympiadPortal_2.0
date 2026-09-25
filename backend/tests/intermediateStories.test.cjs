@@ -16,6 +16,7 @@ const prisma = {
     { id: "missing", olympiad_id: "olympiad", name: "Still missing", trigger: "missing_submission", offset_minutes: 60, recipient: "registered_schools", condition: null },
   ] },
   rounds: { findMany: async () => [round] },
+  olympiads: { findUnique: async () => ({ organiser_id: "organiser" }) },
   school_registrations: { findMany: async () => [{ school_id: "school" }] },
   school_memberships: { findMany: async ({ where }) => where.school_id.in.length ? [{ user_id: "educator" }] : [] },
   entrant_registrations: { findMany: async () => [{ entrants: { school_id: "school" } }] },
@@ -40,6 +41,22 @@ test("due reminders deliver once and skip schools that submitted", async () => {
   prisma.submitted = true;
   assert.deepEqual(await delivery.resolveRecipients({ trigger: "missing_submission", recipient: "registered_schools" }, round), []);
   assert.equal(await delivery.deliverDueNotifications(new Date(now.getTime() + 10 * 60_000)), 0);
+});
+
+test("organiser action sends the reminder to the organiser once", async () => {
+  const original = prisma.notification_rules.findMany;
+  prisma.notification_rules.findMany = async () => [{
+    id: "alert-organiser", olympiad_id: "olympiad", name: "Check round",
+    trigger: "round_opens", offset_minutes: 60, recipient: "registered_educators",
+    action: "alert_organiser", condition: null,
+  }];
+  try {
+    assert.equal(await delivery.deliverDueNotifications(now), 1);
+    assert.ok(deliveries.has("alert-organiser:round:organiser"));
+    assert.equal(await delivery.deliverDueNotifications(now), 0);
+  } finally {
+    prisma.notification_rules.findMany = original;
+  }
 });
 
 test("certificate PDF is structurally readable and escapes learner names", () => {

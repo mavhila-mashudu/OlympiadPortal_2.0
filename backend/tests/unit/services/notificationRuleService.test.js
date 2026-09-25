@@ -64,6 +64,7 @@ describe("createRule", () => {
         offset_minutes: 60,
         recipient: "registered_educators",
         channel: "in_app",
+        action: "notify_recipients",
         condition: "Only rounds with submissions",
         enabled: false,
       },

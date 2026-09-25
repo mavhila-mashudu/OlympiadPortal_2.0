@@ -115,6 +115,37 @@ function OrganiserDashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!olympiad?.id) return;
+    let active = true;
+    let refreshing = false;
+    const olympiadId = olympiad.id;
+    const refresh = async () => {
+      if (!active || refreshing || document.visibilityState === "hidden") return;
+      refreshing = true;
+      try {
+        const { rounds: latest } = await api.get<{ rounds: Round[] }>(
+          `/olympiads/${olympiadId}/rounds`,
+        );
+        if (active) {
+          setRounds(latest || []);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Failed to refresh rounds");
+      } finally {
+        refreshing = false;
+      }
+    };
+    const timer = window.setInterval(refresh, 10_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [olympiad?.id]);
+
   async function handleSetState(roundId: string, state: string) {
     if (!olympiad) return;
     setUpdatingId(roundId);
