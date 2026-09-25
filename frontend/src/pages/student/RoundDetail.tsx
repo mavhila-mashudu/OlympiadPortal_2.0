@@ -5,7 +5,7 @@ import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
-import { api } from "../../lib/api";
+import { api, downloadCertificate } from "../../lib/api";
 import { studentNav } from "../../lib/mockData";
 import {
   formatDateTime,
@@ -259,7 +259,7 @@ function StudentRoundDetail() {
                         icon={<Download aria-hidden="true" />}
                         size="sm"
                         variant="outline"
-                        disabled
+                        onClick={() => downloadCertificate(round.id).catch((err) => setDownloadError(err.message))}
                       >
                         Download certificate
                       </Button>

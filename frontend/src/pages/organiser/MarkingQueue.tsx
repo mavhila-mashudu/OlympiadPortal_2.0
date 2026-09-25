@@ -14,6 +14,9 @@ import { organiserNav } from "../../lib/mockData";
 import { AnswerCard, type QueueAnswer } from "./AnswerCard";
 import styles from "./MarkingQueue.module.css";
 
+type ReviewAnswer = { id: string; answer_value: string | null; points_awarded: string; questions: { prompt: string; max_points: string }; submissions: { entrants: { full_name: string } }; marking_reviews: { id: string }[] };
+type Remark = { id: string; status: string; reason: string; decision: string | null; entrants: { full_name: string; submissions: { answers: { id: string; answer_value: string | null; points_awarded: string; questions: { prompt: string; max_points: string } }[] }[] } };
+
 type QueueSubmission = {
   id: string;
   received_at: string;
@@ -37,19 +40,26 @@ function MarkingQueue() {
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
   const [generated, setGenerated] = useState(false);
+  const [sample, setSample] = useState<ReviewAnswer[]>([]);
+  const [remarks, setRemarks] = useState<Remark[]>([]);
+  const [action, setAction] = useState(false);
 
   const loadQueue = useCallback(async () => {
     try {
-      const [queue, all] = await Promise.all([
+      const [queue, all, reviewData, remarkData] = await Promise.all([
         api.get<{ submissions: QueueSubmission[] }>(
           `/rounds/${roundId}/marking-queue`,
         ),
         api.get<{ submissions: SubmissionSummary[] }>(
           `/rounds/${roundId}/submissions`,
         ),
+        api.get<{ sample: ReviewAnswer[] }>(`/rounds/${roundId}/review-sample`),
+        api.get<{ remarks: Remark[] }>(`/rounds/${roundId}/remarks`),
       ]);
       setSubmissions(queue.submissions);
       setSubmissionSummary(all.submissions);
+      setSample(reviewData.sample);
+      setRemarks(remarkData.remarks);
     } catch (err: any) {
       setError(err.message || "Failed to load marking queue");
     }
@@ -75,6 +85,33 @@ function MarkingQueue() {
       setGenerating(false);
     }
   };
+
+  async function reviewAnswer(event: React.FormEvent<HTMLFormElement>, answerId: string) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setAction(true); setError(null);
+    try {
+      await api.patch(`/rounds/${roundId}/review-sample/${answerId}`, {
+        points_awarded: Number(form.get("points")), comment: String(form.get("comment")),
+      });
+      await loadQueue();
+    } catch (err) { setError(err instanceof Error ? err.message : "Review failed"); }
+    finally { setAction(false); }
+  }
+
+  async function decideRemark(event: React.FormEvent<HTMLFormElement>, id: string) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setAction(true); setError(null);
+    try {
+      await api.patch(`/rounds/${roundId}/remarks/${id}`, {
+        status: String(form.get("status")), decision: String(form.get("decision")),
+        answer_id: String(form.get("answer_id")), points_awarded: Number(form.get("points")),
+      });
+      await loadQueue();
+    } catch (err) { setError(err instanceof Error ? err.message : "Remark decision failed"); }
+    finally { setAction(false); }
+  }
 
   const totalPending = submissions.reduce(
     (sum, s) => sum + s.answers.length,
@@ -168,6 +205,33 @@ function MarkingQueue() {
           </Card>
         )}
 
+        <Card>
+          <h2>Moderation sample</h2>
+          <p>Review a stable sample of marked answers. A marker cannot review their own answer.</p>
+          {sample.length === 0 && <p>No manually marked answers to review.</p>}
+          {sample.map((answer) => <form key={answer.id} onSubmit={(e) => reviewAnswer(e, answer.id)} style={{ margin: "1rem 0", borderTop: "1px solid #ccc", paddingTop: "1rem" }}>
+            <p><strong>{answer.submissions.entrants.full_name}</strong> - {answer.questions.prompt}</p>
+            <p>Answer: {answer.answer_value || "(blank)"} | Mark: {answer.points_awarded}/{answer.questions.max_points} | Reviews: {answer.marking_reviews.length}</p>
+            <label>Reviewed points <input name="points" type="number" min="0" max={Number(answer.questions.max_points)} step="any" defaultValue={Number(answer.points_awarded)} required /></label>{" "}
+            <label>Review comment <input name="comment" required /></label>{" "}
+            <Button type="submit" disabled={action}>Save review</Button>
+          </form>)}
+        </Card>
+        <Card>
+          <h2>Student remark requests</h2>
+          {remarks.length === 0 && <p>No remark requests yet.</p>}
+          {remarks.map((remark) => <form key={remark.id} onSubmit={(e) => decideRemark(e, remark.id)} style={{ margin: "1rem 0", borderTop: "1px solid #ccc", paddingTop: "1rem" }}>
+            <p><strong>{remark.entrants.full_name}</strong> - {remark.status}: {remark.reason}</p>
+            {remark.status === "pending" && <>
+              <label>Decision <select name="status"><option value="rejected">Reject</option><option value="approved">Approve revised mark</option></select></label>{" "}
+              <label>Answer <select name="answer_id"><option value="">Select an answer if approving</option>{remark.entrants.submissions.flatMap((sub) => sub.answers).map((answer) => <option key={answer.id} value={answer.id}>{answer.questions.prompt.slice(0, 70)} (currently {answer.points_awarded}/{answer.questions.max_points})</option>)}</select></label>{" "}
+              <label>Revised points <input name="points" type="number" min="0" step="any" /></label>{" "}
+              <label>Explanation <input name="decision" required minLength={5} /></label>{" "}
+              <Button type="submit" disabled={action}>Record decision</Button>
+            </>}
+            {remark.decision && <p>Decision: {remark.decision}</p>}
+          </form>)}
+        </Card>
         {submissions.length > 0 && (
           <>
             <div className={styles.queueSummary}>

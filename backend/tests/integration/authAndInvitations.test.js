@@ -1,21 +1,28 @@
-// Registration, invitations and access control against the real database.
-// Supabase Auth and email are the only fakes.
+// Open registration, in-app invitations and access control against the real
+// database. Supabase Auth is the only fake.
 jest.mock("../../src/config/supabase", () => require("./helpers/externalMocks").supabase);
-jest.mock("../../src/lib/mailer", () => require("./helpers/externalMocks").mailer);
 
 const prisma = require("../../src/config/database").default;
 const authService = require("../../src/services/authService");
+const inviteService = require("../../src/services/inviteService");
 const { requireAuth, requireSchoolMembership } = require("../../src/middlewares/auth");
-const { supabase, mailer, resetExternalMocks, signInAs } = require("./helpers/externalMocks");
+const { supabase, resetExternalMocks, signInAs } = require("./helpers/externalMocks");
 const f = require("./helpers/factories");
-
-const tokenFromEmail = (sendMock) => new URL(sendMock.mock.calls.at(-1)[0].registrationUrl).searchParams.get("token");
 
 const runMiddleware = async (middleware, req) => {
   const next = jest.fn();
   await middleware(req, {}, next);
   return next.mock.calls[0]?.[0];
 };
+
+const signUp = (overrides) =>
+  authService.register({
+    full_name: "Thandi Mokoena",
+    email: "thandi@olympiad.test",
+    password: "Secret123",
+    role: "organiser",
+    ...overrides,
+  });
 
 beforeEach(() => {
   resetExternalMocks();
@@ -24,15 +31,16 @@ beforeEach(() => {
 
 describe("organiser sign-up", () => {
   it("creates the account with the Supabase user's id", async () => {
-    const { user } = await authService.registerOrganiser({
-      full_name: "Thandi Mokoena",
-      email: "thandi@olympiad.test",
-      password: "Secret123",
-    });
+    const { user } = await signUp();
 
     const stored = await prisma.users.findUnique({ where: { email: "thandi@olympiad.test" } });
     const authUserId = (await supabase.auth.admin.createUser.mock.results[0].value).data.user.id;
-    expect(stored).toMatchObject({ id: authUserId, auth_provider_id: authUserId, role: "organiser", deleted_at: null });
+    expect(stored).toMatchObject({
+      id: authUserId,
+      auth_provider_id: authUserId,
+      role: "organiser",
+      deleted_at: null,
+    });
     expect(user).toEqual({
       id: authUserId,
       full_name: "Thandi Mokoena",
@@ -42,218 +50,171 @@ describe("organiser sign-up", () => {
     });
   });
 
-  it("rejects an email that already has an account without creating a Supabase user", async () => {
-    await f.createOrganiser({ email: "taken@olympiad.test" });
-    await expect(
-      authService.registerOrganiser({ full_name: "X", email: "taken@olympiad.test", password: "Secret123" }),
-    ).rejects.toMatchObject({ statusCode: 409 });
-    expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
-    expect(await prisma.users.count()).toBe(1);
+  it("refuses an address that is already taken", async () => {
+    await signUp();
+    await expect(signUp({ full_name: "Someone Else" })).rejects.toMatchObject({ statusCode: 409 });
   });
 });
 
-describe("the invitation chain: organiser → school → educator → student", () => {
-  it("builds a working school from emailed invitation links", async () => {
-    const organiser = await f.createOrganiser();
-    const olympiad = await f.createOlympiad({ organiser, name: "Maths Olympiad" });
+describe("educator sign-up without an invitation", () => {
+  it("brings a new school onto the platform and makes the first educator its coordinator", async () => {
+    const { user } = await signUp({ role: "educator", school_name: "Parktown Boys High" });
 
-    // 1. Organiser invites a school; nothing exists for the school yet
-    const schoolInvite = await authService.inviteSchool({
-      schoolName: "Parktown High",
-      contactEmail: "head@parktown.test",
-      olympiadId: olympiad.id,
-      organiserId: organiser.id,
-    });
-    expect(await prisma.schools.count()).toBe(0);
-    const schoolToken = tokenFromEmail(mailer.sendSchoolInviteEmail);
-    expect(schoolInvite.registrationUrl).toBe(`https://olympiad.test/register?token=${schoolToken}`);
-
-    // Only the hash of the emailed token is stored
-    const storedInvite = await prisma.invitations.findUnique({ where: { id: schoolInvite.invitation.id } });
-    expect(storedInvite.token_hash).not.toBe(schoolToken);
-    await expect(authService.validateInvitationToken(schoolToken)).resolves.toMatchObject({
-      type: "school",
-      school: { name: "Parktown High" },
-      olympiad: { id: olympiad.id, name: "Maths Olympiad" },
-    });
-
-    // 2. The head registers from the link and becomes the coordinator
-    const { user: head } = await authService.registerWithCode({
-      full_name: "Head Teacher",
-      email: "head@parktown.test",
-      password: "Secret123",
-      invite_token: schoolToken,
-    });
-    const school = await prisma.schools.findFirst({ where: { name: "Parktown High" } });
-    expect(await prisma.school_registrations.findFirst({ where: { school_id: school.id } })).toMatchObject({
-      olympiad_id: olympiad.id,
-      status: "approved",
-    });
-    expect(await prisma.educators.findUnique({ where: { user_id: head.id } })).toMatchObject({ school_id: school.id });
+    const educator = await prisma.educators.findUnique({ where: { user_id: user.id } });
+    const school = await prisma.schools.findUnique({ where: { id: educator.school_id } });
+    expect(school.name).toBe("Parktown Boys High");
     expect(
       await prisma.school_memberships.findUnique({
-        where: { user_id_school_id: { user_id: head.id, school_id: school.id } },
+        where: { user_id_school_id: { user_id: user.id, school_id: school.id } },
       }),
     ).toMatchObject({ role: "coordinator", status: "active" });
-    expect(await prisma.invitations.findUnique({ where: { id: storedInvite.id } })).toMatchObject({
-      used_by_id: head.id,
-      accepted_at: expect.any(Date),
-    });
+  });
 
-    // The link can't be used twice
-    await expect(authService.validateInvitationToken(schoolToken)).rejects.toMatchObject({ statusCode: 404 });
+  it("joins a school that already has a coordinator as an ordinary member", async () => {
+    const { school } = await f.createEducator({ membershipRole: "coordinator" });
 
-    // 3. The coordinator invites a teacher, who registers with the code
-    const teacherInvite = await authService.inviteEducator({
-      email: "teacher@parktown.test",
-      schoolId: school.id,
-      olympiadId: olympiad.id,
-      createdById: head.id,
-    });
-    const { user: teacher } = await authService.registerWithCode({
-      full_name: "Class Teacher",
-      email: "teacher@parktown.test",
-      password: "Secret123",
-      code: teacherInvite.code,
-    });
+    const { user } = await signUp({ role: "educator", email: "second@school.test", school_id: school.id });
+
     expect(
       await prisma.school_memberships.findUnique({
-        where: { user_id_school_id: { user_id: teacher.id, school_id: school.id } },
+        where: { user_id_school_id: { user_id: user.id, school_id: school.id } },
       }),
     ).toMatchObject({ role: "educator" });
+  });
+});
 
-    // 4. The teacher invites a learner, who registers from their link
-    await authService.inviteStudent({
-      email: "learner@parktown.test",
-      schoolId: school.id,
-      olympiadId: olympiad.id,
-      createdById: teacher.id,
-    });
-    const { user: learner } = await authService.registerWithCode({
-      full_name: "Ayanda Khumalo",
-      email: "learner@parktown.test",
-      password: "Secret123",
-      invite_token: tokenFromEmail(mailer.sendStudentInviteEmail),
-    });
-    expect(await prisma.entrants.findUnique({ where: { user_id: learner.id } })).toMatchObject({
+describe("student sign-up without an invitation", () => {
+  it("creates an entrant at the chosen school", async () => {
+    const school = await f.createSchool();
+
+    const { user } = await signUp({ role: "student", email: "learner@school.test", school_id: school.id });
+
+    expect(await prisma.entrants.findUnique({ where: { user_id: user.id } })).toMatchObject({
       school_id: school.id,
-      full_name: "Ayanda Khumalo",
+      full_name: "Thandi Mokoena",
+    });
+  });
+
+  it("will not join a school that does not exist", async () => {
+    await expect(
+      signUp({ role: "student", school_id: "00000000-0000-4000-8000-000000000000" }),
+    ).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("leaves no orphaned Supabase login behind when the database write fails", async () => {
+    const school = await f.createSchool();
+    jest.spyOn(prisma, "$transaction").mockRejectedValueOnce(new Error("db down"));
+
+    await expect(signUp({ role: "student", school_id: school.id })).rejects.toThrow("db down");
+
+    expect(supabase.auth.admin.deleteUser).toHaveBeenCalled();
+    expect(await prisma.users.findUnique({ where: { email: "thandi@olympiad.test" } })).toBeNull();
+    prisma.$transaction.mockRestore();
+  });
+});
+
+describe("the invitation chain: organiser -> educator -> student", () => {
+  it("registers the school only once the educator accepts", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser });
+    const { user: educatorUser, school } = await f.createEducator();
+
+    const invite = await inviteService.createInvite({
+      olympiadId: olympiad.id,
+      inviteeId: educatorUser.id,
+      inviterId: organiser.id,
+      inviterRole: "organiser",
     });
 
-    // The school's invitation list reflects what happened
-    expect(await authService.listStudentInvitations(school.id)).toEqual([
-      expect.objectContaining({ email: "learner@parktown.test", olympiadName: "Maths Olympiad", status: "accepted" }),
+    // Pending: the educator sees it, but the school is not in the olympiad yet
+    expect((await inviteService.listMyInvites(educatorUser.id)).map((i) => i.id)).toEqual([invite.id]);
+    expect(await authService.listEducatorOlympiads(school.id)).toEqual([]);
+
+    await inviteService.respondToInvite({ inviteId: invite.id, userId: educatorUser.id, accept: true });
+
+    expect(await authService.listEducatorOlympiads(school.id)).toEqual([
+      { id: olympiad.id, name: olympiad.name },
     ]);
-    expect(await prisma.users.count()).toBe(4);
   });
-});
 
-describe("registering with an invitation", () => {
-  const register = (overrides = {}) =>
-    authService.registerWithCode({
-      full_name: "New Person",
-      email: "new@school.test",
-      password: "Secret123",
-      ...overrides,
+  it("lets the educator pass the olympiad on to a student, who is enrolled on accepting", async () => {
+    const { olympiad, school, educatorUser, educator } = await f.createOlympiadWithSchool();
+    const round = await f.createRound({ olympiad, state: "open" });
+    const { user: studentUser, entrant } = await f.createStudent({ school });
+
+    const invite = await inviteService.createInvite({
+      olympiadId: olympiad.id,
+      inviteeId: studentUser.id,
+      inviterId: educatorUser.id,
+      inviterRole: "educator",
     });
 
-  it("links a student to an entrant the teacher already registered", async () => {
-    const school = await f.createSchool();
-    const waiting = await f.createEntrant({ school, full_name: "Placeholder name" });
-    const invite = await f.createInvitation({ type: "student", school_id: school.id });
+    expect(await prisma.entrant_registrations.count({ where: { entrant_id: entrant.id } })).toBe(0);
 
-    const { user } = await register({ code: invite.code, full_name: "Real Name" });
+    await inviteService.respondToInvite({ inviteId: invite.id, userId: studentUser.id, accept: true });
 
-    expect(await prisma.entrants.count()).toBe(1);
-    expect(await prisma.entrants.findUnique({ where: { id: waiting.id } })).toMatchObject({
-      user_id: user.id,
-      full_name: "Real Name",
+    expect(await prisma.entrant_registrations.findFirst({ where: { entrant_id: entrant.id } })).toMatchObject({
+      round_id: round.id,
+      registered_by: educator.id,
+      status: "registered",
     });
   });
 
-  it("rejects an expired invitation and creates nothing", async () => {
-    const school = await f.createSchool();
-    const invite = await f.createInvitation({ school_id: school.id, expires_at: f.hoursFromNow(-1) });
+  it("changes nothing when the invitation is rejected", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser });
+    const { user: educatorUser, school } = await f.createEducator();
 
-    await expect(register({ code: invite.code })).rejects.toMatchObject({ message: "Invitation expired" });
-    expect(await prisma.users.count()).toBe(0);
-    expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
-  });
-
-  it("rejects an invitation that was issued to someone else's email", async () => {
-    const school = await f.createSchool();
-    const invite = await f.createInvitation({ school_id: school.id, email: "intended@school.test" });
-    await expect(register({ code: invite.code })).rejects.toMatchObject({
-      message: "This invitation was issued for a different email",
+    const invite = await inviteService.createInvite({
+      olympiadId: olympiad.id,
+      inviteeId: educatorUser.id,
+      inviterId: organiser.id,
+      inviterRole: "organiser",
     });
-  });
-
-  it("rolls everything back, including the Supabase user, if a step fails part-way", async () => {
-    // A pending school invitation with no olympiad: the school is created
-    // inside the transaction, then registering it for the olympiad fails.
-    const invite = await f.createInvitation({ type: "school", school_name: "Half-made School", olympiad_id: null });
-
-    await expect(register({ code: invite.code })).rejects.toThrow();
-
-    expect(await prisma.schools.count()).toBe(0);
-    expect(await prisma.users.count()).toBe(0);
-    expect((await prisma.invitations.findUnique({ where: { id: invite.id } })).used_by_id).toBeNull();
-    const createdAuthId = (await supabase.auth.admin.createUser.mock.results[0].value).data.user.id;
-    expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith(createdAuthId);
-  });
-
-  it("validates a typed invitation code without using it up", async () => {
-    const school = await f.createSchool({ name: "Northview" });
-    const invite = await f.createInvitation({ type: "educator", school_id: school.id });
-
-    await expect(authService.validateInvitationCode(invite.code)).resolves.toMatchObject({
-      valid: true,
-      type: "educator",
-      school: { id: school.id, name: "Northview" },
+    const answered = await inviteService.respondToInvite({
+      inviteId: invite.id,
+      userId: educatorUser.id,
+      accept: false,
     });
-    expect((await prisma.invitations.findUnique({ where: { id: invite.id } })).used_by_id).toBeNull();
-  });
-});
 
-describe("educator invitation tools", () => {
-  it("only lets a school invite for olympiads it is registered in", async () => {
-    const olympiad = await f.createOlympiad();
-    const { user, school } = await f.createEducator();
+    expect(answered.status).toBe("rejected");
+    expect(await authService.listEducatorOlympiads(school.id)).toEqual([]);
+  });
+
+  it("will not let someone answer an invitation that is not theirs", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser });
+    const { user: educatorUser } = await f.createEducator();
+    const intruder = (await f.createEducator()).user;
+
+    const invite = await inviteService.createInvite({
+      olympiadId: olympiad.id,
+      inviteeId: educatorUser.id,
+      inviterId: organiser.id,
+      inviterRole: "organiser",
+    });
 
     await expect(
-      authService.inviteStudent({ email: "l@s.test", schoolId: school.id, olympiadId: olympiad.id, createdById: user.id }),
-    ).rejects.toMatchObject({ statusCode: 404 });
-    expect(await prisma.invitations.count()).toBe(0);
+      inviteService.respondToInvite({ inviteId: invite.id, userId: intruder.id, accept: true }),
+    ).rejects.toMatchObject({ statusCode: 403 });
   });
 
-  it("generates a batch of unique 30-day student codes", async () => {
-    const { olympiad, school, educatorUser } = await f.createOlympiadWithSchool();
+  it("will not answer the same invitation twice", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser });
+    const { user: educatorUser } = await f.createEducator();
 
-    const codes = await authService.generateStudentCodes({
-      count: 25,
-      schoolId: school.id,
+    const invite = await inviteService.createInvite({
       olympiadId: olympiad.id,
-      createdById: educatorUser.id,
+      inviteeId: educatorUser.id,
+      inviterId: organiser.id,
+      inviterRole: "organiser",
     });
+    await inviteService.respondToInvite({ inviteId: invite.id, userId: educatorUser.id, accept: true });
 
-    const stored = await prisma.invitations.findMany({ where: { school_id: school.id } });
-    expect(codes).toHaveLength(25);
-    expect(new Set(stored.map((i) => i.code)).size).toBe(25);
-    expect(new Set(stored.map((i) => i.token_hash)).size).toBe(25);
-    const days = (stored[0].expires_at - stored[0].created_at) / 86_400_000;
-    expect(Math.round(days)).toBe(30);
-  });
-
-  it("lists only olympiads the school's registration is approved for", async () => {
-    const { user, school } = await f.createEducator();
-    const approved = await f.createOlympiad({ name: "Approved" });
-    const pending = await f.createOlympiad({ name: "Pending" });
-    await f.registerSchool(school, approved);
-    await f.registerSchool(school, pending, { status: "pending" });
-
-    const olympiads = await authService.listEducatorOlympiads(school.id);
-    expect(olympiads).toEqual([{ id: approved.id, name: "Approved" }]);
-    expect(user).toBeDefined();
+    await expect(
+      inviteService.respondToInvite({ inviteId: invite.id, userId: educatorUser.id, accept: false }),
+    ).rejects.toMatchObject({ statusCode: 400 });
   });
 });
 

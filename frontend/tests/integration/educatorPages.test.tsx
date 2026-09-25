@@ -270,12 +270,21 @@ describe("educator entrants and invitations", () => {
 
   const mockEntrantsPage = ({ membershipRole = "coordinator", requiresQualification = false } = {}) => {
     const state = {
-      invitations: [{ id: "inv-1", email: "old@student.test", olympiadName: "Maths Olympiad 2026", code: "STU-1", status: "accepted" }] as Record<string, unknown>[],
+      invitations: [
+        {
+          id: "inv-1",
+          status: "accepted",
+          olympiad: { id: "oly-1", name: "Maths Olympiad 2026" },
+          invitee: { id: "stu-1", name: "Ayanda Khumalo", email: "old@student.test" },
+        },
+      ] as Record<string, unknown>[],
+      candidates: [{ id: "stu-2", name: "Lerato Nkosi", email: "new@student.test" }] as Record<string, unknown>[],
       entrants: { "oly-1": [olympiadEntrant()], "oly-2": [] as ReturnType<typeof olympiadEntrant>[] } as Record<string, ReturnType<typeof olympiadEntrant>[]>,
     };
     mockApi("get", "/educator/rounds", { rounds: [], school: fx.school });
     mockApi("get", "/auth/educator-olympiads", { olympiads });
-    mockApi("get", "/auth/student-invitations", () => ({ invitations: state.invitations }));
+    mockApi("get", "/invites/sent", () => ({ invites: state.invitations }));
+    mockApi("get", "/invites/candidates", () => ({ candidates: state.candidates }));
     mockApi("get", "/auth/me", fx.me("educator", { school_memberships: [{ school_id: "school-1", role: membershipRole, schools: { name: "Parktown High" } }] }));
     mockApi("get", "/educator/olympiads/:olympiadId/entrants", (req) => ({ entrants: state.entrants[req.path.split("/")[3]] }));
     mockApi("get", "/educator/olympiads/:olympiadId/progression", (req) => ({
@@ -296,7 +305,7 @@ describe("educator entrants and invitations", () => {
     expect(within(row).getAllByRole("cell").map((c) => c.textContent)).toEqual(["Ayanda Khumalo", "S001", "11", "Round 1"]);
     expect(screen.getByLabelText("Olympiad")).toHaveValue("oly-1");
     expect(screen.getByRole("heading", { name: "Student invitations (1)" })).toBeInTheDocument();
-    expect(screen.getByText("old@student.test · Maths Olympiad 2026")).toBeInTheDocument();
+    expect(screen.getByText("Ayanda Khumalo · Maths Olympiad 2026")).toBeInTheDocument();
     expect(screen.getByText("accepted")).toBeInTheDocument();
   });
 
@@ -368,66 +377,67 @@ describe("educator entrants and invitations", () => {
     expect(await screen.findByText(/require entrants to have qualified from a previous round/)).toBeInTheDocument();
   });
 
-  it("invites a student and adds the invitation to the list", async () => {
+  it("invites a student from the school and adds the invitation to the list", async () => {
     const state = mockEntrantsPage();
     const invites = mockApi(
       "post",
-      "/auth/invite-student",
-      (req) => {
-        const { email } = req.body as { email: string };
-        state.invitations = [{ id: "inv-2", email, olympiadName: "Maths Olympiad 2026", code: "STU-2", status: "pending" }, ...state.invitations];
-        return { code: "STU-2", emailDelivered: true };
+      "/invites",
+      () => {
+        state.invitations = [
+          {
+            id: "inv-2",
+            status: "pending",
+            olympiad: { id: "oly-1", name: "Maths Olympiad 2026" },
+            invitee: { id: "stu-2", name: "Lerato Nkosi", email: "new@student.test" },
+          },
+          ...state.invitations,
+        ];
+        return { invite: { id: "inv-2" } };
       },
       { status: 201 },
     );
     const { user } = renderApp("/educator/entrants");
 
     await screen.findByText("Ayanda Khumalo");
-    await user.type(screen.getByLabelText(/Student email/), "new@student.test");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Student/ }), "stu-2");
     await user.click(screen.getByRole("button", { name: "Send invitation" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Student invitation sent successfully.");
-    expect(await screen.findByText("new@student.test · Maths Olympiad 2026")).toBeInTheDocument();
-    expect(invites[0].body).toEqual({ email: "new@student.test", olympiad_id: "oly-1" });
-    expect(screen.getByLabelText(/Student email/)).toHaveValue("");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Lerato Nkosi will see this invitation on their dashboard.",
+    );
+    expect(await screen.findByText("Lerato Nkosi · Maths Olympiad 2026")).toBeInTheDocument();
+    expect(invites[0].body).toEqual({ olympiad_id: "oly-1", invitee_id: "stu-2" });
   });
 
-  it("gives the invitation code when the email couldn't be delivered", async () => {
+  it("shows the backend's reason when an invitation is refused", async () => {
     mockEntrantsPage();
-    mockApi("post", "/auth/invite-student", { code: "STU-9F8E", emailDelivered: false }, { status: 201 });
+    mockApiError("post", "/invites", 409, "That person has already been invited to this olympiad");
     const { user } = renderApp("/educator/entrants");
 
     await screen.findByText("Ayanda Khumalo");
-    await user.type(screen.getByLabelText(/Student email/), "new@student.test");
+    await user.selectOptions(screen.getByRole("combobox", { name: /^Student/ }), "stu-2");
     await user.click(screen.getByRole("button", { name: "Send invitation" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Invitation code STU-9F8E was created, but email delivery is unavailable.");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "That person has already been invited to this olympiad",
+    );
   });
 
-  it("lets a coordinator invite another educator", async () => {
-    mockEntrantsPage();
-    const invites = mockApi("post", "/auth/invite-educator", { code: "EDU-1", emailDelivered: true }, { status: 201 });
-    const { user } = renderApp("/educator/entrants");
-
-    await user.type(await screen.findByLabelText("Educator email"), "colleague@parktown.test");
-    await user.click(screen.getByRole("button", { name: "Invite educator" }));
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Educator invitation sent successfully.");
-    expect(invites[0].body).toEqual({ email: "colleague@parktown.test", olympiad_id: "oly-1" });
-  });
-
-  it("hides educator invitations from non-coordinators", async () => {
-    mockEntrantsPage({ membershipRole: "educator" });
+  it("says so when there is nobody left to invite, and disables the picker", async () => {
+    const state = mockEntrantsPage();
+    state.candidates = [];
     renderApp("/educator/entrants");
 
     await screen.findByText("Ayanda Khumalo");
-    expect(screen.queryByRole("heading", { name: "Invite an educator" })).not.toBeInTheDocument();
+    const picker = screen.getByRole("combobox", { name: /^Student/ });
+    expect(picker).toBeDisabled();
+    expect(within(picker).getByRole("option", { name: "No students left to invite" })).toBeInTheDocument();
   });
 
   it("tells the educator when invitations couldn't be loaded", async () => {
     mockApi("get", "/educator/rounds", { rounds: [], school: fx.school });
     mockApiError("get", "/auth/educator-olympiads", 500, "Internal server error");
-    mockApi("get", "/auth/student-invitations", { invitations: [] });
+    mockApi("get", "/invites/sent", { invites: [] });
     mockApi("get", "/auth/me", fx.me("educator"));
     renderApp("/educator/entrants");
 

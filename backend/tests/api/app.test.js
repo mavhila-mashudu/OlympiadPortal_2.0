@@ -97,8 +97,7 @@ describe("rate limiting", () => {
   it.each([
     ["post", "/auth/register/organiser"],
     ["post", "/auth/register"],
-    ["get", "/auth/validate-code/SCH-TEST"],
-    ["get", "/auth/validate-invite/some-token"],
+    ["get", "/auth/schools"],
   ])("limits requests to %s %s per client", async (method, path) => {
     const res = await api()[method](path).send({});
     // The API tests raise the limit (AUTH_RATE_LIMIT_MAX); production uses 100 per 15 minutes
@@ -125,13 +124,11 @@ describe("request parsing", () => {
     expect(expectOk(res, 201).olympiad.name).toBe("Form Olympiad");
   });
 
+  // Body ids are all validated as UUIDs before they reach Prisma (a bad one
+  // is a 422), so only path ids can produce Prisma's malformed-uuid error.
   it.each([
     ["a path id", (organiser) => as(organiser).get("/olympiads/not-a-uuid")],
     ["a nested path id", (organiser) => as(organiser).get("/rounds/123/exam-status")],
-    [
-      "an id in the body",
-      (organiser) => as(organiser).post("/auth/invite-school").send({ school_name: "S", contact_email: "a@b.co", olympiad_id: "nope" }),
-    ],
   ])("responds 400 to %s that isn't a UUID, without leaking internals", async (_label, send) => {
     const res = await send(await f.createOrganiser());
     expectError(res, 400, "Invalid ID format");

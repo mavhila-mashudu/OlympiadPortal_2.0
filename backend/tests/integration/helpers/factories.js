@@ -97,12 +97,14 @@ const registerEntrant = ({ entrant, round, educator, ...overrides }) =>
     data: { entrant_id: entrant.id, round_id: round.id, registered_by: educator.id, ...overrides },
   });
 
-const createInvitation = (overrides = {}) =>
-  prisma.invitations.create({
+const createInvite = ({ olympiad, invitee, invitedBy, school, ...overrides }) =>
+  prisma.olympiad_invites.create({
     data: {
-      code: `CODE-${unique()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`,
-      type: "student",
-      expires_at: hoursFromNow(24 * 7),
+      olympiad_id: olympiad.id,
+      invitee_id: invitee.id,
+      invited_by_id: invitedBy.id,
+      school_id: school ? school.id : null,
+      role: invitee.role,
       ...overrides,
     },
   });
@@ -132,6 +134,6 @@ module.exports = {
   createEntrant,
   createStudent,
   registerEntrant,
-  createInvitation,
+  createInvite,
   createOlympiadWithSchool,
 };

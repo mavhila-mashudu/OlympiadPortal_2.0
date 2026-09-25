@@ -55,7 +55,7 @@ rules are handled through the Express API and Prisma services.
 | `@tanstack/react-query` | Runtime | Query client and educator data hooks | Helps load, cache, refresh, and update data from the API. |
 | `@supabase/supabase-js` | Runtime | Browser sign-in and Supabase session access in `frontend/src/lib/supabase.ts` and auth pages | Reuses the same established identity provider as the backend. |
 | `lucide-react` | Runtime | Icons in navigation, forms, exam controls, and status interfaces | Provides a consistent icon set as importable React components. |
-| `vite` | Development | Development server and production bundling | Fast development feedback and a simple static build suitable for Vercel. |
+| `vite` | Development | Development server and production bundling | Fast development feedback and a simple static build suitable for any static host. |
 | `@vitejs/plugin-react` | Development | React support for Vite | Connects React and JSX/TSX processing to the Vite build. |
 | `typescript` | Development | Frontend type checking during `npm run build` | Detects type errors before the static bundle is produced. |
 | `oxlint` | Development | Frontend linting through `npm run lint` | Provides fast static analysis for common code-quality issues. |
@@ -80,8 +80,8 @@ rules are handled through the Express API and Prisma services.
 | Supabase Storage | Private `papers` bucket and time-limited signed URLs | Stores large exam documents separately from relational records. |
 | SMTP provider | Invitation email delivery through Nodemailer | Allows invitations to reach schools, educators, and students. |
 | Docker `node:22-bookworm-slim` | Production backend image in `backend/Dockerfile` | Provides a reproducible Node.js runtime with the libraries required by the backend. |
-| Render | Intended backend hosting target documented by the Dockerfile | Runs the containerized Express API and migration command. |
-| Vercel | Intended frontend hosting target documented in the frontend deployment configuration | Serves the Vite-generated static SPA. |
+| Azure App Service | Backend hosting | Runs the Express API on a Linux Node 22 plan; the deploy pipeline ships the built application to it. |
+| Azure Storage (static website) | Frontend hosting | Serves the Vite-generated static SPA from the `$web` container, falling back to `index.html` so client-side routes resolve. |
 | Gitea Actions | Repository automation configuration under `.gitea` | Automates backend image builds and deployment workflows. |
 
 ## Selection Decisions

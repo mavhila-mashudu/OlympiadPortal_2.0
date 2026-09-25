@@ -1,7 +1,7 @@
 // The educator's other core job: getting learners into the competition.
 import { expect, test } from "@playwright/test";
 import { signInAsEducator } from "./helpers";
-import { DRAFT_ROUND, USERS } from "./test-data";
+import { DRAFT_ROUND, OLYMPIAD, PASSWORD, USERS } from "./test-data";
 
 test("an educator registers a learner and invites a student to join", async ({ page }) => {
   const learner = `New Learner ${Date.now()}`;
@@ -24,8 +24,34 @@ test("an educator registers a learner and invites a student to join", async ({ p
   await expect(row).toBeVisible();
   await expect(row.getByText("10")).toBeVisible();
 
-  // Invite a student to create their own account
-  await page.getByLabel(/^Student email/).fill(`learner.${Date.now()}@e2e.test`);
+  // Invite a student who already has an account at this school
+  await page.getByLabel("Student *", { exact: true }).selectOption(USERS.student.id);
   await page.getByRole("button", { name: "Send invitation" }).click();
-  await expect(page.getByRole("alert")).toContainText(/invitation/i);
+  await expect(page.getByRole("alert")).toContainText(
+    `${USERS.student.fullName} will see this invitation on their dashboard.`,
+  );
+  await expect(
+    page.getByRole("listitem").filter({ hasText: `${USERS.student.fullName}` }),
+  ).toContainText("pending");
+});
+
+test("a student accepts an invitation and the olympiad appears on their dashboard", async ({ page }) => {
+  await signInAsEducator(page, USERS.educator);
+  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Register entrants" }).click();
+  await page.getByLabel("Student *", { exact: true }).selectOption(USERS.joiningStudent.id);
+  await page.getByRole("button", { name: "Send invitation" }).click();
+  await expect(page.getByRole("alert")).toContainText(/will see this invitation/);
+  await page.getByRole("button", { name: "Log out" }).click();
+
+  await page.goto("/login");
+  await page.getByLabel("Email address").fill(USERS.joiningStudent.email);
+  await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+  await page.getByRole("button", { name: "Log in" }).click();
+  await expect(page).toHaveURL(/\/student$/);
+
+  const invitation = page.getByRole("listitem").filter({ hasText: OLYMPIAD.name });
+  await invitation.getByRole("button", { name: "Accept" }).click();
+
+  await expect(page.getByRole("heading", { name: /Invitations/ })).toBeHidden();
+  await expect(page.getByText(DRAFT_ROUND.name)).toBeVisible();
 });

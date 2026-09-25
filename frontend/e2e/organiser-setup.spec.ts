@@ -1,8 +1,8 @@
 // Organiser journeys for setting a competition up: creating a round with its
-// question paper, and inviting a school to take part.
+// question paper, and inviting an educator to bring their school in.
 import { expect, test } from "@playwright/test";
 import { signInAsOrganiser } from "./helpers";
-import { OLYMPIAD, USERS } from "./test-data";
+import { OLYMPIAD, UNREGISTERED_SCHOOL, USERS } from "./test-data";
 
 test.beforeEach(async ({ page }) => {
   await signInAsOrganiser(page, USERS.organiser);
@@ -38,20 +38,19 @@ test("an organiser creates a round and uploads its question paper", async ({ pag
   await expect(row.getByRole("button", { name: "Close round" })).toBeVisible();
 });
 
-test("an organiser invites a school and gets its invitation code", async ({ page }) => {
+test("an organiser invites an educator, whose school then shows as invited", async ({ page }) => {
   await page.goto("/organiser/schools");
   await expect(page.getByRole("heading", { name: "Registered Schools" })).toBeVisible();
 
-  await page.getByRole("button", { name: "Invite school" }).click();
-  await page.getByLabel("School name").fill("Northview College");
-  await page.getByLabel("Contact email").fill(`head.${Date.now()}@northview.test`);
+  await page.getByRole("button", { name: "Invite educator" }).click();
+  await page.getByLabel("Educator", { exact: true }).selectOption(USERS.otherEducator.id);
   await page.getByRole("button", { name: "Send invitation" }).click();
 
-  // The code is shown so the organiser can pass it on
-  await expect(page.getByText(/^SCH-[A-Z2-9]{4}$/)).toBeVisible();
+  // No code and no email: the invitation waits on the educator dashboard
+  await expect(page.getByText(/will see this invitation on their dashboard/)).toBeVisible();
 
   await page.getByRole("button", { name: "Close" }).click();
-  const row = page.getByRole("row").filter({ hasText: "Northview College" });
+  const row = page.getByRole("row").filter({ hasText: UNREGISTERED_SCHOOL.name });
   await expect(row).toBeVisible();
-  await expect(row.getByText("Pending")).toBeVisible();
+  await expect(row.getByText("Invited")).toBeVisible();
 });

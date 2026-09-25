@@ -61,6 +61,8 @@ app.get("/", (_req, res) => {
 
 // ── Routes ──────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
+app.use("/invites", require("./routes/invites"));
+app.use("/notifications", require("./routes/portalNotifications"));
 app.use("/educator", require("./routes/educator"));
 
 //registering olympiads and rounds routes
@@ -72,6 +74,7 @@ app.use("/rounds", require("./routes/questions"));
 app.use("/rounds", require("./routes/examStatus"));
 app.use("/rounds", require("./routes/submissions"));
 app.use("/rounds", require("./routes/marking"));
+app.use("/rounds", require("./routes/reviews"));
 app.use("/rounds", require("./routes/standings"));
 // Root parametrised last
 app.use("/rounds", require("./routes/roundDetail"));

@@ -6,7 +6,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { TablePanel, Td, Th } from "../../components/ui/Table";
-import { api } from "../../lib/api";
+import { api, downloadCertificate } from "../../lib/api";
 import { studentNav } from "../../lib/mockData";
 import {
   formatDateOnly,
@@ -35,6 +35,7 @@ function StudentResults() {
   });
   const [results, setResults] = useState<StudentResultItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [remarks, setRemarks] = useState<Record<string, { status: string; decision: string | null } | null>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,6 +53,9 @@ function StudentResults() {
         if (!cancelled) {
           setProfile(prof);
           setResults(resData.results || []);
+          const entries = await Promise.all((resData.results || []).filter((r) => r.resultStatus === "released")
+            .map(async (r) => [r.id, (await api.get<{ remark: { status: string; decision: string | null } | null }>(`/rounds/${r.id}/my-remark`)).remark] as const));
+          if (!cancelled) setRemarks(Object.fromEntries(entries));
         }
       } catch (err) {
         if (!cancelled) {
@@ -69,6 +73,15 @@ function StudentResults() {
       cancelled = true;
     };
   }, []);
+
+  async function requestRemark(roundId: string) {
+    const reason = window.prompt("Why would you like this result remarked? Please give at least 10 characters.");
+    if (reason === null) return;
+    try {
+      const data = await api.post<{ remark: { status: string; decision: string | null } }>(`/rounds/${roundId}/remark`, { reason });
+      setRemarks((current) => ({ ...current, [roundId]: data.remark }));
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not request remark"); }
+  }
 
   return (
     <AppShell
@@ -100,13 +113,14 @@ function StudentResults() {
               <Th numeric>Score</Th>
               <Th numeric>Percentage</Th>
               <Th numeric>Certificate</Th>
+              <Th>Remark</Th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: "1rem",
                     textAlign: "center",
@@ -118,7 +132,7 @@ function StudentResults() {
             ) : results.length === 0 ? (
               <tr>
                 <td
-                  colSpan={6}
+                  colSpan={7}
                   style={{
                     padding: "1rem",
                     textAlign: "center",
@@ -164,7 +178,7 @@ function StudentResults() {
                         icon={<Download aria-hidden="true" />}
                         size="sm"
                         variant="outline"
-                        disabled
+                        onClick={() => downloadCertificate(row.id).catch((err) => setError(err.message))}
                       >
                         Download
                       </Button>
@@ -172,6 +186,7 @@ function StudentResults() {
                       <span className={styles.dash}>&mdash;</span>
                     )}
                   </Td>
+                  <Td>{row.resultStatus === "released" ? (remarks[row.id] ? `${remarks[row.id]?.status}${remarks[row.id]?.decision ? `: ${remarks[row.id]?.decision}` : ""}` : <Button size="sm" variant="outline" onClick={() => requestRemark(row.id)}>Request remark</Button>) : "—"}</Td>
                 </tr>
               ))
             )}

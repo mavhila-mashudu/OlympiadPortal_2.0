@@ -11,13 +11,19 @@ const {
   assertOwnsOlympiad,
 } = require("../../../src/services/olympiadService");
 
-beforeEach(resetPrismaMock);
+beforeEach(() => {
+  resetPrismaMock();
+  prisma.olympiads.create.mockResolvedValue({ id: "oly-1" });
+});
 
 describe("createOlympiad", () => {
   it("creates an olympiad owned by the organiser", async () => {
     prisma.olympiads.create.mockResolvedValue({ id: "oly-1" });
     await expect(createOlympiad({ name: "Maths", organiserId: "org-1" })).resolves.toEqual({ id: "oly-1" });
     expect(prisma.olympiads.create).toHaveBeenCalledWith({ data: { name: "Maths", organiser_id: "org-1" } });
+    expect(prisma.notification_rules.createMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([expect.objectContaining({ olympiad_id: "oly-1", channel: "in_app" })]),
+    });
   });
 
   it("includes a timezone only when one is given", async () => {

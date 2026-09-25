@@ -129,9 +129,9 @@ describe("api errors", () => {
   });
 
   it("throws when a 200 response reports success: false", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({ success: false, error: "Invitation expired" }));
+    fetchMock.mockResolvedValue(jsonResponse({ success: false, error: "Invitation not found" }));
     const { api } = await loadApi();
-    await expect(api.get("/auth/validate-code/X")).rejects.toThrow("Invitation expired");
+    await expect(api.get("/invites/mine")).rejects.toThrow("Invitation not found");
   });
 
   it("falls back to the status code when there is no error message", async () => {
