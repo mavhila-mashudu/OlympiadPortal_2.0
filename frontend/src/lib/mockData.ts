@@ -170,6 +170,7 @@ export const organiserNav: NavItem[] = [
   { label: "Paper archive", to: "/organiser/archive", icon: Archive },
   { label: "Schools & educators", to: "/organiser/schools", icon: Building2 },
   { label: "Standings", to: "/organiser/standings", icon: BarChart3 },
+  { label: "Remarks", to: "/organiser/remarks", icon: ClipboardList },
   { label: "Send announcement", to: "/organiser/notifications", icon: Bell },
 ];
 

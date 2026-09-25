@@ -41,6 +41,7 @@ const METHODS = [
   "delete",
   "deleteMany",
   "count",
+  "groupBy",
 ];
 
 const prisma = { $transaction: jest.fn() };

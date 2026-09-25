@@ -62,6 +62,7 @@ app.get("/", (_req, res) => {
 // ── Routes ──────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));
 app.use("/educator", require("./routes/educator"));
+app.use("/organiser/remarks", require("./routes/organiserRemarks"));
 
 //registering olympiads and rounds routes
 // Specific subpaths first
