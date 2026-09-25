@@ -3,7 +3,6 @@ require("dotenv").config();
 
 const required = [
   "DATABASE_URL",
-  "ORGANISER_SECRET",
   "SUPABASE_URL",
 ];
 
@@ -24,9 +23,6 @@ module.exports = {
     port: parseInt(process.env.PORT) || 3000,
     env: process.env.NODE_ENV || "development",
     isProd: process.env.NODE_ENV === "production",
-  },
-  auth: {
-    organiserSecret: process.env.ORGANISER_SECRET,
   },
   supabase: {
     url: process.env.SUPABASE_URL,

@@ -13,7 +13,11 @@ const {
   getMarkingQueue,
 } = require("../../../src/services/markingService");
 
-beforeEach(resetPrismaMock);
+beforeEach(() => {
+  resetPrismaMock();
+  prisma.rounds.findFirst.mockResolvedValue(null);
+  prisma.entrant_registrations.findMany.mockResolvedValue([]);
+});
 
 const organiserRound = (overrides = {}) => ({
   id: "round-1",
@@ -402,7 +406,7 @@ describe("generateResults", () => {
     prisma.rounds.findUnique.mockResolvedValue(organiserRound({ state }));
     await expect(generateResults("round-1", "org-1", "organiser")).rejects.toMatchObject({
       statusCode: 400,
-      message: `Cannot generate results — round is "${state}"`,
+      message: `Cannot release results — round is "${state}"`,
     });
   });
 
@@ -452,6 +456,21 @@ describe("generateResults", () => {
     expect(summary.threshold).toBeNull();
   });
 
+  it("enrols qualifiers in the next round when one exists", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(organiserRound({ qualifying_threshold: "50", opens_at: new Date("2026-06-01T08:00:00Z") }));
+    prisma.rounds.findFirst.mockResolvedValue({ id: "round-2" });
+    prisma.entrant_registrations.findMany.mockResolvedValue([{ entrant_id: "ent-1", registered_by: "educator-1" }]);
+    prisma.results.findMany.mockResolvedValue([
+      { id: "result-1", entrant_id: "ent-1", total_points: 70 },
+      { id: "result-2", entrant_id: "ent-2", total_points: 30 },
+    ]);
+    await generateResults("round-1", "org-1", "organiser");
+    expect(prisma.entrant_registrations.createMany).toHaveBeenCalledWith({
+      data: [{ entrant_id: "ent-1", round_id: "round-2", registered_by: "educator-1" }],
+      skipDuplicates: true,
+    });
+  });
+
   it("releases the round and archives its papers", async () => {
     prisma.rounds.findUnique.mockResolvedValue(organiserRound({ state: "marking" }));
     prisma.results.findMany.mockResolvedValue([{ id: "r-a", total_points: 1 }]);
@@ -459,7 +478,7 @@ describe("generateResults", () => {
     await generateResults("round-1", "org-1", "organiser");
     expect(prisma.rounds.update).toHaveBeenCalledWith({
       where: { id: "round-1" },
-      data: { state: "results_released" },
+      data: { state: "results_released", results_release_at: expect.any(Date) },
     });
     expect(prisma.papers.updateMany).toHaveBeenCalledWith({
       where: { round_id: "round-1" },

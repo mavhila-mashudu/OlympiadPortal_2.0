@@ -6,11 +6,11 @@ import { Card } from "../../components/ui/Card";
 import { api } from "../../lib/api";
 import { organiserNav } from "../../lib/mockData";
 import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
-import { InviteSchoolForm } from "./InviteSchoolForm";
+import { InviteEducatorForm } from "./InviteEducatorForm";
 import styles from "./Schools.module.css";
 
-// GET /olympiads/:id/schools merges school invitations with schools that
-// registered without one
+// GET /olympiads/:id/schools lists the schools taking part, plus the educators
+// who were invited and have not answered yet
 type RegisteredSchool = {
   id: string;
   name: string;
@@ -18,19 +18,19 @@ type RegisteredSchool = {
   entrants: number;
   educators: { name: string; email: string }[];
   contactEmail: string | null;
-  status: "pending" | "accepted" | "expired";
+  status: "pending" | "accepted" | "declined";
 };
 
 const statusLabels: Record<RegisteredSchool["status"], string> = {
-  pending: "Pending",
-  accepted: "Accepted",
-  expired: "Expired",
+  pending: "Invited",
+  accepted: "Participating",
+  declined: "Declined",
 };
 
 const statusClasses: Record<RegisteredSchool["status"], string> = {
   pending: styles.statusPending,
   accepted: styles.statusAccepted,
-  expired: styles.statusExpired,
+  declined: styles.statusExpired,
 };
 
 export function SchoolsPage() {
@@ -96,8 +96,8 @@ export function SchoolsPage() {
             <h1>Registered Schools</h1>
             <p>
               {olympiad
-                ? `Manage schools invited to ${olympiad.name}.`
-                : "Manage school invitations and active participating institutions."}
+                ? `Schools taking part in ${olympiad.name}, and outstanding invitations.`
+                : "Invite educators to bring their schools into an olympiad."}
             </p>
           </div>
           <div className={styles.actions}>
@@ -105,7 +105,7 @@ export function SchoolsPage() {
               icon={<Plus aria-hidden="true" />}
               onClick={() => setIsInviteOpen(true)}
             >
-              Invite school
+              Invite educator
             </Button>
           </div>
         </header>
@@ -128,7 +128,7 @@ export function SchoolsPage() {
                 {!loading && schools.length === 0 && (
                   <tr>
                     <td colSpan={5}>
-                      No schools registered yet. Click "Invite school" to send an invitation.
+                      No schools taking part yet. Click "Invite educator" to invite one.
                     </td>
                   </tr>
                 )}
@@ -173,7 +173,7 @@ export function SchoolsPage() {
           <div style={overlayStyle}>
             <div style={modalStyle}>
               {olympiad?.id ? (
-                <InviteSchoolForm
+                <InviteEducatorForm
                   olympiadId={olympiad.id}
                   onSuccess={() => {
                     if (olympiad.id) fetchSchools(olympiad.id);

@@ -68,9 +68,9 @@ No suite needs a database, a `.env` file or an internet connection. Everything r
 
 **Why:** they run in seconds, so they can be run on every change, and a failure points at one exact place. They also make it practical to cover every branch — each validation rule, each error path.
 
-**Backend** — services (auth and invitations, olympiads, rounds, questions, papers, submissions, marking, results, lifecycle, schools, notification rules, educator and student views), controllers, middleware (authentication, roles, validation, error handling, rate limiting), the scheduled round-lifecycle job, the email sender and helpers. The database client is replaced by a mock, so each test decides what the database returns and checks what the code asked for.
+**Backend** — services (auth and invitations, olympiads, rounds, questions, papers, submissions, marking, results, lifecycle, schools, notification rules, educator and student views), controllers, middleware (authentication, roles, validation, error handling, rate limiting), the scheduled round-lifecycle job and helpers. The database client is replaced by a mock, so each test decides what the database returns and checks what the code asked for.
 
-**Frontend** — UI components, the API client, the Supabase client, login/logout helpers, data-fetching hooks, and the building blocks of each page (question form and cards, marking card, answer-key editor, invitation form, round status labels, dashboard helpers, exam timer, exam storage).
+**Frontend** — UI components, the API client, the Supabase client, login/logout helpers, data-fetching hooks, and the building blocks of each page (question form and cards, marking card, answer-key editor, invitation inbox and invite form, round status labels, dashboard helpers, exam timer, exam storage).
 
 ### 2.3 Integration tests
 
@@ -84,10 +84,10 @@ No suite needs a database, a `.env` file or an internet connection. Everything r
 2. The app connects through its normal database code; only the connection address changes.
 3. Every setting is given a safe test value before the app loads, so a developer's real `.env` can never be used.
 4. Every table is emptied before each test, and the reset refuses to run against anything but the local test database.
-5. Test data is built with shared factories (organisers, schools, educators, rounds, papers, learners, invitations).
+5. Test data is built with shared factories (organisers, schools, educators, rounds, papers, learners, olympiad invitations).
 6. Supabase and email are replaced by fakes.
 
-Covered: the database schema itself, the invitation chain (organiser → school → educator → student), olympiads and rounds, exam building and approval, the online exam, offline submissions and marking, results, educator and student views, schools, notification rules and papers.
+Covered: the database schema itself, open sign-up in all three roles and the invitation chain (organiser → educator → student), olympiads and rounds, exam building and approval, the online exam, offline submissions and marking, results, educator and student views, schools, notification rules and papers.
 
 **Frontend** — whole pages inside the real app, with its real routes, API client and data fetching; only the network is faked. MSW answers with the backend's exact response format and records every request, so tests can check what was sent. Any request without a prepared answer fails the test.
 
@@ -120,11 +120,11 @@ Each area then covers the normal case, ownership (users from another olympiad or
 
 | Area | Journey |
 |---|---|
-| Accounts | Sign in as each role · wrong password refused · log out · organiser sign-up · student sign-up with an invitation code · **password reset from end to end** · **account deletion** |
-| Organiser | Create a round and upload its question paper, then open it · invite a school and receive the code |
+| Accounts | Sign in as each role · wrong password refused · log out · organiser sign-up · student sign-up by picking a school · educator sign-up with a new school · **password reset from end to end** · **account deletion** |
+| Organiser | Create a round and upload its question paper, then open it · invite an educator, whose school then shows as invited |
 | Exam workflow | The educator builds the exam and submits it for review → the organiser checks it and puts it live |
 | Competition | A student sits the exam online and submits → the organiser closes the round and releases results → the student sees their score |
-| Educator | Register a learner and invite a student |
+| Educator | Register a learner and invite a student · a student accepts and gets the olympiad |
 
 **Deliberately left to the faster suites:** every validation message, permission checks for all 66 endpoints, offline exam behaviour, and page-by-page detail.
 
@@ -170,22 +170,45 @@ npm run test:e2e:report           # open the report after a failure
 
 ## 4. How CI enforces the tests
 
-Everything runs through one Gitea Actions pipeline: [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml). Deployment sits in the same file as the tests, because a job can only wait for jobs in the same workflow — that is what stops failing code reaching Render or Vercel.
+Everything runs through one Gitea Actions pipeline: [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml). Deployment sits in the same file as the tests, because a job can only wait for jobs in the same workflow — that is what stops failing code reaching Azure.
 
-| Job | Pull request | Push to `main` | What it does |
-|---|---|---|---|
-| Backend checks & tests | Yes | Yes | Prisma schema check, unit, integration and API tests |
-| Frontend checks & tests | Yes | Yes | Lint, test type-check, unit and integration tests, production build |
-| End-to-end tests | No | Yes | The Playwright journeys in Chromium |
-| Work out what changed | No | Yes | Decides whether the backend, the frontend or both need deploying |
-| Deploy to Render | No | Yes, if `backend/` changed | Builds and pushes the Docker image, then triggers Render |
-| Deploy to Vercel | No | Yes, if `frontend/` changed | Builds and deploys through the Vercel CLI |
+| Job | Runner | Pull request | Push to `main` | What it does |
+|---|---|---|---|---|
+| Backend checks & tests | ours | Yes | Yes | Prisma schema check, unit, integration and API tests |
+| Frontend checks & tests | ours | Yes | Yes | Lint, test type-check, unit and integration tests, production build |
+| End-to-end tests | shared | No | Yes | The Playwright journeys in Chromium |
+| Work out what changed | ours | No | Yes | Decides whether the backend, the frontend or both need deploying |
+| Deploy backend | ours | No | Yes, if `backend/` changed | Builds, migrates the database, then zip-deploys to Azure App Service |
+| Deploy frontend | ours | No | Yes, if `frontend/` changed | Builds the site and uploads it to the Azure Storage `$web` container |
+
+### Where the jobs run
+
+Most jobs run on our own runner, `prompt-engineers-runner-1`, an Ubuntu VM in
+Azure registered against this repository. It advertises a single label,
+`prompt-engineers-azure`, which the shared runners do not, so a job asking for
+that label can only land on ours — and, because it advertises nothing else, it
+is never pulled into another team's `ubuntu-latest` queue.
+
+The end-to-end job is the deliberate exception. Playwright, Chromium, a real
+backend and a PGlite database together need more memory than the VM has, so it
+keeps `runs-on: ubuntu-latest` and goes to the shared runners.
+
+Our runner takes one job at a time (`capacity: 1`), so jobs that once ran
+side by side now queue. That is the cost of guaranteeing where they run.
+
+**Node 22 is required, not merely recommended.** On Node 24 the frontend
+integration suite fails: Mock Service Worker throws during handler lookup for
+the multipart upload in `POST /rounds/:id/papers`, so the create-round journey
+never reaches its redirect. The pipeline pins Node 22 through
+`actions/setup-node`, and `package.json` declares `"node": ">=22"` — but that
+range admits 24, so a developer running a newer Node locally will see this one
+test fail for reasons that have nothing to do with their change.
 
 Rules the pipeline applies:
 
 - **Nothing deploys unless every test job passed.** Both deploy jobs wait for the backend, frontend and end-to-end jobs.
-- **End-to-end tests run on `main`, not on every pull request.** They are the slowest and heaviest job, and the shared runners are small. Pull requests still get every other suite, which is where nearly all failures show up.
-- **Only what changed is deployed.** A frontend-only change doesn't rebuild the backend image.
+- **End-to-end tests run on `main`, not on every pull request.** They are the slowest and heaviest job. Pull requests still get every other suite, which is where nearly all failures show up.
+- **Only what changed is deployed.** A frontend-only change doesn't rebuild and redeploy the backend.
 - **A newer push replaces a run in progress**, except on `main`, where a deploy is never cancelled half way.
 - A failing end-to-end run uploads its Playwright report (screenshots and traces) as an artifact.
 - The pipeline can also be started by hand (`workflow_dispatch`), which runs everything and deploys both sides.

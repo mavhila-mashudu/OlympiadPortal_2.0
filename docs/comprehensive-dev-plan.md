@@ -112,7 +112,7 @@ We use Agile with Scrum as the delivery framework:
 | ------------------------- | ------------------------------------ |
 | VS Code / Qoder IDE       | Code editor with TypeScript support  |
 | Gitea (sdp.ms.wits.ac.za) | Primary Git host, code review, CI    |
-| GitHub                    | Mirror for Vercel/Render auto-deploy |
+| Gitea Actions             | CI and deployment to Azure           |
 | Trello                    | Sprint board and backlog             |
 | Lovable                   | UI prototyping (see UI Design doc)   |
 | Supabase Dashboard        | Database management, auth monitoring |
@@ -140,8 +140,8 @@ We use Agile with Scrum as the delivery framework:
 
 | Service  | Component         | Why                                                       |
 | -------- | ----------------- | --------------------------------------------------------- |
-| Render   | Backend API       | Free tier, auto-deploy from GitHub, automatic HTTPS       |
-| Vercel   | Frontend SPA      | Purpose-built for React, instant preview deployments, CDN |
+| Azure App Service | Backend API | Linux Node 22 plan, deployed by Gitea Actions, automatic HTTPS |
+| Azure Storage     | Frontend SPA | Static website hosting, deployed by Gitea Actions, automatic HTTPS |
 | Supabase | PostgreSQL + Auth | Managed database with backups, built-in auth service      |
 
 ---

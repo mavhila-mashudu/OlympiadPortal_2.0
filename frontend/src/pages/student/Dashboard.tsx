@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Award, ClipboardList, Download, FileCheckCorner, Pencil } from "lucide-react";
+import { InviteInbox } from "../../components/invites/InviteInbox";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -53,47 +54,38 @@ function StudentDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [prof, dashData] = await Promise.all([
+        getStudentProfile(),
+        api.get<{ rounds: RoundItem[]; stats: DashboardStats }>(
+          "/rounds/registered",
+        ),
+      ]);
 
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [prof, dashData] = await Promise.all([
-          getStudentProfile(),
-          api.get<{ rounds: RoundItem[]; stats: DashboardStats }>(
-            "/rounds/registered",
-          ),
-        ]);
-
-        if (!cancelled) {
-          setProfile(prof);
-          setRounds(dashData.rounds || []);
-          setStats(
-            dashData.stats || {
-              roundsEntered: 0,
-              resultsAvailable: 0,
-              certificatesEarned: 0,
-            },
-          );
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load dashboard data",
-          );
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+      setProfile(prof);
+      setRounds(dashData.rounds || []);
+      setStats(
+        dashData.stats || {
+          roundsEntered: 0,
+          resultsAvailable: 0,
+          certificatesEarned: 0,
+        },
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load dashboard data",
+      );
+    } finally {
+      setLoading(false);
     }
-
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const statCards = [
     {
@@ -134,6 +126,8 @@ function StudentDashboard() {
             </p>
           </div>
         </header>
+
+        <InviteInbox onAccepted={load} />
 
         {error && (
           <Card className={styles.statCard}>

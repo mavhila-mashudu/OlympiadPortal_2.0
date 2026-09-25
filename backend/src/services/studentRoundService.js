@@ -277,7 +277,7 @@ const getStudentResults = async (entrantId) => {
       score,
       percentage,
       rank: resultRow?.rank ?? null,
-      hasCertificate: Boolean(resultRow?.qualified),
+      hasCertificate: isReleased && Boolean(resultRow?.qualified),
       remarkStatus,
     };
   });

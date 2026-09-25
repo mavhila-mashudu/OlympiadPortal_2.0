@@ -37,18 +37,15 @@ type EditRoundForm = {
   qualifyingThreshold: string;
   notes: string;
 };
-
 const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
-// Formats an ISO datetime string to "YYYY-MM-DDTHH:mm" for datetime-local inputs (UTC).
 function toDatetimeLocal(iso: string): string {
   return iso.slice(0, 16);
 }
 
-// Converts a datetime-local value to a UTC ISO string, preserving the date.
 function toUTCISO(localValue: string): string {
   const [date, time] = localValue.split("T");
   return `${date}T${time || "00:00"}:00.000Z`;
@@ -114,6 +111,37 @@ function OrganiserDashboard() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!olympiad?.id) return;
+    let active = true;
+    let refreshing = false;
+    const olympiadId = olympiad.id;
+    const refresh = async () => {
+      if (!active || refreshing || document.visibilityState === "hidden") return;
+      refreshing = true;
+      try {
+        const { rounds: latest } = await api.get<{ rounds: Round[] }>(
+          `/olympiads/${olympiadId}/rounds`,
+        );
+        if (active) {
+          setRounds(latest || []);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) setError(err instanceof Error ? err.message : "Failed to refresh rounds");
+      } finally {
+        refreshing = false;
+      }
+    };
+    const timer = window.setInterval(refresh, 10_000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [olympiad?.id]);
 
   async function handleSetState(roundId: string, state: string) {
     if (!olympiad) return;

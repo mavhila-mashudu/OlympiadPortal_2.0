@@ -56,7 +56,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 - MCQ auto-marking
 - Round lifecycle state machine
 - Dashboard shells
-- Deployed to Render + Vercel + Supabase
+- Deployed to Azure App Service + Azure Storage + Supabase
 
 ### Dependencies
 

@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   FileText,
+  Library,
   Pencil,
   RotateCcw,
   Send,
@@ -32,6 +33,9 @@ function ExamReview() {
   const { id: roundId } = useParams<{ id: string }>();
 
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [bankQuestions, setBankQuestions] = useState<(Question & { source_round: { id: string; name: string } })[]>([]);
+  const [selectedBankQuestions, setSelectedBankQuestions] = useState<string[]>([]);
+  const [bankSearch, setBankSearch] = useState("");
   const [examStatus, setExamStatus] = useState<string>("draft");
   const [questionCount, setQuestionCount] = useState(0);
   const [approvedBy, setApprovedBy] = useState<string | null>(null);
@@ -60,11 +64,36 @@ function ExamReview() {
       setQuestionCount(sRes.question_count);
       setApprovedBy(sRes.approved_by_name ?? null);
       setApprovedAt(sRes.approved_at ?? null);
+      if (sRes.exam_status === "draft") {
+        const bank = await api.get<{ questions: (Question & { source_round: { id: string; name: string } })[] }>(
+          `/rounds/${roundId}/question-bank`,
+        );
+        setBankQuestions(bank.questions);
+      } else {
+        setBankQuestions([]);
+      }
     } catch {
       setQuestions([]);
       setExamStatus("draft");
     }
   }, [roundId]);
+
+  const handleImportQuestions = async () => {
+    if (selectedBankQuestions.length === 0) return;
+    setActionLoading(true);
+    setError(null);
+    try {
+      await api.post(`/rounds/${roundId}/question-bank/import`, {
+        question_ids: selectedBankQuestions,
+      });
+      setSelectedBankQuestions([]);
+      await fetchData();
+    } catch (err: any) {
+      setError(err.message || "Failed to import questions");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchData().finally(() => setLoading(false));
@@ -276,6 +305,41 @@ function ExamReview() {
           </Card>
 
           {error && <div className={styles.errorBanner}>{error}</div>}
+
+          {examStatus === "draft" && bankQuestions.length > 0 && (
+            <Card className={styles.bankCard}>
+              <div className={styles.bankHeader}>
+                <div>
+                  <h2><Library /> Question bank</h2>
+                  <p>Reuse questions from your previous rounds. Imported questions become editable copies in this paper.</p>
+                </div>
+                <Button onClick={handleImportQuestions} disabled={selectedBankQuestions.length === 0 || actionLoading}>
+                  {actionLoading ? "Importing..." : `Import ${selectedBankQuestions.length || "selected"}`}
+                </Button>
+              </div>
+              <input
+                className={styles.bankSearch}
+                value={bankSearch}
+                onChange={(event) => setBankSearch(event.target.value)}
+                placeholder="Search question bank"
+                aria-label="Search question bank"
+              />
+              <div className={styles.bankList}>
+                {bankQuestions
+                  .filter((question) => question.prompt.toLowerCase().includes(bankSearch.toLowerCase()))
+                  .map((question) => (
+                    <label key={question.id} className={styles.bankItem}>
+                      <input
+                        type="checkbox"
+                        checked={selectedBankQuestions.includes(question.id)}
+                        onChange={() => setSelectedBankQuestions((current) => current.includes(question.id) ? current.filter((id) => id !== question.id) : [...current, question.id])}
+                      />
+                      <span><strong>{question.prompt}</strong><small>{TYPE_LABELS[question.type]} · {question.source_round.name}</small></span>
+                    </label>
+                  ))}
+              </div>
+            </Card>
+          )}
 
           {/* Questions */}
           {questions.length > 0 && (

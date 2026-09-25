@@ -18,7 +18,6 @@ const roundsRouter = require("./rounds");
 
 const createOlympiadRules = [
   body("name").trim().notEmpty().withMessage("Olympiad name is required"),
-  body("timezone").optional().trim().notEmpty(),
 ];
 
 const updateOlympiadRules = [

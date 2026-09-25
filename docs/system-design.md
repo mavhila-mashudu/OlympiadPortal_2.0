@@ -12,7 +12,7 @@ The Olympiad Portal uses a **multi-tier architecture** with three tiers deployed
 
 ```
 CLIENT TIER                    APPLICATION TIER               DATA TIER
-React SPA (Vercel CDN)   --->  Express API (Render)   --->   PostgreSQL (Supabase)
+React SPA (Azure Storage) --->  Express API (Azure)   --->   PostgreSQL (Supabase)
 Role-based dashboards          Routes > Controllers          Prisma ORM
 React Router, React Query      > Services > Prisma           Supabase Auth
                                Helmet, CORS, WebSocket       Supabase Storage
@@ -21,7 +21,7 @@ React Router, React Query      > Services > Prisma           Supabase Auth
 ### Why Multi-Tier
 
 - **Separation of concerns:** Each tier handles one responsibility (presentation, business logic, data storage)
-- **Independent scaling:** Frontend serves from CDN; backend scales horizontally on Render; database scales vertically on Supabase
+- **Independent scaling:** The frontend is static files served straight from Azure Storage; the backend scales on its Azure App Service plan; the database scales vertically on Supabase
 - **Security boundaries:** The client never accesses the database directly; all data flows through the API tier which enforces authentication and authorisation
 
 ---
@@ -65,14 +65,18 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 
 | Method | Path                                  | Role      | Purpose                       |
 | ------ | ------------------------------------- | --------- | ----------------------------- |
-| POST   | /auth/register/organiser              | Public    | Self-register as organiser    |
-| POST   | /auth/register                        | Public    | Register with invitation code |
-| GET    | /auth/validate-code/:code             | Public    | Verify invitation code        |
+| POST   | /auth/register                        | Public    | Sign up in any role           |
+| POST   | /auth/register/organiser              | Public    | Sign up as organiser (legacy) |
+| GET    | /auth/schools                         | Public    | Schools for the signup form   |
 | GET    | /auth/me                              | Any       | Get current user              |
 | DELETE | /auth/account                         | Any       | Soft-delete account           |
-| POST   | /auth/invite-school                   | Organiser | Generate school invitation    |
-| POST   | /auth/invite-educator                 | Educator  | Generate educator invitation  |
-| POST   | /auth/generate-student-codes          | Educator  | Bulk-generate student codes   |
+| GET    | /invites/mine                         | Any       | Invitations addressed to me   |
+| POST   | /invites/:id/accept                   | Any       | Accept an invitation          |
+| POST   | /invites/:id/reject                   | Any       | Decline an invitation         |
+| POST   | /invites                              | Staff     | Invite someone to an olympiad |
+| DELETE | /invites/:id                          | Staff     | Withdraw an invitation        |
+| GET    | /invites/sent                         | Staff     | Invitations I have sent       |
+| GET    | /invites/candidates                   | Staff     | Who I may still invite        |
 | POST   | /olympiads                            | Organiser | Create olympiad               |
 | GET    | /olympiads                            | Organiser | List olympiads                |
 | GET    | /olympiads/:id                        | Organiser | Get olympiad detail           |
@@ -99,7 +103,7 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 ### Entity-Relationship Diagram
 
 ```
-users ─────┬──── invitations
+users ─────┬──── olympiad_invites
            ├──── olympiads ────── rounds ────┬──── papers ────── questions
            │              │                  │                     │
            │              │                  ├──── submissions ──── answers
@@ -116,7 +120,7 @@ users ─────┬──── invitations
 | Model                 | Key Fields                                                           | Purpose                                           |
 | --------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
 | users                 | id, email, full_name, role, auth_provider_id                         | Core user accounts (organiser, educator, student) |
-| invitations           | code, type, olympiad_id, school_id, expires_at                       | Invitation-based registration with expiry         |
+| olympiad_invites      | olympiad_id, school_id, invitee_id, invited_by_id, role, status      | In-app invitations to take part in an olympiad    |
 | schools               | name, address                                                        | School records                                    |
 | educators             | user_id, school_id                                                   | Links users to schools                            |
 | entrants              | user_id, school_id, full_name, grade                                 | Student participants                              |
@@ -135,7 +139,7 @@ users ─────┬──── invitations
 | Enum              | Values                                                      |
 | ----------------- | ----------------------------------------------------------- |
 | user_role         | organiser, educator, student                                |
-| invite_type       | school, educator, student                                   |
+| invite_status     | pending, accepted, rejected                                 |
 | round_state       | scheduled, open, closed, marking, results_released          |
 | submission_route  | online, offline                                             |
 | submission_status | received, automarked, queued_for_marking, marked, moderated |
@@ -155,10 +159,13 @@ users ─────┬──── invitations
 
 ### Authentication Flow
 
-1. **Organiser self-registration:** POST /auth/register/organiser with organiser_secret environment variable, creates Supabase Auth user and users row with role=organiser
-2. **School invitation:** Organiser creates school, generates SCH-XXXX-XXXX code, emails school contact
-3. **Educator registration:** Educator visits /signup, enters code, verifies school details, creates account linked to school
-4. **Student registration:** Educator bulk-generates codes, each maps to an entrant record, student signs up with code
+Registration is open to everyone: no invitation code exists, and nobody has to
+be invited before they can have an account.
+
+1. **Sign-up:** POST /auth/register with a role of organiser, educator or student. It creates the Supabase Auth user and the users row, plus an educators row and school membership for an educator, or an entrant row for a student.
+2. **Choosing a school:** educators and students pick from GET /auth/schools. An educator whose school is not listed may name a new one, and becomes its coordinator; later educators at that school join as ordinary members. A student must pick an existing school.
+3. **Joining an olympiad (organiser to educator):** the organiser sends an in-app invitation to an educator. It appears on the educator's dashboard; accepting registers their school for the olympiad.
+4. **Joining an olympiad (educator to student):** the educator invites a student of their own school. Accepting enters that student into every round still taking registrations.
 
 All API requests include `Authorization: Bearer <access_token>`. The requireAuth middleware validates the JWT via Supabase. The requireRole middleware checks user.role.
 
@@ -197,7 +204,7 @@ The composite unique constraint on (round_id, entrant_id, route) plus a unique i
 | Passwords        | Min 8 chars, uppercase letter, number required                     |
 | JWT              | Managed by Supabase Auth; access tokens expire after 1 hour        |
 | HTTP headers     | Helmet sets CSP, HSTS, X-Content-Type-Options, X-Frame-Options     |
-| CORS             | Restricted to frontend domain (Vercel URL in production)           |
+| CORS             | Restricted to one origin in production: the Azure Storage site      |
 | Input validation | express-validator on all routes with sanitisation                  |
 | SQL injection    | Prevented by Prisma parameterised queries                          |
 | File upload      | Multer with size limits; PDF only for papers/memos                 |
@@ -261,16 +268,32 @@ Every automatic action (round transitions, auto-marking, progression, notificati
 ```
 Internet
   |
-  +---> Vercel CDN ---> React SPA (static assets, auto-deploy from GitHub)
+  +---> Azure Storage static website ---> React SPA (built assets)
+  |         olympiadportalfe.z1.web.core.windows.net
   |
-  +---> Render    ---> Express API (Node.js, auto-deploy from GitHub)
+  +---> Azure App Service (Linux, Node 22) ---> Express API
+            olympiad-portal-api.azurewebsites.net
               |
               +---> Supabase ---> PostgreSQL + Auth + Storage
 ```
 
-Environment variables are managed per environment:
+Everything lives in one resource group, `olympiad-portal-rg` (South Africa North),
+alongside the Ubuntu VM that hosts the self-hosted Gitea Actions runner.
 
-- Backend: DATABASE_URL, SUPABASE_URL, SUPABASE_SERVICE_KEY, ORGANISER_SECRET, FRONTEND_URL
-- Frontend: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+Azure Static Web Apps would be the natural home for the frontend, but it is only
+offered in five regions and the subscription's `sys.regionrestriction` policy
+permits five different ones, with no overlap. Storage static website hosting is
+used instead: the built site is uploaded to the `$web` container, and the error
+document is set to `index.html` so unmatched paths fall back to the SPA and
+React Router can resolve them. The one compromise is that those fallback
+responses carry a 404 status even though the correct page renders.
+
+Configuration is held where it is used, not duplicated:
+
+- Backend (App Service settings): NODE_ENV, DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_SERVICE_KEY, FRONTEND_URL, SCM_DO_BUILD_DURING_DEPLOYMENT
+- Frontend (baked in at build time by Vite): VITE_API_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
+
+`FRONTEND_URL` must match the storage site's URL exactly, since production CORS
+admits that single origin and nothing else.
 
 ---

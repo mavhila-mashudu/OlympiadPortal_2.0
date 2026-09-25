@@ -163,6 +163,76 @@ const listQuestions = async (roundId, userId, role) => {
   return paper ? paper.questions : [];
 };
 
+// List reusable questions from rounds owned by an organiser. Questions are
+// copied into a paper when selected, so editing a paper never changes the bank.
+const listQuestionBank = async (roundId, userId) => {
+  const round = await assertRoundAccess(roundId, userId, "organiser");
+  const currentQuestions = await prisma.questions.findMany({
+    where: { papers: { round_id: roundId } },
+    select: { id: true },
+  });
+  const excluded = new Set(currentQuestions.map((question) => question.id));
+
+  const questions = await prisma.questions.findMany({
+    where: {
+      papers: {
+        rounds: {
+          olympiads: { organiser_id: userId },
+        },
+      },
+    },
+    include: {
+      papers: { include: { rounds: { select: { id: true, name: true } } } },
+    },
+    orderBy: { created_at: "desc" },
+  });
+
+  return questions
+    .filter((question) => !excluded.has(question.id))
+    .map(({ papers, ...question }) => ({
+      ...question,
+      source_round: papers.rounds,
+    }));
+};
+
+const importQuestions = async (roundId, userId, questionIds) => {
+  const round = await assertRoundAccess(roundId, userId, "organiser");
+  if (round.exam_status !== "draft") {
+    throw new BadRequestError("Questions can only be imported while the exam is in draft status");
+  }
+
+  const uniqueIds = [...new Set(questionIds)];
+  const sourceQuestions = await prisma.questions.findMany({
+    where: {
+      id: { in: uniqueIds },
+      papers: { rounds: { olympiads: { organiser_id: userId } } },
+    },
+  });
+  if (sourceQuestions.length !== uniqueIds.length) {
+    throw new NotFoundError("One or more bank questions were not found");
+  }
+
+  const paper = await ensurePaperForRound(roundId);
+  const imported = await prisma.$transaction(
+    sourceQuestions.map((question) =>
+      prisma.questions.create({
+        data: {
+          paper_id: paper.id,
+          type: question.type,
+          prompt: question.prompt,
+          options: question.options ?? undefined,
+          correct_option: question.correct_option ?? undefined,
+          correct_answer: question.correct_answer ?? undefined,
+          negative_pct: question.negative_pct,
+          max_points: question.max_points,
+        },
+      }),
+    ),
+  );
+
+  return imported;
+};
+
 // ─────────────────────────────────────────
 // UPDATE QUESTION
 // ─────────────────────────────────────────
@@ -226,4 +296,6 @@ module.exports = {
   listQuestions,
   updateQuestion,
   deleteQuestion,
+  listQuestionBank,
+  importQuestions,
 };
