@@ -241,12 +241,12 @@ describe("notification rules", () => {
     const client = as(organiser);
 
     const { rule } = expectOk(await client.post(base(olympiad)).send(ruleBody({ name: "  Opening reminder ", condition: "  " })), 201);
-    expect(rule).toMatchObject({ olympiad_id: olympiad.id, name: "Opening reminder", channel: "email", condition: null, enabled: true, offset_minutes: 60 });
+    expect(rule).toMatchObject({ olympiad_id: olympiad.id, name: "Opening reminder", channel: "in_app", condition: null, enabled: true, offset_minutes: 60 });
 
     expect(expectOk(await client.get(base(olympiad))).rules.map((r) => r.id)).toEqual([rule.id]);
 
-    const updated = expectOk(await client.patch(`${base(olympiad)}/${rule.id}`).send({ enabled: false, trigger: "round_closes", condition: " Only open rounds " }));
-    expect(updated.rule).toMatchObject({ enabled: false, trigger: "round_closes", condition: "Only open rounds", name: "Opening reminder" });
+    const updated = expectOk(await client.patch(`${base(olympiad)}/${rule.id}`).send({ enabled: false, trigger: "round_closes", condition: " Only rounds with submissions " }));
+    expect(updated.rule).toMatchObject({ enabled: false, trigger: "round_closes", condition: "Only rounds with submissions", name: "Opening reminder" });
 
     expect(expectOk(await client.delete(`${base(olympiad)}/${rule.id}`))).toEqual({ message: "Notification rule deleted" });
     expect(expectOk(await client.get(base(olympiad))).rules).toEqual([]);
@@ -263,7 +263,7 @@ describe("notification rules", () => {
   });
 
   it.each([
-    [{ trigger: "round_deleted" }, "trigger must be one of: round_opens, round_closes, results_released"],
+    [{ trigger: "round_deleted" }, "trigger must be one of: round_opens, round_closes, results_released, missing_submission"],
     [{ recipient: "everyone" }, "recipient must be one of: registered_educators, registered_schools, qualifying_entrants"],
     [{ offset_minutes: -5 }, "offset_minutes must be a non-negative integer"],
     [{ enabled: "sometimes" }, "enabled must be true or false"],
@@ -394,6 +394,13 @@ describe("a single round", () => {
       ["marking", "results_released"],
     ])("moves a %s round to %s", async (from, to) => {
       const { round, client } = await owned({ state: from });
+      if (to === "results_released") {
+        const school = await f.createSchool();
+        const entrant = await f.createEntrant({ school });
+        await prisma.results.create({
+          data: { round_id: round.id, entrant_id: entrant.id, total_points: 0 },
+        });
+      }
       expect(expectOk(await client.patch(`/rounds/${round.id}/state`).send({ state: to })).round.state).toBe(to);
     });
 
@@ -403,12 +410,24 @@ describe("a single round", () => {
       ["results_released", "marking"],
     ])("responds 400 for %s → %s", async (from, to) => {
       const { round, client } = await owned({ state: from });
+      if (to === "results_released") {
+        const school = await f.createSchool();
+        const entrant = await f.createEntrant({ school });
+        await prisma.results.create({
+          data: { round_id: round.id, entrant_id: entrant.id, total_points: 0 },
+        });
+      }
       expectError(await client.patch(`/rounds/${round.id}/state`).send({ state: to }), 400, `Cannot transition from "${from}" to "${to}"`);
     });
 
     it("archives the paper when results are released", async () => {
       const { round, client } = await owned({ state: "marking" });
       const { paper } = await f.createPaper({ round });
+      const school = await f.createSchool();
+      const entrant = await f.createEntrant({ school });
+      await prisma.results.create({
+        data: { round_id: round.id, entrant_id: entrant.id, total_points: 0 },
+      });
       expectOk(await client.patch(`/rounds/${round.id}/state`).send({ state: "results_released" }));
       expect(await prisma.papers.findUnique({ where: { id: paper.id } })).toMatchObject({ is_archived: true, released_at: expect.any(Date) });
     });

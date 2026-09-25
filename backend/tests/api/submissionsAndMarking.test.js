@@ -350,7 +350,7 @@ describe("POST /rounds/:roundId/results", () => {
 
   it("responds 400 while the round is still open", async () => {
     const { round, organiserApi } = await withSubmissions();
-    expectError(await organiserApi.post(`/rounds/${round.id}/results`), 400, 'Cannot generate results — round is "open"');
+    expectError(await organiserApi.post(`/rounds/${round.id}/results`), 400, 'Cannot release results — round is "open"');
   });
 
   it("responds 400 when nobody has submitted", async () => {
