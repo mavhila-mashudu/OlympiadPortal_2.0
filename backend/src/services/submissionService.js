@@ -2,6 +2,7 @@
 const crypto = require("crypto");
 const prisma = require("../config/database").default;
 const { scoreMcq } = require("./markingMath");
+const { deadlineDecision, recordDeadlineDecision, recordRoundEvent } = require("./roundAuditService");
 const {
   NotFoundError,
   ForbiddenError,
@@ -31,12 +32,6 @@ const assertRoundOpen = async (roundId) => {
   });
 
   if (!round) throw new NotFoundError("Round not found");
-  if (round.state !== "open") {
-    throw new BadRequestError(
-      `Submissions are not accepted — round is "${round.state}"`,
-    );
-  }
-
   return round;
 };
 
@@ -55,6 +50,7 @@ const buildIdempotencyKey = (roundId, entrantId, route) =>
 // marking rules (markingMath.scoreMcq).
 // ─────────────────────────────────────────
 const createSubmission = async (roundId, educatorUserId, body) => {
+  const receivedAt = new Date(); // Server receipt time, before any database work.
   const { entrant_id, answers } = body;
   // Resolve the default first: the duplicate check and the stored row must
   // use the same route, or omitting it once and sending "offline" later
@@ -82,6 +78,17 @@ const createSubmission = async (roundId, educatorUserId, body) => {
   });
   if (!registration) {
     throw new ForbiddenError("Entrant is not registered for this round");
+  }
+
+  const decision = deadlineDecision(receivedAt, round.closes_at);
+  if (round.state !== "open") {
+    decision.accepted = false;
+    decision.explanation = `Round was "${round.state}" when the submission arrived.`;
+  }
+  if (!decision.accepted) {
+    await recordDeadlineDecision(roundId, entrant_id, route, decision);
+    if (round.state !== "open") throw new BadRequestError(`Submissions are not accepted — round is "${round.state}"`);
+    throw new BadRequestError("Submission received at or after the round deadline");
   }
 
   // 3. Idempotency — reject duplicate (round + entrant + route)
@@ -135,6 +142,7 @@ const createSubmission = async (roundId, educatorUserId, body) => {
         status: "received",
         idempotency_key: idempotencyKey,
         round_close_snapshot: round.closes_at,
+        received_at: receivedAt,
       },
     });
 
@@ -215,6 +223,10 @@ const createSubmission = async (roundId, educatorUserId, body) => {
       });
     }
 
+    await recordDeadlineDecision(roundId, entrant_id, route, decision, tx);
+    if (allAutoMarked) {
+      await recordRoundEvent(roundId, "submission_automarked", "automatic", `offline-mark:${submission.id}`, { submission_id: submission.id, total_points: totalPoints }, tx, receivedAt);
+    }
     return { submission, answers: answerRows, totalPoints, allAutoMarked };
   });
 

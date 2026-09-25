@@ -395,23 +395,28 @@ describe("POST /:roundId/exam/submit", () => {
     );
   });
 
-  it("accepts a submission after the close time but flags it late", async () => {
+  it("rejects a submission after the close time and records the decision", async () => {
     jest.setSystemTime(new Date("2026-06-01T10:00:05Z"));
     prisma.submissions.findFirst.mockResolvedValue(attempt([ans("a2", questions[1], "1")]));
 
-    const { res } = await run(submitExam, studentReq());
-    expect(prisma.submissions.update).toHaveBeenCalledWith({
-      where: { id: "sub-1" },
-      data: { status: "automarked", is_late: true },
-    });
-    expect(res.json.mock.calls[0][0].data.is_late).toBe(true);
+    const { next } = await run(submitExam, studentReq());
+    expectError(next, 400, "Submission received at or after the round deadline");
+    expect(prisma.submission_deadline_decisions.create).toHaveBeenCalledWith({ data: expect.objectContaining({ accepted: false, route: "online" }) });
+    expect(prisma.submissions.update).not.toHaveBeenCalled();
   });
 
-  it("doesn't flag an attempt late when there is no close snapshot", async () => {
-    jest.setSystemTime(new Date("2030-01-01T00:00:00Z"));
-    prisma.submissions.findFirst.mockResolvedValue(attempt([], { round_close_snapshot: null }));
+  it("rejects an online submission received exactly at closing", async () => {
+    jest.setSystemTime(new Date("2026-06-01T10:00:00Z"));
+    prisma.submissions.findFirst.mockResolvedValue(attempt([ans("a2", questions[1], "1")]));
+    const { next } = await run(submitExam, studentReq());
+    expectError(next, 400, "Submission received at or after the round deadline");
+    expect(prisma.submission_deadline_decisions.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ route: "online", accepted: false }),
+    });
+  });
 
-    const { res } = await run(submitExam, studentReq());
-    expect(res.json.mock.calls[0][0].data.is_late).toBe(false);
+  it("rejects an attempt without a recorded closing time", async () => {
+    prisma.submissions.findFirst.mockResolvedValue(attempt([], { round_close_snapshot: null }));
+    expect((await run(submitExam, studentReq())).next).toHaveBeenCalledWith(expect.any(Error));
   });
 });

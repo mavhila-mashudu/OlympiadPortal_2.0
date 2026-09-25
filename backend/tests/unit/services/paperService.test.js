@@ -16,6 +16,7 @@ const {
   getDownloadUrl,
   getRoundViewUrl,
   listArchive,
+  listSharedArchive,
 } = require("../../../src/services/paperService");
 
 const { bucket } = supabase.storage;
@@ -27,18 +28,15 @@ const ownedRound = (overrides = {}) => ({
   ...overrides,
 });
 
-let dateNow;
 beforeEach(() => {
   resetPrismaMock();
   supabase.storage.from.mockClear();
   bucket.upload.mockReset().mockResolvedValue({ error: null });
   bucket.createSignedUrl.mockReset().mockResolvedValue({ data: { signedUrl: "https://signed.test/file" }, error: null });
-  // Upload paths embed Date.now(); pin it so the paths are predictable
-  dateNow = jest.spyOn(Date, "now").mockReturnValue(1_700_000_000_000);
 });
-afterEach(() => dateNow.mockRestore());
 
 const pdf = (name) => ({ originalname: name, buffer: Buffer.from("%PDF"), mimetype: "application/pdf" });
+const sharedPath = `shared/${require("node:crypto").createHash("sha256").update(Buffer.from("%PDF")).digest("hex")}`;
 
 describe("uploadRoundPapers", () => {
   it("requires at least one file", async () => {
@@ -57,7 +55,7 @@ describe("uploadRoundPapers", () => {
     expect(bucket.upload).not.toHaveBeenCalled();
   });
 
-  it("uploads both files to the papers bucket under the round", async () => {
+  it("stores identical PDFs under one shared content path", async () => {
     prisma.rounds.findUnique.mockResolvedValue(ownedRound());
     prisma.papers.findFirst.mockResolvedValue(null);
     prisma.papers.create.mockResolvedValue({ id: "paper-1" });
@@ -70,12 +68,12 @@ describe("uploadRoundPapers", () => {
 
     expect(supabase.storage.from).toHaveBeenCalledWith("papers");
     expect(bucket.upload).toHaveBeenCalledWith(
-      "rounds/round-1/paper-1700000000000-maths.pdf",
+      sharedPath,
       paperFile.buffer,
       { contentType: "application/pdf", upsert: true },
     );
     expect(bucket.upload).toHaveBeenCalledWith(
-      "rounds/round-1/memo-1700000000000-memo.pdf",
+      sharedPath,
       memoFile.buffer,
       { contentType: "application/pdf", upsert: true },
     );
@@ -83,8 +81,8 @@ describe("uploadRoundPapers", () => {
       data: {
         round_id: "round-1",
         title: "Round 1",
-        file_url: "rounds/round-1/paper-1700000000000-maths.pdf",
-        memo_file_url: "rounds/round-1/memo-1700000000000-memo.pdf",
+        file_url: sharedPath,
+        memo_file_url: sharedPath,
       },
     });
   });
@@ -97,7 +95,7 @@ describe("uploadRoundPapers", () => {
     expect(bucket.upload).toHaveBeenCalledTimes(1);
     expect(prisma.papers.update).toHaveBeenCalledWith({
       where: { id: "paper-1" },
-      data: { memo_file_url: "rounds/round-1/memo-1700000000000-memo.pdf" },
+      data: { memo_file_url: sharedPath },
     });
     expect(prisma.papers.create).not.toHaveBeenCalled();
   });
@@ -247,6 +245,16 @@ describe("listArchive", () => {
   it("rejects an organiser who doesn't own the olympiad", async () => {
     prisma.olympiads.findUnique.mockResolvedValue({ id: "oly-1", organiser_id: "org-1" });
     await expect(listArchive("oly-1", "org-2")).rejects.toMatchObject({ statusCode: 403 });
+  });
+});
+
+it("shares archived rounds only across the organiser's olympiads", async () => {
+  prisma.rounds.findMany.mockResolvedValue([{ id: "round-1" }, { id: "round-2" }]);
+  await expect(listSharedArchive("org-1")).resolves.toHaveLength(2);
+  expect(prisma.rounds.findMany).toHaveBeenCalledWith({
+    where: { olympiads: { organiser_id: "org-1" }, state: "results_released", papers: { some: { is_archived: true } } },
+    orderBy: { closes_at: "desc" },
+    include: { papers: true, olympiads: { select: { id: true, name: true } } },
   });
 });
 

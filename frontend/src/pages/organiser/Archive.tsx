@@ -6,7 +6,6 @@ import { Button } from "../../components/ui/Button";
 import { TablePanel, Td, Th } from "../../components/ui/Table";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
-import { getCurrentOlympiad } from "../../lib/olympiad";
 import styles from "./Archive.module.css";
 
 type Paper = {
@@ -20,6 +19,7 @@ type ArchivedRound = {
   name: string;
   closes_at: string;
   papers: Paper[];
+  olympiads: { id: string; name: string };
 };
 
 const dateFormatter = new Intl.DateTimeFormat("en-ZA", { dateStyle: "medium" });
@@ -38,14 +38,8 @@ function Archive() {
   setError(null);
 
   try {
-   const olympiad = await getCurrentOlympiad();
-
-if (!olympiad) {
-  throw new Error("No current olympiad found");
-}
-
 const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
-  `/olympiads/${olympiad.id}/archive`,
+  "/olympiads/archive",
 );
 
     if (!cancelled) {
@@ -96,7 +90,7 @@ const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
       <div className={styles.stack}>
         <PageHeader
           title="Paper archive"
-          description="Question papers and memos from rounds with released results."
+          description="Question papers and memos from every olympiad with released results."
         />
 
         {error && <p>{error}</p>}
@@ -104,6 +98,7 @@ const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
         <TablePanel minWidth="48rem">
           <thead>
             <tr>
+              <Th>Olympiad</Th>
               <Th>Round</Th>
               <Th>Closed</Th>
               <Th>Paper</Th>
@@ -113,13 +108,14 @@ const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
           <tbody>
             {!loading && rounds.length === 0 && (
               <tr>
-                <td colSpan={4}>No released rounds have been archived yet.</td>
+                <td colSpan={5}>No released rounds have been archived yet.</td>
               </tr>
             )}
             {rounds.map((round) => {
               const paper = round.papers[0];
               return (
                 <tr key={round.id}>
+                  <Td>{round.olympiads.name}</Td>
                   <Td strong muted={false}>
                     {round.name}
                   </Td>

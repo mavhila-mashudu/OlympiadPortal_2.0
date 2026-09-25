@@ -385,3 +385,29 @@ model marking_reviews {
   answers answers @relation(fields: [answer_id], references: [id], onDelete: Cascade)
   users users @relation(fields: [reviewer_id], references: [id], onDelete: Cascade)
 }
+
+// Append-only records survive changes to round state and submission status.
+model round_events {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id    String   @db.Uuid
+  kind        String
+  origin      String
+  event_key   String   @unique
+  details     Json     @default("{}")
+  occurred_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@index([round_id, occurred_at])
+}
+
+model submission_deadline_decisions {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id    String   @db.Uuid
+  entrant_id  String   @db.Uuid
+  route       String
+  accepted    Boolean
+  decided_at  DateTime @db.Timestamptz(6)
+  closes_at   DateTime @db.Timestamptz(6)
+  explanation String
+
+  @@index([round_id, decided_at])
+}

@@ -16,6 +16,7 @@ let consoleLog;
 let consoleError;
 beforeEach(() => {
   resetPrismaMock();
+  prisma.rounds.updateMany.mockResolvedValue({ count: 1 });
   autoMarkRoundInternal.mockReset().mockResolvedValue({ total: 0 });
   jest.useFakeTimers().setSystemTime(NOW);
   consoleLog = jest.spyOn(console, "log").mockImplementation(() => {});
@@ -53,22 +54,17 @@ describe("runLifecycleTick", () => {
     });
   });
 
-  it("opens every due round in one update", async () => {
+  it("opens each due round and logs the transition", async () => {
     arrange({ toOpen: [{ id: "r1", name: "A" }, { id: "r2", name: "B" }] });
     await expect(runLifecycleTick()).resolves.toEqual({ opened: 2, closed: 0 });
-    expect(prisma.rounds.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["r1", "r2"] } },
-      data: { state: "open" },
-    });
+    expect(prisma.rounds.updateMany).toHaveBeenCalledWith({ where: { id: "r1", state: "scheduled", opens_at: { lte: NOW } }, data: { state: "open" } });
+    expect(prisma.round_events.createMany).toHaveBeenCalledWith(expect.objectContaining({ data: [expect.objectContaining({ kind: "round_opened" })] }));
   });
 
   it("closes due rounds and auto-marks each one", async () => {
     arrange({ toClose: [{ id: "r3", name: "C" }, { id: "r4", name: "D" }] });
     await expect(runLifecycleTick()).resolves.toEqual({ opened: 0, closed: 2 });
-    expect(prisma.rounds.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["r3", "r4"] } },
-      data: { state: "closed" },
-    });
+    expect(prisma.rounds.updateMany).toHaveBeenCalledWith({ where: { id: "r3", state: "open", closes_at: { lte: NOW } }, data: { state: "closed" } });
     expect(autoMarkRoundInternal.mock.calls).toEqual([["r3"], ["r4"]]);
   });
 

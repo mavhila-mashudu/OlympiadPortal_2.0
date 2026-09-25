@@ -52,6 +52,8 @@ const endpoints = [
   { method: "delete", path: "/olympiads/:id", roles: ORGANISER },
   { method: "get", path: "/olympiads/:olympiadId/schools", roles: ORGANISER },
   { method: "get", path: "/olympiads/:olympiadId/archive", roles: ORGANISER },
+  { method: "get", path: "/olympiads/archive", roles: ORGANISER },
+  { method: "get", path: "/rounds/:id/replay", roles: ORGANISER },
   { method: "post", path: "/olympiads/:olympiadId/rounds", roles: ORGANISER },
   { method: "get", path: "/olympiads/:olympiadId/rounds", roles: ORGANISER },
   { method: "get", path: "/olympiads/:olympiadId/notification-rules", roles: ORGANISER },

@@ -162,9 +162,10 @@ describe("papers", () => {
     expect(stored).toHaveLength(1);
     expect(stored[0]).toMatchObject({
       title: "Round 1",
-      file_url: expect.stringMatching(new RegExp(`^rounds/${round.id}/paper-\\d+-paper\\.pdf$`)),
-      memo_file_url: expect.stringMatching(new RegExp(`^rounds/${round.id}/memo-\\d+-memo\\.pdf$`)),
+      file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/),
+      memo_file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/),
     });
+    expect(stored[0].file_url).toBe(stored[0].memo_file_url);
     expect(supabase.storage.bucket.upload).toHaveBeenCalledTimes(2);
   });
 

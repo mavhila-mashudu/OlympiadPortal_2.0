@@ -229,6 +229,8 @@ const setRoundState = async (roundId, organiserId, state) => {
   if (state === "closed") {
     try {
       const result = await autoMarkRoundInternal(roundId);
+      await require("./roundAuditService").recordRoundEvent(roundId, "round_automarked", "manual_close", `mark:${roundId}`,
+        { submissions: result.total });
       console.log(
         `[round] auto-marked ${result.total} submission(s) for round "${round.name}"`,
       );

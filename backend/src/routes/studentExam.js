@@ -12,6 +12,7 @@ const {
   ConflictError,
 } = require("../errors/AppError");
 const { parseOptionList, scoreMcq } = require("../services/markingMath");
+const { deadlineDecision, recordDeadlineDecision, recordRoundEvent } = require("../services/roundAuditService");
 
 // Auth at router level; role per route. Role guards must NOT be applied
 // with router.use — other routers are also mounted on /rounds in app.js,
@@ -231,6 +232,9 @@ const startExam = async (req, res, next) => {
         });
       }
 
+      await recordRoundEvent(round.id, "online_exam_started", "student_request", `exam-start:${sub.id}`,
+        { submission_id: sub.id, question_count: answers.length }, tx);
+
       return { id: sub.id, status: sub.status, answers };
     });
 
@@ -281,9 +285,14 @@ const saveAnswer = async (req, res, next) => {
     }
 
     // Update the answer value (no marking yet)
-    const updated = await prisma.answers.update({
-      where: { id: answer.id },
-      data: { answer_value: answer_value ?? null },
+    const updated = await prisma.$transaction(async (tx) => {
+      const saved = await tx.answers.update({
+        where: { id: answer.id }, data: { answer_value: answer_value ?? null },
+      });
+      await recordRoundEvent(req.params.roundId, "answer_autosaved", "student_request",
+        `answer-save:${answer.id}:${require("node:crypto").randomUUID()}`,
+        { submission_id: submission.id, question_id: questionId }, tx);
+      return saved;
     });
 
     res.json({
@@ -306,14 +315,12 @@ const saveAnswer = async (req, res, next) => {
 //
 // Finalize the submission.  Triggers
 // auto-marking for MCQ and short-answer
-// questions.  A submission arriving after
-// closes_at is accepted (the auto-submit on
-// expiry can race the round-close job) but
-// flagged is_late so the organiser can
-// decide how to treat it.
+// questions. The receipt timestamp is captured at entry;
+// arriving at or after closes_at is rejected and recorded.
 // ─────────────────────────────────────────
 const submitExam = async (req, res, next) => {
   try {
+    const receivedAt = new Date(); // Capture at the server as soon as the request arrives.
     const entrant = resolveEntrant(req);
 
     const submission = await prisma.submissions.findFirst({
@@ -323,6 +330,7 @@ const submitExam = async (req, res, next) => {
         route: "online",
       },
       include: {
+        rounds: { select: { state: true } },
         answers: {
           include: {
             questions: {
@@ -350,11 +358,21 @@ const submitExam = async (req, res, next) => {
 
     // Auto-mark choice questions (MCQ + True/False) and
     // short answers inline
-    const now = new Date();
-    // round_close_snapshot holds the closes_at the
-    // student sat against — compare for lateness
+    const now = receivedAt;
     const closesAt = submission.round_close_snapshot;
-    const isLate = closesAt ? now > new Date(closesAt) : false;
+    const decision = deadlineDecision(now, closesAt);
+    if (submission.rounds?.state !== undefined && submission.rounds.state !== "open") {
+      decision.accepted = false;
+      decision.explanation = `Round was "${submission.rounds.state}" when the submission arrived.`;
+    }
+    if (!decision.accepted) {
+      await recordDeadlineDecision(req.params.roundId, entrant.id, "online", decision);
+      if (submission.rounds?.state !== undefined && submission.rounds.state !== "open") {
+        throw new BadRequestError(`Round is not open (state: ${submission.rounds.state})`);
+      }
+      throw new BadRequestError("Submission received at or after the round deadline");
+    }
+    const isLate = false;
     let totalPoints = 0;
     let allAutoMarked = true;
 
@@ -409,12 +427,16 @@ const submitExam = async (req, res, next) => {
         }
       }
 
-      // Update submission status (+ late flag)
+      // Update submission status and record the accepted boundary ruling.
       const status = allAutoMarked ? "automarked" : "queued_for_marking";
       await tx.submissions.update({
         where: { id: submission.id },
         data: { status, is_late: isLate },
       });
+      await recordDeadlineDecision(req.params.roundId, entrant.id, "online", decision, tx);
+      if (allAutoMarked) {
+        await recordRoundEvent(req.params.roundId, "submission_automarked", "automatic", `online-mark:${submission.id}`, { submission_id: submission.id, total_points: totalPoints }, tx, now);
+      }
 
       // Upsert results
       await tx.results.upsert({

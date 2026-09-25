@@ -1,5 +1,6 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
+const crypto = require("node:crypto");
 const supabase = require("../config/supabase");
 const { getRound } = require("./roundService");
 const { assertOwnsOlympiad } = require("./olympiadService");
@@ -11,6 +12,9 @@ const {
 } = require("../errors/AppError");
 
 const BUCKET = "papers";
+// The same PDF gets one object path, regardless of the olympiad or filename.
+// Already uploaded round paths remain valid for older papers.
+const sharedPaperPath = (file) => `shared/${crypto.createHash("sha256").update(file.buffer).digest("hex")}`;
 
 const uploadRoundPapers = async ({
   roundId,
@@ -31,7 +35,7 @@ const uploadRoundPapers = async ({
   const data = {};
 
   if (paperFile) {
-    const path = `rounds/${roundId}/paper-${Date.now()}-${paperFile.originalname}`;
+    const path = sharedPaperPath(paperFile);
     const { error } = await supabase.storage
       .from(BUCKET)
       .upload(path, paperFile.buffer, {
@@ -44,7 +48,7 @@ const uploadRoundPapers = async ({
   }
 
   if (memoFile) {
-    const path = `rounds/${roundId}/memo-${Date.now()}-${memoFile.originalname}`;
+    const path = sharedPaperPath(memoFile);
     const { error } = await supabase.storage
       .from(BUCKET)
       .upload(path, memoFile.buffer, {
@@ -154,9 +158,21 @@ const listArchive = async (olympiadId, organiserId) => {
   return rounds;
 };
 
+// A single catalogue across competitions owned by this organiser.
+const listSharedArchive = async (organiserId) => prisma.rounds.findMany({
+  where: {
+    olympiads: { organiser_id: organiserId },
+    state: "results_released",
+    papers: { some: { is_archived: true } },
+  },
+  orderBy: { closes_at: "desc" },
+  include: { papers: true, olympiads: { select: { id: true, name: true } } },
+});
+
 module.exports = {
   uploadRoundPapers,
   getDownloadUrl,
   getRoundViewUrl,
   listArchive,
+  listSharedArchive,
 };

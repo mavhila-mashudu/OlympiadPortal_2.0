@@ -1,5 +1,6 @@
 // In-app delivery. The unique dedupe key makes repeated scheduler ticks safe.
 const prisma = require("../config/database").default;
+const { recordRoundEvent } = require("./roundAuditService");
 
 const defaultRules = [
   { name: "Round opens soon", trigger: "round_opens", offset_minutes: 60, recipient: "registered_educators" },
@@ -75,13 +76,18 @@ async function deliverDueNotifications(now = new Date()) {
         : rule.trigger === "results_released"
           ? `Results for ${round.name} are available in the portal.`
           : `${round.name} ${rule.trigger === "round_opens" ? "opens" : "closes"} at ${source.toISOString()}.`;
-      const result = await prisma.portal_notifications.createMany({
-        data: recipients.map((userId) => ({
-          user_id: userId, rule_id: rule.id, round_id: round.id,
-          dedupe_key: `${rule.id}:${round.id}:${userId}`,
-          title: rule.name, body: message,
-        })),
-        skipDuplicates: true,
+      const result = await prisma.$transaction(async (tx) => {
+        const created = await tx.portal_notifications.createMany({
+          data: recipients.map((userId) => ({
+            user_id: userId, rule_id: rule.id, round_id: round.id,
+            dedupe_key: `${rule.id}:${round.id}:${userId}`,
+            title: rule.name, body: message,
+          })),
+          skipDuplicates: true,
+        });
+        if (created.count) await recordRoundEvent(round.id, "notifications_delivered", "scheduler", `notify:${rule.id}:${round.id}`,
+          { rule_id: rule.id, count: created.count, action: rule.action || "notify_recipients" }, tx, now);
+        return created;
       });
       delivered += result.count;
     }

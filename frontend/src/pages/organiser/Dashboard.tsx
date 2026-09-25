@@ -366,6 +366,7 @@ function OrganiserDashboard() {
                         {round._count?.submissions ?? 0}
                       </td>
                       <td className={styles.actionColumn}>
+                        <Button size="sm" variant="outline" to={`/organiser/rounds/${round.id}/replay`}>Replay</Button>
                         <Button
                           size="sm"
                           variant="outline"

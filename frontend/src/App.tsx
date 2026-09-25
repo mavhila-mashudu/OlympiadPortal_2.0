@@ -14,6 +14,7 @@ import OrganiserDashboard from "./pages/organiser/Dashboard";
 import ExamReview from "./pages/organiser/ExamReview";
 import MarkingQueue from "./pages/organiser/MarkingQueue";
 import Notifications from "./pages/organiser/Notifications";
+import RoundReplay from "./pages/organiser/RoundReplay";
 import Olympiads from "./pages/organiser/Olympiads";
 import Schools from "./pages/organiser/Schools";
 import Standings from "./pages/organiser/Standings";
@@ -39,6 +40,7 @@ function App() {
       <Route path="/organiser" element={<OrganiserDashboard />} />
       <Route path="/organiser/olympiads" element={<Olympiads />} />
       <Route path="/organiser/rounds/new" element={<CreateRound />} />
+      <Route path="/organiser/rounds/:id/replay" element={<RoundReplay />} />
       <Route path="/organiser/archive" element={<Archive />} />
       <Route path="/organiser/schools" element={<Schools />} />
       <Route path="/organiser/standings" element={<Standings />} />

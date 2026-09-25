@@ -152,17 +152,19 @@ describe("paper archive", () => {
   const archived = [
     {
       ...fx.organiserRound({ id: "r-2", name: "Round 2", state: "results_released", closes_at: "2026-06-12T10:00:00.000Z" }),
+      olympiads: { id: "oly-1", name: "Maths Olympiad 2026" },
       papers: [{ id: "paper-2", file_url: "rounds/r-2/paper.pdf", memo_file_url: null, is_archived: true }],
     },
     {
       ...fx.organiserRound({ id: "r-1", name: "Round 1", state: "results_released", closes_at: "2026-03-02T10:00:00.000Z" }),
+      olympiads: { id: "oly-1", name: "Maths Olympiad 2026" },
       papers: [{ id: "paper-1", file_url: "rounds/r-1/paper.pdf", memo_file_url: "rounds/r-1/memo.pdf", is_archived: true }],
     },
   ];
 
   it("lists archived rounds and enables only the files that exist", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: archived });
+    mockApi("get", "/olympiads/archive", { rounds: archived });
     renderApp("/organiser/archive");
 
     const round2 = (await screen.findByText("Round 2")).closest("tr")!;
@@ -175,7 +177,7 @@ describe("paper archive", () => {
 
   it("opens a signed download link for the chosen file", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: archived });
+    mockApi("get", "/olympiads/archive", { rounds: archived });
     const downloads = mockApi("get", "/papers/:id/download", (req) => ({
       url: `https://storage.test/${req.path.split("/")[2]}${req.search}`,
     }));
@@ -190,7 +192,7 @@ describe("paper archive", () => {
 
   it("shows a download failure", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: archived });
+    mockApi("get", "/olympiads/archive", { rounds: archived });
     mockApiError("get", "/papers/:id/download", 404, "Paper file not found");
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { user } = renderApp("/organiser/archive");
@@ -203,7 +205,7 @@ describe("paper archive", () => {
 
   it("explains when nothing has been archived yet", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: [] });
+    mockApi("get", "/olympiads/archive", { rounds: [] });
     renderApp("/organiser/archive");
     expect(await screen.findByText("No released rounds have been archived yet.")).toBeInTheDocument();
   });

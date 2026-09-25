@@ -20,6 +20,8 @@ const MODELS = [
   "olympiads",
   "notification_rules",
   "portal_notifications",
+  "round_events",
+  "submission_deadline_decisions",
   "remark_requests",
   "marking_reviews",
   "school_registrations",

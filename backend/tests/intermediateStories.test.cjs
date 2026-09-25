@@ -11,6 +11,8 @@ const round = {
   results_release_at: null, submissions: [],
 };
 const prisma = {
+  $transaction: async (callback) => callback(prisma),
+  round_events: { createMany: async () => ({ count: 1 }) },
   notification_rules: { findMany: async () => [
     { id: "opens", olympiad_id: "olympiad", name: "Opens soon", trigger: "round_opens", offset_minutes: 60, recipient: "registered_educators", condition: null },
     { id: "missing", olympiad_id: "olympiad", name: "Still missing", trigger: "missing_submission", offset_minutes: 60, recipient: "registered_schools", condition: null },
