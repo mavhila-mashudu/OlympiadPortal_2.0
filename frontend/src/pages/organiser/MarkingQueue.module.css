@@ -47,6 +47,46 @@
   padding: 0.75rem 1rem;
 }
 
+.routeSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-left: 3px solid var(--primary);
+}
+
+.routeSummary h2 {
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.routeSummary p {
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.routeCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+.routeCounts strong {
+  color: var(--foreground);
+  font-size: 1.1rem;
+}
+
+@media (max-width: 40rem) {
+  .routeSummary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Queue summary */
 .queueSummary {
   display: flex;

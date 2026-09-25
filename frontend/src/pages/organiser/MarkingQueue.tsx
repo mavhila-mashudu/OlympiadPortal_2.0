@@ -25,10 +25,17 @@ type QueueSubmission = {
   answers: QueueAnswer[];
 };
 
+type SubmissionSummary = {
+  id: string;
+  route: "online" | "offline";
+  is_late?: boolean;
+};
+
 function MarkingQueue() {
   const { id: roundId } = useParams<{ id: string }>();
 
   const [submissions, setSubmissions] = useState<QueueSubmission[]>([]);
+  const [submissionSummary, setSubmissionSummary] = useState<SubmissionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -39,14 +46,18 @@ function MarkingQueue() {
 
   const loadQueue = useCallback(async () => {
     try {
-      const res = await api.get<{ submissions: QueueSubmission[] }>(
-        `/rounds/${roundId}/marking-queue`,
-      );
-      setSubmissions(res.submissions);
-      const [reviewData, remarkData] = await Promise.all([
+      const [queue, all, reviewData, remarkData] = await Promise.all([
+        api.get<{ submissions: QueueSubmission[] }>(
+          `/rounds/${roundId}/marking-queue`,
+        ),
+        api.get<{ submissions: SubmissionSummary[] }>(
+          `/rounds/${roundId}/submissions`,
+        ),
         api.get<{ sample: ReviewAnswer[] }>(`/rounds/${roundId}/review-sample`),
         api.get<{ remarks: Remark[] }>(`/rounds/${roundId}/remarks`),
       ]);
+      setSubmissions(queue.submissions);
+      setSubmissionSummary(all.submissions);
       setSample(reviewData.sample);
       setRemarks(remarkData.remarks);
     } catch (err: any) {
@@ -106,6 +117,8 @@ function MarkingQueue() {
     (sum, s) => sum + s.answers.length,
     0,
   );
+  const onlineCount = submissionSummary.filter((submission) => submission.route === "online").length;
+  const offlineCount = submissionSummary.filter((submission) => submission.route === "offline").length;
 
   if (loading) {
     return (
@@ -148,6 +161,18 @@ function MarkingQueue() {
         </header>
 
         {error && <div className={styles.errorBanner}>{error}</div>}
+
+        <Card className={styles.routeSummary}>
+          <div>
+            <h2>One paper, two sitting routes</h2>
+            <p>Online and paper submissions use this round&apos;s official paper and are marked together.</p>
+          </div>
+          <div className={styles.routeCounts}>
+            <span><strong>{onlineCount}</strong> online</span>
+            <span><strong>{offlineCount}</strong> paper</span>
+            <span><strong>{submissionSummary.filter((submission) => submission.is_late).length}</strong> late</span>
+          </div>
+        </Card>
 
         {submissions.length === 0 && (
           <Card className={styles.emptyCard}>

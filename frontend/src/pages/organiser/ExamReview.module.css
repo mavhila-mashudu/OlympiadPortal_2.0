@@ -177,6 +177,86 @@
   padding: 0.75rem 1rem;
 }
 
+.bankCard {
+  display: grid;
+  gap: 1rem;
+}
+
+.bankHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.bankHeader h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--foreground);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.bankHeader h2 svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--primary);
+}
+
+.bankHeader p {
+  margin-top: 0.25rem;
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+.bankSearch {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  padding: 0.6rem 0.75rem;
+  font: inherit;
+}
+
+.bankList {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 18rem;
+  overflow-y: auto;
+}
+
+.bankItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.7rem;
+  cursor: pointer;
+}
+
+.bankItem input {
+  margin-top: 0.2rem;
+}
+
+.bankItem span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.bankItem strong {
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.bankItem small {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
 /* Question list */
 .questionList {
   display: grid;
