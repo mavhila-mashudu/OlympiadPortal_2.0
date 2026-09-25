@@ -285,11 +285,31 @@ function StudentRoundDetail() {
                     </div>
 
                     {round.remarkStatus ? (
-                      <p className={styles.remarkStatusText}>
-                        {round.remarkStatus === "pending"
-                          ? "Your remark request has been submitted and is currently being processed."
-                          : "This result has been reviewed."}
-                      </p>
+                      <div className={styles.remarkStatusContainer}>
+                        <p className={styles.remarkStatusText}>
+                          {round.remarkStatus === "pending"
+                            ? "Your remark request has been submitted and is currently being processed by an assigned educator."
+                            : `Your remark request has been reviewed${
+                                round.remarkReviewedAt
+                                  ? ` on ${formatDateTime(round.remarkReviewedAt)}`
+                                  : ""
+                              }. Any mark adjustments have been applied to your score above.`}
+                        </p>
+
+                        {round.remarkReason && (
+                          <div className={styles.originalReasonBox}>
+                            <span className={styles.reasonBoxTitle}>Your Appeal Reason</span>
+                            <p className={styles.reasonBoxText}>{round.remarkReason}</p>
+                          </div>
+                        )}
+
+                        {round.remarkStatus === "reviewed" && round.remarkNote && (
+                          <div className={styles.reviewFeedbackBox}>
+                            <span className={styles.feedbackTitle}>Educator Review Feedback</span>
+                            <p className={styles.feedbackText}>{round.remarkNote}</p>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <>
                         <textarea
@@ -317,13 +337,20 @@ function StudentRoundDetail() {
                               setRemarkError(null);
                               setRemarkSuccess(null);
                               try {
+                                const submittedReason = remarkReason.trim();
                                 await api.post(`/rounds/${round.id}/remark`, {
-                                  reason: remarkReason.trim(),
+                                  reason: submittedReason,
                                 });
                                 setRemarkReason("");
                                 setRemarkSuccess("Remark request submitted. It will be reviewed by an educator.");
                                 setRound((current) =>
-                                  current ? { ...current, remarkStatus: "pending" } : current,
+                                  current
+                                    ? {
+                                        ...current,
+                                        remarkStatus: "pending",
+                                        remarkReason: submittedReason,
+                                      }
+                                    : current,
                                 );
                               } catch (err) {
                                 setRemarkError(

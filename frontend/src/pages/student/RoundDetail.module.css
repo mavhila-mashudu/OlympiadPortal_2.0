@@ -254,10 +254,53 @@
   color: var(--muted-foreground);
 }
 
+.remarkStatusContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.originalReasonBox {
+  background: color-mix(in oklab, var(--muted) 25%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+.reasonBoxTitle,
+.feedbackTitle {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+  margin-bottom: 0.25rem;
+}
+
+.reasonBoxText,
+.feedbackText {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--foreground);
+}
+
+.reviewFeedbackBox {
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+  border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+}
+
+.reviewFeedbackBox .feedbackTitle {
+  color: var(--primary);
+}
+
 .remarkActions {
   display: flex;
   justify-content: flex-start;
 }
+
 
 @media (min-width: 40rem) {
   .pageHeader {
