@@ -113,7 +113,6 @@ function StudentResults() {
               <Th>Status</Th>
               <Th numeric>Score</Th>
               <Th numeric>Percentage</Th>
-              <Th numeric>Remark</Th>
               <Th numeric>Certificate</Th>
               <Th>Remark</Th>
             </tr>
@@ -173,15 +172,6 @@ function StudentResults() {
                   </Td>
                   <Td numeric strong muted={false}>
                     {row.percentage}
-                  </Td>
-                  <Td numeric muted={false}>
-                    {row.remarkStatus ? (
-                      <span className={styles.badge}>
-                        {row.remarkStatus === "pending" ? "Pending" : "Reviewed"}
-                      </span>
-                    ) : (
-                      <span className={styles.dash}>—</span>
-                    )}
                   </Td>
                   <Td numeric muted={false}>
                     {row.hasCertificate ? (
