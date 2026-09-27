@@ -65,10 +65,16 @@ function ExamReview() {
       setApprovedBy(sRes.approved_by_name ?? null);
       setApprovedAt(sRes.approved_at ?? null);
       if (sRes.exam_status === "draft") {
-        const bank = await api.get<{ questions: (Question & { source_round: { id: string; name: string } })[] }>(
-          `/rounds/${roundId}/question-bank`,
-        );
-        setBankQuestions(bank.questions);
+        // The bank is optional: if it can't load, say so, but keep the exam
+        try {
+          const bank = await api.get<{ questions: (Question & { source_round: { id: string; name: string } })[] }>(
+            `/rounds/${roundId}/question-bank`,
+          );
+          setBankQuestions(bank.questions);
+        } catch (err) {
+          setBankQuestions([]);
+          setError(err instanceof Error ? err.message : "Could not load the question bank");
+        }
       } else {
         setBankQuestions([]);
       }

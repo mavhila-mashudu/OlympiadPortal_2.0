@@ -1,10 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
 import { URLS } from "./e2e/test-data";
 
-// Our self-hosted CI runner is a small VM: Chromium, the backend, the database
-// and Vite together push it into swap, so every step takes far longer than on a
+// This suite runs on the shared instance runners, which serve every team on the
+// Gitea server and are frequently busy, so steps can take far longer than on a
 // developer machine. The limits below are generous in CI and strict locally, so
 // a genuine hang still fails fast where you are working.
+//
+// It deliberately does not run on our own runner: that VM has 1 GiB of RAM, and
+// Chromium, the backend, the database and Vite together push it into swap hard
+// enough that a third of the suite times out.
 const inCI = !!process.env.CI;
 
 // End-to-end tests: a real browser drives the real frontend and backend

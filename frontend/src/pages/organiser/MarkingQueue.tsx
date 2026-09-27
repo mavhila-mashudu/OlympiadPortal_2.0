@@ -45,24 +45,35 @@ function MarkingQueue() {
   const [action, setAction] = useState(false);
 
   const loadQueue = useCallback(async () => {
-    try {
-      const [queue, all, reviewData, remarkData] = await Promise.all([
-        api.get<{ submissions: QueueSubmission[] }>(
-          `/rounds/${roundId}/marking-queue`,
-        ),
-        api.get<{ submissions: SubmissionSummary[] }>(
-          `/rounds/${roundId}/submissions`,
-        ),
-        api.get<{ sample: ReviewAnswer[] }>(`/rounds/${roundId}/review-sample`),
-        api.get<{ remarks: Remark[] }>(`/rounds/${roundId}/remarks`),
-      ]);
-      setSubmissions(queue.submissions);
-      setSubmissionSummary(all.submissions);
-      setSample(reviewData.sample);
-      setRemarks(remarkData.remarks);
-    } catch (err: any) {
-      setError(err.message || "Failed to load marking queue");
-    }
+    // The queue is what this page is for. The route counts, moderation sample
+    // and remark requests are extras: if one of them fails, show why, but
+    // still let the organiser mark.
+    const [queue, all, reviewData, remarkData] = await Promise.allSettled([
+      api.get<{ submissions: QueueSubmission[] }>(
+        `/rounds/${roundId}/marking-queue`,
+      ),
+      api.get<{ submissions: SubmissionSummary[] }>(
+        `/rounds/${roundId}/submissions`,
+      ),
+      api.get<{ sample: ReviewAnswer[] }>(`/rounds/${roundId}/review-sample`),
+      api.get<{ remarks: Remark[] }>(`/rounds/${roundId}/remarks`),
+    ]);
+
+    if (queue.status === "fulfilled") setSubmissions(queue.value.submissions);
+    if (all.status === "fulfilled") setSubmissionSummary(all.value.submissions);
+    if (reviewData.status === "fulfilled") setSample(reviewData.value.sample);
+    if (remarkData.status === "fulfilled") setRemarks(remarkData.value.remarks);
+
+    const failed = [queue, all, reviewData, remarkData].find(
+      (result): result is PromiseRejectedResult => result.status === "rejected",
+    );
+    setError(
+      failed
+        ? failed.reason instanceof Error
+          ? failed.reason.message
+          : "Failed to load marking queue"
+        : null,
+    );
   }, [roundId]);
 
   useEffect(() => {
