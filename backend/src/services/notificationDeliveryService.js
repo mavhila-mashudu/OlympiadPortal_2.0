@@ -1,5 +1,6 @@
 // In-app delivery. The unique dedupe key makes repeated scheduler ticks safe.
 const prisma = require("../config/database").default;
+const { formatInTimeZone } = require("../utils/timezones");
 
 const defaultRules = [
   { name: "Round opens soon", trigger: "round_opens", offset_minutes: 60, recipient: "registered_educators" },
@@ -69,7 +70,7 @@ async function deliverDueNotifications(now = new Date()) {
   for (const rule of rules) {
     const rounds = await prisma.rounds.findMany({
       where: { olympiad_id: rule.olympiad_id },
-      select: { id: true, name: true, olympiad_id: true, opens_at: true, closes_at: true, results_release_at: true, submissions: { select: { id: true } } },
+      select: { id: true, name: true, olympiad_id: true, opens_at: true, closes_at: true, results_release_at: true, submissions: { select: { id: true } }, olympiads: { select: { timezone: true } } },
     });
     for (const round of rounds) {
       const due = dueAt(rule, round);
@@ -82,11 +83,13 @@ async function deliverDueNotifications(now = new Date()) {
         ? [(await prisma.olympiads.findUnique({ where: { id: rule.olympiad_id }, select: { organiser_id: true } }))?.organiser_id].filter(Boolean)
         : await resolveRecipients(rule, round);
       if (!recipients.length) continue;
+      // Times read in the olympiad's own timezone, e.g. "01 Oct 2026, 14:00 SAST"
+      const at = (date) => formatInTimeZone(date, round.olympiads?.timezone);
       const message = rule.trigger === "missing_submission"
-        ? `Your school's results for ${round.name} have not arrived. This round closes at ${round.closes_at.toISOString()}.`
+        ? `Your school's results for ${round.name} have not arrived. This round closes at ${at(round.closes_at)}.`
         : rule.trigger === "results_released"
           ? `Results for ${round.name} are available in the portal.`
-          : `${round.name} ${rule.trigger === "round_opens" ? "opens" : "closes"} at ${(rule.trigger === "round_opens" ? round.opens_at : round.closes_at).toISOString()}.`;
+          : `${round.name} ${rule.trigger === "round_opens" ? "opens" : "closes"} at ${at(rule.trigger === "round_opens" ? round.opens_at : round.closes_at)}.`;
       const result = await prisma.portal_notifications.createMany({
         data: recipients.map((userId) => ({
           user_id: userId, rule_id: rule.id, round_id: round.id,

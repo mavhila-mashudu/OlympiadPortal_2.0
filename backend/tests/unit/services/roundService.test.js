@@ -23,7 +23,7 @@ const {
   setRoundState,
 } = require("../../../src/services/roundService");
 
-const ownedOlympiad = { id: "oly-1", organiser_id: "org-1" };
+const ownedOlympiad = { id: "oly-1", organiser_id: "org-1", timezone: "Africa/Johannesburg" };
 
 const storedRound = (overrides = {}) => ({
   id: "round-1",
@@ -167,10 +167,11 @@ describe("public holiday warnings", () => {
     const result = await createRound(input());
 
     expect(result.warnings).toEqual(["2026-06-16 falls on a public holiday: Youth Day"]);
-    expect(checkDatesForHolidays).toHaveBeenCalledWith([
-      new Date("2026-06-01T08:00:00Z"),
-      new Date("2026-06-01T10:00:00Z"),
-    ]);
+    // Checked on the olympiad's own calendar
+    expect(checkDatesForHolidays).toHaveBeenCalledWith(
+      [new Date("2026-06-01T08:00:00Z"), new Date("2026-06-01T10:00:00Z")],
+      "Africa/Johannesburg",
+    );
     // The round is still created; the warning is advice, not a refusal
     expect(prisma.rounds.create).toHaveBeenCalled();
   });
@@ -186,6 +187,7 @@ describe("public holiday warnings", () => {
       round: { id: "round-1" },
       warnings: ["2026-12-16 falls on a public holiday: Day of Reconciliation"],
     });
+    expect(checkDatesForHolidays).toHaveBeenCalledWith(expect.any(Array), "Africa/Johannesburg");
   });
 });
 

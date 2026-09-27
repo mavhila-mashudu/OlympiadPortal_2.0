@@ -11,14 +11,10 @@ import { Select } from "../../components/ui/Select";
 import { Textarea } from "../../components/ui/Textarea";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import { DEFAULT_TIMEZONE, timeZoneLabel, zonedInputToIso } from "../../lib/time";
 import styles from "./CreateRound.module.css";
 
 type Round = { id: string };
-
-function toUTCISO(localValue: string): string {
-  const [date, time] = localValue.split("T");
-  return `${date}T${time || "00:00"}:00.000Z`;
-}
 
 function CreateRound() {
   const navigate = useNavigate();
@@ -33,6 +29,10 @@ function CreateRound() {
   const [pendingWarnings, setPendingWarnings] = useState<string[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
   const confirmedRef = useRef(false);
+
+  // Times are typed in the chosen olympiad's own timezone
+  const timeZone =
+    olympiads.find((o) => o.id === selectedOlympiadId)?.timezone ?? DEFAULT_TIMEZONE;
 
   useEffect(() => {
     async function loadOlympiads() {
@@ -83,8 +83,8 @@ function CreateRound() {
               const formData = new FormData(event.currentTarget);
               const name = formData.get("roundName") as string;
               const notes = (formData.get("notes") as string) || undefined;
-              const opensAtLocal = formData.get("opensAt") as string;
-              const closesAtLocal = formData.get("closesAt") as string;
+              const opensAt = zonedInputToIso(formData.get("opensAt") as string, timeZone);
+              const closesAt = zonedInputToIso(formData.get("closesAt") as string, timeZone);
               const qualifyingThreshold = formData.get("qualifyingThreshold") as string;
               const paperFile = formData.get("paper") as File | null;
               const memoFile = formData.get("memo") as File | null;
@@ -99,8 +99,10 @@ function CreateRound() {
                   const { warnings: preWarnings } = await api.post<{ warnings: string[] }>(
                     "/rounds/check-dates",
                     {
-                      opens_at: toUTCISO(opensAtLocal),
-                      closes_at: toUTCISO(closesAtLocal),
+                      opens_at: opensAt,
+                      closes_at: closesAt,
+                      // Holidays are checked on the olympiad's calendar
+                      olympiad_id: selectedOlympiadId,
                     },
                   );
                   if (preWarnings && preWarnings.length > 0) {
@@ -117,8 +119,8 @@ function CreateRound() {
                   {
                     name,
                     notes,
-                    opens_at: toUTCISO(opensAtLocal),
-                    closes_at: toUTCISO(closesAtLocal),
+                    opens_at: opensAt,
+                    closes_at: closesAt,
                     qualifying_threshold: qualifyingThreshold
                       ? Number(qualifyingThreshold)
                       : null,
@@ -252,6 +254,10 @@ function CreateRound() {
                 />
               </div>
             </div>
+            <p className={styles.hint}>
+              Times are in the olympiad&apos;s timezone ({timeZoneLabel(timeZone)}), and every school
+              sees them in the same timezone.
+            </p>
 
             <div className={styles.field}>
               <Label htmlFor="paper-file">Paper file</Label>

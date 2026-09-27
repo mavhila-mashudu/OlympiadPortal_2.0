@@ -56,7 +56,8 @@ describe("round reminders (I11)", () => {
     const [note] = await inboxOf(educatorUser);
     expect(note).toMatchObject({
       title: "Round opens soon",
-      body: `Qualifier opens at ${round.opens_at.toISOString()}.`,
+      // 11:00 UTC, written in the olympiad's timezone (South Africa by default)
+      body: "Qualifier opens at 01 Oct 2026, 13:00 SAST.",
       round_id: round.id,
       read_at: null,
     });
@@ -67,12 +68,21 @@ describe("round reminders (I11)", () => {
     expect(await prisma.portal_notifications.count()).toBe(2);
   });
 
+  it("writes the time in the olympiad's own timezone", async () => {
+    const { olympiad, educatorUser } = await setup();
+    await prisma.olympiads.update({ where: { id: olympiad.id }, data: { timezone: "Asia/Kolkata" } });
+    await createRule(olympiad);
+
+    await deliverDueNotifications(NOW);
+    expect((await inboxOf(educatorUser))[0].body).toBe("Qualifier opens at 01 Oct 2026, 16:30 GMT+5:30.");
+  });
+
   it("reminds before closing time with the round_closes trigger", async () => {
-    const { olympiad, educatorUser, round } = await setup({ opens_at: minutesFrom(NOW, -60), closes_at: minutesFrom(NOW, 30) });
+    const { olympiad, educatorUser } = await setup({ opens_at: minutesFrom(NOW, -60), closes_at: minutesFrom(NOW, 30) });
     await createRule(olympiad, { name: "Round closes soon", trigger: "round_closes", offset_minutes: 30 });
 
     expect(await deliverDueNotifications(NOW)).toBe(2);
-    expect((await inboxOf(educatorUser))[0].body).toBe(`Qualifier closes at ${round.closes_at.toISOString()}.`);
+    expect((await inboxOf(educatorUser))[0].body).toBe("Qualifier closes at 01 Oct 2026, 12:30 SAST.");
   });
 
   it("waits until the reminder is due, and never sends one more than five minutes late", async () => {
@@ -194,11 +204,11 @@ describe("missing submissions (I12)", () => {
   });
 
   it("says which round is outstanding and when it closes", async () => {
-    const { nothing, round } = await missingSetup();
+    const { nothing } = await missingSetup();
 
     await deliverDueNotifications(NOW);
     expect((await inboxOf(nothing.user))[0].body).toBe(
-      `Your school's results for Qualifier have not arrived. This round closes at ${round.closes_at.toISOString()}.`,
+      "Your school's results for Qualifier have not arrived. This round closes at 01 Oct 2026, 13:00 SAST.",
     );
   });
 });

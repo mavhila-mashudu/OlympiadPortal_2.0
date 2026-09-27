@@ -84,6 +84,7 @@ export const educatorRound = (overrides: Record<string, unknown> = {}) => ({
   name: "Round 1",
   olympiad_id: "oly-1",
   olympiad_name: "Maths Olympiad 2026",
+  timezone: "Africa/Johannesburg",
   opens_at: inHours(-1),
   closes_at: inHours(5),
   state: "open",

@@ -14,6 +14,13 @@ import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import {
+  DEFAULT_TIMEZONE,
+  formatDateTimeInZone,
+  isoToZonedInput,
+  timeZoneLabel,
+  zonedInputToIso,
+} from "../../lib/time";
 import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
 import { toBadgeStatus, type RoundState } from "./roundStatus";
 import styles from "./Dashboard.module.css";
@@ -37,19 +44,6 @@ type EditRoundForm = {
   qualifyingThreshold: string;
   notes: string;
 };
-const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function toDatetimeLocal(iso: string): string {
-  return iso.slice(0, 16);
-}
-
-function toUTCISO(localValue: string): string {
-  const [date, time] = localValue.split("T");
-  return `${date}T${time || "00:00"}:00.000Z`;
-}
 
 function OrganiserDashboard() {
   const [olympiad, setOlympiad] = useState<Olympiad | null>(null);
@@ -157,6 +151,9 @@ function OrganiserDashboard() {
     }
   }
 
+  // Round times are entered and shown in the olympiad's own timezone
+  const timeZone = olympiad?.timezone ?? DEFAULT_TIMEZONE;
+
   async function handleUpdateRound(roundId: string) {
     if (!editForm.name.trim()) return;
     setError(null);
@@ -167,8 +164,8 @@ function OrganiserDashboard() {
         warnings?: string[];
       }>(`/rounds/${roundId}`, {
         name: editForm.name.trim(),
-        opens_at: toUTCISO(editForm.opensAt),
-        closes_at: toUTCISO(editForm.closesAt),
+        opens_at: zonedInputToIso(editForm.opensAt, timeZone),
+        closes_at: zonedInputToIso(editForm.closesAt, timeZone),
         qualifying_threshold: editForm.qualifyingThreshold
           ? Number(editForm.qualifyingThreshold)
           : null,
@@ -190,8 +187,8 @@ function OrganiserDashboard() {
     setEditWarnings([]);
     setEditForm({
       name: round.name,
-      opensAt: toDatetimeLocal(round.opens_at),
-      closesAt: toDatetimeLocal(round.closes_at),
+      opensAt: isoToZonedInput(round.opens_at, timeZone),
+      closesAt: isoToZonedInput(round.closes_at, timeZone),
       qualifyingThreshold: round.qualifying_threshold != null ? String(round.qualifying_threshold) : "",
       notes: round.notes ?? "",
     });
@@ -354,8 +351,8 @@ function OrganiserDashboard() {
                           </span>
                         )}
                       </td>
-                      <td>{dateFormatter.format(new Date(round.opens_at))}</td>
-                      <td>{dateFormatter.format(new Date(round.closes_at))}</td>
+                      <td>{formatDateTimeInZone(round.opens_at, timeZone)}</td>
+                      <td>{formatDateTimeInZone(round.closes_at, timeZone)}</td>
                       <td>
                         <StatusBadge status={toBadgeStatus(round.state)} />
                       </td>
@@ -464,7 +461,7 @@ function OrganiserDashboard() {
                               </label>
 
                               <label className={styles.editField}>
-                                <span>Opens at</span>
+                                <span>Opens at ({timeZoneLabel(timeZone)})</span>
                                 <input
                                   type="datetime-local"
                                   value={editForm.opensAt}
@@ -474,7 +471,7 @@ function OrganiserDashboard() {
                               </label>
 
                               <label className={styles.editField}>
-                                <span>Closes at</span>
+                                <span>Closes at ({timeZoneLabel(timeZone)})</span>
                                 <input
                                   type="datetime-local"
                                   value={editForm.closesAt}

@@ -19,6 +19,8 @@ type RoundDetailData = {
   title: string;
   olympiadTitle: string;
   schoolName: string;
+  // The olympiad's IANA timezone; times are shown in it
+  timezone: string;
   opens_at: string;
   closes_at: string;
   status: "upcoming" | "open" | "closed";
@@ -161,7 +163,7 @@ function StudentRoundDetail() {
             <h1>{round.title}</h1>
             <p>
               {round.schoolName || profile.organisation} · Closes{" "}
-              {formatDateTime(round.closes_at)}
+              {formatDateTime(round.closes_at, round.timezone)}
             </p>
           </div>
           <div className={styles.pageActions}>

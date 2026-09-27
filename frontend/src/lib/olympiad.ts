@@ -4,6 +4,8 @@ export type Olympiad = {
   id: string;
   name: string;
   organiser_id: string;
+  // IANA timezone; the olympiad's round times are entered and shown in it
+  timezone: string;
   created_at: string;
   _count?: { rounds: number; school_registrations: number };
 };

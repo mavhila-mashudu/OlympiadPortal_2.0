@@ -57,6 +57,7 @@ describe("educator round page", () => {
     name: "Round 1 — Regional",
     olympiad_id: "oly-1",
     olympiad_name: "Maths Olympiad 2026",
+    timezone: "Africa/Johannesburg",
     opens_at: fx.inHours(-1),
     closes_at: fx.inHours(3),
     results_release_at: null,
@@ -226,7 +227,7 @@ describe("educator round page", () => {
 
   it("lists released past papers and downloads one by its round", async () => {
     mockRound(roundDetail(), {
-      pastPapers: [{ id: "paper-0", round_id: "round-0", round_name: "Round 0 — School", title: "School paper", closed_at: "2026-05-01T10:00:00.000Z", has_paper: true, has_memo: false }],
+      pastPapers: [{ id: "paper-0", round_id: "round-0", round_name: "Round 0 — School", title: "School paper", timezone: "Africa/Johannesburg", closed_at: "2026-05-01T10:00:00.000Z", has_paper: true, has_memo: false }],
     });
     const downloads = mockApi("get", "/educator/rounds/:roundId/paper/download", { url: "https://storage.test/past.pdf" });
     const open = vi.spyOn(window, "open").mockReturnValue(null);
@@ -476,12 +477,13 @@ describe("educator results", () => {
       id: "round-2",
       name: "Round 2 — Provincial",
       olympiad_name: "Maths Olympiad 2026",
+    timezone: "Africa/Johannesburg",
       closes_at: "2026-08-01T10:00:00.000Z",
       results: [
         { id: "res-1", rank: 3, total_points: "81.25", qualified: true, entrant: { id: "ent-1", full_name: "Ayanda Khumalo", grade: "11", external_ref: "S001" } },
       ],
     },
-    { id: "round-1", name: "Round 1 — Regional", olympiad_name: "Maths Olympiad 2026", closes_at: "2026-05-01T10:00:00.000Z", results: [] },
+    { id: "round-1", name: "Round 1 — Regional", olympiad_name: "Maths Olympiad 2026", timezone: "Africa/Johannesburg", closes_at: "2026-05-01T10:00:00.000Z", results: [] },
   ];
 
   it("shows the latest round's results and switches rounds", async () => {

@@ -120,20 +120,21 @@
   the question bank (A5) and both submission routes (A9–A11) are verified and counted as complete; moderation (I7)
   is built but can’t yet be used in the app. Two earlier defects were wrong and have been withdrawn: notifications
   did send, and no learner could be counted on both routes, since each route already refused the other. Defect #1
-  replaces three earlier ones about the remark branch and migrations.
+  replaces three earlier ones about the remark branch and migrations. A2 and A15 are now complete: round times follow
+  each olympiad’s own timezone.
 </div>
 
 <h2>Summary</h2>
 
 <div class="stats">
-  <div class="stat done"><div class="n">42</div><div class="l">Fully complete</div></div>
-  <div class="stat part"><div class="n">7</div><div class="l">Partially complete</div></div>
+  <div class="stat done"><div class="n">44</div><div class="l">Fully complete</div></div>
+  <div class="stat part"><div class="n">5</div><div class="l">Partially complete</div></div>
   <div class="stat todo"><div class="n">10</div><div class="l">Not implemented</div></div>
-  <div class="stat"><div class="n">71%</div><div class="l">Of all stories done</div></div>
+  <div class="stat"><div class="n">75%</div><div class="l">Of all stories done</div></div>
 </div>
 
-<div class="bar" role="img" aria-label="42 complete, 7 partial, 10 not implemented">
-  <i class="d" style="width:71.2%"></i><i class="p" style="width:11.9%"></i><i class="t" style="width:16.9%"></i>
+<div class="bar" role="img" aria-label="44 complete, 5 partial, 10 not implemented">
+  <i class="d" style="width:74.6%"></i><i class="p" style="width:8.5%"></i><i class="t" style="width:16.9%"></i>
 </div>
 
 <div class="scroll">
@@ -143,7 +144,7 @@
   <tbody>
     <tr><td><strong>Basic (B)</strong></td><td>17</td><td>0</td><td>0</td><td>17</td></tr>
     <tr><td><strong>Intermediate (I)</strong></td><td>18</td><td>1</td><td>0</td><td>19</td></tr>
-    <tr><td><strong>Advanced (A)</strong></td><td>5</td><td>3</td><td>10</td><td>18</td></tr>
+    <tr><td><strong>Advanced (A)</strong></td><td>7</td><td>1</td><td>10</td><td>18</td></tr>
     <tr><td><strong>Platform (P)</strong></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
 </table>
@@ -155,10 +156,10 @@
   <caption>Completion by role</caption>
   <thead><tr><th>Role</th><th>Complete</th><th>Partial</th><th>Not started</th><th>Total</th></tr></thead>
   <tbody>
-    <tr><td><span class="role">Organiser</span></td><td>12</td><td>2</td><td>3</td><td>17</td></tr>
+    <tr><td><span class="role">Organiser</span></td><td>13</td><td>1</td><td>3</td><td>17</td></tr>
     <tr><td><span class="role">Educator</span></td><td>12</td><td>0</td><td>0</td><td>12</td></tr>
     <tr><td><span class="role">Student</span></td><td>7</td><td>0</td><td>1</td><td>8</td></tr>
-    <tr><td><span class="role">System</span></td><td>8</td><td>1</td><td>5</td><td>14</td></tr>
+    <tr><td><span class="role">System</span></td><td>9</td><td>0</td><td>5</td><td>14</td></tr>
     <tr><td><span class="role">Marker</span></td><td>1</td><td>1</td><td>1</td><td>3</td></tr>
     <tr><td><span class="role">Platform</span></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
@@ -167,7 +168,7 @@
 
 <p><strong>The whole Basic tier is done.</strong> The Intermediate tier is done apart from moderation (I7), which
 works but can’t yet be used in the app. The Advanced tier is
-largely untouched — five stories complete, three partial.</p>
+about half done — seven stories complete, one partial.</p>
 
 <h2>Fully complete</h2>
 <p class="sub">Implemented, reachable through the UI, and covered by tests.</p>
@@ -230,11 +231,13 @@ largely untouched — five stories complete, three partial.</p>
 <table>
   <thead><tr><th>ID</th><th>Role</th><th>Story</th><th>Evidence in the code</th></tr></thead>
   <tbody>
+    <tr><td class="id">A2</td><td><span class="role">System</span></td><td>One authoritative clock</td><td>The server clock decides every deadline (<code>server_time</code>, <code>round_close_snapshot</code>), and since 27 September every round time is entered and shown in the olympiad’s own timezone, labelled (e.g. “14:00 SAST”), so “on time” reads the same for every school whatever its devices are set to. Holidays are checked on the olympiad’s calendar</td></tr>
     <tr><td class="id">A3</td><td><span class="role">System</span></td><td>Count a submission exactly once</td><td>Deterministic <code>idempotency_key</code> from round+entrant+route, with a unique index and a pre-check</td></tr>
     <tr><td class="id">A5</td><td><span class="role">Organiser</span></td><td>Papers from a question bank</td><td>While an exam is a draft, the organiser can copy questions from any of their earlier rounds onto it. Known bug: the same question can be imported more than once (defect #4)</td></tr>
     <tr><td class="id">A9</td><td><span class="role">Organiser</span></td><td>One paper, online or on paper</td><td>Both routes use the round's one paper and are marked together. A learner who opens the exam online and loses their connection can still have paper answers captured: while the online attempt is unsubmitted, the capture replaces it (a submitted online exam still blocks paper). The educator page lists such learners as “Started online but not submitted”</td></tr>
     <tr><td class="id">A10</td><td><span class="role">System</span></td><td>Merge online and offline results</td><td>One result row per learner (<code>results</code> is unique on round + learner); marking, standings and the organiser's route counts treat both routes as one set</td></tr>
     <tr><td class="id">A11</td><td><span class="role">System</span></td><td>Reconcile dual-route entrants</td><td>A learner may use one route per round, first one wins: each route refuses the other with a clear message, and since 27 September the database enforces it too (unique on round + learner), so two requests at the same moment can't both get through</td></tr>
+    <tr><td class="id">A15</td><td><span class="role">Organiser</span></td><td>Several olympiads at once</td><td>An organiser runs many olympiads, each with its own rounds, schedule and timezone (chosen when it is created); round times, holiday checks and notification messages all use that timezone</td></tr>
     <tr><td class="id">P1</td><td><span class="role">Platform</span></td><td>Sign up, sign in, reset, delete</td><td>Supabase Auth; reset-password flow; soft-delete on <code>DELETE /auth/account</code></td></tr>
     <tr><td class="id">P3</td><td><span class="role">Platform</span></td><td>Hand-written, documented API</td><td>73 endpoints, all hand-written; <code>docs/API.md</code>; an endpoint-inventory test fails if a route is added without being documented and access-tested</td></tr>
   </tbody>
@@ -251,15 +254,9 @@ largely untouched — five stories complete, three partial.</p>
     <tr><td class="id">I7</td><td><span class="role">Marker</span></td><td>Moderator reviews marking</td>
       <td><strong>Exists:</strong> the organiser sees a stable sample of hand-marked answers on the marking page and can revise a mark, which is recorded and recalculates results. A marker may not moderate their own marking. 9 API tests in <code>moderation.test.js</code>.
       <strong>Missing:</strong> it can’t be used in the app. Only the organiser’s marking queue marks answers (educators may mark through the API, but have no screen for it), and the organiser is also the only moderator, so every review is refused as moderating their own marking.</td></tr>
-    <tr><td class="id">A2</td><td><span class="role">System</span></td><td>One authoritative clock</td>
-      <td><strong>Exists:</strong> the server is authoritative for exam timing and deadlines (<code>server_time</code>, <code>round_close_snapshot</code>).
-      <strong>Missing:</strong> <code>olympiads.timezone</code> is written on create and then never read — all times are UTC, so “on time” is not evaluated per the olympiad’s own timezone.</td></tr>
     <tr><td class="id">A4</td><td><span class="role">Organiser</span></td><td>Defensible deadline boundary</td>
       <td><strong>Exists:</strong> each submission records <code>round_close_snapshot</code> and an <code>is_late</code> flag, so a ruling is reproducible after the fact.
       <strong>Missing:</strong> no written, published tie-break rule for the exact boundary instant — the story asks for something a school cannot call arbitrary.</td></tr>
-    <tr><td class="id">A15</td><td><span class="role">Organiser</span></td><td>Several olympiads at once</td>
-      <td><strong>Exists:</strong> an organiser can run many olympiads, each with its own rounds and schedule.
-      <strong>Missing:</strong> “each on its own timezone” is not met — the field is stored but unused.</td></tr>
     <tr><td class="id">P2</td><td><span class="role">Platform</span></td><td>Responsive and accessible</td>
       <td><strong>Exists:</strong> responsive CSS throughout, semantic roles, labelled form controls, keyboard-reachable dialogs.
       <strong>Missing:</strong> no accessibility audit has been run; WCAG AA is claimed nowhere and verified nowhere.</td></tr>
@@ -296,7 +293,7 @@ largely untouched — five stories complete, three partial.</p>
 
 <h2>Defects and risks found</h2>
 <p class="sub"><code>docs/bug-tracking.md</code> records 47 bugs, every one marked <em>Fixed</em> — no open
-items at all, which suggests it is a history of resolved work rather than a live register. The eight
+items at all, which suggests it is a history of resolved work rather than a live register. The seven
 below were found during this inspection and are not in it.</p>
 
 <div class="note">
@@ -541,46 +538,8 @@ Remove the quotes from the .env files so they match the examples, since nothing 
 </article>
 <article class="issue" id="issue-7">
   <div class="issue-head">
-    <h3 class="issue-title">7. olympiads.timezone is stored but never read</h3>
+    <h3 class="issue-title">7. Two standing lint warnings, one of which can hide a real bug</h3>
     <button class="copy" type="button" data-target="md-7">Copy as Markdown</button>
-  </div>
-  <p class="issue-meta">
-    <span class="tag  sev-low">Low</span>
-    <span class="role">backend / schema</span>
-  </p>
-  <h4>What is wrong</h4><p>The `olympiads` table has a `timezone` column defaulting to &#x27;Africa/Johannesburg&#x27;. It is accepted when an olympiad is created and written to the database, and then never read again. Every time in the system is handled in UTC.</p>
-  <h4>Why it matters</h4><p>The column implies a capability that does not exist. Reading the schema, a developer would reasonably assume each olympiad&#x27;s rounds open and close according to its own timezone, which is what user story A15 asks for. In practice they do not, and A2 (judge submissions against one authoritative clock) is only partly satisfied: the server clock is authoritative, but it is not timezone-aware per olympiad. Dead data that suggests a feature is worse than an absent column, because it hides the gap.</p>
-  <h4>Where to look</h4><ul class="where"><li><code>backend/prisma/schema.prisma line 108 — timezone String @default(&quot;Africa/Johannesburg&quot;)</code></li><li><code>backend/src/services/olympiadService.js — writes it on create</code></li><li><code>nothing anywhere reads it</code></li></ul>
-  <h4>How to confirm it</h4><p>Search the backend and frontend for `timezone`. Every hit is a write path or a validation rule; there is no read.</p>
-  <h4>Suggested fix</h4><p>Either honour it — convert round open and close times through the olympiad&#x27;s timezone when evaluating and displaying them — or drop the column and treat everything as UTC explicitly. Both are defensible; leaving it as it is, is not.</p>
-  <h4>Done when</h4><ul class="done-list"><li>Either round timing respects the olympiad timezone, or the column is removed</li><li>The decision is recorded in docs/system-design.md</li></ul>
-  <script type="text/plain" id="md-7">**Severity:** Low  |  **Area:** backend / schema
-
-### What is wrong
-The `olympiads` table has a `timezone` column defaulting to &#x27;Africa/Johannesburg&#x27;. It is accepted when an olympiad is created and written to the database, and then never read again. Every time in the system is handled in UTC.
-
-### Why it matters
-The column implies a capability that does not exist. Reading the schema, a developer would reasonably assume each olympiad&#x27;s rounds open and close according to its own timezone, which is what user story A15 asks for. In practice they do not, and A2 (judge submissions against one authoritative clock) is only partly satisfied: the server clock is authoritative, but it is not timezone-aware per olympiad. Dead data that suggests a feature is worse than an absent column, because it hides the gap.
-
-### Where to look
-- `backend/prisma/schema.prisma line 108 — timezone String @default(&quot;Africa/Johannesburg&quot;)`
-- `backend/src/services/olympiadService.js — writes it on create`
-- nothing anywhere reads it
-
-### How to confirm it
-Search the backend and frontend for `timezone`. Every hit is a write path or a validation rule; there is no read.
-
-### Suggested fix
-Either honour it — convert round open and close times through the olympiad&#x27;s timezone when evaluating and displaying them — or drop the column and treat everything as UTC explicitly. Both are defensible; leaving it as it is, is not.
-
-### Done when
-- [ ] Either round timing respects the olympiad timezone, or the column is removed
-- [ ] The decision is recorded in docs/system-design.md</script>
-</article>
-<article class="issue" id="issue-8">
-  <div class="issue-head">
-    <h3 class="issue-title">8. Two standing lint warnings, one of which can hide a real bug</h3>
-    <button class="copy" type="button" data-target="md-8">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -592,7 +551,7 @@ Either honour it — convert round open and close times through the olympiad&#x2
   <h4>How to confirm it</h4><p>Run `npm run lint` in frontend/. Both warnings appear.</p>
   <h4>Suggested fix</h4><p>In Olympiads.tsx, surface the error to the user instead of silently emptying the list. In ExamSitting.tsx, review the effect carefully before changing it — adding the dependencies naively may cause it to re-run more often than intended, so the fix is to restructure it rather than silence the warning.</p>
   <h4>Done when</h4><ul class="done-list"><li>npm run lint reports no warnings</li><li>A failed olympiad fetch shows an error rather than an empty list</li></ul>
-  <script type="text/plain" id="md-8">**Severity:** Low  |  **Area:** frontend / code quality
+  <script type="text/plain" id="md-7">**Severity:** Low  |  **Area:** frontend / code quality
 
 ### What is wrong
 `npm run lint` in frontend/ reports two warnings on every run. Both are pre-existing. The first is cosmetic; the second is the kind that can mask a genuine defect.
@@ -668,7 +627,12 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
     <code>docs/roadmap.md</code> now matches this page (42 done, 7 in progress, 10 planned). I17 was missing from
     it entirely and has been added. Checking the last three unverified stories turned up one new problem:
     moderation (I7) can’t be used in the app, because the organiser both marks and moderates.</li>
-  <li><strong>Either honour <code>olympiads.timezone</code> or drop the column.</strong> Dead data that implies a feature is worse than no column.</li>
+  <li><s>Either honour <code>olympiads.timezone</code> or drop the column.</s> <strong>Honoured, 27 September.</strong>
+    Checking it turned up a real bug: both round forms stored the organiser’s typed time as if it were UTC, so in South
+    Africa every round opened and closed 2 hours later than intended, and the dashboard’s table and edit form showed
+    different times. Round times are now entered and shown in the olympiad’s timezone, labelled; organisers pick it
+    when creating an olympiad; holiday checks and notification messages use it too. The rounds already in the shared
+    database were all closed, so no live schedule was affected; they simply now show their true times.</li>
 </ol>
 
 <footer>

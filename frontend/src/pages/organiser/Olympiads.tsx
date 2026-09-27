@@ -4,13 +4,16 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
+import { Select } from "../../components/ui/Select";
 import { api } from "../../lib/api";
+import { DEFAULT_TIMEZONE, TIMEZONE_OPTIONS, formatDateInZone } from "../../lib/time";
 import { organiserNav } from "../../lib/mockData";
 import { InviteEducatorForm } from "./InviteEducatorForm";
 
 export default function Olympiads() {
   const [olympiads, setOlympiads] = useState<any[]>([]);
   const [name, setName] = useState("");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteOlympiadId, setInviteOlympiadId] = useState<string | null>(null);
@@ -63,8 +66,9 @@ export default function Olympiads() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.post("/olympiads", { name });
+      await api.post("/olympiads", { name, timezone });
       setName("");
+      setTimezone(DEFAULT_TIMEZONE);
       await loadOlympiads();
     } catch (err: any) {
       setError(err.message || "Failed to create Olympiad.");
@@ -126,6 +130,19 @@ export default function Olympiads() {
                 {submitting ? "Creating..." : "Create"}
               </Button>
             </div>
+            <label htmlFor="olympiad-timezone" style={{ fontSize: "0.875rem" }}>
+              Timezone
+            </label>
+            <Select id="olympiad-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+              {TIMEZONE_OPTIONS.map((zone) => (
+                <option key={zone.value} value={zone.value}>
+                  {zone.label}
+                </option>
+              ))}
+            </Select>
+            <p style={{ fontSize: "0.8125rem", color: "#6b7280", margin: 0 }}>
+              Round times are entered and shown in this timezone, so every school sees the same official times.
+            </p>
             {error && <p style={{ color: "red", marginTop: "0.25rem" }}>{error}</p>}
           </form>
         </Card>
@@ -287,10 +304,10 @@ export default function Olympiads() {
                                       </span>
                                     </td>
                                     <td style={{ padding: "0.625rem 0.75rem", color: "#6b7280" }}>
-                                      {r.opens_at ? new Date(r.opens_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                                      {r.opens_at ? formatDateInZone(r.opens_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
                                     </td>
                                     <td style={{ padding: "0.625rem 0.75rem", color: "#6b7280" }}>
-                                      {r.closes_at ? new Date(r.closes_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                                      {r.closes_at ? formatDateInZone(r.closes_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
                                     </td>
                                     <td style={{ padding: "0.625rem 0.75rem", textAlign: "right", color: "#374151" }}>
                                       {r._count?.submissions ?? 0}

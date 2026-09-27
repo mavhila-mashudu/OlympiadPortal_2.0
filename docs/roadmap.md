@@ -27,9 +27,9 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | ------------------------ | ------ | ----------- | ------- |
 | Sprint 1 — Foundation    | 18     | 0           | 0       |
 | Sprint 2 — Core Features | 17     | 0           | 0       |
-| Sprint 3 — Advanced      | 6      | 4           | 10      |
+| Sprint 3 — Advanced      | 8      | 2           | 10      |
 | Sprint 4 — Polish and QA | 1      | 3           | 0       |
-| **Total (59 stories)**   | **42** | **7**       | **10**  |
+| **Total (59 stories)**   | **44** | **5**       | **10**  |
 
 ---
 
@@ -130,7 +130,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | ID  | Story                                       | Status      | Notes                                                                                                         |
 | --- | ------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
 | A1  | Handle round open/close under peak load     | Planned     | No load testing yet                                                                                           |
-| A2  | Authoritative clock per olympiad timezone   | In Progress | The server clock is authoritative; the olympiad's timezone is stored but never used                           |
+| A2  | Authoritative clock per olympiad timezone   | Done        | Round times are entered and shown in the olympiad's own timezone |
 | A3  | Count submission exactly once (idempotency) | Done        |                                                                                                               |
 | A4  | Consistent deadline boundary handling       | In Progress | Each submission records the deadline it was judged against; no published tie-break rule yet                   |
 | A5  | Papers from question bank                   | Done        | Organisers reuse questions from their earlier rounds. Known bug: a question can be imported more than once    |
@@ -143,7 +143,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | A12 | Appeal a mark                               | Planned     |                                                                                                               |
 | A13 | Route appeals to reviewer                   | Planned     |                                                                                                               |
 | A14 | Appeal outcome updates standings            | Planned     |                                                                                                               |
-| A15 | Multiple concurrent olympiads               | In Progress | Separate schedules work; per-olympiad timezone doesn't (see A2)                                               |
+| A15 | Multiple concurrent olympiads               | Done        | Each olympiad has its own schedule and timezone |
 | A16 | Shared paper archive                        | Planned     | The archive is per olympiad                                                                                   |
 | A17 | Log every automatic action                  | Planned     |                                                                                                               |
 | A18 | Replay round event history                  | Planned     | Depends on A17                                                                                                |
@@ -196,5 +196,6 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | September 2026    | Initial roadmap created                                                                                                                 |
 | 27 September 2026 | Statuses brought in line with the code on `main`; I17 added to Sprint 2, where it was missing; notes added for stories still in progress |
+| 27 September 2026 | A2 and A15 done: round times follow each olympiad's own timezone |
 
 This is a living document, reviewed at every Friday retrospective.

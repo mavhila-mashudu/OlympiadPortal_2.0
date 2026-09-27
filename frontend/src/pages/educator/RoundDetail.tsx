@@ -162,8 +162,8 @@ function EducatorRoundDetail() {
           <div>
             <h1>{round.name}</h1>
             <p>
-              {round.school.name} · Opens {formatDate(round.opens_at)} ·
-              Closes {formatDate(round.closes_at)}
+              {round.school.name} · Opens {formatDate(round.opens_at, round.timezone)} ·
+              Closes {formatDate(round.closes_at, round.timezone)}
             </p>
           </div>
           <div className={styles.pageActions}>
@@ -257,7 +257,7 @@ function EducatorRoundDetail() {
                         </span>
                         <span className={styles.pastPaperRound}>
                           {pp.round_name} · Closed{" "}
-                          {formatDateShort(pp.closed_at)}
+                          {formatDateShort(pp.closed_at, pp.timezone)}
                         </span>
                       </div>
                     </div>
@@ -305,7 +305,7 @@ function EducatorRoundDetail() {
                   </span>
                   <span>
                     <strong>Received at:</strong>{" "}
-                    {formatDate(receipt.submission.received_at)}
+                    {formatDate(receipt.submission.received_at, round.timezone)}
                   </span>
                   <span>
                     <strong>Status:</strong> {receipt.submission.status}
@@ -397,7 +397,7 @@ function EducatorRoundDetail() {
                       </span>
                       <span className={styles.pastPaperRound}>
                         {s.route === "online" ? "Sat online" : "Captured"} ·{" "}
-                        {formatDate(s.received_at)} · {s.status}
+                        {formatDate(s.received_at, round.timezone)} · {s.status}
                       </span>
                     </li>
                   ))}

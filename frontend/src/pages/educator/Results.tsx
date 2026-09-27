@@ -73,7 +73,7 @@ function Results() {
               </Select>
               {activeRound && (
                 <p>
-                  Closed {formatDateShort(activeRound.closes_at)} ·{" "}
+                  Closed {formatDateShort(activeRound.closes_at, activeRound.timezone)} ·{" "}
                   {activeRound.results.length} entrant
                   {activeRound.results.length !== 1 ? "s" : ""}
                 </p>
