@@ -18,6 +18,11 @@ export default mergeConfig(
             environment: "jsdom",
             include: ["tests/unit/**/*.test.{ts,tsx}"],
             setupFiles: ["tests/unit/setup.ts"],
+            // Form tests type with user-event, which a busy shared runner has
+            // stretched past vitest's 5s default. A passing test still
+            // finishes in well under a second locally.
+            testTimeout: 15_000,
+            retry: process.env.CI ? 1 : 0,
           },
         },
         {

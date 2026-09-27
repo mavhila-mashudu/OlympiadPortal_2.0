@@ -75,6 +75,8 @@ const endpoints = [
   { method: "post", path: "/rounds/:roundId/question-bank/import", roles: ORGANISER },
   { method: "patch", path: "/rounds/:roundId/questions/:id", roles: STAFF },
   { method: "delete", path: "/rounds/:roundId/questions/:id", roles: STAFF },
+  { method: "get", path: "/rounds/:roundId/question-bank", roles: ORGANISER },
+  { method: "post", path: "/rounds/:roundId/question-bank/import", roles: ORGANISER },
   { method: "get", path: "/rounds/:roundId/exam-status", roles: STAFF },
   { method: "patch", path: "/rounds/:roundId/exam-status", roles: STAFF },
 
