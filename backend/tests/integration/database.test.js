@@ -22,12 +22,13 @@ describe("migrations", () => {
       "portal_notifications",
       "portal_remark_requests",
       "questions",
-      
+      "remark_requests",
       "results",
       "rounds",
       "school_memberships",
       "school_registrations",
       "schools",
+      "sent_notifications",
       "submissions",
       "users",
     ]);
