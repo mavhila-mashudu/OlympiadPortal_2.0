@@ -115,25 +115,24 @@
 
 <div class="note">
   <strong>Update, 27 September 2026</strong>
-  Notification delivery (I11–I13) has been verified end to end and is now counted as complete; the
-  delivery was already running, and one bug in it was fixed (see <em>What to do next</em>). Separately,
-  since this report was first compiled, <code>main</code> has gained marking moderation (I7), remark
-  requests (I8), downloadable certificates (I17) and a basic question bank (A5). Those stories, and the
-  defects about the remark branch and migrations (#1, #3 and #4 below), have <strong>not been re-checked
-  yet</strong> — treat what this page says about them as out of date.
+  Notification delivery (I11–I13) and remark requests (I8) have been verified end to end and are now
+  counted as complete; see <em>What to do next</em>. Defect #1 below replaces three earlier ones about the
+  remark branch and migrations. Separately, since this report was first compiled, <code>main</code> has
+  gained marking moderation (I7), downloadable certificates (I17) and a basic question bank (A5). Those
+  three have <strong>not been re-checked yet</strong> — treat what this page says about them as out of date.
 </div>
 
 <h2>Summary</h2>
 
 <div class="stats">
-  <div class="stat done"><div class="n">36</div><div class="l">Fully complete</div></div>
+  <div class="stat done"><div class="n">37</div><div class="l">Fully complete</div></div>
   <div class="stat part"><div class="n">8</div><div class="l">Partially complete</div></div>
-  <div class="stat todo"><div class="n">15</div><div class="l">Not implemented</div></div>
-  <div class="stat"><div class="n">61%</div><div class="l">Of all stories done</div></div>
+  <div class="stat todo"><div class="n">14</div><div class="l">Not implemented</div></div>
+  <div class="stat"><div class="n">63%</div><div class="l">Of all stories done</div></div>
 </div>
 
-<div class="bar" role="img" aria-label="36 complete, 8 partial, 15 not implemented">
-  <i class="d" style="width:61%"></i><i class="p" style="width:13.6%"></i><i class="t" style="width:25.4%"></i>
+<div class="bar" role="img" aria-label="37 complete, 8 partial, 14 not implemented">
+  <i class="d" style="width:62.7%"></i><i class="p" style="width:13.6%"></i><i class="t" style="width:23.7%"></i>
 </div>
 
 <div class="scroll">
@@ -142,7 +141,7 @@
   <thead><tr><th>Tier</th><th>Complete</th><th>Partial</th><th>Not started</th><th>Total</th></tr></thead>
   <tbody>
     <tr><td><strong>Basic (B)</strong></td><td>17</td><td>0</td><td>0</td><td>17</td></tr>
-    <tr><td><strong>Intermediate (I)</strong></td><td>16</td><td>1</td><td>2</td><td>19</td></tr>
+    <tr><td><strong>Intermediate (I)</strong></td><td>17</td><td>1</td><td>1</td><td>19</td></tr>
     <tr><td><strong>Advanced (A)</strong></td><td>1</td><td>4</td><td>13</td><td>18</td></tr>
     <tr><td><strong>Platform (P)</strong></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
@@ -157,7 +156,7 @@
   <tbody>
     <tr><td><span class="role">Organiser</span></td><td>10</td><td>3</td><td>4</td><td>17</td></tr>
     <tr><td><span class="role">Educator</span></td><td>12</td><td>0</td><td>0</td><td>12</td></tr>
-    <tr><td><span class="role">Student</span></td><td>5</td><td>1</td><td>2</td><td>8</td></tr>
+    <tr><td><span class="role">Student</span></td><td>6</td><td>1</td><td>1</td><td>8</td></tr>
     <tr><td><span class="role">System</span></td><td>6</td><td>1</td><td>7</td><td>14</td></tr>
     <tr><td><span class="role">Marker</span></td><td>1</td><td>0</td><td>2</td><td>3</td></tr>
     <tr><td><span class="role">Platform</span></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
@@ -166,7 +165,7 @@
 </div>
 
 <p><strong>The whole Basic tier is done.</strong> The Intermediate tier is nearly done:
-notifications are delivered in-app, and the three stories still listed as open (I7, I8, I17) have all had
+notifications are delivered in-app, and the two stories still listed as open (I7, I17) have both had
 work merged since this check. The Advanced tier is
 largely untouched — one story complete, four partial.</p>
 
@@ -199,7 +198,7 @@ largely untouched — one story complete, four partial.</p>
 </table>
 </div>
 
-<h3>Intermediate tier — 16 of 19</h3>
+<h3>Intermediate tier — 17 of 19</h3>
 <div class="scroll">
 <table>
   <thead><tr><th>ID</th><th>Role</th><th>Story</th><th>Evidence in the code</th></tr></thead>
@@ -210,6 +209,7 @@ largely untouched — one story complete, four partial.</p>
     <tr><td class="id">I4</td><td><span class="role">Student</span></td><td>Resume after connection loss</td><td>Answers persisted server-side; <code>examStorage.ts</code> replays the dirty set. The timer is <strong>server-anchored</strong>: the API returns <code>server_time</code> and the client applies the offset, so a refresh cannot reset it — exactly what the story’s note demanded.</td></tr>
     <tr><td class="id">I5</td><td><span class="role">System</span></td><td>Queue non-MCQ for a marker</td><td><code>GET /rounds/:id/marking-queue</code>, status <code>queued_for_marking</code></td></tr>
     <tr><td class="id">I6</td><td><span class="role">Marker</span></td><td>Marker awards partial credit</td><td><code>PATCH /rounds/:id/answers/:id</code>, <code>points_awarded</code></td></tr>
+    <tr><td class="id">I8</td><td><span class="role">Student</span></td><td>Request a remark</td><td>Students ask from their Results page and see the outcome; the organiser decides on the marking page, and an approval re-marks the answer and recalculates totals, ranks and next-round qualification. 15 API tests in <code>remarks.test.js</code></td></tr>
     <tr><td class="id">I9</td><td><span class="role">Organiser</span></td><td>Qualifying threshold</td><td><code>rounds.qualifying_threshold</code>, applied in results</td></tr>
     <tr><td class="id">I10</td><td><span class="role">System</span></td><td>Carry qualifiers to the next round</td><td>Progression endpoints; skips rounds the entrant didn’t qualify for</td></tr>
     <tr><td class="id">I11</td><td><span class="role">Educator</span></td><td>Remind before open/close</td><td><code>deliverDueNotifications</code> runs on every 30s lifecycle tick and posts in-app reminders to the active educators of approved schools, once each; every new olympiad starts with these rules</td></tr>
@@ -279,7 +279,6 @@ largely untouched — one story complete, four partial.</p>
   <thead><tr><th>ID</th><th>Role</th><th>Story</th><th>Status</th><th>Note</th></tr></thead>
   <tbody>
     <tr><td class="id">I7</td><td><span class="role">Marker</span></td><td>Moderator reviews marking</td><td><span class="tag t-todo">Not started</span></td><td>The <code>moderated</code> submission status exists in the enum; no moderation route, service or screen.</td></tr>
-    <tr><td class="id">I8</td><td><span class="role">Student</span></td><td>Request a remark</td><td><span class="tag t-todo">Not started</span></td><td>Zero references on <code>main</code>. A <code>remark_requests</code> table exists on the unmerged <code>remark_prisma_migrations</code> branch and is already applied to the shared database — schema only, no behaviour.</td></tr>
     <tr><td class="id">A1</td><td><span class="role">System</span></td><td>Correct under peak load</td><td><span class="tag t-todo">Not started</span></td><td>No load testing exists. The lifecycle tick is idempotent, which helps, but this is unproven.</td></tr>
     <tr><td class="id">A5</td><td><span class="role">Organiser</span></td><td>Papers from a question bank</td><td><span class="tag t-todo">Not started</span></td><td>Questions are keyed to a <code>paper_id</code> and authored per round. No bank, no tags, no reuse — despite a commit titled otherwise.</td></tr>
     <tr><td class="id">A6</td><td><span class="role">System</span></td><td>Per-entrant paper variants</td><td><span class="tag t-todo">Not started</span></td><td>No variant model. (<code>variant</code> in the codebase is a Button styling prop.)</td></tr>
@@ -299,7 +298,7 @@ largely untouched — one story complete, four partial.</p>
 
 <h2>Defects and risks found</h2>
 <p class="sub"><code>docs/bug-tracking.md</code> records 47 bugs, every one marked <em>Fixed</em> — no open
-items at all, which suggests it is a history of resolved work rather than a live register. The eleven
+items at all, which suggests it is a history of resolved work rather than a live register. The nine
 below were found during this inspection and are not in it.</p>
 
 <div class="note">
@@ -312,42 +311,46 @@ below were found during this inspection and are not in it.</p>
 
 <article class="issue" id="issue-1">
   <div class="issue-head">
-    <h3 class="issue-title">1. Merging remark_prisma_migrations as-is would regress the database schema</h3>
+    <h3 class="issue-title">1. Close remark_prisma_migrations without merging, and clear its leftovers from the shared database</h3>
     <button class="copy" type="button" data-target="md-1">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
-    <span class="tag t-todo sev-high">High</span>
+    <span class="tag t-part sev-med">Medium</span>
     <span class="role">database / branches</span>
   </p>
-  <h4>What is wrong</h4><p>The branch `remark_prisma_migrations` still contains `model invitations` in its schema.prisma. That table no longer exists: it was dropped and replaced by `olympiad_invites` when registration moved to open sign-up with in-app invitations. If this branch is merged without rebasing, schema.prisma will describe a table that is not in the database.</p>
-  <h4>Why it matters</h4><p>Prisma Client is generated from schema.prisma. Generating a client against a dropped table means any code path touching `invitations` fails at runtime rather than at build time, and `prisma migrate` will report drift between the schema and the real database. The branch forked from before the open-signup work landed, so a plain merge will also produce conflicts in schema.prisma that are easy to resolve in the wrong direction — keeping the old model because it is the side with more context in the diff.</p>
-  <h4>Where to look</h4><ul class="where"><li><code>branch remark_prisma_migrations, backend/prisma/schema.prisma — `model invitations` around line 27</code></li><li><code>the branch is 1 commit ahead of main and carries 4 migrations</code></li></ul>
-  <h4>How to confirm it</h4><p>git show remark_prisma_migrations:backend/prisma/schema.prisma | grep -n &#x27;model invitations&#x27;. Then confirm against the live database that `invitations` is absent and `olympiad_invites` is present.</p>
-  <h4>Suggested fix</h4><p>Rebase the branch onto current main and reconcile schema.prisma by hand so it keeps `olympiad_invites`, `sent_notifications` and `remark_requests`, and drops `invitations`. Run `prisma migrate status` afterwards and confirm it reports no drift.</p>
-  <h4>Done when</h4><ul class="done-list"><li>The branch is rebased onto main</li><li>schema.prisma contains olympiad_invites and does not contain invitations</li><li>prisma migrate status reports the schema is up to date</li><li>The full backend test suite passes on the rebased branch</li></ul>
-  <script type="text/plain" id="md-1">**Severity:** High  |  **Area:** database / branches
+  <h4>What is wrong</h4><p>The branch remark_prisma_migrations (one commit, 6e9e098, 24 September) adds remark requests and a table for de-duplicating notifications. Main has since built both differently: remark requests live in portal_remark_requests (the Prisma model remark_requests is mapped onto it), keyed by round and entrant, and notification delivery de-duplicates through portal_notifications. The branch&#x27;s four migrations were applied to the shared database by hand, so the database still holds its tables, the old remark_requests (keyed by result_id) and sent_notifications, plus four migration records that main does not have, two of them both named add_remark_requests.</p>
+  <h4>Why it matters</h4><p>Merging the branch would put two conflicting definitions of remark_requests into schema.prisma, bring back the dropped invitations model, and replay migrations that main has replaced. The leftover tables are also a live trap: on 27 September, three remark requests were created and reviewed in the OLD remark_requests table (olympiads &quot;Hunger games 2&quot;, &quot;Essay competition&quot; and &quot;Multiple choice - How best can you cram&quot;). Nothing on main reads that table, so organisers never see those requests. Main also rejects reasons shorter than 10 characters and one of these has 3, so they came from other code, most likely an unpushed branch pointed at the shared database. Whoever is building on it is building against a design main has replaced.</p>
+  <h4>Where to look</h4><ul class="where"><li><code>branch remark_prisma_migrations, commit 6e9e098 (not merged into main)</code></li><li><code>shared database: tables remark_requests (3 rows) and sent_notifications (0 rows), enum type remark_status</code></li><li><code>shared database, _prisma_migrations: 20260923000000_add_remark_requests, 20260923100000_add_sent_notifications, 20260923125658_add_remark_requests, 20260923130303_remove_redundant_remark_relations</code></li><li><code>main: backend/src/routes/reviews.js, and model remark_requests with @@map(&quot;portal_remark_requests&quot;) in backend/prisma/schema.prisma</code></li><li><code>main&#x27;s remark flow is covered by backend/tests/api/remarks.test.js</code></li></ul>
+  <h4>How to confirm it</h4><p>git log origin/main..origin/remark_prisma_migrations shows the unmerged commit. On the shared database, SELECT migration_name FROM _prisma_migrations returns 16 rows against 11 migration folders on main, and SELECT count(*) FROM remark_requests returns 3 while portal_remark_requests is empty.</p>
+  <h4>Suggested fix</h4><p>First ask the team who created remark requests on 27 September, and point them at main&#x27;s endpoints instead: POST /rounds/:id/remark and GET /rounds/:id/my-remark for students, GET and PATCH /rounds/:id/remarks for organisers. Then close the branch on Gitea without merging and delete it. Once nobody uses them, add a migration on main that drops remark_requests, the remark_status type and sent_notifications, using IF EXISTS so fresh databases (including CI&#x27;s) still migrate cleanly. Finally, delete the four orphaned rows from _prisma_migrations so prisma migrate status is clean. Don&#x27;t drop anything before the first step: the old table was written to on 27 September.</p>
+  <h4>Done when</h4><ul class="done-list"><li>The person writing to the old remark_requests table has been found and moved to main&#x27;s endpoints</li><li>The three existing rows are either moved to portal_remark_requests or confirmed to be test data</li><li>remark_prisma_migrations is closed without merging and deleted</li><li>A migration on main drops remark_requests, remark_status and sent_notifications if they exist</li><li>prisma migrate status against the shared database lists nothing that main does not have</li></ul>
+  <script type="text/plain" id="md-1">**Severity:** Medium  |  **Area:** database / branches
 
 ### What is wrong
-The branch `remark_prisma_migrations` still contains `model invitations` in its schema.prisma. That table no longer exists: it was dropped and replaced by `olympiad_invites` when registration moved to open sign-up with in-app invitations. If this branch is merged without rebasing, schema.prisma will describe a table that is not in the database.
+The branch remark_prisma_migrations (one commit, 6e9e098, 24 September) adds remark requests and a table for de-duplicating notifications. Main has since built both differently: remark requests live in portal_remark_requests (the Prisma model remark_requests is mapped onto it), keyed by round and entrant, and notification delivery de-duplicates through portal_notifications. The branch&#x27;s four migrations were applied to the shared database by hand, so the database still holds its tables, the old remark_requests (keyed by result_id) and sent_notifications, plus four migration records that main does not have, two of them both named add_remark_requests.
 
 ### Why it matters
-Prisma Client is generated from schema.prisma. Generating a client against a dropped table means any code path touching `invitations` fails at runtime rather than at build time, and `prisma migrate` will report drift between the schema and the real database. The branch forked from before the open-signup work landed, so a plain merge will also produce conflicts in schema.prisma that are easy to resolve in the wrong direction — keeping the old model because it is the side with more context in the diff.
+Merging the branch would put two conflicting definitions of remark_requests into schema.prisma, bring back the dropped invitations model, and replay migrations that main has replaced. The leftover tables are also a live trap: on 27 September, three remark requests were created and reviewed in the OLD remark_requests table (olympiads &quot;Hunger games 2&quot;, &quot;Essay competition&quot; and &quot;Multiple choice - How best can you cram&quot;). Nothing on main reads that table, so organisers never see those requests. Main also rejects reasons shorter than 10 characters and one of these has 3, so they came from other code, most likely an unpushed branch pointed at the shared database. Whoever is building on it is building against a design main has replaced.
 
 ### Where to look
-- branch remark_prisma_migrations, backend/prisma/schema.prisma — `model invitations` around line 27
-- the branch is 1 commit ahead of main and carries 4 migrations
+- branch remark_prisma_migrations, commit 6e9e098 (not merged into main)
+- shared database: tables remark_requests (3 rows) and sent_notifications (0 rows), enum type remark_status
+- shared database, _prisma_migrations: 20260923000000_add_remark_requests, 20260923100000_add_sent_notifications, 20260923125658_add_remark_requests, 20260923130303_remove_redundant_remark_relations
+- main: backend/src/routes/reviews.js, and model remark_requests with @@map(&quot;portal_remark_requests&quot;) in backend/prisma/schema.prisma
+- main&#x27;s remark flow is covered by backend/tests/api/remarks.test.js
 
 ### How to confirm it
-git show remark_prisma_migrations:backend/prisma/schema.prisma | grep -n &#x27;model invitations&#x27;. Then confirm against the live database that `invitations` is absent and `olympiad_invites` is present.
+git log origin/main..origin/remark_prisma_migrations shows the unmerged commit. On the shared database, SELECT migration_name FROM _prisma_migrations returns 16 rows against 11 migration folders on main, and SELECT count(*) FROM remark_requests returns 3 while portal_remark_requests is empty.
 
 ### Suggested fix
-Rebase the branch onto current main and reconcile schema.prisma by hand so it keeps `olympiad_invites`, `sent_notifications` and `remark_requests`, and drops `invitations`. Run `prisma migrate status` afterwards and confirm it reports no drift.
+First ask the team who created remark requests on 27 September, and point them at main&#x27;s endpoints instead: POST /rounds/:id/remark and GET /rounds/:id/my-remark for students, GET and PATCH /rounds/:id/remarks for organisers. Then close the branch on Gitea without merging and delete it. Once nobody uses them, add a migration on main that drops remark_requests, the remark_status type and sent_notifications, using IF EXISTS so fresh databases (including CI&#x27;s) still migrate cleanly. Finally, delete the four orphaned rows from _prisma_migrations so prisma migrate status is clean. Don&#x27;t drop anything before the first step: the old table was written to on 27 September.
 
 ### Done when
-- [ ] The branch is rebased onto main
-- [ ] schema.prisma contains olympiad_invites and does not contain invitations
-- [ ] prisma migrate status reports the schema is up to date
-- [ ] The full backend test suite passes on the rebased branch</script>
+- [ ] The person writing to the old remark_requests table has been found and moved to main&#x27;s endpoints
+- [ ] The three existing rows are either moved to portal_remark_requests or confirmed to be test data
+- [ ] remark_prisma_migrations is closed without merging and deleted
+- [ ] A migration on main drops remark_requests, remark_status and sent_notifications if they exist
+- [ ] prisma migrate status against the shared database lists nothing that main does not have</script>
 </article>
 <article class="issue" id="issue-2">
   <div class="issue-head">
@@ -390,83 +393,8 @@ Decide the policy first, because it is a rules question and not only a code one.
 </article>
 <article class="issue" id="issue-3">
   <div class="issue-head">
-    <h3 class="issue-title">3. The shared database has four migrations that are not in main</h3>
+    <h3 class="issue-title">3. One frontend integration test fails on Node 24</h3>
     <button class="copy" type="button" data-target="md-3">Copy as Markdown</button>
-  </div>
-  <p class="issue-meta">
-    <span class="tag t-part sev-med">Medium</span>
-    <span class="role">database / process</span>
-  </p>
-  <h4>What is wrong</h4><p>The shared Supabase database has 12 migrations recorded in `_prisma_migrations`, all marked successful. The `main` branch contains 8. The four extra ones come from the unmerged remark branch and were applied to the shared database manually, ahead of the code that needs them.</p>
-  <h4>Why it matters</h4><p>The database is now ahead of the code that is deployed against it, which makes it hard to reason about what a fresh environment would look like. Anyone rebuilding from `main` gets a different schema from production. The tables exist (`remark_requests`, `sent_notifications`) but nothing on main references them, so they are invisible to the application while still being real. `prisma migrate deploy` tolerates this and will not fail, which is why it has gone unnoticed.</p>
-  <h4>Where to look</h4><ul class="where"><li><code>shared Supabase database, _prisma_migrations table — 12 rows</code></li><li><code>backend/prisma/migrations on main — 8 directories</code></li></ul>
-  <h4>How to confirm it</h4><p>Run `npx prisma migrate status` from backend/. It reports the local migrations only. Query _prisma_migrations directly to see all 12.</p>
-  <h4>Suggested fix</h4><p>Merge the remark branch (see the related issue) so the code and the database agree again. As a process change, agree that migrations reach the shared database only through the pipeline, so the database never leads the code.</p>
-  <h4>Done when</h4><ul class="done-list"><li>main contains every migration recorded in the shared database</li><li>A note in the docs states that migrations are applied by CI only</li></ul>
-  <script type="text/plain" id="md-3">**Severity:** Medium  |  **Area:** database / process
-
-### What is wrong
-The shared Supabase database has 12 migrations recorded in `_prisma_migrations`, all marked successful. The `main` branch contains 8. The four extra ones come from the unmerged remark branch and were applied to the shared database manually, ahead of the code that needs them.
-
-### Why it matters
-The database is now ahead of the code that is deployed against it, which makes it hard to reason about what a fresh environment would look like. Anyone rebuilding from `main` gets a different schema from production. The tables exist (`remark_requests`, `sent_notifications`) but nothing on main references them, so they are invisible to the application while still being real. `prisma migrate deploy` tolerates this and will not fail, which is why it has gone unnoticed.
-
-### Where to look
-- shared Supabase database, _prisma_migrations table — 12 rows
-- `backend/prisma/migrations on main — 8 directories`
-
-### How to confirm it
-Run `npx prisma migrate status` from backend/. It reports the local migrations only. Query _prisma_migrations directly to see all 12.
-
-### Suggested fix
-Merge the remark branch (see the related issue) so the code and the database agree again. As a process change, agree that migrations reach the shared database only through the pipeline, so the database never leads the code.
-
-### Done when
-- [ ] main contains every migration recorded in the shared database
-- [ ] A note in the docs states that migrations are applied by CI only</script>
-</article>
-<article class="issue" id="issue-4">
-  <div class="issue-head">
-    <h3 class="issue-title">4. Two different migrations are both named add_remark_requests</h3>
-    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
-  </div>
-  <p class="issue-meta">
-    <span class="tag t-part sev-med">Medium</span>
-    <span class="role">database</span>
-  </p>
-  <h4>What is wrong</h4><p>`20260923000000_add_remark_requests` and `20260923125658_add_remark_requests` are both recorded as applied in the shared database. Two migrations sharing a name, roughly 13 hours apart, looks like a first attempt that was superseded and then committed alongside its replacement.</p>
-  <h4>Why it matters</h4><p>Duplicate names make the migration history hard to read and hard to talk about — saying &#x27;the add_remark_requests migration&#x27; is now ambiguous. More importantly, if the earlier one is redundant or partially wrong, a fresh database replays both in order and may end up in a state nobody has actually tested, because every existing environment got there by a different path.</p>
-  <h4>Where to look</h4><ul class="where"><li><code>backend/prisma/migrations/20260923000000_add_remark_requests/</code></li><li><code>backend/prisma/migrations/20260923125658_add_remark_requests/</code></li><li><code>both on branch remark_prisma_migrations</code></li></ul>
-  <h4>How to confirm it</h4><p>Read both migration.sql files and decide whether the first is still needed. Then build a database from scratch by replaying all migrations in order and compare the result against the shared database.</p>
-  <h4>Suggested fix</h4><p>If the first is redundant, remove it before merging and rename the survivor to describe what it actually does. Do not edit a migration that is already applied anywhere without confirming every environment first.</p>
-  <h4>Done when</h4><ul class="done-list"><li>The migration history has no duplicate names</li><li>A database built from scratch matches the shared database schema</li></ul>
-  <script type="text/plain" id="md-4">**Severity:** Medium  |  **Area:** database
-
-### What is wrong
-`20260923000000_add_remark_requests` and `20260923125658_add_remark_requests` are both recorded as applied in the shared database. Two migrations sharing a name, roughly 13 hours apart, looks like a first attempt that was superseded and then committed alongside its replacement.
-
-### Why it matters
-Duplicate names make the migration history hard to read and hard to talk about — saying &#x27;the add_remark_requests migration&#x27; is now ambiguous. More importantly, if the earlier one is redundant or partially wrong, a fresh database replays both in order and may end up in a state nobody has actually tested, because every existing environment got there by a different path.
-
-### Where to look
-- `backend/prisma/migrations/20260923000000_add_remark_requests/`
-- `backend/prisma/migrations/20260923125658_add_remark_requests/`
-- both on branch remark_prisma_migrations
-
-### How to confirm it
-Read both migration.sql files and decide whether the first is still needed. Then build a database from scratch by replaying all migrations in order and compare the result against the shared database.
-
-### Suggested fix
-If the first is redundant, remove it before merging and rename the survivor to describe what it actually does. Do not edit a migration that is already applied anywhere without confirming every environment first.
-
-### Done when
-- [ ] The migration history has no duplicate names
-- [ ] A database built from scratch matches the shared database schema</script>
-</article>
-<article class="issue" id="issue-5">
-  <div class="issue-head">
-    <h3 class="issue-title">5. One frontend integration test fails on Node 24</h3>
-    <button class="copy" type="button" data-target="md-5">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag t-part sev-med">Medium</span>
@@ -478,7 +406,7 @@ If the first is redundant, remove it before merging and rename the survivor to d
   <h4>How to confirm it</h4><p>Run `npm run test:integration` in frontend/ under Node 24, then under Node 22. 133 of 134 pass on 24; all 134 pass on 22.</p>
   <h4>Suggested fix</h4><p>Cheapest correct fix is to pin the supported range so the mismatch cannot happen silently: set engines to `&gt;=22 &lt;23` in both packages, and add an engines field to the frontend. Separately, it is worth finding out whether MSW or undici is the actual cause, since Node 24 will eventually have to be supported.</p>
   <h4>Done when</h4><ul class="done-list"><li>Both packages declare a Node range that excludes 24</li><li>A developer on an unsupported Node gets a clear warning from npm</li></ul>
-  <script type="text/plain" id="md-5">**Severity:** Medium  |  **Area:** frontend / tooling
+  <script type="text/plain" id="md-3">**Severity:** Medium  |  **Area:** frontend / tooling
 
 ### What is wrong
 On Node 24, `frontend/tests/integration/organiserManagement.test.tsx` fails the test &#x27;creates the round, uploads its paper and returns to the dashboard&#x27;. Mock Service Worker throws during handler lookup for the multipart upload to `POST /rounds/:id/papers`, so the request never resolves, the redirect never happens, and the assertion on the path times out. The same test passes on Node 22.
@@ -501,10 +429,10 @@ Cheapest correct fix is to pin the supported range so the mismatch cannot happen
 - [ ] Both packages declare a Node range that excludes 24
 - [ ] A developer on an unsupported Node gets a clear warning from npm</script>
 </article>
-<article class="issue" id="issue-6">
+<article class="issue" id="issue-4">
   <div class="issue-head">
-    <h3 class="issue-title">6. The e2e suite cannot run on the self-hosted runner</h3>
-    <button class="copy" type="button" data-target="md-6">Copy as Markdown</button>
+    <h3 class="issue-title">4. The e2e suite cannot run on the self-hosted runner</h3>
+    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag t-part sev-med">Medium</span>
@@ -516,7 +444,7 @@ Cheapest correct fix is to pin the supported range so the mismatch cannot happen
   <h4>How to confirm it</h4><p>Temporarily add ubuntu-latest to the self-hosted runner&#x27;s labels and re-run the suite. It will pick the job up and fail on timeouts.</p>
   <h4>Suggested fix</h4><p>Leave e2e on the shared runners, which is the current arrangement and costs nothing. If queueing becomes a problem, the alternative is a larger VM — roughly four times the current cost — which is a budget decision rather than a technical one.</p>
   <h4>Done when</h4><ul class="done-list"><li>e2e passes consistently wherever it runs</li><li>The reason it does not run on our own runner is documented</li></ul>
-  <script type="text/plain" id="md-6">**Severity:** Medium  |  **Area:** ci / infrastructure
+  <script type="text/plain" id="md-4">**Severity:** Medium  |  **Area:** ci / infrastructure
 
 ### What is wrong
 On the self-hosted CI runner (an Azure VM with 1 GiB of RAM) the Playwright suite takes 12 to 18 minutes and fails between one and four tests on timeouts, with around 718 MB of swap in use. The same suite completes in roughly 35 seconds on a developer machine. Chromium, the backend, the PGlite database and Vite are all resident at once, and the VM swaps heavily.
@@ -539,10 +467,10 @@ Leave e2e on the shared runners, which is the current arrangement and costs noth
 - [ ] e2e passes consistently wherever it runs
 - [ ] The reason it does not run on our own runner is documented</script>
 </article>
-<article class="issue" id="issue-7">
+<article class="issue" id="issue-5">
   <div class="issue-head">
-    <h3 class="issue-title">7. The roadmap contradicts what is actually built</h3>
-    <button class="copy" type="button" data-target="md-7">Copy as Markdown</button>
+    <h3 class="issue-title">5. The roadmap contradicts what is actually built</h3>
+    <button class="copy" type="button" data-target="md-5">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag t-part sev-med">Medium</span>
@@ -554,7 +482,7 @@ Leave e2e on the shared runners, which is the current arrangement and costs noth
   <h4>How to confirm it</h4><p>Compare the roadmap&#x27;s status column against the implementation-status document, which was derived from the code rather than from either the roadmap or commit messages.</p>
   <h4>Suggested fix</h4><p>Update the status columns to match reality, and consider generating them from a single source so the two cannot drift again.</p>
   <h4>Done when</h4><ul class="done-list"><li>Every status in the roadmap matches the implementation status document</li><li>The change log records when it was corrected</li></ul>
-  <script type="text/plain" id="md-7">**Severity:** Medium  |  **Area:** docs
+  <script type="text/plain" id="md-5">**Severity:** Medium  |  **Area:** docs
 
 ### What is wrong
 `docs/roadmap.md` lists stories as Planned that are complete, and others as Planned that are also complete. Online sitting (I1), the timer (I2), auto-save (I3), resume after disconnect (I4) and student login (I18) are all fully implemented but marked Planned. B10, B13 and B15 are likewise done and marked Planned.
@@ -576,10 +504,10 @@ Update the status columns to match reality, and consider generating them from a 
 - [ ] Every status in the roadmap matches the implementation status document
 - [ ] The change log records when it was corrected</script>
 </article>
-<article class="issue" id="issue-8">
+<article class="issue" id="issue-6">
   <div class="issue-head">
-    <h3 class="issue-title">8. Deep links return HTTP 404 even though the page renders correctly</h3>
-    <button class="copy" type="button" data-target="md-8">Copy as Markdown</button>
+    <h3 class="issue-title">6. Deep links return HTTP 404 even though the page renders correctly</h3>
+    <button class="copy" type="button" data-target="md-6">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -591,7 +519,7 @@ Update the status columns to match reality, and consider generating them from a 
   <h4>How to confirm it</h4><p>curl -o /dev/null -w &#x27;%{http_code}&#x27; https://olympiadportalfe.z1.web.core.windows.net/organiser/schools returns 404 while the body is the app shell.</p>
   <h4>Suggested fix</h4><p>Accept it, or put Azure Front Door in front of the storage account to rewrite unmatched paths with a 200. Front Door costs money, so this is only worth doing if a custom domain is wanted anyway. Azure Static Web Apps would solve it natively but is unavailable — its five regions do not intersect the five this subscription&#x27;s policy permits.</p>
   <h4>Done when</h4><ul class="done-list"><li>Either the status is corrected, or the trade-off is recorded as an accepted decision</li></ul>
-  <script type="text/plain" id="md-8">**Severity:** Low  |  **Area:** frontend / hosting
+  <script type="text/plain" id="md-6">**Severity:** Low  |  **Area:** frontend / hosting
 
 ### What is wrong
 The frontend is served from Azure Blob Storage static website hosting, with `index.html` set as both the index and the error document. A request for a client-side route such as /organiser/schools therefore returns the app correctly, but with a 404 status rather than 200.
@@ -612,10 +540,10 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
 ### Done when
 - [ ] Either the status is corrected, or the trade-off is recorded as an accepted decision</script>
 </article>
-<article class="issue" id="issue-9">
+<article class="issue" id="issue-7">
   <div class="issue-head">
-    <h3 class="issue-title">9. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
-    <button class="copy" type="button" data-target="md-9">Copy as Markdown</button>
+    <h3 class="issue-title">7. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
+    <button class="copy" type="button" data-target="md-7">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -627,7 +555,7 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
   <h4>How to confirm it</h4><p>Copy a quoted value into any environment variable that is read directly from process.env rather than from a .env file, and observe the failure.</p>
   <h4>Suggested fix</h4><p>Remove the quotes from the .env files so they match the examples, since nothing in them needs quoting. Add a line to the README warning that values must be pasted without quotes when configuring hosting or CI secrets.</p>
   <h4>Done when</h4><ul class="done-list"><li>The .env files and their examples use the same unquoted style</li><li>The README warns about hand-copying values</li></ul>
-  <script type="text/plain" id="md-9">**Severity:** Low  |  **Area:** config / developer experience
+  <script type="text/plain" id="md-7">**Severity:** Low  |  **Area:** config / developer experience
 
 ### What is wrong
 Every value in `backend/.env` and `frontend/.env` is wrapped in double quotes. Prisma and Vite both strip quotes when parsing a .env file, so local development works correctly and the problem is invisible day to day. But a value copied by hand into a Gitea secret or an Azure App Service setting carries the quotes with it, and the consuming code receives them as part of the string.
@@ -649,10 +577,10 @@ Remove the quotes from the .env files so they match the examples, since nothing 
 - [ ] The .env files and their examples use the same unquoted style
 - [ ] The README warns about hand-copying values</script>
 </article>
-<article class="issue" id="issue-10">
+<article class="issue" id="issue-8">
   <div class="issue-head">
-    <h3 class="issue-title">10. olympiads.timezone is stored but never read</h3>
-    <button class="copy" type="button" data-target="md-10">Copy as Markdown</button>
+    <h3 class="issue-title">8. olympiads.timezone is stored but never read</h3>
+    <button class="copy" type="button" data-target="md-8">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -664,7 +592,7 @@ Remove the quotes from the .env files so they match the examples, since nothing 
   <h4>How to confirm it</h4><p>Search the backend and frontend for `timezone`. Every hit is a write path or a validation rule; there is no read.</p>
   <h4>Suggested fix</h4><p>Either honour it — convert round open and close times through the olympiad&#x27;s timezone when evaluating and displaying them — or drop the column and treat everything as UTC explicitly. Both are defensible; leaving it as it is, is not.</p>
   <h4>Done when</h4><ul class="done-list"><li>Either round timing respects the olympiad timezone, or the column is removed</li><li>The decision is recorded in docs/system-design.md</li></ul>
-  <script type="text/plain" id="md-10">**Severity:** Low  |  **Area:** backend / schema
+  <script type="text/plain" id="md-8">**Severity:** Low  |  **Area:** backend / schema
 
 ### What is wrong
 The `olympiads` table has a `timezone` column defaulting to &#x27;Africa/Johannesburg&#x27;. It is accepted when an olympiad is created and written to the database, and then never read again. Every time in the system is handled in UTC.
@@ -687,10 +615,10 @@ Either honour it — convert round open and close times through the olympiad&#x2
 - [ ] Either round timing respects the olympiad timezone, or the column is removed
 - [ ] The decision is recorded in docs/system-design.md</script>
 </article>
-<article class="issue" id="issue-11">
+<article class="issue" id="issue-9">
   <div class="issue-head">
-    <h3 class="issue-title">11. Two standing lint warnings, one of which can hide a real bug</h3>
-    <button class="copy" type="button" data-target="md-11">Copy as Markdown</button>
+    <h3 class="issue-title">9. Two standing lint warnings, one of which can hide a real bug</h3>
+    <button class="copy" type="button" data-target="md-9">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -702,7 +630,7 @@ Either honour it — convert round open and close times through the olympiad&#x2
   <h4>How to confirm it</h4><p>Run `npm run lint` in frontend/. Both warnings appear.</p>
   <h4>Suggested fix</h4><p>In Olympiads.tsx, surface the error to the user instead of silently emptying the list. In ExamSitting.tsx, review the effect carefully before changing it — adding the dependencies naively may cause it to re-run more often than intended, so the fix is to restructure it rather than silence the warning.</p>
   <h4>Done when</h4><ul class="done-list"><li>npm run lint reports no warnings</li><li>A failed olympiad fetch shows an error rather than an empty list</li></ul>
-  <script type="text/plain" id="md-11">**Severity:** Low  |  **Area:** frontend / code quality
+  <script type="text/plain" id="md-9">**Severity:** Low  |  **Area:** frontend / code quality
 
 ### What is wrong
 `npm run lint` in frontend/ reports two warnings on every run. Both are pre-existing. The first is cosmetic; the second is the kind that can mask a genuine defect.
@@ -765,7 +693,10 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
     running on every lifecycle tick, but nothing tested it in CI. It now has tests against a real
     database, and they found one bug: a “results released” rule with an offset was scheduled before the
     results existed, so it never sent. Results notices now go out on release.</li>
-  <li><strong>Resolve the remark branch.</strong> Rebase it onto <code>main</code> and reconcile <code>schema.prisma</code> before it regresses the schema, then finish I8 on top — the table is already in the database.</li>
+  <li><s>Resolve the remark branch.</s> <strong>Checked, 27 September — don’t merge it.</strong> Main
+    replaced the branch with its own remark flow (I8), which is complete and now tested. What remains is
+    closing the branch and dropping its leftover tables from the shared database. That needs the team
+    first, because someone wrote to the old table on 27 September — see defect #1.</li>
   <li><strong>Close the A10/A11 gap</strong>, or remove one submission route. Silent double-counting is worse than an unsupported feature.</li>
   <li><strong>Correct the roadmap</strong> so it agrees with this document.</li>
   <li><strong>Either honour <code>olympiads.timezone</code> or drop the column.</strong> Dead data that implies a feature is worse than no column.</li>
@@ -774,7 +705,7 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
 <footer>
   Generated from the state of <code>main</code> on 26 September 2026. Every claim was checked against
   source, schema, routes or test output — where something could not be verified, it is described as
-  partial rather than complete. Notification delivery re-checked on 27 September 2026.
+  partial rather than complete. Notification delivery and remark requests re-checked on 27 September 2026.
 </footer>
 
 </div>
