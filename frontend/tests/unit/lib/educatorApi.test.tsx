@@ -26,18 +26,18 @@ beforeEach(() => {
   post.mockReset();
 });
 
-describe("date formatting (en-ZA)", () => {
-  // Midday UTC keeps the calendar date the same in any timezone
+describe("date formatting, in the olympiad's timezone", () => {
   const ISO = "2026-03-15T12:00:00Z";
 
-  it("formatDate shows day, month, year and time", () => {
-    const text = educatorApi.formatDate(ISO);
-    expect(text).toContain("15 Mar 2026");
-    expect(text).toMatch(/\d{2}:\d{2}/);
+  it("formatDate shows the date and time, labelled with the zone", () => {
+    expect(educatorApi.formatDate(ISO, "Africa/Johannesburg")).toBe("15 Mar 2026, 14:00 SAST");
+    expect(educatorApi.formatDate(ISO, "UTC")).toBe("15 Mar 2026, 12:00 UTC");
   });
 
-  it("formatDateShort shows day, month and year only", () => {
-    expect(educatorApi.formatDateShort(ISO)).toBe("15 Mar 2026");
+  it("formatDateShort shows the olympiad's calendar date", () => {
+    expect(educatorApi.formatDateShort(ISO, "Africa/Johannesburg")).toBe("15 Mar 2026");
+    // 23:00 UTC is already the next day in Johannesburg
+    expect(educatorApi.formatDateShort("2026-03-15T23:00:00Z", "Africa/Johannesburg")).toBe("16 Mar 2026");
   });
 });
 

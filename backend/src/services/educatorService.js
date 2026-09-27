@@ -79,6 +79,8 @@ const listEducatorRounds = async (userId) => {
         name: round.name,
         olympiad_id: round.olympiad_id,
         olympiad_name: reg.olympiads.name,
+        // Round times are shown in the olympiad's timezone
+        timezone: reg.olympiads.timezone,
         opens_at: round.opens_at,
         closes_at: round.closes_at,
         state: round.state,
@@ -150,6 +152,7 @@ const getEducatorRoundDetail = async (roundId, userId) => {
     name: round.name,
     olympiad_id: round.olympiad_id,
     olympiad_name: round.olympiads.name,
+    timezone: round.olympiads.timezone,
     opens_at: round.opens_at,
     closes_at: round.closes_at,
     results_release_at: round.results_release_at,
@@ -450,7 +453,7 @@ const listAllResults = async (userId) => {
     },
     orderBy: { closes_at: "desc" },
     include: {
-      olympiads: { select: { name: true } },
+      olympiads: { select: { name: true, timezone: true } },
       results: {
         where: { entrants: { school_id: educator.school_id } },
         include: {
@@ -472,6 +475,7 @@ const listAllResults = async (userId) => {
     id: r.id,
     name: r.name,
     olympiad_name: r.olympiads.name,
+    timezone: r.olympiads.timezone,
     closes_at: r.closes_at,
     results: r.results.map((res) => ({
       id: res.id,
@@ -537,6 +541,7 @@ const listPastPapers = async (roundId, userId) => {
         round_name: r.name,
         title: paper.title,
         closed_at: r.closes_at,
+        timezone: round.olympiads.timezone,
         has_paper: !!paper.file_url,
         has_memo: !!paper.memo_file_url,
       });

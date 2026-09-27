@@ -1,14 +1,16 @@
 # Project Roadmap — Olympiad Portal
 
 > **Team:** Prompt Engineers
-> **Version:** 1.0
-> **Last updated:** September 2026
+> **Version:** 1.1
+> **Last updated:** 27 September 2026
 
 ---
 
 ## Overview
 
 This roadmap maps all user stories across four sprints. Progress is tracked on Trello. Sprint statuses: Done, In Progress, Planned, Blocked.
+
+Statuses here are checked against the code on `main`, not against commit messages. `docs/implementation-status.html` has the evidence for each story and the open defects.
 
 ```
 Week  1    2    3    4    5    6    7    8    9   10   11   12
@@ -19,6 +21,16 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
       |           || Sitting   || Features  ||           |
 ```
 
+### Status at a glance (27 September 2026)
+
+| Sprint                   | Done   | In Progress | Planned |
+| ------------------------ | ------ | ----------- | ------- |
+| Sprint 1 — Foundation    | 18     | 0           | 0       |
+| Sprint 2 — Core Features | 17     | 0           | 0       |
+| Sprint 3 — Advanced      | 8      | 2           | 10      |
+| Sprint 4 — Polish and QA | 1      | 3           | 0       |
+| **Total (59 stories)**   | **44** | **5**       | **10**  |
+
 ---
 
 ## Sprint 1 — Foundation (B-tier + Authentication)
@@ -27,30 +39,30 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 
 ### Stories
 
-| ID  | Story                                            | Status      |
-| --- | ------------------------------------------------ | ----------- |
-| P1  | Sign up, sign in, reset password, delete account | In Progress |
-| B1  | Create olympiad and define rounds                | In Progress |
-| B2  | Register schools against an olympiad             | In Progress |
-| B3  | Register educators for a school                  | In Progress |
-| B4  | Register entrants for a round                    | In Progress |
-| B5  | Set opening/closing time for a round             | Done        |
-| B6  | Auto-transition round states                     | In Progress |
-| B7  | Prevent paper download before round opens        | In Progress |
-| B8  | Prevent result submission after round closes     | In Progress |
-| B9  | Upload round paper and memo                      | In Progress |
-| B10 | Auto-archive past papers on release              | Planned     |
-| B11 | Download current and archived papers             | In Progress |
-| B12 | Upload school results within open window         | In Progress |
-| B13 | Get submission receipt confirmation              | Planned     |
-| B14 | Auto-mark MCQ submissions                        | In Progress |
-| B15 | Release entrant scores after round closes        | Planned     |
-| B16 | Organiser console with live round state          | In Progress |
-| B17 | Single place for papers, results, submissions    | In Progress |
+| ID  | Story                                            | Status |
+| --- | ------------------------------------------------ | ------ |
+| P1  | Sign up, sign in, reset password, delete account | Done   |
+| B1  | Create olympiad and define rounds                | Done   |
+| B2  | Register schools against an olympiad             | Done   |
+| B3  | Register educators for a school                  | Done   |
+| B4  | Register entrants for a round                    | Done   |
+| B5  | Set opening/closing time for a round             | Done   |
+| B6  | Auto-transition round states                     | Done   |
+| B7  | Prevent paper download before round opens        | Done   |
+| B8  | Prevent result submission after round closes     | Done   |
+| B9  | Upload round paper and memo                      | Done   |
+| B10 | Auto-archive past papers on release              | Done   |
+| B11 | Download current and archived papers             | Done   |
+| B12 | Upload school results within open window         | Done   |
+| B13 | Get submission receipt confirmation              | Done   |
+| B14 | Auto-mark MCQ submissions                        | Done   |
+| B15 | Release entrant scores after round closes        | Done   |
+| B16 | Organiser console with live round state          | Done   |
+| B17 | Single place for papers, results, submissions    | Done   |
 
 ### Deliverables
 
-- Authentication (organiser self-registration, invitation-based registration for educators/students)
+- Authentication (open sign-up for every role; schools join an olympiad by accepting an in-app invitation)
 - CRUD for olympiads, rounds, schools
 - Paper upload/download with time-gating
 - MCQ auto-marking
@@ -73,24 +85,25 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 
 ### Stories
 
-| ID  | Story                                        | Status  |
-| --- | -------------------------------------------- | ------- |
-| I1  | Sit a paper online                           | Planned |
-| I2  | Visible timer during sitting                 | Planned |
-| I3  | Auto-save answers as given                   | Planned |
-| I4  | Resume sitting after connection loss         | Planned |
-| I5  | Queue non-MCQ for human marking              | Planned |
-| I8  | Request a remark                             | Planned |
-| I9  | Set qualifying threshold                     | Planned |
-| I10 | Auto-carry qualifying entrants to next round | Planned |
-| I11 | Remind before round opens/closes             | Planned |
-| I12 | Follow up with non-submitting schools        | Planned |
-| I13 | Notify when results released                 | Planned |
-| I14 | Configure notification rules                 | Planned |
-| I15 | Test rules before go-live                    | Planned |
-| I16 | Standings per school and per entrant         | Planned |
-| I18 | Student login for papers and results         | Planned |
-| I19 | Educator dashboard of entrants and results   | Planned |
+| ID  | Story                                        | Status |
+| --- | -------------------------------------------- | ------ |
+| I1  | Sit a paper online                           | Done   |
+| I2  | Visible timer during sitting                 | Done   |
+| I3  | Auto-save answers as given                   | Done   |
+| I4  | Resume sitting after connection loss         | Done   |
+| I5  | Queue non-MCQ for human marking              | Done   |
+| I8  | Request a remark                             | Done   |
+| I9  | Set qualifying threshold                     | Done   |
+| I10 | Auto-carry qualifying entrants to next round | Done   |
+| I11 | Remind before round opens/closes             | Done   |
+| I12 | Follow up with non-submitting schools        | Done   |
+| I13 | Notify when results released                 | Done   |
+| I14 | Configure notification rules                 | Done   |
+| I15 | Test rules before go-live                    | Done   |
+| I16 | Standings per school and per entrant         | Done   |
+| I17 | Get a certificate if earned                  | Done   |
+| I18 | Student login for papers and results         | Done   |
+| I19 | Educator dashboard of entrants and results   | Done   |
 
 ### Deliverables
 
@@ -100,8 +113,9 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 - Human marking queue
 - Remark request workflow
 - Automatic progression
-- Notification engine
+- Notification engine (in-app notifications, delivered by the round lifecycle job)
 - Standings at school and entrant level
+- Downloadable PDF certificates for qualifying learners
 - Unit test suite
 - CI/CD pipeline (Gitea Actions)
 
@@ -113,28 +127,28 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 
 ### Stories
 
-| ID  | Story                                       | Status               |
-| --- | ------------------------------------------- | -------------------- |
-| A1  | Handle round open/close under peak load     | Planned              |
-| A2  | Authoritative clock per olympiad timezone   | Planned              |
-| A3  | Count submission exactly once (idempotency) | In Progress (schema) |
-| A4  | Consistent deadline boundary handling       | Planned              |
-| A5  | Papers from question bank                   | Planned              |
-| A6  | Different variants per entrant              | Planned              |
-| A7  | Mark against entrant's variant              | Planned              |
-| A8  | Difficulty from performance data            | Planned              |
-| A9  | Paper sittable online or offline            | Planned              |
-| A10 | Merge online and offline results            | Planned              |
-| A11 | Reconcile dual-route entrants               | Planned              |
-| A12 | Appeal a mark                               | Planned              |
-| A13 | Route appeals to reviewer                   | Planned              |
-| A14 | Appeal outcome updates standings            | Planned              |
-| A15 | Multiple concurrent olympiads               | Planned              |
-| A16 | Shared paper archive                        | Planned              |
-| A17 | Log every automatic action                  | Planned              |
-| A18 | Replay round event history                  | Planned              |
-| I6  | Marker awards partial credit                | Planned              |
-| I7  | Moderator reviews marking consistency       | Planned              |
+| ID  | Story                                       | Status      | Notes                                                                                                         |
+| --- | ------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
+| A1  | Handle round open/close under peak load     | Planned     | No load testing yet                                                                                           |
+| A2  | Authoritative clock per olympiad timezone   | Done        | Round times are entered and shown in the olympiad's own timezone |
+| A3  | Count submission exactly once (idempotency) | Done        |                                                                                                               |
+| A4  | Consistent deadline boundary handling       | In Progress | Each submission records the deadline it was judged against; no published tie-break rule yet                   |
+| A5  | Papers from question bank                   | Done        | Organisers reuse questions from their earlier rounds. Known bug: a question can be imported more than once    |
+| A6  | Different variants per entrant              | Planned     |                                                                                                               |
+| A7  | Mark against entrant's variant              | Planned     | Depends on A6                                                                                                 |
+| A8  | Difficulty from performance data            | Planned     |                                                                                                               |
+| A9  | Paper sittable online or offline            | Done        | Paper results replace an online attempt the learner opened but never submitted                                |
+| A10 | Merge online and offline results            | Done        | One result per learner, whichever route                                                                       |
+| A11 | Reconcile dual-route entrants               | Done        | One submission per learner per round, enforced in the database                                                |
+| A12 | Appeal a mark                               | Planned     |                                                                                                               |
+| A13 | Route appeals to reviewer                   | Planned     |                                                                                                               |
+| A14 | Appeal outcome updates standings            | Planned     |                                                                                                               |
+| A15 | Multiple concurrent olympiads               | Done        | Each olympiad has its own schedule and timezone |
+| A16 | Shared paper archive                        | Planned     | The archive is per olympiad                                                                                   |
+| A17 | Log every automatic action                  | Planned     |                                                                                                               |
+| A18 | Replay round event history                  | Planned     | Depends on A17                                                                                                |
+| I6  | Marker awards partial credit                | Done        |                                                                                                               |
+| I7  | Moderator reviews marking consistency       | In Progress | Built and tested, but unusable in the app: only the organiser marks, and a marker can't moderate their own marking |
 
 ### Deliverables
 
@@ -157,12 +171,12 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 
 ### Stories
 
-| ID  | Story                                | Status      |
-| --- | ------------------------------------ | ----------- |
-| P2  | Responsive, accessible on any device | In Progress |
-| P3  | Hand-written, documented API         | In Progress |
-| P4  | External service integration         | Planned     |
-| P5  | Public documentation site            | Planned     |
+| ID  | Story                                | Status      | Notes                                                                        |
+| --- | ------------------------------------ | ----------- | ---------------------------------------------------------------------------- |
+| P2  | Responsive, accessible on any device | In Progress | Responsive throughout; no accessibility audit yet                            |
+| P3  | Hand-written, documented API         | Done        |                                                                              |
+| P4  | External service integration         | In Progress | Supabase and Azure are integrated; no notification or OMR integration        |
+| P5  | Public documentation site            | In Progress | Documentation is in `docs/` in the repository, not a published site         |
 
 ### Deliverables
 
@@ -178,8 +192,10 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 
 ## Change Log
 
-| Date           | Change                  |
-| -------------- | ----------------------- |
-| September 2026 | Initial roadmap created |
+| Date              | Change                                                                                                                                  |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| September 2026    | Initial roadmap created                                                                                                                 |
+| 27 September 2026 | Statuses brought in line with the code on `main`; I17 added to Sprint 2, where it was missing; notes added for stories still in progress |
+| 27 September 2026 | A2 and A15 done: round times follow each olympiad's own timezone |
 
 This is a living document, reviewed at every Friday retrospective.

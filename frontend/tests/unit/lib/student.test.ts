@@ -136,20 +136,18 @@ describe("date formatting", () => {
   // Midday UTC keeps the calendar date the same in any timezone
   const ISO = "2026-03-15T12:00:00Z";
 
-  it("formats a date with the time", async () => {
+  it("formats a date with the time, in the olympiad's timezone", async () => {
     const { formatDateTime } = await loadStudent();
-    const text = formatDateTime(ISO);
-    expect(text).toContain("Mar 15, 2026");
-    expect(text).toMatch(/\d{2}:\d{2}/);
+    expect(formatDateTime(ISO, "Africa/Johannesburg")).toBe("15 Mar 2026, 14:00 SAST");
   });
 
-  it("formats a date without the time", async () => {
+  it("formats the olympiad's calendar date", async () => {
     const { formatDateOnly } = await loadStudent();
-    expect(formatDateOnly(ISO)).toBe("Mar 15, 2026");
+    expect(formatDateOnly(ISO, "Africa/Johannesburg")).toBe("15 Mar 2026");
   });
 
   it.each(["formatDateTime", "formatDateOnly"] as const)("%s shows a dash for an empty value", async (fn) => {
     const module = await loadStudent();
-    expect(module[fn]("")).toBe("—");
+    expect(module[fn]("", "Africa/Johannesburg")).toBe("—");
   });
 });

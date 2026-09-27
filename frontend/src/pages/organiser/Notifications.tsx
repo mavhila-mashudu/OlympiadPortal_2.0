@@ -8,6 +8,7 @@ import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { api } from "../../lib/api";
 import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
+import { DEFAULT_TIMEZONE, formatDateTimeInZone } from "../../lib/time";
 import { organiserNav } from "../../lib/mockData";
 import styles from "./Notifications.module.css";
 
@@ -213,7 +214,7 @@ function Notifications() {
               <p>Recipients: {recipientLabels[testResult.recipients.type]} ({testResult.recipients.count})</p>
               <p>Action: {testResult.action === "alert_organiser" ? "Alert organiser" : "Notify selected recipients"}</p>
               <p>Condition: {testResult.condition.matched ? "matched" : "not matched"}</p>
-              <p>Scheduled: {testResult.trigger.fires_at ? new Date(testResult.trigger.fires_at).toLocaleString() : "not scheduled"}</p>
+              <p>Scheduled: {testResult.trigger.fires_at ? formatDateTimeInZone(testResult.trigger.fires_at, olympiad?.timezone ?? DEFAULT_TIMEZONE) : "not scheduled"}</p>
               {testResult.warnings.map((warning) => <p key={warning}>{warning}</p>)}
             </div>}
           </Card>

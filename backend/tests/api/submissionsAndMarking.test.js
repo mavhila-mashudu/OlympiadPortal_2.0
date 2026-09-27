@@ -97,6 +97,50 @@ describe("POST /rounds/:roundId/submissions", () => {
     expect(await prisma.submissions.count()).toBe(1);
   });
 
+  // A9: a learner opens the exam online, loses their connection, and the
+  // school captures the answers they wrote on paper instead
+  it("replaces an online attempt the learner never submitted with the paper results", async () => {
+    const world = await setup({ exam_status: "live" });
+    const { round, school, educator, educatorApi, mcq } = world;
+    const student = await f.createStudent({ school });
+    await f.registerEntrant({ entrant: student.entrant, round, educator });
+    const studentApi = as(student.user);
+
+    // The online attempt starts and autosaves one answer, then goes quiet
+    expectOk(await studentApi.post(`/rounds/${round.id}/exam/start`), 201);
+    expectOk(await studentApi.patch(`/rounds/${round.id}/exam/answers/${mcq.id}`).send({ answer_value: "1" }));
+
+    const { submission } = expectOk(
+      await educatorApi.post(`/rounds/${round.id}/submissions`).send({ entrant_id: student.entrant.id, answers: answersFor(world) }),
+      201,
+    );
+
+    const left = await prisma.submissions.findMany({ include: { answers: true } });
+    expect(left.map((s) => [s.id, s.route])).toEqual([[submission.id, "offline"]]);
+    expect(left[0].answers.map((a) => a.answer_value).sort()).toEqual(["0,2", "Plants make sugar from light"]);
+    // The paper answers are what count
+    expect(Number((await prisma.results.findFirst({ where: { entrant_id: student.entrant.id } })).total_points)).toBe(4);
+
+    // The learner can't carry on, or start again, online
+    expectError(await studentApi.patch(`/rounds/${round.id}/exam/answers/${mcq.id}`).send({ answer_value: "0" }), 400, "No active submission found — start the exam first");
+    expectError(await studentApi.post(`/rounds/${round.id}/exam/start`), 409, "Your school has already submitted your results for this round");
+  });
+
+  it("keeps an online exam the learner submitted, and refuses the paper capture", async () => {
+    const world = await setup({ exam_status: "live" });
+    const { round, school, educator, educatorApi } = world;
+    const student = await f.createStudent({ school });
+    await f.registerEntrant({ entrant: student.entrant, round, educator });
+    const studentApi = as(student.user);
+    expectOk(await studentApi.post(`/rounds/${round.id}/exam/start`), 201);
+    expectOk(await studentApi.post(`/rounds/${round.id}/exam/submit`));
+
+    const res = await educatorApi.post(`/rounds/${round.id}/submissions`).send({ entrant_id: student.entrant.id, answers: answersFor(world) });
+
+    expectError(res, 409, "This entrant already has a submission for this round");
+    expect((await prisma.submissions.findMany()).map((s) => s.route)).toEqual(["online"]);
+  });
+
   it.each([
     [{ entrant_id: undefined }, "entrant_id is required"],
     [{ route: "email" }, "route must be online or offline"],

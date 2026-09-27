@@ -19,6 +19,8 @@ type RoundItem = {
   id: string;
   title: string;
   olympiadTitle: string;
+  // The olympiad's IANA timezone; times are shown in it
+  timezone: string;
   opens_at: string;
   closes_at: string;
   status: "upcoming" | "open" | "closed";
@@ -183,11 +185,11 @@ function StudentDashboard() {
                     <dl className={styles.dateGrid}>
                       <div>
                         <dt>Opens</dt>
-                        <dd>{formatDateTime(round.opens_at)}</dd>
+                        <dd>{formatDateTime(round.opens_at, round.timezone)}</dd>
                       </div>
                       <div>
                         <dt>Closes</dt>
-                        <dd>{formatDateTime(round.closes_at)}</dd>
+                        <dd>{formatDateTime(round.closes_at, round.timezone)}</dd>
                       </div>
                     </dl>
 

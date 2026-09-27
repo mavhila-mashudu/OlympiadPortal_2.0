@@ -157,24 +157,23 @@ const startExam = async (req, res, next) => {
     }
 
     // Check for existing submission (resume)
-    const existing = await prisma.submissions.findFirst({
-      where: {
-        round_id: round.id,
-        entrant_id: entrant.id,
-        route: "online",
-      },
-      include: {
-        answers: {
-          select: { id: true, question_id: true, answer_value: true },
+    const findOnline = () =>
+      prisma.submissions.findFirst({
+        where: {
+          round_id: round.id,
+          entrant_id: entrant.id,
+          route: "online",
         },
-      },
-    });
-
-    if (existing) {
+        include: {
+          answers: {
+            select: { id: true, question_id: true, answer_value: true },
+          },
+        },
+      });
+    const resume = (existing) => {
       if (existing.status !== "received") {
         throw new BadRequestError("This exam has already been submitted");
       }
-      // Resume existing submission
       return res.json({
         success: true,
         data: {
@@ -185,7 +184,10 @@ const startExam = async (req, res, next) => {
           },
         },
       });
-    }
+    };
+
+    const existing = await findOnline();
+    if (existing) return resume(existing);
 
     // The school may already have captured this learner's answers on paper
     const offline = await prisma.submissions.findFirst({
@@ -201,38 +203,52 @@ const startExam = async (req, res, next) => {
     // Create new submission with empty answers
     const idempotencyKey = `${round.id}:${entrant.id}:online`;
 
-    const submission = await prisma.$transaction(async (tx) => {
-      const sub = await tx.submissions.create({
-        data: {
-          round_id: round.id,
-          entrant_id: entrant.id,
-          submitted_by: null, // student self-submitted
-          route: "online",
-          status: "received",
-          idempotency_key: idempotencyKey,
-          round_close_snapshot: round.closes_at,
-        },
-      });
-
-      // Create empty answer rows for each question
-      const answers = [];
-      for (const q of paper.questions) {
-        const ans = await tx.answers.create({
+    let submission;
+    try {
+      submission = await prisma.$transaction(async (tx) => {
+        const sub = await tx.submissions.create({
           data: {
-            submission_id: sub.id,
-            question_id: q.id,
-            answer_value: null,
+            round_id: round.id,
+            entrant_id: entrant.id,
+            submitted_by: null, // student self-submitted
+            route: "online",
+            status: "received",
+            idempotency_key: idempotencyKey,
+            round_close_snapshot: round.closes_at,
           },
         });
-        answers.push({
-          id: ans.id,
-          question_id: q.id,
-          answer_value: null,
-        });
-      }
 
-      return { id: sub.id, status: sub.status, answers };
-    });
+        // Create empty answer rows for each question
+        const answers = [];
+        for (const q of paper.questions) {
+          const ans = await tx.answers.create({
+            data: {
+              submission_id: sub.id,
+              question_id: q.id,
+              answer_value: null,
+            },
+          });
+          answers.push({
+            id: ans.id,
+            question_id: q.id,
+            answer_value: null,
+          });
+        }
+
+        return { id: sub.id, status: sub.status, answers };
+      });
+    } catch (err) {
+      // The database allows one submission per learner per round. If this
+      // insert lost a race, either the same student started twice (a double
+      // click or a second tab), so resume that attempt, or the school's paper
+      // results arrived in the meantime.
+      if (err.code !== "P2002") throw err;
+      const started = await findOnline();
+      if (started) return resume(started);
+      throw new ConflictError(
+        "Your school has already submitted your results for this round",
+      );
+    }
 
     res.status(201).json({ success: true, data: { submission } });
   } catch (err) {

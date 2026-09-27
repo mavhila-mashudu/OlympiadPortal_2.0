@@ -3,6 +3,7 @@ const { assertOwnsOlympiad } = require("./olympiadService");
 const { NotFoundError, BadRequestError } = require("../errors/AppError");
 const {
   conditionMatches,
+  dueAt,
   resolveRecipients,
 } = require("./notificationDeliveryService");
 
@@ -226,12 +227,8 @@ const testRule = async ({ ruleId, organiserId, roundId }) => {
     },
     trigger: {
       type: rule.trigger,
-      fires_at: triggerAt
-        ? new Date(
-            new Date(triggerAt).getTime() -
-              rule.offset_minutes * 60 * 1000,
-          )
-        : null,
+      // Same calculation the scheduler uses, so the preview can't disagree
+      fires_at: triggerAt ? dueAt(rule, round) : null,
       source_time: triggerAt,
       offset_minutes: rule.offset_minutes,
     },

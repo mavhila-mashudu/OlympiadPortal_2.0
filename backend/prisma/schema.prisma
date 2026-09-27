@@ -246,7 +246,8 @@ model submissions {
   rounds               rounds            @relation(fields: [round_id], references: [id])
   educators            educators?        @relation(fields: [submitted_by], references: [id])
 
-  @@unique([round_id, entrant_id, route])
+  // One submission per learner per round, whichever route it came by (A11)
+  @@unique([round_id, entrant_id])
 }
 
 model entrant_registrations {

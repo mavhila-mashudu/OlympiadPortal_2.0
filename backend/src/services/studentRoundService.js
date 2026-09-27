@@ -16,7 +16,7 @@ const BUCKET = "papers";
  */
 const buildRoundInclude = (entrantId, includeSubmissions = true) => {
   const include = {
-    olympiads: { select: { id: true, name: true } },
+    olympiads: { select: { id: true, name: true, timezone: true } },
     papers: {
       include: {
         questions: { select: { id: true, max_points: true } },
@@ -160,6 +160,8 @@ const getRegisteredRounds = async (entrantId) => {
       id: round.id,
       title: round.name,
       olympiadTitle: round.olympiads?.name || "",
+      // Round times are shown in the olympiad's timezone
+      timezone: round.olympiads?.timezone,
       opens_at: round.opens_at,
       closes_at: round.closes_at,
       status,
@@ -222,6 +224,7 @@ const getStudentRoundDetail = async (roundId, entrantId) => {
     title: round.name,
     olympiadTitle: round.olympiads?.name || "",
     schoolName: entrant?.schools?.name || "School",
+    timezone: round.olympiads?.timezone,
     opens_at: round.opens_at,
     closes_at: round.closes_at,
     status,
@@ -272,6 +275,7 @@ const getStudentResults = async (entrantId) => {
       id: round.id,
       round: round.name,
       olympiadTitle: round.olympiads?.name || "",
+      timezone: round.olympiads?.timezone,
       closes_at: round.closes_at,
       resultStatus: isReleased ? "released" : "pending",
       score,

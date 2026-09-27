@@ -36,6 +36,31 @@ describe("organiser dashboard", () => {
     expect(screen.getByRole("heading", { name: "Maths Olympiad 2026 — Rounds" })).toBeInTheDocument();
   });
 
+  // Round times are the olympiad's official times, whatever the viewer's
+  // device is set to: the table and the edit form must agree
+  it("shows and edits round times in the olympiad's timezone", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    const round = fx.organiserRound({ id: "r-1", name: "Round 1", opens_at: "2026-10-01T06:00:00.000Z", closes_at: "2026-10-01T08:30:00.000Z" });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [round] });
+    const edits = mockApi("patch", "/rounds/r-1", { round, warnings: [] });
+    const { user } = renderApp("/organiser");
+
+    const row = (await screen.findByText("Round 1")).closest("tr")!;
+    expect(within(row).getByText("01 Oct 2026, 08:00 SAST")).toBeInTheDocument();
+    expect(within(row).getByText("01 Oct 2026, 10:30 SAST")).toBeInTheDocument();
+
+    await user.click(within(row).getByRole("button", { name: "Edit" }));
+    const opens = screen.getByLabelText("Opens at (SAST)");
+    expect(opens).toHaveValue("2026-10-01T08:00");
+    expect(screen.getByLabelText("Closes at (SAST)")).toHaveValue("2026-10-01T10:30");
+
+    fireEvent.change(opens, { target: { value: "2026-10-01T09:00" } });
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(edits).toHaveLength(1));
+    expect(edits[0].body).toMatchObject({ opens_at: "2026-10-01T07:00:00.000Z", closes_at: "2026-10-01T08:30:00.000Z" });
+  });
+
   it("opens a round and shows its new state", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
     let current = rounds();
@@ -122,8 +147,23 @@ describe("olympiads page", () => {
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(await screen.findByText("Science Olympiad")).toBeInTheDocument();
-    expect(created[0].body).toEqual({ name: "Science Olympiad" });
+    // South African time unless the organiser picks another zone
+    expect(created[0].body).toEqual({ name: "Science Olympiad", timezone: "Africa/Johannesburg" });
     expect(screen.getByPlaceholderText("e.g. 2026 National Competition")).toHaveValue("");
+  });
+
+  it("creates an olympiad in the timezone the organiser picks", async () => {
+    mockApi("get", "/olympiads", { olympiads: [] });
+    const created = mockApi("post", "/olympiads", { olympiad: fx.olympiad({ timezone: "Africa/Nairobi" }) }, { status: 201 });
+    const { user } = renderApp("/organiser/olympiads");
+
+    await user.type(await screen.findByPlaceholderText("e.g. 2026 National Competition"), "East Africa Olympiad");
+    await user.selectOptions(screen.getByLabelText("Timezone"), "Africa/Nairobi");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0].body).toEqual({ name: "East Africa Olympiad", timezone: "Africa/Nairobi" });
+    expect(screen.getByLabelText("Timezone")).toHaveValue("Africa/Johannesburg");
   });
 
   it("labels the signed-in user as an organiser", async () => {
@@ -273,20 +313,25 @@ describe("creating a round", () => {
     const { user, currentPath } = renderApp("/organiser/rounds/new");
 
     await fillRoundForm(user);
+    // The form says which timezone the typed times are in
+    expect(screen.getByText(/Times are in the olympiad's timezone \(SAST\)/)).toBeInTheDocument();
     await user.upload(screen.getByLabelText("Paper file"), new File(["%PDF-1.4"], "round3.pdf", { type: "application/pdf" }));
     await user.click(screen.getByRole("button", { name: "Create round" }));
 
     await waitFor(() => expect(currentPath()).toBe("/organiser"));
+    // 08:00 and 10:30 typed for a South African olympiad are 06:00 and 08:30 UTC
     expect(created[0].body).toEqual({
       name: "Round 3 — Provincial",
       notes: "Calculators allowed",
-      opens_at: `${localInput}:00.000Z`,
-      closes_at: `${localClose}:00.000Z`,
+      opens_at: "2026-10-01T06:00:00.000Z",
+      closes_at: "2026-10-01T08:30:00.000Z",
       qualifying_threshold: 62.5,
     });
+    // Holidays are checked on that olympiad's calendar
     expect(dateChecks[0].body).toEqual({
-      opens_at: "2026-10-01T08:00:00.000Z",
-      closes_at: "2026-10-01T10:30:00.000Z",
+      opens_at: "2026-10-01T06:00:00.000Z",
+      closes_at: "2026-10-01T08:30:00.000Z",
+      olympiad_id: "oly-1",
     });
     expect(uploads).toHaveLength(1);
     expect(uploads[0].headers.get("authorization")).toBe("Bearer test-token");
