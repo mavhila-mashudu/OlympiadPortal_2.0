@@ -64,6 +64,7 @@ app.use("/auth", require("./routes/auth"));
 app.use("/invites", require("./routes/invites"));
 app.use("/notifications", require("./routes/portalNotifications"));
 app.use("/educator", require("./routes/educator"));
+app.use("/organiser/remarks", require("./routes/organiserRemarks"));
 
 //registering olympiads and rounds routes
 // Specific subpaths first

@@ -25,6 +25,7 @@ type StudentResultItem = {
   percentage: string;
   rank: number | null;
   hasCertificate: boolean;
+  remarkStatus?: "pending" | "reviewed" | null;
 };
 
 function StudentResults() {

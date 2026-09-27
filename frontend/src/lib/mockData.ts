@@ -170,12 +170,14 @@ export const organiserNav: NavItem[] = [
   { label: "Paper archive", to: "/organiser/archive", icon: Archive },
   { label: "Schools & educators", to: "/organiser/schools", icon: Building2 },
   { label: "Standings", to: "/organiser/standings", icon: BarChart3 },
+  { label: "Remarks", to: "/organiser/remarks", icon: ClipboardList },
   { label: "Send announcement", to: "/organiser/notifications", icon: Bell },
 ];
 
 export const educatorNav: NavItem[] = [
   { label: "Dashboard", to: "/educator", icon: LayoutDashboard },
   { label: "Results", to: "/educator/results", icon: ClipboardList },
+  { label: "Remarks", to: "/educator/remarks", icon: ClipboardList },
   { label: "Register entrants", to: "/educator/entrants", icon: UserPlus },
 ];
 

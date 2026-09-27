@@ -6,6 +6,7 @@ import Signup from "./pages/auth/Signup";
 import EducatorDashboard from "./pages/educator/Dashboard";
 import Entrants from "./pages/educator/Entrants";
 import ExamBuilder from "./pages/educator/ExamBuilder";
+import EducatorRemarks from "./pages/educator/Remarks";
 import EducatorRoundDetail from "./pages/educator/RoundDetail";
 import Results from "./pages/educator/Results";
 import Archive from "./pages/organiser/Archive";
@@ -15,6 +16,7 @@ import ExamReview from "./pages/organiser/ExamReview";
 import MarkingQueue from "./pages/organiser/MarkingQueue";
 import Notifications from "./pages/organiser/Notifications";
 import Olympiads from "./pages/organiser/Olympiads";
+import OrganiserRemarks from "./pages/organiser/Remarks";
 import Schools from "./pages/organiser/Schools";
 import Standings from "./pages/organiser/Standings";
 import ExamSitting from "./pages/student/ExamSitting";
@@ -33,6 +35,7 @@ function App() {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/educator" element={<EducatorDashboard />} />
       <Route path="/educator/results" element={<Results />} />
+      <Route path="/educator/remarks" element={<EducatorRemarks />} />
       <Route path="/educator/entrants" element={<Entrants />} />
       <Route path="/educator/rounds/:id" element={<EducatorRoundDetail />} />
       <Route path="/educator/rounds/:id/exam" element={<ExamBuilder />} />
@@ -43,8 +46,10 @@ function App() {
       <Route path="/organiser/schools" element={<Schools />} />
       <Route path="/organiser/standings" element={<Standings />} />
       <Route path="/organiser/notifications" element={<Notifications />} />
+      <Route path="/organiser/remarks" element={<OrganiserRemarks />} />
       <Route path="/organiser/rounds/:id/review" element={<ExamReview />} />
       <Route path="/organiser/rounds/:id/marking" element={<MarkingQueue />} />
+
       <Route path="/student" element={<StudentDashboard />} />
       <Route path="/student/results" element={<StudentResults />} />
       <Route path="/student/rounds/:id" element={<StudentRoundDetail />} />

@@ -55,9 +55,25 @@ const downloadPaper = async (req, res, next) => {
   }
 };
 
+const submitRemark = async (req, res, next) => {
+  try {
+    const entrantId = resolveEntrantId(req);
+    const remark = await studentRoundService.submitRemarkRequest(
+      entrantId,
+      req.params.roundId,
+      req.body.reason,
+    );
+    res.status(201).json({ success: true, data: { remark } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   listRegisteredRounds,
   getRoundDetail,
   getStudentResults,
   downloadPaper,
+  submitRemark,
 };
+

@@ -71,10 +71,10 @@ const endpoints = [
   // Questions and exam verification
   { method: "post", path: "/rounds/:roundId/questions", roles: STAFF },
   { method: "get", path: "/rounds/:roundId/questions", roles: STAFF },
-  { method: "patch", path: "/rounds/:roundId/questions/:id", roles: STAFF },
-  { method: "delete", path: "/rounds/:roundId/questions/:id", roles: STAFF },
   { method: "get", path: "/rounds/:roundId/question-bank", roles: ORGANISER },
   { method: "post", path: "/rounds/:roundId/question-bank/import", roles: ORGANISER },
+  { method: "patch", path: "/rounds/:roundId/questions/:id", roles: STAFF },
+  { method: "delete", path: "/rounds/:roundId/questions/:id", roles: STAFF },
   { method: "get", path: "/rounds/:roundId/exam-status", roles: STAFF },
   { method: "patch", path: "/rounds/:roundId/exam-status", roles: STAFF },
 
@@ -105,6 +105,16 @@ const endpoints = [
   { method: "get", path: "/educator/results", roles: EDUCATOR },
   { method: "get", path: "/educator/rounds/:roundId/papers/past", roles: EDUCATOR },
   { method: "get", path: "/educator/rounds/:roundId/paper/download", roles: EDUCATOR },
+  { method: "get", path: "/educator/remarks", roles: EDUCATOR },
+  { method: "get", path: "/educator/remarks/:remarkId/answers", roles: EDUCATOR },
+  { method: "patch", path: "/educator/remarks/:remarkId/answers/:answerId", roles: EDUCATOR },
+  { method: "patch", path: "/educator/remarks/:remarkId", roles: EDUCATOR },
+
+  // Organiser remarks
+  { method: "get", path: "/organiser/remarks", roles: ORGANISER },
+  { method: "get", path: "/organiser/remarks/rounds/:roundId/educators", roles: ORGANISER },
+  { method: "patch", path: "/organiser/remarks/:remarkId/assign", roles: ORGANISER },
+  { method: "post", path: "/organiser/remarks/rounds/:roundId/auto-assign", roles: ORGANISER },
 
   // Student portal
   { method: "get", path: "/rounds/registered", roles: STUDENT },
@@ -125,6 +135,7 @@ const mounts = {
   "auth.js": "/auth",
   "invites.js": "/invites",
   "educator.js": "/educator",
+  "organiserRemarks.js": "/organiser/remarks",
   "olympiads.js": "/olympiads",
   "rounds.js": "/olympiads/:olympiadId/rounds",
   "notificationRules.js": "/olympiads/:olympiadId/notification-rules",
@@ -140,3 +151,4 @@ const mounts = {
 };
 
 module.exports = { endpoints, mounts };
+

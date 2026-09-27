@@ -13,6 +13,7 @@ jest.mock("../../../src/services/studentRoundService", () => ({
   getStudentRoundDetail: jest.fn(),
   getStudentResults: jest.fn(),
   getStudentPaperUrl: jest.fn(),
+  submitRemarkRequest: jest.fn(),
 }));
 
 const paperService = require("../../../src/services/paperService");
@@ -170,6 +171,16 @@ describe("studentRoundController", () => {
       result: "https://signed.test/paper",
       json: (url) => ok({ url }),
     },
+    {
+      handler: "submitRemark",
+      service: studentRoundService,
+      method: "submitRemarkRequest",
+      req: mockReq({ user: student, params: { roundId: "round-1" }, body: { reason: "Need review" } }),
+      args: ["ent-1", "round-1", "Need review"],
+      status: 201,
+      result: { id: "rem-1", status: "pending" },
+      json: (remark) => ok({ remark }),
+    },
   ]);
 
   describe.each([
@@ -177,6 +188,7 @@ describe("studentRoundController", () => {
     ["getRoundDetail", "getStudentRoundDetail"],
     ["getStudentResults", "getStudentResults"],
     ["downloadPaper", "getStudentPaperUrl"],
+    ["submitRemark", "submitRemarkRequest"],
   ])("%s without a linked entrant", (handler, method) => {
     it.each([
       ["a user with no entrant", { userId: "u", role: "student", entrant: null }],

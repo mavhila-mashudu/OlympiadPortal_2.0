@@ -30,6 +30,7 @@ const MODELS = [
   "submissions",
   "entrant_registrations",
   "results",
+  "remark_requests",
 ];
 
 const METHODS = [
@@ -44,6 +45,7 @@ const METHODS = [
   "delete",
   "deleteMany",
   "count",
+  "groupBy",
 ];
 
 const prisma = { $transaction: jest.fn() };
