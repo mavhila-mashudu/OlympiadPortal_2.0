@@ -243,6 +243,39 @@ describe("POST /:roundId/exam/start", () => {
       },
     });
   });
+
+  // Losing a race to the database's one-submission-per-learner rule
+  describe("when another submission lands between the checks and the insert", () => {
+    const uniqueViolation = () => Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+
+    it("resumes the attempt a second tab or double click just started", async () => {
+      const started = { id: "sub-1", status: "received", answers: [] };
+      // online check, paper check, then the online check again after the clash
+      prisma.submissions.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(started);
+      prisma.submissions.create.mockRejectedValue(uniqueViolation());
+
+      const { res, next } = await run(startExam, studentReq());
+
+      expect(next).not.toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith({ success: true, data: { submission: started } });
+    });
+
+    it("explains that the school's paper results arrived first", async () => {
+      prisma.submissions.findFirst.mockResolvedValue(null);
+      prisma.submissions.create.mockRejectedValue(uniqueViolation());
+
+      expectError((await run(startExam, studentReq())).next, 409, "Your school has already submitted your results for this round");
+    });
+
+    it("passes other database failures through unchanged", async () => {
+      prisma.submissions.findFirst.mockResolvedValue(null);
+      const failure = Object.assign(new Error("connection lost"), { code: "P1001" });
+      prisma.submissions.create.mockRejectedValue(failure);
+
+      const { next } = await run(startExam, studentReq());
+      expect(next).toHaveBeenCalledWith(failure);
+    });
+  });
 });
 
 describe("PATCH /:roundId/exam/answers/:qid", () => {

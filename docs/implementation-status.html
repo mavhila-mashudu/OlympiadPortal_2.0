@@ -117,7 +117,8 @@
   <strong>Update, 27 September 2026</strong>
   Notification delivery (I11–I13) and remark requests (I8) have been verified end to end and are now
   counted as complete; see <em>What to do next</em>. Defect #1 below replaces three earlier ones about the
-  remark branch and migrations. Separately, since this report was first compiled, <code>main</code> has
+  remark branch and migrations. A9, A10 and A11 are complete too, and the earlier defect claiming a learner could be
+  counted on both routes was wrong: both routes already refused the other, and I missed it. Separately, since this report was first compiled, <code>main</code> has
   gained marking moderation (I7), downloadable certificates (I17) and a basic question bank (A5). Those
   three have <strong>not been re-checked yet</strong> — treat what this page says about them as out of date.
 </div>
@@ -125,14 +126,14 @@
 <h2>Summary</h2>
 
 <div class="stats">
-  <div class="stat done"><div class="n">37</div><div class="l">Fully complete</div></div>
-  <div class="stat part"><div class="n">8</div><div class="l">Partially complete</div></div>
-  <div class="stat todo"><div class="n">14</div><div class="l">Not implemented</div></div>
-  <div class="stat"><div class="n">63%</div><div class="l">Of all stories done</div></div>
+  <div class="stat done"><div class="n">40</div><div class="l">Fully complete</div></div>
+  <div class="stat part"><div class="n">7</div><div class="l">Partially complete</div></div>
+  <div class="stat todo"><div class="n">12</div><div class="l">Not implemented</div></div>
+  <div class="stat"><div class="n">68%</div><div class="l">Of all stories done</div></div>
 </div>
 
-<div class="bar" role="img" aria-label="37 complete, 8 partial, 14 not implemented">
-  <i class="d" style="width:62.7%"></i><i class="p" style="width:13.6%"></i><i class="t" style="width:23.7%"></i>
+<div class="bar" role="img" aria-label="40 complete, 7 partial, 12 not implemented">
+  <i class="d" style="width:67.8%"></i><i class="p" style="width:11.9%"></i><i class="t" style="width:20.3%"></i>
 </div>
 
 <div class="scroll">
@@ -142,7 +143,7 @@
   <tbody>
     <tr><td><strong>Basic (B)</strong></td><td>17</td><td>0</td><td>0</td><td>17</td></tr>
     <tr><td><strong>Intermediate (I)</strong></td><td>17</td><td>1</td><td>1</td><td>19</td></tr>
-    <tr><td><strong>Advanced (A)</strong></td><td>1</td><td>4</td><td>13</td><td>18</td></tr>
+    <tr><td><strong>Advanced (A)</strong></td><td>4</td><td>3</td><td>11</td><td>18</td></tr>
     <tr><td><strong>Platform (P)</strong></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
 </table>
@@ -154,10 +155,10 @@
   <caption>Completion by role</caption>
   <thead><tr><th>Role</th><th>Complete</th><th>Partial</th><th>Not started</th><th>Total</th></tr></thead>
   <tbody>
-    <tr><td><span class="role">Organiser</span></td><td>10</td><td>3</td><td>4</td><td>17</td></tr>
+    <tr><td><span class="role">Organiser</span></td><td>11</td><td>2</td><td>4</td><td>17</td></tr>
     <tr><td><span class="role">Educator</span></td><td>12</td><td>0</td><td>0</td><td>12</td></tr>
     <tr><td><span class="role">Student</span></td><td>6</td><td>1</td><td>1</td><td>8</td></tr>
-    <tr><td><span class="role">System</span></td><td>6</td><td>1</td><td>7</td><td>14</td></tr>
+    <tr><td><span class="role">System</span></td><td>8</td><td>1</td><td>5</td><td>14</td></tr>
     <tr><td><span class="role">Marker</span></td><td>1</td><td>0</td><td>2</td><td>3</td></tr>
     <tr><td><span class="role">Platform</span></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
@@ -167,7 +168,7 @@
 <p><strong>The whole Basic tier is done.</strong> The Intermediate tier is nearly done:
 notifications are delivered in-app, and the two stories still listed as open (I7, I17) have both had
 work merged since this check. The Advanced tier is
-largely untouched — one story complete, four partial.</p>
+largely untouched — four stories complete, three partial.</p>
 
 <h2>Fully complete</h2>
 <p class="sub">Implemented, reachable through the UI, and covered by tests.</p>
@@ -230,6 +231,9 @@ largely untouched — one story complete, four partial.</p>
   <thead><tr><th>ID</th><th>Role</th><th>Story</th><th>Evidence in the code</th></tr></thead>
   <tbody>
     <tr><td class="id">A3</td><td><span class="role">System</span></td><td>Count a submission exactly once</td><td>Deterministic <code>idempotency_key</code> from round+entrant+route, with a unique index and a pre-check</td></tr>
+    <tr><td class="id">A9</td><td><span class="role">Organiser</span></td><td>One paper, online or on paper</td><td>Both routes use the round's one paper and are marked together. A learner who opens the exam online and loses their connection can still have paper answers captured: while the online attempt is unsubmitted, the capture replaces it (a submitted online exam still blocks paper). The educator page lists such learners as “Started online but not submitted”</td></tr>
+    <tr><td class="id">A10</td><td><span class="role">System</span></td><td>Merge online and offline results</td><td>One result row per learner (<code>results</code> is unique on round + learner); marking, standings and the organiser's route counts treat both routes as one set</td></tr>
+    <tr><td class="id">A11</td><td><span class="role">System</span></td><td>Reconcile dual-route entrants</td><td>A learner may use one route per round, first one wins: each route refuses the other with a clear message, and since 27 September the database enforces it too (unique on round + learner), so two requests at the same moment can't both get through</td></tr>
     <tr><td class="id">P1</td><td><span class="role">Platform</span></td><td>Sign up, sign in, reset, delete</td><td>Supabase Auth; reset-password flow; soft-delete on <code>DELETE /auth/account</code></td></tr>
     <tr><td class="id">P3</td><td><span class="role">Platform</span></td><td>Hand-written, documented API</td><td>73 endpoints, all hand-written; <code>docs/API.md</code>; an endpoint-inventory test fails if a route is added without being documented and access-tested</td></tr>
   </tbody>
@@ -252,9 +256,6 @@ largely untouched — one story complete, four partial.</p>
     <tr><td class="id">A4</td><td><span class="role">Organiser</span></td><td>Defensible deadline boundary</td>
       <td><strong>Exists:</strong> each submission records <code>round_close_snapshot</code> and an <code>is_late</code> flag, so a ruling is reproducible after the fact.
       <strong>Missing:</strong> no written, published tie-break rule for the exact boundary instant — the story asks for something a school cannot call arbitrary.</td></tr>
-    <tr><td class="id">A9</td><td><span class="role">Organiser</span></td><td>One paper, online or on paper</td>
-      <td><strong>Exists:</strong> <code>submission_route</code> is <code>online|offline</code>; both paths work end to end and are uniquely keyed per entrant.
-      <strong>Missing:</strong> the two routes never meet — see A10 and A11, which are not implemented.</td></tr>
     <tr><td class="id">A15</td><td><span class="role">Organiser</span></td><td>Several olympiads at once</td>
       <td><strong>Exists:</strong> an organiser can run many olympiads, each with its own rounds and schedule.
       <strong>Missing:</strong> “each on its own timezone” is not met — the field is stored but unused.</td></tr>
@@ -284,8 +285,6 @@ largely untouched — one story complete, four partial.</p>
     <tr><td class="id">A6</td><td><span class="role">System</span></td><td>Per-entrant paper variants</td><td><span class="tag t-todo">Not started</span></td><td>No variant model. (<code>variant</code> in the codebase is a Button styling prop.)</td></tr>
     <tr><td class="id">A7</td><td><span class="role">System</span></td><td>Mark against the sat variant</td><td><span class="tag t-todo">Not started</span></td><td>Depends on A6.</td></tr>
     <tr><td class="id">A8</td><td><span class="role">System</span></td><td>Difficulty from real answers</td><td><span class="tag t-todo">Not started</span></td><td>Answer data is stored, but nothing derives difficulty from it.</td></tr>
-    <tr><td class="id">A10</td><td><span class="role">System</span></td><td>Merge online and offline results</td><td><span class="tag t-todo">Not started</span></td><td>Both routes can submit for one entrant; no code reconciles them into a single result.</td></tr>
-    <tr><td class="id">A11</td><td><span class="role">System</span></td><td>Reconcile dual-route entrants</td><td><span class="tag t-todo">Not started</span></td><td>An entrant submitting by both routes is not detected. A real double-counting risk.</td></tr>
     <tr><td class="id">A12</td><td><span class="role">Student</span></td><td>Appeal a mark</td><td><span class="tag t-todo">Not started</span></td><td rowspan="3" style="vertical-align:middle">No appeals model, route or screen anywhere.</td></tr>
     <tr><td class="id">A13</td><td><span class="role">Marker</span></td><td>Route appeals to a reviewer</td><td><span class="tag t-todo">Not started</span></td></tr>
     <tr><td class="id">A14</td><td><span class="role">System</span></td><td>Appeal outcome updates standings</td><td><span class="tag t-todo">Not started</span></td></tr>
@@ -298,7 +297,7 @@ largely untouched — one story complete, four partial.</p>
 
 <h2>Defects and risks found</h2>
 <p class="sub"><code>docs/bug-tracking.md</code> records 47 bugs, every one marked <em>Fixed</em> — no open
-items at all, which suggests it is a history of resolved work rather than a live register. The nine
+items at all, which suggests it is a history of resolved work rather than a live register. The eight
 below were found during this inspection and are not in it.</p>
 
 <div class="note">
@@ -354,47 +353,8 @@ First ask the team who created remark requests on 27 September, and point them a
 </article>
 <article class="issue" id="issue-2">
   <div class="issue-head">
-    <h3 class="issue-title">2. An entrant can submit both online and offline, and nothing reconciles the two</h3>
+    <h3 class="issue-title">2. One frontend integration test fails on Node 24</h3>
     <button class="copy" type="button" data-target="md-2">Copy as Markdown</button>
-  </div>
-  <p class="issue-meta">
-    <span class="tag t-todo sev-high">High</span>
-    <span class="role">backend / results integrity</span>
-  </p>
-  <h4>What is wrong</h4><p>The schema allows one submission per entrant per route — `@@unique([round_id, entrant_id, route])` — so a single entrant can legitimately have both an online and an offline submission for the same round. But `results` is unique on `@@unique([round_id, entrant_id])`, meaning only one result row can exist for that entrant. Nothing in the code decides which submission wins, merges them, or flags the conflict.</p>
-  <h4>Why it matters</h4><p>This is a correctness problem in the part of the system that matters most: the marks. Depending on processing order, an entrant with two submissions could have either one silently overwrite the other, or cause a unique-constraint failure during result generation. Neither outcome is visible to the organiser. In a competition this is exactly the kind of defect that produces a disputed result nobody can explain afterwards. Two user stories cover it and both are unimplemented: A10 (merge online and offline results into one set per entrant) and A11 (detect and reconcile an entrant appearing via both routes).</p>
-  <h4>Where to look</h4><ul class="where"><li><code>backend/prisma/schema.prisma line 230 — submissions @@unique([round_id, entrant_id, route])</code></li><li><code>backend/prisma/schema.prisma line 258 — results @@unique([round_id, entrant_id])</code></li><li><code>backend/src/services/markingService.js — result generation has no route-awareness at all</code></li></ul>
-  <h4>How to confirm it</h4><p>Create one entrant, submit online, then submit offline for the same round, then generate results. Observe what happens to the result row. Note that no test covers this case.</p>
-  <h4>Suggested fix</h4><p>Decide the policy first, because it is a rules question and not only a code one. Options: reject the second route outright; always prefer one route; or merge and record which submission the mark came from. Whatever is chosen, result generation should detect the dual-route case explicitly and surface it rather than letting ordering decide.</p>
-  <h4>Done when</h4><ul class="done-list"><li>An entrant with submissions on both routes produces exactly one defensible result</li><li>The chosen policy is documented where organisers can see it</li><li>A test covers the dual-route case</li></ul>
-  <script type="text/plain" id="md-2">**Severity:** High  |  **Area:** backend / results integrity
-
-### What is wrong
-The schema allows one submission per entrant per route — `@@unique([round_id, entrant_id, route])` — so a single entrant can legitimately have both an online and an offline submission for the same round. But `results` is unique on `@@unique([round_id, entrant_id])`, meaning only one result row can exist for that entrant. Nothing in the code decides which submission wins, merges them, or flags the conflict.
-
-### Why it matters
-This is a correctness problem in the part of the system that matters most: the marks. Depending on processing order, an entrant with two submissions could have either one silently overwrite the other, or cause a unique-constraint failure during result generation. Neither outcome is visible to the organiser. In a competition this is exactly the kind of defect that produces a disputed result nobody can explain afterwards. Two user stories cover it and both are unimplemented: A10 (merge online and offline results into one set per entrant) and A11 (detect and reconcile an entrant appearing via both routes).
-
-### Where to look
-- `backend/prisma/schema.prisma line 230 — submissions @@unique([round_id, entrant_id, route])`
-- `backend/prisma/schema.prisma line 258 — results @@unique([round_id, entrant_id])`
-- `backend/src/services/markingService.js — result generation has no route-awareness at all`
-
-### How to confirm it
-Create one entrant, submit online, then submit offline for the same round, then generate results. Observe what happens to the result row. Note that no test covers this case.
-
-### Suggested fix
-Decide the policy first, because it is a rules question and not only a code one. Options: reject the second route outright; always prefer one route; or merge and record which submission the mark came from. Whatever is chosen, result generation should detect the dual-route case explicitly and surface it rather than letting ordering decide.
-
-### Done when
-- [ ] An entrant with submissions on both routes produces exactly one defensible result
-- [ ] The chosen policy is documented where organisers can see it
-- [ ] A test covers the dual-route case</script>
-</article>
-<article class="issue" id="issue-3">
-  <div class="issue-head">
-    <h3 class="issue-title">3. One frontend integration test fails on Node 24</h3>
-    <button class="copy" type="button" data-target="md-3">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag t-part sev-med">Medium</span>
@@ -406,7 +366,7 @@ Decide the policy first, because it is a rules question and not only a code one.
   <h4>How to confirm it</h4><p>Run `npm run test:integration` in frontend/ under Node 24, then under Node 22. 133 of 134 pass on 24; all 134 pass on 22.</p>
   <h4>Suggested fix</h4><p>Cheapest correct fix is to pin the supported range so the mismatch cannot happen silently: set engines to `&gt;=22 &lt;23` in both packages, and add an engines field to the frontend. Separately, it is worth finding out whether MSW or undici is the actual cause, since Node 24 will eventually have to be supported.</p>
   <h4>Done when</h4><ul class="done-list"><li>Both packages declare a Node range that excludes 24</li><li>A developer on an unsupported Node gets a clear warning from npm</li></ul>
-  <script type="text/plain" id="md-3">**Severity:** Medium  |  **Area:** frontend / tooling
+  <script type="text/plain" id="md-2">**Severity:** Medium  |  **Area:** frontend / tooling
 
 ### What is wrong
 On Node 24, `frontend/tests/integration/organiserManagement.test.tsx` fails the test &#x27;creates the round, uploads its paper and returns to the dashboard&#x27;. Mock Service Worker throws during handler lookup for the multipart upload to `POST /rounds/:id/papers`, so the request never resolves, the redirect never happens, and the assertion on the path times out. The same test passes on Node 22.
@@ -429,10 +389,10 @@ Cheapest correct fix is to pin the supported range so the mismatch cannot happen
 - [ ] Both packages declare a Node range that excludes 24
 - [ ] A developer on an unsupported Node gets a clear warning from npm</script>
 </article>
-<article class="issue" id="issue-4">
+<article class="issue" id="issue-3">
   <div class="issue-head">
-    <h3 class="issue-title">4. The e2e suite cannot run on the self-hosted runner</h3>
-    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
+    <h3 class="issue-title">3. The e2e suite cannot run on the self-hosted runner</h3>
+    <button class="copy" type="button" data-target="md-3">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag t-part sev-med">Medium</span>
@@ -444,7 +404,7 @@ Cheapest correct fix is to pin the supported range so the mismatch cannot happen
   <h4>How to confirm it</h4><p>Temporarily add ubuntu-latest to the self-hosted runner&#x27;s labels and re-run the suite. It will pick the job up and fail on timeouts.</p>
   <h4>Suggested fix</h4><p>Leave e2e on the shared runners, which is the current arrangement and costs nothing. If queueing becomes a problem, the alternative is a larger VM — roughly four times the current cost — which is a budget decision rather than a technical one.</p>
   <h4>Done when</h4><ul class="done-list"><li>e2e passes consistently wherever it runs</li><li>The reason it does not run on our own runner is documented</li></ul>
-  <script type="text/plain" id="md-4">**Severity:** Medium  |  **Area:** ci / infrastructure
+  <script type="text/plain" id="md-3">**Severity:** Medium  |  **Area:** ci / infrastructure
 
 ### What is wrong
 On the self-hosted CI runner (an Azure VM with 1 GiB of RAM) the Playwright suite takes 12 to 18 minutes and fails between one and four tests on timeouts, with around 718 MB of swap in use. The same suite completes in roughly 35 seconds on a developer machine. Chromium, the backend, the PGlite database and Vite are all resident at once, and the VM swaps heavily.
@@ -467,10 +427,10 @@ Leave e2e on the shared runners, which is the current arrangement and costs noth
 - [ ] e2e passes consistently wherever it runs
 - [ ] The reason it does not run on our own runner is documented</script>
 </article>
-<article class="issue" id="issue-5">
+<article class="issue" id="issue-4">
   <div class="issue-head">
-    <h3 class="issue-title">5. The roadmap contradicts what is actually built</h3>
-    <button class="copy" type="button" data-target="md-5">Copy as Markdown</button>
+    <h3 class="issue-title">4. The roadmap contradicts what is actually built</h3>
+    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag t-part sev-med">Medium</span>
@@ -482,7 +442,7 @@ Leave e2e on the shared runners, which is the current arrangement and costs noth
   <h4>How to confirm it</h4><p>Compare the roadmap&#x27;s status column against the implementation-status document, which was derived from the code rather than from either the roadmap or commit messages.</p>
   <h4>Suggested fix</h4><p>Update the status columns to match reality, and consider generating them from a single source so the two cannot drift again.</p>
   <h4>Done when</h4><ul class="done-list"><li>Every status in the roadmap matches the implementation status document</li><li>The change log records when it was corrected</li></ul>
-  <script type="text/plain" id="md-5">**Severity:** Medium  |  **Area:** docs
+  <script type="text/plain" id="md-4">**Severity:** Medium  |  **Area:** docs
 
 ### What is wrong
 `docs/roadmap.md` lists stories as Planned that are complete, and others as Planned that are also complete. Online sitting (I1), the timer (I2), auto-save (I3), resume after disconnect (I4) and student login (I18) are all fully implemented but marked Planned. B10, B13 and B15 are likewise done and marked Planned.
@@ -504,10 +464,10 @@ Update the status columns to match reality, and consider generating them from a 
 - [ ] Every status in the roadmap matches the implementation status document
 - [ ] The change log records when it was corrected</script>
 </article>
-<article class="issue" id="issue-6">
+<article class="issue" id="issue-5">
   <div class="issue-head">
-    <h3 class="issue-title">6. Deep links return HTTP 404 even though the page renders correctly</h3>
-    <button class="copy" type="button" data-target="md-6">Copy as Markdown</button>
+    <h3 class="issue-title">5. Deep links return HTTP 404 even though the page renders correctly</h3>
+    <button class="copy" type="button" data-target="md-5">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -519,7 +479,7 @@ Update the status columns to match reality, and consider generating them from a 
   <h4>How to confirm it</h4><p>curl -o /dev/null -w &#x27;%{http_code}&#x27; https://olympiadportalfe.z1.web.core.windows.net/organiser/schools returns 404 while the body is the app shell.</p>
   <h4>Suggested fix</h4><p>Accept it, or put Azure Front Door in front of the storage account to rewrite unmatched paths with a 200. Front Door costs money, so this is only worth doing if a custom domain is wanted anyway. Azure Static Web Apps would solve it natively but is unavailable — its five regions do not intersect the five this subscription&#x27;s policy permits.</p>
   <h4>Done when</h4><ul class="done-list"><li>Either the status is corrected, or the trade-off is recorded as an accepted decision</li></ul>
-  <script type="text/plain" id="md-6">**Severity:** Low  |  **Area:** frontend / hosting
+  <script type="text/plain" id="md-5">**Severity:** Low  |  **Area:** frontend / hosting
 
 ### What is wrong
 The frontend is served from Azure Blob Storage static website hosting, with `index.html` set as both the index and the error document. A request for a client-side route such as /organiser/schools therefore returns the app correctly, but with a 404 status rather than 200.
@@ -540,10 +500,10 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
 ### Done when
 - [ ] Either the status is corrected, or the trade-off is recorded as an accepted decision</script>
 </article>
-<article class="issue" id="issue-7">
+<article class="issue" id="issue-6">
   <div class="issue-head">
-    <h3 class="issue-title">7. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
-    <button class="copy" type="button" data-target="md-7">Copy as Markdown</button>
+    <h3 class="issue-title">6. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
+    <button class="copy" type="button" data-target="md-6">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -555,7 +515,7 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
   <h4>How to confirm it</h4><p>Copy a quoted value into any environment variable that is read directly from process.env rather than from a .env file, and observe the failure.</p>
   <h4>Suggested fix</h4><p>Remove the quotes from the .env files so they match the examples, since nothing in them needs quoting. Add a line to the README warning that values must be pasted without quotes when configuring hosting or CI secrets.</p>
   <h4>Done when</h4><ul class="done-list"><li>The .env files and their examples use the same unquoted style</li><li>The README warns about hand-copying values</li></ul>
-  <script type="text/plain" id="md-7">**Severity:** Low  |  **Area:** config / developer experience
+  <script type="text/plain" id="md-6">**Severity:** Low  |  **Area:** config / developer experience
 
 ### What is wrong
 Every value in `backend/.env` and `frontend/.env` is wrapped in double quotes. Prisma and Vite both strip quotes when parsing a .env file, so local development works correctly and the problem is invisible day to day. But a value copied by hand into a Gitea secret or an Azure App Service setting carries the quotes with it, and the consuming code receives them as part of the string.
@@ -577,10 +537,10 @@ Remove the quotes from the .env files so they match the examples, since nothing 
 - [ ] The .env files and their examples use the same unquoted style
 - [ ] The README warns about hand-copying values</script>
 </article>
-<article class="issue" id="issue-8">
+<article class="issue" id="issue-7">
   <div class="issue-head">
-    <h3 class="issue-title">8. olympiads.timezone is stored but never read</h3>
-    <button class="copy" type="button" data-target="md-8">Copy as Markdown</button>
+    <h3 class="issue-title">7. olympiads.timezone is stored but never read</h3>
+    <button class="copy" type="button" data-target="md-7">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -592,7 +552,7 @@ Remove the quotes from the .env files so they match the examples, since nothing 
   <h4>How to confirm it</h4><p>Search the backend and frontend for `timezone`. Every hit is a write path or a validation rule; there is no read.</p>
   <h4>Suggested fix</h4><p>Either honour it — convert round open and close times through the olympiad&#x27;s timezone when evaluating and displaying them — or drop the column and treat everything as UTC explicitly. Both are defensible; leaving it as it is, is not.</p>
   <h4>Done when</h4><ul class="done-list"><li>Either round timing respects the olympiad timezone, or the column is removed</li><li>The decision is recorded in docs/system-design.md</li></ul>
-  <script type="text/plain" id="md-8">**Severity:** Low  |  **Area:** backend / schema
+  <script type="text/plain" id="md-7">**Severity:** Low  |  **Area:** backend / schema
 
 ### What is wrong
 The `olympiads` table has a `timezone` column defaulting to &#x27;Africa/Johannesburg&#x27;. It is accepted when an olympiad is created and written to the database, and then never read again. Every time in the system is handled in UTC.
@@ -615,10 +575,10 @@ Either honour it — convert round open and close times through the olympiad&#x2
 - [ ] Either round timing respects the olympiad timezone, or the column is removed
 - [ ] The decision is recorded in docs/system-design.md</script>
 </article>
-<article class="issue" id="issue-9">
+<article class="issue" id="issue-8">
   <div class="issue-head">
-    <h3 class="issue-title">9. Two standing lint warnings, one of which can hide a real bug</h3>
-    <button class="copy" type="button" data-target="md-9">Copy as Markdown</button>
+    <h3 class="issue-title">8. Two standing lint warnings, one of which can hide a real bug</h3>
+    <button class="copy" type="button" data-target="md-8">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -630,7 +590,7 @@ Either honour it — convert round open and close times through the olympiad&#x2
   <h4>How to confirm it</h4><p>Run `npm run lint` in frontend/. Both warnings appear.</p>
   <h4>Suggested fix</h4><p>In Olympiads.tsx, surface the error to the user instead of silently emptying the list. In ExamSitting.tsx, review the effect carefully before changing it — adding the dependencies naively may cause it to re-run more often than intended, so the fix is to restructure it rather than silence the warning.</p>
   <h4>Done when</h4><ul class="done-list"><li>npm run lint reports no warnings</li><li>A failed olympiad fetch shows an error rather than an empty list</li></ul>
-  <script type="text/plain" id="md-9">**Severity:** Low  |  **Area:** frontend / code quality
+  <script type="text/plain" id="md-8">**Severity:** Low  |  **Area:** frontend / code quality
 
 ### What is wrong
 `npm run lint` in frontend/ reports two warnings on every run. Both are pre-existing. The first is cosmetic; the second is the kind that can mask a genuine defect.
@@ -697,7 +657,11 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
     replaced the branch with its own remark flow (I8), which is complete and now tested. What remains is
     closing the branch and dropping its leftover tables from the shared database. That needs the team
     first, because someone wrote to the old table on 27 September — see defect #1.</li>
-  <li><strong>Close the A10/A11 gap</strong>, or remove one submission route. Silent double-counting is worse than an unsupported feature.</li>
+  <li><s>Close the A10/A11 gap.</s> <strong>Done, 27 September.</strong> There was no double-counting:
+    each route already refused a learner who had used the other. The rule was only checked in code, though,
+    so the database now enforces one submission per learner per round, and a request that loses that race gets
+    the same clear message (or, for a double-clicked start, simply resumes). The A9 case is closed as well: paper
+    results now replace an online attempt the learner opened but never submitted.</li>
   <li><strong>Correct the roadmap</strong> so it agrees with this document.</li>
   <li><strong>Either honour <code>olympiads.timezone</code> or drop the column.</strong> Dead data that implies a feature is worse than no column.</li>
 </ol>
@@ -705,7 +669,7 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
 <footer>
   Generated from the state of <code>main</code> on 26 September 2026. Every claim was checked against
   source, schema, routes or test output — where something could not be verified, it is described as
-  partial rather than complete. Notification delivery and remark requests re-checked on 27 September 2026.
+  partial rather than complete. Notification delivery, remark requests and dual-route submissions re-checked on 27 September 2026.
 </footer>
 
 </div>

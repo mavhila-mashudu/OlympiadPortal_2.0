@@ -190,6 +190,30 @@ describe("educator round page", () => {
     expect(within(section).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose an entrant…", "Lerato Nkosi"]);
   });
 
+  // A9: the learner opened the exam online but never submitted it, e.g. their
+  // connection failed, so the school can capture what they wrote on paper
+  it("still offers a learner whose online attempt was never submitted, and says what capturing does", async () => {
+    mockRound(roundDetail({ submissions: [submitted(entrants[0], { route: "online", status: "received" })] }));
+    renderApp("/educator/rounds/round-1");
+
+    const section = (await screen.findByRole("heading", { name: "Submit results" })).closest("section")!;
+    expect(within(section).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose an entrant…", "Ayanda Khumalo (Grade 11)", "Lerato Nkosi"]);
+    expect(within(section).getByText(/Started online but not submitted: Ayanda Khumalo\./)).toHaveTextContent(
+      "replaces the unfinished online attempt",
+    );
+    expect(within(section).queryByText(/Sat online/)).not.toBeInTheDocument();
+    expect(within(section).queryByRole("heading", { name: /Submitted/ })).not.toBeInTheDocument();
+  });
+
+  it("counts an unfinished online attempt as submitted once the round has closed", async () => {
+    mockRound(roundDetail({ state: "closed", status: "closed", submissions: [submitted(entrants[0], { route: "online", status: "received" })] }));
+    renderApp("/educator/rounds/round-1");
+
+    expect(await screen.findByRole("heading", { name: "Submitted (1 of 2)" })).toBeInTheDocument();
+    expect(screen.getByText(/Sat online · .* · received/)).toBeInTheDocument();
+    expect(screen.queryByText(/Started online but not submitted/)).not.toBeInTheDocument();
+  });
+
   it("lists what was submitted once the round has closed", async () => {
     mockRound(roundDetail({ state: "closed", status: "closed", submissions: [submitted(entrants[1], { status: "marked" })] }));
     renderApp("/educator/rounds/round-1");
