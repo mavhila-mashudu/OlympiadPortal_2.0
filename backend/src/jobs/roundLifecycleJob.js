@@ -1,5 +1,6 @@
 // @ts-nocheck
 const { runLifecycleTick } = require("../services/lifecycleService");
+const { deliverDueNotifications } = require("../services/notificationDeliveryService");
 
 // How often to check for rounds that need to change state.
 // Overridable via env var; defaults to every 30 seconds.
@@ -23,6 +24,7 @@ const start = () => {
   timer = setInterval(async () => {
     try {
       await runLifecycleTick();
+      await deliverDueNotifications();
     } catch (err) {
       console.error("[lifecycle] tick failed:", err.message);
     }

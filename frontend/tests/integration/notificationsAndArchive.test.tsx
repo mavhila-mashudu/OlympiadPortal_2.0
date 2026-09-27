@@ -12,6 +12,7 @@ const rule = (overrides: Record<string, unknown> = {}) => ({
   trigger: "round_opens",
   offset_minutes: 60,
   recipient: "registered_educators",
+  action: "notify_recipients",
   channel: "email",
   condition: null,
   enabled: true,
@@ -72,12 +73,12 @@ describe("announcement rules", () => {
     await user.clear(screen.getByLabelText("Minutes before trigger"));
     await user.type(screen.getByLabelText("Minutes before trigger"), "30");
     await user.selectOptions(screen.getByLabelText("Recipients"), "registered_schools");
-    await user.type(screen.getByLabelText("Condition (optional)"), "  Only rounds with submissions  ");
+    await user.selectOptions(screen.getByLabelText("Condition (optional)"), "Only rounds with submissions");
     await user.click(screen.getByRole("button", { name: "Save rule" }));
 
     const row = (await screen.findByText("Closing soon")).closest("tr")!;
     expect(within(row).getByText("30 min before")).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "New announcement" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "New in-app announcement" })).not.toBeInTheDocument();
     // No error card, e.g. from touching the form after React released the event
     expect(document.querySelector("main [class*='error']")).toBeNull();
     expect(creates[0].body).toEqual({
@@ -85,6 +86,7 @@ describe("announcement rules", () => {
       trigger: "round_closes",
       offset_minutes: 30,
       recipient: "registered_schools",
+      action: "notify_recipients",
       condition: "Only rounds with submissions",
     });
   });
@@ -99,7 +101,7 @@ describe("announcement rules", () => {
     await user.click(screen.getByRole("button", { name: "Save rule" }));
 
     expect(await screen.findByText("Invalid trigger")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "New announcement" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "New in-app announcement" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save rule" })).toBeEnabled();
   });
 

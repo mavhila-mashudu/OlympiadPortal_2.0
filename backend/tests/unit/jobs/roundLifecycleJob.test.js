@@ -2,6 +2,10 @@ jest.mock("../../../src/services/lifecycleService", () => ({
   runLifecycleTick: jest.fn(),
 }));
 
+jest.mock("../../../src/services/notificationDeliveryService", () => ({
+  deliverDueNotifications: jest.fn().mockResolvedValue(0),
+}));
+
 // The interval is read once at load time and the timer is module state, so
 // each test loads a fresh copy of the job.
 const loadJob = (intervalEnv) => {

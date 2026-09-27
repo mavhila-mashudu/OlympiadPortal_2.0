@@ -9,6 +9,8 @@ const {
   listQuestions,
   updateQuestion,
   deleteQuestion,
+  listQuestionBank,
+  importQuestions,
 } = require("../controllers/questionController");
 
 // ── Validation rules ──────────────────────────────────
@@ -97,6 +99,19 @@ router.post(
 
 // List questions for a round's paper
 router.get("/:roundId/questions", requireRole("organiser", "educator"), listQuestions);
+
+router.get("/:roundId/question-bank", requireRole("organiser"), listQuestionBank);
+router.post(
+  "/:roundId/question-bank/import",
+  requireRole("organiser"),
+  [
+    param("roundId").isUUID(),
+    body("question_ids").isArray({ min: 1 }).withMessage("At least one question is required"),
+    body("question_ids.*").isUUID().withMessage("Question ids must be valid UUIDs"),
+  ],
+  validate,
+  importQuestions,
+);
 
 // Update a specific question
 router.patch(

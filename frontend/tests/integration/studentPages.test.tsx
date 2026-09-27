@@ -234,10 +234,11 @@ describe("student results", () => {
       "17 / 20",
       "85%",
       "Download",
+    "Request remark",
     ]);
     const pending = screen.getByRole("link", { name: "Round 2 — Regional" }).closest("tr")!;
     expect(within(pending).getByText("Pending")).toBeInTheDocument();
-    expect(within(pending).getAllByText("—")).toHaveLength(3);
+    expect(within(pending).getAllByText("—")).toHaveLength(4);
 
     await user.click(screen.getByRole("link", { name: "Round 1 — School" }));
     expect(currentPath()).toBe("/student/rounds/round-1");
