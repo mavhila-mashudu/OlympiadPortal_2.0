@@ -60,6 +60,9 @@ app.get("/", (_req, res) => {
 });
 
 // ── Routes ──────────────────────────────────────────────
+// Public API — no authentication required
+app.use("/public", require("./routes/public"));
+
 app.use("/auth", require("./routes/auth"));
 app.use("/invites", require("./routes/invites"));
 app.use("/notifications", require("./routes/portalNotifications"));
