@@ -16,6 +16,22 @@ const endpoints = [
   { method: "get", path: "/health", roles: "public" },
   { method: "get", path: "/", roles: "public" },
 
+  // Public API (no auth)
+  { method: "get", path: "/public/stats", roles: "public" },
+  { method: "get", path: "/public/stats/yearly", roles: "public" },
+  { method: "get", path: "/public/activity", roles: "public" },
+  { method: "get", path: "/public/calendar", roles: "public" },
+  { method: "get", path: "/public/search", roles: "public" },
+  { method: "get", path: "/public/olympiads", roles: "public" },
+  { method: "get", path: "/public/olympiads/:id", roles: "public" },
+  { method: "get", path: "/public/olympiads/:olympiadId/rounds/:roundId/results", roles: "public" },
+  { method: "get", path: "/public/olympiads/:olympiadId/rounds/:roundId/results/by-school", roles: "public" },
+  { method: "get", path: "/public/olympiads/:id/leaderboard", roles: "public" },
+  { method: "get", path: "/public/schools/top", roles: "public" },
+  { method: "get", path: "/public/schools", roles: "public" },
+  { method: "get", path: "/public/schools/:id", roles: "public" },
+  { method: "get", path: "/public/papers", roles: "public" },
+
   // Portal notifications
   { method: "get", path: "/notifications", roles: "any" },
   { method: "patch", path: "/notifications/:id/read", roles: "any" },
@@ -133,6 +149,7 @@ const endpoints = [
 
 // Where each route file is mounted (see src/app.js and src/routes/olympiads.js)
 const mounts = {
+  "public.js": "/public",
   "portalNotifications.js": "/notifications",
   "reviews.js": "/rounds",
   "auth.js": "/auth",
