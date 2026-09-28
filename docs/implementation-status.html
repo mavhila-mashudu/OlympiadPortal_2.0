@@ -233,7 +233,7 @@ about half done — seven stories complete, one partial.</p>
   <tbody>
     <tr><td class="id">A2</td><td><span class="role">System</span></td><td>One authoritative clock</td><td>The server clock decides every deadline (<code>server_time</code>, <code>round_close_snapshot</code>), and since 27 September every round time is entered and shown in the olympiad’s own timezone, labelled (e.g. “14:00 SAST”), so “on time” reads the same for every school whatever its devices are set to. Holidays are checked on the olympiad’s calendar</td></tr>
     <tr><td class="id">A3</td><td><span class="role">System</span></td><td>Count a submission exactly once</td><td>Deterministic <code>idempotency_key</code> from round+entrant+route, with a unique index and a pre-check</td></tr>
-    <tr><td class="id">A5</td><td><span class="role">Organiser</span></td><td>Papers from a question bank</td><td>While an exam is a draft, the organiser can copy questions from any of their earlier rounds onto it. Known bug: the same question can be imported more than once (defect #3)</td></tr>
+    <tr><td class="id">A5</td><td><span class="role">Organiser</span></td><td>Papers from a question bank</td><td>While an exam is a draft, the organiser can copy questions from any of their earlier rounds onto it. Known bug: the same question can be imported more than once (defect #2)</td></tr>
     <tr><td class="id">A9</td><td><span class="role">Organiser</span></td><td>One paper, online or on paper</td><td>Both routes use the round's one paper and are marked together. A learner who opens the exam online and loses their connection can still have paper answers captured: while the online attempt is unsubmitted, the capture replaces it (a submitted online exam still blocks paper). The educator page lists such learners as “Started online but not submitted”</td></tr>
     <tr><td class="id">A10</td><td><span class="role">System</span></td><td>Merge online and offline results</td><td>One result row per learner (<code>results</code> is unique on round + learner); marking, standings and the organiser's route counts treat both routes as one set</td></tr>
     <tr><td class="id">A11</td><td><span class="role">System</span></td><td>Reconcile dual-route entrants</td><td>A learner may use one route per round, first one wins: each route refuses the other with a clear message, and since 27 September the database enforces it too (unique on round + learner), so two requests at the same moment can't both get through</td></tr>
@@ -293,7 +293,7 @@ about half done — seven stories complete, one partial.</p>
 
 <h2>Defects and risks found</h2>
 <p class="sub"><code>docs/bug-tracking.md</code> records 47 bugs, every one marked <em>Fixed</em> — no open
-items at all, which suggests it is a history of resolved work rather than a live register. The six
+items at all, which suggests it is a history of resolved work rather than a live register. The five
 below were found during this inspection and are not in it.</p>
 
 <div class="note">
@@ -349,46 +349,8 @@ First ask the team who created remark requests on 27 September, and point them a
 </article>
 <article class="issue" id="issue-2">
   <div class="issue-head">
-    <h3 class="issue-title">2. One frontend integration test fails on Node 24</h3>
+    <h3 class="issue-title">2. The question bank lets the same question be imported again, and fills up with duplicate copies</h3>
     <button class="copy" type="button" data-target="md-2">Copy as Markdown</button>
-  </div>
-  <p class="issue-meta">
-    <span class="tag t-part sev-med">Medium</span>
-    <span class="role">frontend / tooling</span>
-  </p>
-  <h4>What is wrong</h4><p>On Node 24, `frontend/tests/integration/organiserManagement.test.tsx` fails the test &#x27;creates the round, uploads its paper and returns to the dashboard&#x27;. Mock Service Worker throws during handler lookup for the multipart upload to `POST /rounds/:id/papers`, so the request never resolves, the redirect never happens, and the assertion on the path times out. The same test passes on Node 22.</p>
-  <h4>Why it matters</h4><p>The failure has nothing to do with the code being changed, so it costs whoever hits it real time before they work out it is environmental. CI pins Node 22 through actions/setup-node and is unaffected, but `backend/package.json` declares `&quot;node&quot;: &quot;&gt;=22&quot;`, which permits 24, and the frontend declares no engines field at all. So nothing warns a developer who installs a newer Node.</p>
-  <h4>Where to look</h4><ul class="where"><li><code>frontend/tests/integration/organiserManagement.test.tsx — the failing test</code></li><li><code>backend/package.json line 29 — &quot;node&quot;: &quot;&gt;=22&quot;</code></li><li><code>frontend/package.json — no engines field</code></li></ul>
-  <h4>How to confirm it</h4><p>Run `npm run test:integration` in frontend/ under Node 24, then under Node 22. 133 of 134 pass on 24; all 134 pass on 22.</p>
-  <h4>Suggested fix</h4><p>Cheapest correct fix is to pin the supported range so the mismatch cannot happen silently: set engines to `&gt;=22 &lt;23` in both packages, and add an engines field to the frontend. Separately, it is worth finding out whether MSW or undici is the actual cause, since Node 24 will eventually have to be supported.</p>
-  <h4>Done when</h4><ul class="done-list"><li>Both packages declare a Node range that excludes 24</li><li>A developer on an unsupported Node gets a clear warning from npm</li></ul>
-  <script type="text/plain" id="md-2">**Severity:** Medium  |  **Area:** frontend / tooling
-
-### What is wrong
-On Node 24, `frontend/tests/integration/organiserManagement.test.tsx` fails the test &#x27;creates the round, uploads its paper and returns to the dashboard&#x27;. Mock Service Worker throws during handler lookup for the multipart upload to `POST /rounds/:id/papers`, so the request never resolves, the redirect never happens, and the assertion on the path times out. The same test passes on Node 22.
-
-### Why it matters
-The failure has nothing to do with the code being changed, so it costs whoever hits it real time before they work out it is environmental. CI pins Node 22 through actions/setup-node and is unaffected, but `backend/package.json` declares `&quot;node&quot;: &quot;&gt;=22&quot;`, which permits 24, and the frontend declares no engines field at all. So nothing warns a developer who installs a newer Node.
-
-### Where to look
-- `frontend/tests/integration/organiserManagement.test.tsx — the failing test`
-- `backend/package.json line 29 — &quot;node&quot;: &quot;&gt;=22&quot;`
-- `frontend/package.json — no engines field`
-
-### How to confirm it
-Run `npm run test:integration` in frontend/ under Node 24, then under Node 22. 133 of 134 pass on 24; all 134 pass on 22.
-
-### Suggested fix
-Cheapest correct fix is to pin the supported range so the mismatch cannot happen silently: set engines to `&gt;=22 &lt;23` in both packages, and add an engines field to the frontend. Separately, it is worth finding out whether MSW or undici is the actual cause, since Node 24 will eventually have to be supported.
-
-### Done when
-- [ ] Both packages declare a Node range that excludes 24
-- [ ] A developer on an unsupported Node gets a clear warning from npm</script>
-</article>
-<article class="issue" id="issue-3">
-  <div class="issue-head">
-    <h3 class="issue-title">3. The question bank lets the same question be imported again, and fills up with duplicate copies</h3>
-    <button class="copy" type="button" data-target="md-3">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag t-part sev-med">Medium</span>
@@ -400,7 +362,7 @@ Cheapest correct fix is to pin the supported range so the mismatch cannot happen
   <h4>How to confirm it</h4><p>Import a question from round A into draft round B: it stays listed in B&#x27;s bank and can be imported again. Open round C&#x27;s bank: the question appears twice, once from A and once from B.</p>
   <h4>Suggested fix</h4><p>Add a nullable source_question_id to questions (onDelete SetNull), set it on import to the first version&#x27;s id, hide a bank question when it or its original is already on the paper, show copies under their original, and reject an import of a question already on the paper so a double click can&#x27;t get round the check. The test &quot;imports chosen questions from the bank into a draft exam&quot; in frontend/tests/integration/examReviewAndMarking.test.tsx currently checks that the original stays in the bank; flip that check with the fix.</p>
   <h4>Done when</h4><ul class="done-list"><li>An imported question no longer appears in that round&#x27;s bank</li><li>The same question can&#x27;t end up on one paper twice, even if the request is sent twice</li><li>Each question appears once in the bank, however many rounds it has been copied into</li><li>Deleting an original question doesn&#x27;t affect its copies</li></ul>
-  <script type="text/plain" id="md-3">**Severity:** Medium  |  **Area:** backend / question bank
+  <script type="text/plain" id="md-2">**Severity:** Medium  |  **Area:** backend / question bank
 
 ### What is wrong
 After an organiser imports a question from the question bank into a round, that question is still listed in the bank and can be imported again, so it can end up on the same paper twice or more. The bank hides only questions whose id is already on the paper, but importing creates a copy with a new id, so the original is never hidden.
@@ -425,10 +387,10 @@ Add a nullable source_question_id to questions (onDelete SetNull), set it on imp
 - [ ] Each question appears once in the bank, however many rounds it has been copied into
 - [ ] Deleting an original question doesn&#x27;t affect its copies</script>
 </article>
-<article class="issue" id="issue-4">
+<article class="issue" id="issue-3">
   <div class="issue-head">
-    <h3 class="issue-title">4. Deep links return HTTP 404 even though the page renders correctly</h3>
-    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
+    <h3 class="issue-title">3. Deep links return HTTP 404 even though the page renders correctly</h3>
+    <button class="copy" type="button" data-target="md-3">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -440,7 +402,7 @@ Add a nullable source_question_id to questions (onDelete SetNull), set it on imp
   <h4>How to confirm it</h4><p>curl -o /dev/null -w &#x27;%{http_code}&#x27; https://olympiadportalfe.z1.web.core.windows.net/organiser/schools returns 404 while the body is the app shell.</p>
   <h4>Suggested fix</h4><p>Accept it, or put Azure Front Door in front of the storage account to rewrite unmatched paths with a 200. Front Door costs money, so this is only worth doing if a custom domain is wanted anyway. Azure Static Web Apps would solve it natively but is unavailable — its five regions do not intersect the five this subscription&#x27;s policy permits.</p>
   <h4>Done when</h4><ul class="done-list"><li>Either the status is corrected, or the trade-off is recorded as an accepted decision</li></ul>
-  <script type="text/plain" id="md-4">**Severity:** Low  |  **Area:** frontend / hosting
+  <script type="text/plain" id="md-3">**Severity:** Low  |  **Area:** frontend / hosting
 
 ### What is wrong
 The frontend is served from Azure Blob Storage static website hosting, with `index.html` set as both the index and the error document. A request for a client-side route such as /organiser/schools therefore returns the app correctly, but with a 404 status rather than 200.
@@ -461,10 +423,10 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
 ### Done when
 - [ ] Either the status is corrected, or the trade-off is recorded as an accepted decision</script>
 </article>
-<article class="issue" id="issue-5">
+<article class="issue" id="issue-4">
   <div class="issue-head">
-    <h3 class="issue-title">5. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
-    <button class="copy" type="button" data-target="md-5">Copy as Markdown</button>
+    <h3 class="issue-title">4. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
+    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -476,7 +438,7 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
   <h4>How to confirm it</h4><p>Copy a quoted value into any environment variable that is read directly from process.env rather than from a .env file, and observe the failure.</p>
   <h4>Suggested fix</h4><p>Remove the quotes from the .env files so they match the examples, since nothing in them needs quoting. Add a line to the README warning that values must be pasted without quotes when configuring hosting or CI secrets.</p>
   <h4>Done when</h4><ul class="done-list"><li>The .env files and their examples use the same unquoted style</li><li>The README warns about hand-copying values</li></ul>
-  <script type="text/plain" id="md-5">**Severity:** Low  |  **Area:** config / developer experience
+  <script type="text/plain" id="md-4">**Severity:** Low  |  **Area:** config / developer experience
 
 ### What is wrong
 Every value in `backend/.env` and `frontend/.env` is wrapped in double quotes. Prisma and Vite both strip quotes when parsing a .env file, so local development works correctly and the problem is invisible day to day. But a value copied by hand into a Gitea secret or an Azure App Service setting carries the quotes with it, and the consuming code receives them as part of the string.
@@ -498,10 +460,10 @@ Remove the quotes from the .env files so they match the examples, since nothing 
 - [ ] The .env files and their examples use the same unquoted style
 - [ ] The README warns about hand-copying values</script>
 </article>
-<article class="issue" id="issue-6">
+<article class="issue" id="issue-5">
   <div class="issue-head">
-    <h3 class="issue-title">6. Two standing lint warnings, one of which can hide a real bug</h3>
-    <button class="copy" type="button" data-target="md-6">Copy as Markdown</button>
+    <h3 class="issue-title">5. Two standing lint warnings, one of which can hide a real bug</h3>
+    <button class="copy" type="button" data-target="md-5">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -513,7 +475,7 @@ Remove the quotes from the .env files so they match the examples, since nothing 
   <h4>How to confirm it</h4><p>Run `npm run lint` in frontend/. Both warnings appear.</p>
   <h4>Suggested fix</h4><p>In Olympiads.tsx, surface the error to the user instead of silently emptying the list. In ExamSitting.tsx, review the effect carefully before changing it — adding the dependencies naively may cause it to re-run more often than intended, so the fix is to restructure it rather than silence the warning.</p>
   <h4>Done when</h4><ul class="done-list"><li>npm run lint reports no warnings</li><li>A failed olympiad fetch shows an error rather than an empty list</li></ul>
-  <script type="text/plain" id="md-6">**Severity:** Low  |  **Area:** frontend / code quality
+  <script type="text/plain" id="md-5">**Severity:** Low  |  **Area:** frontend / code quality
 
 ### What is wrong
 `npm run lint` in frontend/ reports two warnings on every run. Both are pre-existing. The first is cosmetic; the second is the kind that can mask a genuine defect.

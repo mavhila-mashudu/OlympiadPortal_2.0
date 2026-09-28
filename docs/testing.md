@@ -200,13 +200,20 @@ capacity in our region.
 Our runner takes one job at a time (`capacity: 1`), so jobs that once ran
 side by side now queue. That is the cost of guaranteeing where they run.
 
-**Node 22 is required, not merely recommended.** On Node 24 the frontend
-integration suite fails: Mock Service Worker throws during handler lookup for
-the multipart upload in `POST /rounds/:id/papers`, so the create-round journey
-never reaches its redirect. The pipeline pins Node 22 through
-`actions/setup-node`, and `package.json` declares `"node": ">=22"` — but that
-range admits 24, so a developer running a newer Node locally will see this one
-test fail for reasons that have nothing to do with their change.
+**Supported Node versions: 22, 24 and 26.** Every suite (unit, integration,
+API and end-to-end) passes on each. Both `package.json` files declare
+`"node": "^22 || ^24 || ^26"`, so npm prints an `EBADENGINE` warning on any
+other version, such as the short-lived odd releases. CI and App Service use
+Node 22.
+
+Node 24 once broke one frontend integration test, and the cause is worth
+knowing. From Node 24, `fetch`'s multipart parser builds each uploaded file
+with whatever `File` is global, then asserts it is Node's own `File`. Under
+jsdom the global is jsdom's `File`, so the assertion failed inside the mock
+server and the paper upload never resolved. `readBody` in
+`tests/integration/support/network.ts` now parses uploads with Node's `File`
+briefly put back in place. Browsers and the backend are unaffected; it only
+ever happened in the test environment.
 
 Rules the pipeline applies:
 
