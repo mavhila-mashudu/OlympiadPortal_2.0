@@ -1,0 +1,77 @@
+.stack {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.summary strong {
+  color: var(--foreground);
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.empty {
+  padding: 1.5rem 0 0.5rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.timeline {
+  display: grid;
+  gap: 1rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.event {
+  display: grid;
+  gap: 0.375rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: calc(var(--radius) - 2px);
+  background: var(--background);
+}
+
+.eventHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+}
+
+.eventKind {
+  color: var(--foreground);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.eventTime,
+.eventOrigin {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+}
+
+.details {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  overflow-wrap: anywhere;
+  border-radius: calc(var(--radius) - 4px);
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+}

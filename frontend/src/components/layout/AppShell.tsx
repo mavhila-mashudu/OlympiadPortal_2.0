@@ -14,6 +14,8 @@ import { api } from "../../lib/api";
 import { logout } from "../../lib/session";
 import type { NavItem } from "../../lib/mockData";
 import { Button } from "../ui/Button";
+import { ErrorAlert } from "../ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import styles from "./AppShell.module.css";
 
 type AppShellProps = {
@@ -82,11 +84,7 @@ export function AppShell({
       queryClient?.clear();
       navigate("/login", { replace: true });
     } catch (err) {
-      setDeleteError(
-        err instanceof Error && err.message
-          ? err.message
-          : "We couldn’t delete your account. Please try again.",
-      );
+      setDeleteError(friendlyErrorMessage(err, "We couldn’t delete your account. Please try again."));
       setDeleting(false);
     }
   };
@@ -186,7 +184,7 @@ export function AppShell({
               This removes your login and your access to the portal. It can’t be
               undone.
             </p>
-            {deleteError && <p className={styles.confirmError}>{deleteError}</p>}
+            {deleteError && <ErrorAlert message={deleteError} onDismiss={() => setDeleteError(null)} />}
             <div className={styles.confirmActions}>
               <Button
                 disabled={deleting}

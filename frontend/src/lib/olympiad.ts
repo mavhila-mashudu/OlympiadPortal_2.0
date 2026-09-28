@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, getToken } from "./api";
 
 export type Olympiad = {
   id: string;
@@ -10,11 +10,29 @@ export type Olympiad = {
   _count?: { rounds: number; school_registrations: number };
 };
 
-// Not cached in localStorage on purpose: olympiads are organiser-scoped, so a
-// cached id from a previous account would 403 under a new one.
+// Every organiser page starts by looking up the current olympiad, so the
+// answer is kept in memory briefly and concurrent callers share one request.
+// It is keyed by the session token (never persisted), so another account never
+// sees it, and pages that change olympiads call clearCurrentOlympiadCache().
+const CACHE_TTL_MS = 60_000;
+let cached: { token: string | null; expiresAt: number; value: Promise<Olympiad | null> } | null = null;
+
+export function clearCurrentOlympiadCache() {
+  cached = null;
+}
+
 // Returns null when no olympiads exist — callers should prompt the user to create one.
-export async function getCurrentOlympiad(): Promise<Olympiad | null> {
-  const { olympiads } = await api.get<{ olympiads: Olympiad[] }>("/olympiads");
-  if (olympiads.length > 0) return olympiads[0];
-  return null;
+export function getCurrentOlympiad(): Promise<Olympiad | null> {
+  const token = getToken();
+  if (cached && cached.token === token && cached.expiresAt > Date.now()) return cached.value;
+
+  const value = api
+    .get<{ olympiads: Olympiad[] }>("/olympiads")
+    .then(({ olympiads }) => (olympiads.length > 0 ? olympiads[0] : null));
+  const entry = { token, expiresAt: Date.now() + CACHE_TTL_MS, value };
+  cached = entry;
+  value.catch(() => {
+    if (cached === entry) cached = null;
+  });
+  return value;
 }

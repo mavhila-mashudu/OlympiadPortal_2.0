@@ -134,8 +134,8 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | A3  | Count submission exactly once (idempotency) | Done        |                                                                                                               |
 | A4  | Consistent deadline boundary handling       | Done        | The closing instant is exclusive on both routes; every ruling is recorded with its reason                     |
 | A5  | Papers from question bank                   | Done        | Organisers reuse questions from their earlier rounds; each question is listed once and can't go on a paper twice |
-| A6  | Different variants per entrant              | Planned     |                                                                                                               |
-| A7  | Mark against entrant's variant              | Planned     | Depends on A6                                                                                                 |
+| A6  | Different variants per entrant              | Done        | Every entrant sits their own shuffled question and option order; layouts stay distinct per round until permutations run out |
+| A7  | Mark against entrant's variant              | Done        | Displayed answers are canonicalised back to the shared key before marking, online submit and round marking both |
 | A8  | Difficulty from performance data            | Done        | 1 − average score ÷ max points over marked answers, shown on exam review and in the question bank            |
 | A9  | Paper sittable online or offline            | Done        | Paper results replace an online attempt the learner opened but never submitted                                |
 | A10 | Merge online and offline results            | Done        | One result per learner, whichever route                                                                       |

@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert } from "../../components/ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { api, setToken } from "../../lib/api";
@@ -69,6 +71,12 @@ function Signup() {
           <span>Olympiad Portal</span>
         </Link>
 
+        {(error || schoolsError) && (
+          <ErrorAlert
+            message={error || schoolsError || "We couldn’t load the information you need."}
+            onDismiss={() => { setError(null); setSchoolsError(null); }}
+          />
+        )}
         <Card className={styles.card}>
           <h1>Create account</h1>
           <p className={styles.subtitle}>
@@ -114,12 +122,7 @@ function Signup() {
                 const { user } = await api.get<MeResponse>("/auth/me");
                 navigate(dashboardForRole(user.role));
               } catch (err) {
-                const message = err instanceof Error ? err.message : "";
-                setError(
-                  message === "Failed to fetch"
-                    ? "We couldn’t reach the server. Make sure the frontend and backend are running, then try again."
-                    : message || "We couldn’t create your account. Please try again.",
-                );
+                setError(friendlyErrorMessage(err, "We couldn’t create your account. Please try again."));
               } finally {
                 setLoading(false);
               }
@@ -182,7 +185,6 @@ function Signup() {
                     <option value={NEW_SCHOOL}>My school isn’t listed…</option>
                   )}
                 </select>
-                {schoolsError && <small className={styles.hint}>{schoolsError}</small>}
                 {role === "student" && (
                   <small className={styles.hint}>
                     Students join a school an educator has already added. If yours is
@@ -232,8 +234,6 @@ function Signup() {
                 type="password"
               />
             </div>
-
-            {error && <p className={styles.demoNote}>{error}</p>}
 
             <Button disabled={loading} fullWidth type="submit">
               {loading ? "Creating account..." : "Create account"}

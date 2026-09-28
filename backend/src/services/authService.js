@@ -6,6 +6,7 @@ const {
   BadRequestError,
   NotFoundError,
 } = require("../errors/AppError");
+const { forgetCachedUser } = require("../middlewares/auth");
 
 const SAFE_USER_FIELDS = {
   id: true,
@@ -198,6 +199,7 @@ const deleteAccount = async (userId) => {
     where: { id: userId },
     data: { deleted_at: new Date() },
   });
+  forgetCachedUser(userId);
 };
 
 const listEducatorOlympiads = async (schoolId) => {

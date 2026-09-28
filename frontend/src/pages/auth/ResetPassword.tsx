@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert, LoadingIndicator } from "../../components/ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { getSupabaseClient } from "../../lib/supabase";
@@ -66,6 +68,7 @@ function ResetPassword() {
           <span>Olympiad Portal</span>
         </Link>
 
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
         <Card className={styles.card}>
           <h1>Choose a new password</h1>
 
@@ -104,11 +107,7 @@ function ResetPassword() {
                   setDone(true);
                   setTimeout(() => navigate("/login"), 2000);
                 } catch (err) {
-                  setError(
-                    err instanceof Error && err.message
-                      ? err.message
-                      : "We couldn’t change your password. Please try again.",
-                  );
+                  setError(friendlyErrorMessage(err, "We couldn’t change your password. Please try again."));
                 } finally {
                   setSaving(false);
                 }
@@ -136,7 +135,7 @@ function ResetPassword() {
                 />
               </div>
 
-              {error && <p className={styles.demoNote}>{error}</p>}
+              {!ready && !error && <LoadingIndicator label="Checking your reset link" />}
 
               <Button disabled={!ready || saving} fullWidth type="submit">
                 {saving ? "Saving..." : "Save new password"}
