@@ -13,6 +13,7 @@ type RemarkItem = {
   id: string;
   resultId: string;
   studentName: string;
+  schoolId: string | null;
   schoolName: string;
   roundId: string;
   roundName: string;
@@ -145,13 +146,20 @@ export function OrganiserRemarks() {
 
     try {
       let totalAssigned = 0;
+      let totalSkipped = 0;
       for (const roundId of unassignedRounds) {
-        const res = await api.post<{ assignedCount: number }>(
+        const res = await api.post<{ assignedCount: number; skippedCount?: number }>(
           `/organiser/remarks/rounds/${roundId}/auto-assign`
         );
         totalAssigned += res.assignedCount || 0;
+        totalSkipped += res.skippedCount || 0;
       }
-      setSuccessMsg(`Successfully auto-assigned ${totalAssigned} remark request(s) evenly across educators.`);
+      setSuccessMsg(
+        `Successfully auto-assigned ${totalAssigned} remark request(s) evenly across educators.` +
+          (totalSkipped
+            ? ` ${totalSkipped} could not be assigned: there is no educator from another school to review them.`
+            : "")
+      );
       await fetchRemarks();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Auto-assignment failed");
@@ -271,7 +279,10 @@ export function OrganiserRemarks() {
             </thead>
             <tbody>
               {filteredRemarks.map((remark) => {
-                const educators = educatorsByRound[remark.roundId] || [];
+                // No one reviews a learner from their own school
+                const educators = (educatorsByRound[remark.roundId] || []).filter(
+                  (e) => e.schoolId !== remark.schoolId
+                );
                 const isReviewed = remark.status === "reviewed";
                 const isAssigned = Boolean(remark.reviewerId);
 

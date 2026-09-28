@@ -91,6 +91,9 @@ const runLifecycleTick = async () => {
     if (notifications.sent > 0) {
       console.log(`[lifecycle] dispatched ${notifications.sent} notification email(s)`);
     }
+    if (notifications.failed > 0) {
+      console.warn(`[lifecycle] ${notifications.failed} notification email(s) not delivered; retrying next tick`);
+    }
   } catch (err) {
     console.error(`[lifecycle] notification dispatch failed: ${err.message}`);
   }

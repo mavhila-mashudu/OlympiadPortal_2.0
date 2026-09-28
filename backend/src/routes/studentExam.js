@@ -304,8 +304,10 @@ const saveAnswer = async (req, res, next) => {
       const saved = await tx.answers.update({
         where: { id: answer.id }, data: { answer_value: answer_value ?? null },
       });
+      // One event per answer (its first save): autosave fires on every edit,
+      // and an event per save would bury the rest of the round's timeline
       await recordRoundEvent(req.params.roundId, "answer_autosaved", "student_request",
-        `answer-save:${answer.id}:${require("node:crypto").randomUUID()}`,
+        `answer-save:${answer.id}`,
         { submission_id: submission.id, question_id: questionId }, tx);
       return saved;
     });

@@ -253,6 +253,18 @@ describe("sitting an exam online", () => {
   });
 
   describe("PATCH /rounds/:roundId/exam/answers/:qid", () => {
+    it("adds one autosave event per answer to the round's timeline, however often it is saved", async () => {
+      const { round, mcq, short, studentApi } = await setup();
+      expectOk(await studentApi.post(`${exam(round)}/start`), 201);
+      for (const value of ["0", "1", "0,1"]) {
+        expectOk(await studentApi.patch(`${exam(round)}/answers/${mcq.id}`).send({ answer_value: value }));
+      }
+      expectOk(await studentApi.patch(`${exam(round)}/answers/${short.id}`).send({ answer_value: "pretoria" }));
+
+      const events = await prisma.round_events.findMany({ where: { round_id: round.id, kind: "answer_autosaved" } });
+      expect(events.map((e) => e.details.question_id).sort()).toEqual([mcq.id, short.id].sort());
+    });
+
     it("clears an answer when sent an empty value", async () => {
       const { round, mcq, studentApi } = await setup();
       expectOk(await studentApi.post(`${exam(round)}/start`), 201);

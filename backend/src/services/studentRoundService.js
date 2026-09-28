@@ -35,6 +35,7 @@ const buildRoundInclude = (entrantId, includeSubmissions = true) => {
             status: true,
             reason: true,
             review_note: true,
+            decision: true,
             reviewed_at: true,
           },
         },
@@ -107,6 +108,13 @@ const formatRoundResult = (resultRow, maxPoints, isResultsReleased) => {
 const isSubmitted = (submission) =>
   Boolean(submission) &&
   !(submission.route === "online" && submission.status === "received");
+
+/**
+ * A remark is either still pending or has been reviewed, whether an educator
+ * reviewed it or the organiser approved or rejected it.
+ */
+const presentRemarkStatus = (status) =>
+  status ? (status === "pending" ? "pending" : "reviewed") : null;
 
 /**
  * Returns contextual helper note based on round status.
@@ -215,9 +223,10 @@ const getStudentRoundDetail = async (roundId, entrantId) => {
   const status = mapRoundStatus(round.state);
   const result = formatRoundResult(resultRow, maxPoints, isResultsReleased);
   const remarkReq = resultRow?.remark_requests?.[0] || null;
-  const remarkStatus = remarkReq?.status || null;
+  const remarkStatus = presentRemarkStatus(remarkReq?.status);
   const remarkReason = remarkReq?.reason || null;
-  const remarkNote = remarkReq?.review_note || null;
+  // An organiser's decision explains the outcome; an educator leaves a note
+  const remarkNote = remarkReq?.decision || remarkReq?.review_note || null;
   const remarkReviewedAt = remarkReq?.reviewed_at || null;
   return {
     id: round.id,
@@ -270,7 +279,7 @@ const getStudentResults = async (entrantId) => {
     const { score, percentage } = isReleased
       ? formatScoreAndPercentage(resultRow, maxPoints)
       : { score: "—", percentage: "—" };
-    const remarkStatus = resultRow?.remark_requests?.[0]?.status || null;
+    const remarkStatus = presentRemarkStatus(resultRow?.remark_requests?.[0]?.status);
     return {
       id: round.id,
       round: round.name,

@@ -3,8 +3,18 @@ type Email = { to: string; subject: string; html: string };
 const EMAILJS_API_URL = "https://api.emailjs.com/api/v1.0/email/send";
 
 const logUndeliveredEmail = (email: Email, reason: string) => {
-  console.warn(`Invitation email was not delivered (${reason}).`, { to: email.to, subject: email.subject });
+  console.warn(`Email was not delivered (${reason}).`, { to: email.to, subject: email.subject });
 };
+
+/** Whether every EmailJS setting is present, so a send can be attempted. */
+export function isMailerConfigured() {
+  return Boolean(
+    process.env.EMAILJS_SERVICE_ID &&
+    process.env.EMAILJS_TEMPLATE_ID &&
+    process.env.EMAILJS_USER_ID &&
+    process.env.EMAILJS_PRIVATE_KEY,
+  );
+}
 
 /** Deliver via EmailJS REST API. */
 async function deliver(email: Email): Promise<{ delivered: boolean }> {
@@ -20,7 +30,7 @@ async function deliver(email: Email): Promise<{ delivered: boolean }> {
       EMAILJS_USER_ID: userId ? "set" : "MISSING",
       EMAILJS_PRIVATE_KEY: privateKey ? "set" : "MISSING",
     });
-    console.log("Invitation email preview (EmailJS not configured):", { to: email.to, subject: email.subject });
+    console.log("Email preview (EmailJS not configured):", { to: email.to, subject: email.subject });
     return { delivered: false };
   }
 
