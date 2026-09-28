@@ -206,21 +206,36 @@ const autoMarkSubmission = async (submissionId) => {
 // checks — it is meant for system /
 // lifecycle use where there is no user.
 // ─────────────────────────────────────────
+// Submissions are independent, so a few are marked at once; marking them
+// one after another made closing a large round wait on every round trip in
+// turn. The cap keeps the database connection pool free for other requests
+// (and drops to one at a time when the pool itself is that small).
+const poolMax = Number(process.env.DATABASE_POOL_MAX);
+const AUTO_MARK_CONCURRENCY =
+  Number.isFinite(poolMax) && poolMax > 0 ? Math.max(1, Math.min(4, Math.floor(poolMax / 2))) : 4;
+
 const autoMarkRoundInternal = async (roundId) => {
   const pending = await prisma.submissions.findMany({
     where: { round_id: roundId, status: "received" },
     select: { id: true },
   });
 
-  const results = [];
-  for (const sub of pending) {
-    try {
-      const r = await autoMarkSubmission(sub.id);
-      results.push(r);
-    } catch (err) {
-      results.push({ submissionId: sub.id, error: err.message });
+  const results = new Array(pending.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < pending.length) {
+      const index = next++;
+      const sub = pending[index];
+      try {
+        results[index] = await autoMarkSubmission(sub.id);
+      } catch (err) {
+        results[index] = { submissionId: sub.id, error: err.message };
+      }
     }
-  }
+  };
+  await Promise.all(
+    Array.from({ length: Math.min(AUTO_MARK_CONCURRENCY, pending.length) }, worker),
+  );
 
   return {
     total: pending.length,
