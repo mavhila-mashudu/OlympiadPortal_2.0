@@ -19,6 +19,7 @@ const MODELS = [
   "entrants",
   "olympiads",
   "notification_rules",
+  "sent_notifications",
   "school_registrations",
   "rounds",
   "papers",

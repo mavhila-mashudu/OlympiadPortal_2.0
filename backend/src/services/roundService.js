@@ -197,7 +197,12 @@ const setRoundState = async (roundId, organiserId, state) => {
 
   const updated = await prisma.rounds.update({
     where: { id: roundId },
-    data: { state },
+    data:
+      state === "results_released"
+        ? // Record the actual release moment — the notification
+          // dispatcher uses it to send "results are out" notices.
+          { state, results_release_at: new Date() }
+        : { state },
   });
 
   if (state === "results_released") {

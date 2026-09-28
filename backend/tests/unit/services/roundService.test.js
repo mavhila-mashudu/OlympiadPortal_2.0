@@ -277,7 +277,13 @@ describe("setRoundState", () => {
     autoMarkRoundInternal.mockResolvedValue({ total: 0 });
 
     await expect(setRoundState("round-1", "org-1", to)).resolves.toEqual({ id: "round-1", state: to });
-    expect(prisma.rounds.update).toHaveBeenCalledWith({ where: { id: "round-1" }, data: { state: to } });
+    expect(prisma.rounds.update).toHaveBeenCalledWith({
+      where: { id: "round-1" },
+      data:
+        to === "results_released"
+          ? { state: to, results_release_at: expect.any(Date) }
+          : { state: to },
+    });
   });
 
   it.each([

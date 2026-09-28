@@ -15,12 +15,16 @@ const {
   getOlympiadProgressionInfo,
   getResults,
   listAllResults,
+  getOverview,
   listPastPapers,
   downloadPaper,
 } = require("../controllers/educatorController");
 
 // All educator routes require authentication + educator role
 router.use(requireAuth, requireRole("educator"));
+
+// ── School overview (I19) ───────────────────────────────
+router.get("/overview", getOverview);
 
 // ── Rounds ──────────────────────────────────────────
 router.get("/rounds", listRounds);

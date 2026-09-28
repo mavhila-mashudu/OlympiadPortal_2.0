@@ -148,6 +148,19 @@ const listAllResults = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────
+// SCHOOL OVERVIEW (I19)
+// ─────────────────────────────────────────
+
+const getOverview = async (req, res, next) => {
+  try {
+    const overview = await educatorService.getSchoolOverview(req.user.userId);
+    res.json({ success: true, data: overview });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────
 // PAPERS
 // ─────────────────────────────────────────
 
@@ -188,6 +201,7 @@ module.exports = {
   getOlympiadProgressionInfo,
   getResults,
   listAllResults,
+  getOverview,
   listPastPapers,
   downloadPaper,
 };

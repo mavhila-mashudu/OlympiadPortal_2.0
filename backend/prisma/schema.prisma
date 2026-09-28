@@ -131,6 +131,23 @@ model notification_rules {
   @@index([olympiad_id, enabled])
 }
 
+// One row per notification email actually sent, keyed by
+// (dedup_key, round, recipient) so the dispatcher never sends
+// the same notification twice.  dedup_key is "rule:<rule id>"
+// for organiser-configured rules and "default:<trigger>" for
+// the built-in educator notifications.
+model sent_notifications {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dedup_key String
+  round_id  String   @db.Uuid
+  recipient String
+  sent_at   DateTime @default(now()) @db.Timestamptz(6)
+  rounds    rounds   @relation(fields: [round_id], references: [id], onDelete: Cascade)
+
+  @@unique([dedup_key, round_id, recipient])
+  @@index([round_id])
+}
+
 model school_registrations {
   id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   school_id     String    @db.Uuid
@@ -162,6 +179,7 @@ model rounds {
   results               results[]
   olympiads             olympiads               @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
   submissions           submissions[]
+  sent_notifications    sent_notifications[]
 
   @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
 }

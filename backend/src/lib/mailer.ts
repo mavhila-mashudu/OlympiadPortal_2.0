@@ -71,3 +71,12 @@ export async function sendStudentInviteEmail({ to, olympiadName, inviteCode, reg
 export async function sendEducatorInviteEmail({ to, olympiadName, inviteCode, registrationUrl }: { to: string; olympiadName: string; inviteCode: string; registrationUrl: string }) {
   return deliver({ to, subject: `Invitation to coordinate ${olympiadName}`, html: `<h2>Educator invitation</h2><p>You have been invited to help manage students for <strong>${olympiadName}</strong>.</p><p>Your registration code is:</p><h3>${inviteCode}</h3>${registrationLink(registrationUrl)}` });
 }
+
+/**
+ * Generic round-notification email (round opening/closing reminders, results
+ * released). The caller supplies the fully rendered HTML so the EmailJS
+ * template stays a passthrough, exactly like the invitation emails above.
+ */
+export async function sendNotificationEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
+  return deliver({ to, subject, html });
+}

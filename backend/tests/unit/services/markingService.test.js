@@ -459,7 +459,7 @@ describe("generateResults", () => {
     await generateResults("round-1", "org-1", "organiser");
     expect(prisma.rounds.update).toHaveBeenCalledWith({
       where: { id: "round-1" },
-      data: { state: "results_released" },
+      data: { state: "results_released", results_release_at: expect.any(Date) },
     });
     expect(prisma.papers.updateMany).toHaveBeenCalledWith({
       where: { round_id: "round-1" },
