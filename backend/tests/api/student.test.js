@@ -158,8 +158,8 @@ describe("sitting an exam online", () => {
   const exam = (round) => `/rounds/${round.id}/exam`;
 
   describe("GET /rounds/:roundId/exam", () => {
-    it("returns the questions without their answers, with the server time", async () => {
-      const { round, mcq, short, essay, studentApi } = await setup();
+    it("returns the questions without their answers, in the entrant's own shuffled order", async () => {
+      const { round, entrant, mcq, short, essay, studentApi } = await setup();
 
       const data = expectOk(await studentApi.get(exam(round)));
 
@@ -169,11 +169,16 @@ describe("sitting an exam online", () => {
         server_time: expect.any(String),
         submission: null,
       });
-      expect(data.questions).toEqual([
-        { id: mcq.id, type: "mcq", prompt: "Which are prime?", options: ["2", "4", "5", "9"], max_points: "4", multi_select: true, negative_pct: 25 },
-        { id: short.id, type: "short_answer", prompt: "Capital of South Africa?", options: null, max_points: "2", multi_select: false, negative_pct: 0 },
-        { id: essay.id, type: "essay", prompt: "Explain photosynthesis", options: null, max_points: "10", multi_select: false, negative_pct: 0 },
-      ]);
+      // The entrant's personal variant: question order and option order.
+      const assignment = await prisma.exam_assignments.findUnique({
+        where: { round_id_entrant_id: { round_id: round.id, entrant_id: entrant.id } },
+      });
+      expect(data.questions.map((q) => q.id)).toEqual(assignment.question_order);
+      const byId = Object.fromEntries(data.questions.map((q) => [q.id, q]));
+      expect(byId[mcq.id]).toMatchObject({ type: "mcq", prompt: "Which are prime?", max_points: "4", multi_select: true, negative_pct: 25 });
+      expect(byId[mcq.id].options).toEqual(assignment.option_orders[mcq.id].map((index) => ["2", "4", "5", "9"][index]));
+      expect(byId[short.id]).toEqual({ id: short.id, type: "short_answer", prompt: "Capital of South Africa?", options: null, max_points: "2", multi_select: false, negative_pct: 0 });
+      expect(byId[essay.id]).toEqual({ id: essay.id, type: "essay", prompt: "Explain photosynthesis", options: null, max_points: "10", multi_select: false, negative_pct: 0 });
       expect(JSON.stringify(data)).not.toMatch(/Pretoria|correct_/);
     });
 
@@ -196,26 +201,35 @@ describe("sitting an exam online", () => {
   it("runs start → save → resume → submit over HTTP", async () => {
     const { round, mcq, short, essay, entrant, studentApi } = await setup();
 
+    // The entrant's own variant decides where each option is displayed; pick
+    // the two primes by their displayed position.
+    const data = expectOk(await studentApi.get(exam(round)));
+    const primePicks = data.questions.find((q) => q.id === mcq.id).options
+      .map((option, index) => (option === "2" || option === "5" ? index : -1))
+      .filter((index) => index >= 0)
+      .join(",");
+
     // Start: creates the submission with an empty answer for every question
     const started = expectOk(await studentApi.post(`${exam(round)}/start`), 201);
     expect(started.submission).toMatchObject({ status: "received", answers: expect.arrayContaining([expect.objectContaining({ question_id: mcq.id, answer_value: null })]) });
 
     // Save answers
-    const saved = expectOk(await studentApi.patch(`${exam(round)}/answers/${mcq.id}`).send({ answer_value: "0,1" }));
-    expect(saved.answer).toMatchObject({ question_id: mcq.id, answer_value: "0,1" });
+    const saved = expectOk(await studentApi.patch(`${exam(round)}/answers/${mcq.id}`).send({ answer_value: primePicks }));
+    expect(saved.answer).toMatchObject({ question_id: mcq.id, answer_value: primePicks });
     expectOk(await studentApi.patch(`${exam(round)}/answers/${short.id}`).send({ answer_value: " pretoria " }));
     expectOk(await studentApi.patch(`${exam(round)}/answers/${essay.id}`).send({ answer_value: "Light becomes sugar" }));
 
     // Starting again resumes (200, not 201) with the saved answers
     const resumed = await studentApi.post(`${exam(round)}/start`);
-    expect(expectOk(resumed).submission.answers.find((a) => a.question_id === mcq.id).answer_value).toBe("0,1");
+    expect(expectOk(resumed).submission.answers.find((a) => a.question_id === mcq.id).answer_value).toBe(primePicks);
     expect(expectOk(await studentApi.get(exam(round))).submission).toMatchObject({ status: "received" });
 
-    // Submit: MCQ 2 − 25% × 4 = 1, short answer 2 → 3; the essay waits for marking
+    // Submit: the primes are marked correct wherever they were displayed,
+    // worth 4, plus 2 for the short answer; the essay waits for marking
     expect(expectOk(await studentApi.post(`${exam(round)}/submit`))).toEqual({
       message: "Exam submitted successfully",
       status: "queued_for_marking",
-      total_points: 3,
+      total_points: 6,
       is_late: false,
     });
     expect(await prisma.submissions.count({ where: { entrant_id: entrant.id } })).toBe(1);
@@ -305,8 +319,16 @@ describe("sitting an exam online", () => {
     it("marks an all-objective exam as automarked", async () => {
       const { round, mcq, short, essay, studentApi } = await setup();
       await prisma.questions.delete({ where: { id: essay.id } });
+
+      // Pick the two primes by their displayed position in the variant.
+      const data = expectOk(await studentApi.get(exam(round)));
+      const picks = data.questions.find((q) => q.id === mcq.id).options
+        .map((option, index) => (option === "2" || option === "5" ? index : -1))
+        .filter((index) => index >= 0)
+        .join(",");
+
       expectOk(await studentApi.post(`${exam(round)}/start`), 201);
-      expectOk(await studentApi.patch(`${exam(round)}/answers/${mcq.id}`).send({ answer_value: "2,0" }));
+      expectOk(await studentApi.patch(`${exam(round)}/answers/${mcq.id}`).send({ answer_value: picks }));
       expectOk(await studentApi.patch(`${exam(round)}/answers/${short.id}`).send({ answer_value: "PRETORIA" }));
 
       expect(expectOk(await studentApi.post(`${exam(round)}/submit`))).toMatchObject({ status: "automarked", total_points: 6 });

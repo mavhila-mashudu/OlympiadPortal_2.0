@@ -127,14 +127,14 @@
 <h2>Summary</h2>
 
 <div class="stats">
-  <div class="stat done"><div class="n">44</div><div class="l">Fully complete</div></div>
+  <div class="stat done"><div class="n">46</div><div class="l">Fully complete</div></div>
   <div class="stat part"><div class="n">5</div><div class="l">Partially complete</div></div>
-  <div class="stat todo"><div class="n">10</div><div class="l">Not implemented</div></div>
-  <div class="stat"><div class="n">75%</div><div class="l">Of all stories done</div></div>
+  <div class="stat todo"><div class="n">8</div><div class="l">Not implemented</div></div>
+  <div class="stat"><div class="n">78%</div><div class="l">Of all stories done</div></div>
 </div>
 
-<div class="bar" role="img" aria-label="44 complete, 5 partial, 10 not implemented">
-  <i class="d" style="width:74.6%"></i><i class="p" style="width:8.5%"></i><i class="t" style="width:16.9%"></i>
+<div class="bar" role="img" aria-label="46 complete, 5 partial, 8 not implemented">
+  <i class="d" style="width:78.0%"></i><i class="p" style="width:8.5%"></i><i class="t" style="width:13.5%"></i>
 </div>
 
 <div class="scroll">
@@ -144,7 +144,7 @@
   <tbody>
     <tr><td><strong>Basic (B)</strong></td><td>17</td><td>0</td><td>0</td><td>17</td></tr>
     <tr><td><strong>Intermediate (I)</strong></td><td>18</td><td>1</td><td>0</td><td>19</td></tr>
-    <tr><td><strong>Advanced (A)</strong></td><td>7</td><td>1</td><td>10</td><td>18</td></tr>
+    <tr><td><strong>Advanced (A)</strong></td><td>9</td><td>1</td><td>8</td><td>18</td></tr>
     <tr><td><strong>Platform (P)</strong></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
 </table>
@@ -159,7 +159,7 @@
     <tr><td><span class="role">Organiser</span></td><td>13</td><td>1</td><td>3</td><td>17</td></tr>
     <tr><td><span class="role">Educator</span></td><td>12</td><td>0</td><td>0</td><td>12</td></tr>
     <tr><td><span class="role">Student</span></td><td>7</td><td>0</td><td>1</td><td>8</td></tr>
-    <tr><td><span class="role">System</span></td><td>9</td><td>0</td><td>5</td><td>14</td></tr>
+    <tr><td><span class="role">System</span></td><td>11</td><td>0</td><td>3</td><td>14</td></tr>
     <tr><td><span class="role">Marker</span></td><td>1</td><td>1</td><td>1</td><td>3</td></tr>
     <tr><td><span class="role">Platform</span></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
@@ -168,7 +168,7 @@
 
 <p><strong>The whole Basic tier is done.</strong> The Intermediate tier is done apart from moderation (I7), which
 works but can’t yet be used in the app. The Advanced tier is
-about half done — seven stories complete, one partial.</p>
+about half done — nine stories complete, one partial.</p>
 
 <h2>Fully complete</h2>
 <p class="sub">Implemented, reachable through the UI, and covered by tests.</p>
@@ -234,6 +234,8 @@ about half done — seven stories complete, one partial.</p>
     <tr><td class="id">A2</td><td><span class="role">System</span></td><td>One authoritative clock</td><td>The server clock decides every deadline (<code>server_time</code>, <code>round_close_snapshot</code>), and since 27 September every round time is entered and shown in the olympiad’s own timezone, labelled (e.g. “14:00 SAST”), so “on time” reads the same for every school whatever its devices are set to. Holidays are checked on the olympiad’s calendar</td></tr>
     <tr><td class="id">A3</td><td><span class="role">System</span></td><td>Count a submission exactly once</td><td>Deterministic <code>idempotency_key</code> from round+entrant+route, with a unique index and a pre-check</td></tr>
     <tr><td class="id">A5</td><td><span class="role">Organiser</span></td><td>Papers from a question bank</td><td>While an exam is a draft, the organiser can copy questions from any of their earlier rounds onto it. Known bug: the same question can be imported more than once (defect #2)</td></tr>
+    <tr><td class="id">A6</td><td><span class="role">System</span></td><td>Different variants per entrant</td><td>Every entrant sits their own shuffled question and option order (<code>exam_assignments</code>, issued by <code>examVariantService</code>); layouts stay distinct per round until the permutations run out, and the sitting page serves that layout, resuming it on a reload</td></tr>
+    <tr><td class="id">A7</td><td><span class="role">System</span></td><td>Mark against the sat variant</td><td>Answers are saved as displayed and canonicalised back to the shared answer key before scoring (<code>canonicalizeAnswer</code>) — in the online submit handler and in round marking. Submissions without a variant keep their existing interpretation</td></tr>
     <tr><td class="id">A9</td><td><span class="role">Organiser</span></td><td>One paper, online or on paper</td><td>Both routes use the round's one paper and are marked together. A learner who opens the exam online and loses their connection can still have paper answers captured: while the online attempt is unsubmitted, the capture replaces it (a submitted online exam still blocks paper). The educator page lists such learners as “Started online but not submitted”</td></tr>
     <tr><td class="id">A10</td><td><span class="role">System</span></td><td>Merge online and offline results</td><td>One result row per learner (<code>results</code> is unique on round + learner); marking, standings and the organiser's route counts treat both routes as one set</td></tr>
     <tr><td class="id">A11</td><td><span class="role">System</span></td><td>Reconcile dual-route entrants</td><td>A learner may use one route per round, first one wins: each route refuses the other with a clear message, and since 27 September the database enforces it too (unique on round + learner), so two requests at the same moment can't both get through</td></tr>
@@ -278,8 +280,6 @@ about half done — seven stories complete, one partial.</p>
   <thead><tr><th>ID</th><th>Role</th><th>Story</th><th>Status</th><th>Note</th></tr></thead>
   <tbody>
     <tr><td class="id">A1</td><td><span class="role">System</span></td><td>Correct under peak load</td><td><span class="tag t-todo">Not started</span></td><td>No load testing exists. The lifecycle tick is idempotent, which helps, but this is unproven.</td></tr>
-    <tr><td class="id">A6</td><td><span class="role">System</span></td><td>Per-entrant paper variants</td><td><span class="tag t-todo">Not started</span></td><td>No variant model. (<code>variant</code> in the codebase is a Button styling prop.)</td></tr>
-    <tr><td class="id">A7</td><td><span class="role">System</span></td><td>Mark against the sat variant</td><td><span class="tag t-todo">Not started</span></td><td>Depends on A6.</td></tr>
     <tr><td class="id">A8</td><td><span class="role">System</span></td><td>Difficulty from real answers</td><td><span class="tag t-todo">Not started</span></td><td>Answer data is stored, but nothing derives difficulty from it.</td></tr>
     <tr><td class="id">A12</td><td><span class="role">Student</span></td><td>Appeal a mark</td><td><span class="tag t-todo">Not started</span></td><td rowspan="3" style="vertical-align:middle">No appeals model, route or screen anywhere.</td></tr>
     <tr><td class="id">A13</td><td><span class="role">Marker</span></td><td>Route appeals to a reviewer</td><td><span class="tag t-todo">Not started</span></td></tr>
@@ -563,6 +563,9 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
   Generated from the state of <code>main</code> on 26 September 2026. Every claim was checked against
   source, schema, routes or test output — where something could not be verified, it is described as
   partial rather than complete. Every story re-checked against <code>main</code> on 27 September 2026.
+  A6 and A7 (exam variants) were re-checked on 28 September 2026: the code, the migrations and every
+  test tier (unit, integration, API, end-to-end) were verified, and the stale tests they had broken
+  were repaired.
 </footer>
 
 </div>

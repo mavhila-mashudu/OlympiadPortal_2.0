@@ -7,6 +7,7 @@ const {
   BadRequestError,
 } = require("../errors/AppError");
 const { scoreMcq } = require("./markingMath");
+const { canonicalizeAnswer } = require("./examVariantService");
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -107,6 +108,7 @@ const autoMarkSubmission = async (submissionId) => {
   const submission = await prisma.submissions.findUnique({
     where: { id: submissionId },
     include: {
+      exam_assignments: { select: { option_orders: true } },
       answers: {
         include: {
           questions: {
@@ -144,7 +146,11 @@ const autoMarkSubmission = async (submissionId) => {
         const score = scoreMcq({
           maxPoints: q.max_points,
           correctOption: q.correct_option,
-          selected: answer.answer_value,
+          selected: canonicalizeAnswer(
+            answer.answer_value,
+            submission.exam_assignments,
+            q.id,
+          ),
           negativePct: q.negative_pct,
         });
         isCorrect = score.isCorrect;

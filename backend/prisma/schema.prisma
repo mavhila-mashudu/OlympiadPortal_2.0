@@ -102,6 +102,7 @@ model entrants {
   results               results[]
   remark_requests       remark_requests[]
   submissions           submissions[]
+  exam_assignments      exam_assignments[]
 }
 
 model olympiads {
@@ -187,6 +188,7 @@ model rounds {
   submissions           submissions[]
   remark_requests       remark_requests[]
   portal_notifications  portal_notifications[]
+  exam_assignments      exam_assignments[]
 
   @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
 }
@@ -247,14 +249,35 @@ model submissions {
   idempotency_key      String            @unique
   received_at          DateTime          @default(now()) @db.Timestamptz(6)
   round_close_snapshot DateTime          @db.Timestamptz(6)
+  exam_assignment_id   String?           @db.Uuid
   created_at           DateTime          @default(now()) @db.Timestamptz(6)
   answers              answers[]
   entrants             entrants          @relation(fields: [entrant_id], references: [id])
   rounds               rounds            @relation(fields: [round_id], references: [id])
   educators            educators?        @relation(fields: [submitted_by], references: [id])
+  exam_assignments     exam_assignments?  @relation(fields: [exam_assignment_id], references: [id], onDelete: SetNull)
 
   // One submission per learner per round, whichever route it came by (A11)
   @@unique([round_id, entrant_id])
+}
+
+// A stable, system-generated question/option layout for one entrant's online
+// sitting. The option order stores canonical option indexes in displayed order.
+model exam_assignments {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id      String       @db.Uuid
+  entrant_id    String       @db.Uuid
+  question_order Json
+  option_orders  Json
+  variant_hash   String?
+  created_at     DateTime    @default(now()) @db.Timestamptz(6)
+  rounds         rounds      @relation(fields: [round_id], references: [id], onDelete: Cascade)
+  entrants       entrants    @relation(fields: [entrant_id], references: [id], onDelete: Cascade)
+  submissions    submissions[]
+
+  @@unique([round_id, entrant_id])
+  @@unique([round_id, variant_hash])
+  @@index([round_id])
 }
 
 model entrant_registrations {

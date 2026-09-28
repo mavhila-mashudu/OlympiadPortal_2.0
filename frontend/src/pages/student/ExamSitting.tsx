@@ -472,6 +472,7 @@ function ExamSitting() {
               {questions.length} question{questions.length !== 1 ? "s" : ""}{" "}
               &middot; {examData.total_points} points
             </p>
+            <p>Your question and answer-option order is assigned for this sitting.</p>
           </div>
           <div className={styles.headerRight}>
             <div

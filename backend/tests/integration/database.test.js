@@ -14,6 +14,7 @@ describe("migrations", () => {
       "educators",
       "entrant_registrations",
       "entrants",
+      "exam_assignments",
       "marking_reviews",
       "notification_rules",
       "olympiad_invites",

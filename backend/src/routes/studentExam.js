@@ -12,6 +12,7 @@ const {
   ConflictError,
 } = require("../errors/AppError");
 const { parseOptionList, scoreMcq } = require("../services/markingMath");
+const { getAssignment, optionOrderFor, canonicalizeAnswer } = require("../services/examVariantService");
 const { deadlineDecision, recordDeadlineDecision, recordRoundEvent } = require("../services/roundAuditService");
 
 // Auth at router level; role per route. Role guards must NOT be applied
@@ -72,8 +73,6 @@ const getExam = async (req, res, next) => {
   try {
     const entrant = resolveEntrant(req);
     const round = await assertCanSit(req.params.roundId, entrant);
-    const paper = round.papers[0];
-
     // Check if the student already has a submission
     const existingSubmission = await prisma.submissions.findFirst({
       where: {
@@ -88,24 +87,45 @@ const getExam = async (req, res, next) => {
       },
     });
 
+    const paper = round.papers[0];
+    let assignment = null;
+    if (existingSubmission?.exam_assignment_id) {
+      assignment = await prisma.exam_assignments.findUnique({
+        where: { id: existingSubmission.exam_assignment_id },
+      });
+    } else if (!existingSubmission && paper) {
+      assignment = await getAssignment(round.id, entrant.id, paper.questions);
+    }
+    const questionById = new Map((paper?.questions ?? []).map((q) => [q.id, q]));
+    const orderedQuestionIds = assignment?.question_order ?? (paper?.questions ?? []).map((q) => q.id);
+    const orderedQuestions = orderedQuestionIds
+      .map((id) => questionById.get(id))
+      .filter(Boolean);
+
     // Strip the answers themselves but keep shape info:
     //   multi_select  → how many correct options exist
     //                   (not which ones), so the UI can
     //                   switch between radio and checkboxes
     //   negative_pct  → shown to students so they know
     //                   wrong selections cost marks
-    const questions = (paper?.questions ?? []).map((q) => ({
+    const questions = orderedQuestions.map((q) => {
+      const options = Array.isArray(q.options) ? q.options : null;
+      const optionOrder = optionOrderFor(assignment, q.id);
+      return {
       id: q.id,
       type: q.type,
       prompt: q.prompt,
-      options: q.options,
+      options: options && optionOrder.length === options.length
+        ? optionOrder.map((index) => options[index])
+        : options,
       max_points: q.max_points,
       multi_select: parseOptionList(q.correct_option).length > 1,
       negative_pct: Number(q.negative_pct) || 0,
       // Deliberately omit correct_option and correct_answer
-    }));
+      };
+    });
 
-    const totalPoints = (paper?.questions ?? []).reduce(
+    const totalPoints = orderedQuestions.reduce(
       (sum, q) => sum + Number(q.max_points),
       0,
     );
@@ -201,6 +221,9 @@ const startExam = async (req, res, next) => {
       );
     }
 
+    const assignment = await getAssignment(round.id, entrant.id, paper.questions);
+    const questionsById = new Map(paper.questions.map((question) => [question.id, question]));
+
     // Create new submission with empty answers
     const idempotencyKey = `${round.id}:${entrant.id}:online`;
 
@@ -216,12 +239,15 @@ const startExam = async (req, res, next) => {
             status: "received",
             idempotency_key: idempotencyKey,
             round_close_snapshot: round.closes_at,
+            exam_assignment_id: assignment.id,
           },
         });
 
         // Create empty answer rows for each question
         const answers = [];
-        for (const q of paper.questions) {
+        for (const questionId of assignment.question_order) {
+          const q = questionsById.get(questionId);
+          if (!q) continue;
           const ans = await tx.answers.create({
             data: {
               submission_id: sub.id,
@@ -346,6 +372,7 @@ const submitExam = async (req, res, next) => {
       },
       include: {
         rounds: { select: { state: true } },
+        exam_assignments: { select: { option_orders: true } },
         answers: {
           include: {
             questions: {
@@ -403,7 +430,11 @@ const submitExam = async (req, res, next) => {
           const score = scoreMcq({
             maxPoints: q.max_points,
             correctOption: q.correct_option,
-            selected: answer.answer_value,
+            selected: canonicalizeAnswer(
+              answer.answer_value,
+              submission.exam_assignments,
+              q.id,
+            ),
             negativePct: q.negative_pct,
           });
           totalPoints += score.points;
