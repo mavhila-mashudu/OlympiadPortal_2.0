@@ -2,6 +2,11 @@ jest.mock("../../../src/config/database", () => ({
   __esModule: true,
   default: require("../helpers/prismaMock").prisma,
 }));
+// The real config exits when the database and Supabase settings are missing,
+// as they are in CI; the dispatcher only needs the portal's address for links
+jest.mock("../../../src/config/env", () => ({
+  frontend: { url: "https://portal.test" },
+}));
 jest.mock("../../../src/lib/mailer", () => ({
   sendNotificationEmail: jest.fn(),
   isMailerConfigured: jest.fn(),
