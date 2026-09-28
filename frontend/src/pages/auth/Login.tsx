@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert } from "../../components/ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { api, setToken } from "../../lib/api";
@@ -29,6 +31,7 @@ function Login() {
           <span>Olympiad Portal</span>
         </Link>
 
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
         <Card className={styles.card}>
           <h1>Log in</h1>
           <p className={styles.subtitle}>
@@ -63,11 +66,11 @@ function Login() {
                 const { user } = await api.get<MeResponse>("/auth/me");
                 navigate(dashboardForRole(user.role));
               } catch (err) {
-                const message = err instanceof Error ? err.message : "";
                 setError(
-                  message === "Failed to fetch"
-                    ? "We couldn’t reach the server. Make sure the frontend and backend are running, then try again."
-                    : message || "We couldn’t log you in. Please check your email and password.",
+                  friendlyErrorMessage(
+                    err,
+                    "We couldn’t log you in. Please check your email and password.",
+                  ),
                 );
               } finally {
                 setLoading(false);
@@ -101,8 +104,6 @@ function Login() {
                 type="password"
               />
             </div>
-
-            {error && <p className={styles.demoNote}>{error}</p>}
 
             <Button disabled={loading} fullWidth type="submit">
               {loading ? "Logging in..." : "Log in"}

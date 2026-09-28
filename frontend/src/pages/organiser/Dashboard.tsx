@@ -11,6 +11,8 @@ import { Fragment, useEffect, useState } from "react";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert, LoadingIndicator } from "../../components/ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
@@ -72,9 +74,7 @@ function OrganiserDashboard() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load dashboard",
-          );
+          setError(friendlyErrorMessage(err, "We couldn’t load the organiser dashboard. Please try again."));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -98,13 +98,14 @@ function OrganiserDashboard() {
       try {
         const { rounds: latest } = await api.get<{ rounds: Round[] }>(
           `/olympiads/${olympiadId}/rounds`,
+          { background: true },
         );
         if (active) {
           setRounds(latest || []);
           setError(null);
         }
       } catch (err) {
-        if (active) setError(err instanceof Error ? err.message : "Failed to refresh rounds");
+        if (active) setError(friendlyErrorMessage(err, "We couldn’t refresh the rounds. Please try again."));
       } finally {
         refreshing = false;
       }
@@ -126,7 +127,7 @@ function OrganiserDashboard() {
       await api.patch(`/rounds/${roundId}/state`, { state });
       await loadRounds(olympiad.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update round");
+      setError(friendlyErrorMessage(err, "We couldn’t update this round. Please try again."));
     } finally {
       setUpdatingId(null);
     }
@@ -139,7 +140,7 @@ function OrganiserDashboard() {
       setDeletingRoundId(null);
       if (olympiad) await loadRounds(olympiad.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete round");
+      setError(friendlyErrorMessage(err, "We couldn’t delete this round. Please try again."));
     }
   }
 
@@ -209,7 +210,8 @@ function OrganiserDashboard() {
           </div>
         </header>
 
-        {error && <Card className={styles.tableCard}>{error}</Card>}
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} onRetry={() => window.location.reload()} />}
+        {loading && <LoadingIndicator label="Loading organiser dashboard" />}
 
         {!loading && !olympiad && (
           <Card className={styles.tableCard} style={{ textAlign: "center", padding: "3rem 2rem" }}>

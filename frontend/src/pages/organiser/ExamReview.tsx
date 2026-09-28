@@ -286,6 +286,7 @@ function ExamReview() {
                 <CheckCircle2 />
                 <span>
                   This exam has been verified and is live for online sitting.
+                  Each entrant is automatically assigned a stable shuffled question and answer-option order.
                   {approvedBy && (
                     <>
                       {" "}
