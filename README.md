@@ -31,7 +31,7 @@ cd frontend && npm test          # unit and integration tests
 cd frontend && npm run test:e2e  # end-to-end tests (first run: npx playwright install chromium)
 ```
 
-CI runs the same suites on every pull request, adds the end-to-end tests on pushes to `main`, and deploys to Azure only if they all pass — see [.gitea/workflows/ci.yml](./.gitea/workflows/ci.yml).
+CI runs the same suites on every pull request, and on pushes to `main` deploys to Azure once the backend and frontend checks pass, running the end-to-end tests alongside on the shared runners — see [.gitea/workflows/ci.yml](./.gitea/workflows/ci.yml).
 
 Full details: [docs/testing.md](./docs/testing.md) · Known and fixed bugs: [docs/bug-tracking.md](./docs/bug-tracking.md)
 

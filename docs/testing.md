@@ -191,22 +191,34 @@ is never pulled into another team's `ubuntu-latest` queue.
 
 The end-to-end job is the deliberate exception. Playwright, Chromium, a real
 backend and a PGlite database together need more memory than the VM has, so it
-keeps `runs-on: ubuntu-latest` and goes to the shared runners.
+keeps `runs-on: ubuntu-latest` and goes to the shared runners. On the 1 GiB VM
+the suite took 12–18 minutes and still failed tests on timeouts, while swapping
+heavily. Bigger machines were considered and set aside: a 4 GB Azure VM costs
+about four times the current one, and Oracle's free Arm machines had no
+capacity in our region.
 
 Our runner takes one job at a time (`capacity: 1`), so jobs that once ran
 side by side now queue. That is the cost of guaranteeing where they run.
 
-**Node 22 is required, not merely recommended.** On Node 24 the frontend
-integration suite fails: Mock Service Worker throws during handler lookup for
-the multipart upload in `POST /rounds/:id/papers`, so the create-round journey
-never reaches its redirect. The pipeline pins Node 22 through
-`actions/setup-node`, and `package.json` declares `"node": ">=22"` — but that
-range admits 24, so a developer running a newer Node locally will see this one
-test fail for reasons that have nothing to do with their change.
+**Supported Node versions: 22, 24 and 26.** Every suite (unit, integration,
+API and end-to-end) passes on each. Both `package.json` files declare
+`"node": "^22 || ^24 || ^26"`, so npm prints an `EBADENGINE` warning on any
+other version, such as the short-lived odd releases. CI and App Service use
+Node 22.
+
+Node 24 once broke one frontend integration test, and the cause is worth
+knowing. From Node 24, `fetch`'s multipart parser builds each uploaded file
+with whatever `File` is global, then asserts it is Node's own `File`. Under
+jsdom the global is jsdom's `File`, so the assertion failed inside the mock
+server and the paper upload never resolved. `readBody` in
+`tests/integration/support/network.ts` now parses uploads with Node's `File`
+briefly put back in place. Browsers and the backend are unaffected; it only
+ever happened in the test environment.
 
 Rules the pipeline applies:
 
-- **Nothing deploys unless every test job passed.** Both deploy jobs wait for the backend, frontend and end-to-end jobs.
+- **Nothing deploys unless the backend and frontend checks passed.** Both deploy jobs wait for those two jobs.
+- **The end-to-end suite runs alongside the deploys, not before them.** It depends on the shared runners, which can queue behind other teams for a long time, so it reports on the run without holding a deploy back. A red end-to-end result on `main` means something needs fixing promptly, even though the deploy has already gone out.
 - **End-to-end tests run on `main`, not on every pull request.** They are the slowest and heaviest job. Pull requests still get every other suite, which is where nearly all failures show up.
 - **Only what changed is deployed.** A frontend-only change doesn't rebuild and redeploy the backend.
 - **A newer push replaces a run in progress**, except on `main`, where a deploy is never cancelled half way.
