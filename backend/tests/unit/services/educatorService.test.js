@@ -6,9 +6,13 @@ jest.mock("../../../src/config/supabase", () => {
   const bucket = { createSignedUrl: jest.fn() };
   return { storage: { from: jest.fn(() => bucket), bucket } };
 });
+jest.mock("../../../src/services/resultRecalculationService", () => ({
+  recalculateRoundResults: jest.fn(),
+}));
 
 const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
 const supabase = require("../../../src/config/supabase");
+const { recalculateRoundResults } = require("../../../src/services/resultRecalculationService");
 const svc = require("../../../src/services/educatorService");
 
 const educator = { id: "edu-1", user_id: "u", school_id: "school-1", schools: { id: "school-1", name: "Parktown High" } };
@@ -242,7 +246,7 @@ describe("registerEntrants", () => {
   beforeEach(() => {
     prisma.rounds.findUnique.mockResolvedValue(round());
     prisma.rounds.findFirst.mockResolvedValue(null);
-    prisma.entrants.findFirst.mockResolvedValue(null);
+    prisma.entrants.findMany.mockResolvedValue([]);
     prisma.entrants.create.mockImplementation(async ({ data }) => ({ id: `id-${data.full_name}`, ...data }));
   });
 
@@ -252,23 +256,27 @@ describe("registerEntrants", () => {
       statusCode: 400,
       message: "Entrants can't be registered once a round has closed",
     });
-    expect(prisma.entrant_registrations.upsert).not.toHaveBeenCalled();
+    expect(prisma.entrant_registrations.createMany).not.toHaveBeenCalled();
   });
 
   it("still accepts registrations while the round is open", async () => {
     prisma.rounds.findUnique.mockResolvedValue(round({ state: "open" }));
     await svc.registerEntrants("round-2", "u", learners);
-    expect(prisma.entrant_registrations.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.entrant_registrations.createMany).toHaveBeenCalledTimes(1);
+    expect(prisma.entrant_registrations.createMany.mock.calls[0][0].data).toHaveLength(2);
   });
 
   it("creates new entrants and registers them for the round", async () => {
     const registered = await svc.registerEntrants("round-2", "u", learners);
 
-    expect(prisma.entrants.findFirst).toHaveBeenNthCalledWith(1, {
-      where: { school_id: "school-1", external_ref: "STU-001" },
-    });
-    expect(prisma.entrants.findFirst).toHaveBeenNthCalledWith(2, {
-      where: { school_id: "school-1", full_name: "Ben Smith" },
+    // Existing learners are looked up in one query for the whole upload
+    expect(prisma.entrants.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.entrants.findMany).toHaveBeenCalledWith({
+      where: {
+        school_id: "school-1",
+        OR: [{ external_ref: { in: ["STU-001"] } }, { full_name: { in: ["Ben Smith"] } }],
+      },
+      orderBy: { created_at: "asc" },
     });
     expect(prisma.entrants.create).toHaveBeenCalledWith({
       data: { school_id: "school-1", full_name: "Ayanda Khumalo", grade: "10", external_ref: "STU-001" },
@@ -276,17 +284,29 @@ describe("registerEntrants", () => {
     expect(prisma.entrants.create).toHaveBeenCalledWith({
       data: { school_id: "school-1", full_name: "Ben Smith", grade: "11", external_ref: null },
     });
-    expect(prisma.entrant_registrations.upsert).toHaveBeenCalledWith({
-      where: { entrant_id_round_id: { entrant_id: "id-Ben Smith", round_id: "round-2" } },
-      update: { status: "registered" },
-      create: { entrant_id: "id-Ben Smith", round_id: "round-2", registered_by: "edu-1", status: "registered" },
+    expect(prisma.entrant_registrations.updateMany).toHaveBeenCalledWith({
+      where: {
+        round_id: "round-2",
+        entrant_id: { in: ["id-Ayanda Khumalo", "id-Ben Smith"] },
+        status: { not: "registered" },
+      },
+      data: { status: "registered" },
+    });
+    expect(prisma.entrant_registrations.createMany).toHaveBeenCalledWith({
+      data: [
+        { entrant_id: "id-Ayanda Khumalo", round_id: "round-2", registered_by: "edu-1", status: "registered" },
+        { entrant_id: "id-Ben Smith", round_id: "round-2", registered_by: "edu-1", status: "registered" },
+      ],
+      skipDuplicates: true,
     });
     expect(registered.map((e) => e.id)).toEqual(["id-Ayanda Khumalo", "id-Ben Smith"]);
   });
 
   it("updates an entrant that already exists", async () => {
-    prisma.entrants.findFirst.mockResolvedValue({ id: "ent-existing" });
-    prisma.entrants.update.mockResolvedValue({ id: "ent-existing" });
+    prisma.entrants.findMany.mockResolvedValue([
+      { id: "ent-existing", full_name: "Ayanda K", grade: "9", external_ref: "STU-001" },
+    ]);
+    prisma.entrants.update.mockResolvedValue({ id: "ent-existing", full_name: "Ayanda Khumalo", grade: "10", external_ref: "STU-001" });
 
     await svc.registerEntrants("round-2", "u", [learners[0]]);
     expect(prisma.entrants.update).toHaveBeenCalledWith({
@@ -294,6 +314,18 @@ describe("registerEntrants", () => {
       data: { full_name: "Ayanda Khumalo", grade: "10" },
     });
     expect(prisma.entrants.create).not.toHaveBeenCalled();
+  });
+
+  it("leaves an unchanged entrant alone and resolves repeated rows to one learner", async () => {
+    prisma.entrants.findMany.mockResolvedValue([
+      { id: "ent-existing", full_name: "Ayanda Khumalo", grade: "10", external_ref: "STU-001" },
+    ]);
+
+    const registered = await svc.registerEntrants("round-2", "u", [learners[0], learners[0]]);
+    expect(prisma.entrants.update).not.toHaveBeenCalled();
+    expect(prisma.entrants.create).not.toHaveBeenCalled();
+    expect(registered.map((e) => e.id)).toEqual(["ent-existing", "ent-existing"]);
+    expect(prisma.entrant_registrations.createMany.mock.calls[0][0].data).toHaveLength(1);
   });
 
   it("looks for the round immediately before this one in the olympiad", async () => {
@@ -715,7 +747,7 @@ describe("registerEntrantsForOlympiad", () => {
   beforeEach(() => {
     prisma.olympiads.findUnique.mockResolvedValue({ id: "oly-1" });
     prisma.rounds.findMany.mockResolvedValue(rounds);
-    prisma.entrants.findFirst.mockResolvedValue(null);
+    prisma.entrants.findMany.mockResolvedValue([]);
     prisma.entrants.create.mockImplementation(async ({ data }) => ({ id: "ent-1", ...data }));
   });
 
@@ -732,15 +764,17 @@ describe("registerEntrantsForOlympiad", () => {
     // it, so r2 is skipped too. r2 isn't released, so r3 is registered
     // tentatively.
     prisma.rounds.findMany.mockResolvedValue([{ ...rounds[0], state: "results_released" }, rounds[1], rounds[2]]);
-    prisma.results.findFirst.mockResolvedValue(null);
+    prisma.results.findMany.mockResolvedValue([]);
 
     const [entrant] = await svc.registerEntrantsForOlympiad("oly-1", "u", [
       { full_name: "Ayanda", grade: 9, external_ref: "STU-9" },
     ]);
 
-    expect(prisma.results.findFirst).toHaveBeenCalledTimes(1);
-    expect(prisma.results.findFirst).toHaveBeenCalledWith({
-      where: { round_id: "r1", entrant_id: "ent-1", qualified: true },
+    // Passes are looked up once for every learner in the upload
+    expect(prisma.results.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.results.findMany).toHaveBeenCalledWith({
+      where: { round_id: { in: ["r1"] }, entrant_id: { in: ["ent-1"] }, qualified: true },
+      select: { round_id: true, entrant_id: true },
     });
     expect(entrant).toEqual({
       id: "ent-1",
@@ -749,12 +783,15 @@ describe("registerEntrantsForOlympiad", () => {
       external_ref: "STU-9",
       rounds: [{ id: "r3", name: "Round 3" }],
     });
-    expect(prisma.entrant_registrations.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.entrant_registrations.createMany).toHaveBeenCalledWith({
+      data: [{ entrant_id: "ent-1", round_id: "r3", registered_by: "edu-1", status: "registered" }],
+      skipDuplicates: true,
+    });
   });
 
   it("registers for a later round when the learner qualified", async () => {
     prisma.rounds.findMany.mockResolvedValue([{ ...rounds[0], state: "results_released" }, rounds[1], rounds[2]]);
-    prisma.results.findFirst.mockResolvedValue({ id: "res" });
+    prisma.results.findMany.mockResolvedValue([{ round_id: "r1", entrant_id: "ent-1" }]);
     const [entrant] = await svc.registerEntrantsForOlympiad("oly-1", "u", [{ full_name: "Ayanda" }]);
     expect(entrant.rounds.map((r) => r.id)).toEqual(["r2", "r3"]);
   });
@@ -762,7 +799,7 @@ describe("registerEntrantsForOlympiad", () => {
   it("registers for every round while none has released results", async () => {
     const [entrant] = await svc.registerEntrantsForOlympiad("oly-1", "u", [{ full_name: "Ayanda" }]);
     expect(entrant.rounds.map((r) => r.id)).toEqual(["r1", "r2", "r3"]);
-    expect(prisma.results.findFirst).not.toHaveBeenCalled();
+    expect(prisma.results.findMany).not.toHaveBeenCalled();
   });
 
   it("rejects an olympiad whose rounds have all closed", async () => {
@@ -776,11 +813,14 @@ describe("registerEntrantsForOlympiad", () => {
 
   it("updates an existing entrant instead of creating one", async () => {
     prisma.rounds.findMany.mockResolvedValue([rounds[0]]);
-    prisma.entrants.findFirst.mockResolvedValue({ id: "ent-old" });
+    prisma.entrants.findMany.mockResolvedValue([{ id: "ent-old", full_name: "Ayanda", grade: "9", external_ref: null }]);
     prisma.entrants.update.mockResolvedValue({ id: "ent-old", full_name: "Ayanda", grade: "10", external_ref: null });
 
     const [entrant] = await svc.registerEntrantsForOlympiad("oly-1", "u", [{ full_name: "Ayanda", grade: 10 }]);
-    expect(prisma.entrants.findFirst).toHaveBeenCalledWith({ where: { school_id: "school-1", full_name: "Ayanda" } });
+    expect(prisma.entrants.findMany).toHaveBeenCalledWith({
+      where: { school_id: "school-1", OR: [{ full_name: { in: ["Ayanda"] } }] },
+      orderBy: { created_at: "asc" },
+    });
     expect(prisma.entrants.update).toHaveBeenCalledWith({
       where: { id: "ent-old" },
       data: { full_name: "Ayanda", grade: "10" },
@@ -900,6 +940,7 @@ describe("resolveRemark", () => {
     prisma.remark_requests.findUnique.mockResolvedValue({
       id: "rem-1",
       reviewer_id: "u",
+      status: "pending",
     });
     prisma.remark_requests.update.mockResolvedValue({
       id: "rem-1",
@@ -925,6 +966,22 @@ describe("resolveRemark", () => {
         reviewed_at: expect.any(Date),
       },
     });
+  });
+
+  it("rejects a remark that has already been concluded", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "u",
+      status: "reviewed",
+    });
+
+    await expect(
+      svc.resolveRemark("rem-1", "u", { status: "reviewed", review_note: "Again" }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "This remark has already been reviewed",
+    });
+    expect(prisma.remark_requests.update).not.toHaveBeenCalled();
   });
 
   it("rejects an educator who is not assigned to this remark", async () => {
@@ -1042,11 +1099,7 @@ describe("updateRemarkAnswer", () => {
     reviewer_id: "u",
     status: "pending",
     result_id: "res-1",
-    results: {
-      round_id: "round-1",
-      entrant_id: "ent-1",
-      rounds: { id: "round-1", qualifying_threshold: "15" },
-    },
+    results: { round_id: "round-1", entrant_id: "ent-1" },
   };
 
   const answerRecord = {
@@ -1071,10 +1124,10 @@ describe("updateRemarkAnswer", () => {
     });
   });
 
-  it("rejects updating an already reviewed remark", async () => {
+  it.each(["reviewed", "approved", "rejected"])("rejects updating a %s remark", async (status) => {
     prisma.remark_requests.findUnique.mockResolvedValue({
       ...remarkRecord,
-      status: "reviewed",
+      status,
     });
 
     await expect(
@@ -1100,15 +1153,11 @@ describe("updateRemarkAnswer", () => {
     });
   });
 
-  it("updates answer points clamped to maxPoints and recalculates total_points", async () => {
+  it("updates answer points clamped to maxPoints, logs the change and recalculates the round", async () => {
     prisma.remark_requests.findUnique.mockResolvedValue(remarkRecord);
     prisma.answers.findUnique.mockResolvedValue(answerRecord);
     prisma.answers.update.mockResolvedValue({ id: "ans-1" });
-    prisma.answers.findMany.mockResolvedValue([
-      { points_awarded: 5 },
-      { points_awarded: 11 },
-    ]);
-    prisma.results.update.mockResolvedValue({ id: "res-1" });
+    prisma.results.findUnique.mockResolvedValue({ total_points: "16" });
 
     const result = await svc.updateRemarkAnswer("rem-1", "ans-1", "u", {
       points_awarded: 10,
@@ -1121,6 +1170,16 @@ describe("updateRemarkAnswer", () => {
       totalPoints: 16,
     });
 
+    expect(prisma.marking_reviews.create).toHaveBeenCalledWith({
+      data: {
+        answer_id: "ans-1",
+        reviewer_id: "u",
+        original_points: 2,
+        revised_points: 5,
+        comment: "Re-marked in a remark review",
+      },
+    });
+
     expect(prisma.answers.update).toHaveBeenCalledWith({
       where: { id: "ans-1" },
       data: {
@@ -1131,13 +1190,8 @@ describe("updateRemarkAnswer", () => {
       },
     });
 
-    expect(prisma.results.update).toHaveBeenCalledWith({
-      where: { id: "res-1" },
-      data: {
-        total_points: 16,
-        qualified: true,
-      },
-    });
+    // Ranks, qualification and next-round enrolment all follow the new total
+    expect(recalculateRoundResults).toHaveBeenCalledWith(prisma, "round-1");
   });
 });
 

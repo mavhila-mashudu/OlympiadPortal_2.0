@@ -3,8 +3,8 @@
 // Responses use the backend's real envelope ({ success, data } /
 // { success: false, error }) and the shapes its services actually return, so
 // pages are tested against what they will really receive.
-import { http, HttpResponse, type JsonBodyType } from "msw";
 import { File as NodeFile } from "node:buffer";
+import { http, HttpResponse, type JsonBodyType } from "msw";
 import { server } from "./server";
 
 export const API_URL = "http://api.test";
@@ -20,21 +20,27 @@ export type RecordedRequest = {
   headers: Headers;
 };
 
+// Node's fetch parses an uploaded form. From Node 24 its parser builds each
+// file part with whatever `File` is global, then asserts the result is Node's
+// own File. Under jsdom the global is jsdom's File, so that assertion fails
+// and the request never resolves (Node 22 never looked at the global). So
+// the parse runs with Node's File in place. The body is read first, so the
+// swap covers only the parse itself.
+const parseMultipart = async (request: Request): Promise<FormData> => {
+  const bytes = await request.arrayBuffer();
+  const parsing = new Response(bytes, { headers: { "content-type": request.headers.get("content-type") ?? "" } });
+  const jsdomFile = globalThis.File;
+  globalThis.File = NodeFile as unknown as typeof File;
+  try {
+    return await parsing.formData();
+  } finally {
+    globalThis.File = jsdomFile;
+  }
+};
+
 const readBody = async (request: Request): Promise<unknown> => {
   const type = request.headers.get("content-type") ?? "";
-  if (type.includes("multipart/form-data")) {
-    // Node's multipart parser creates each file with the global `File`
-    // constructor and then asserts it is one of Node's own File objects.
-    // jsdom's File, which the test environment installs as the global, is not,
-    // so the parser gets Node's File for the duration of the parse.
-    const jsdomFile = globalThis.File;
-    (globalThis as Record<string, unknown>).File = NodeFile;
-    try {
-      return await request.formData();
-    } finally {
-      (globalThis as Record<string, unknown>).File = jsdomFile;
-    }
-  }
+  if (type.includes("multipart/form-data")) return parseMultipart(request);
   // api.ts sends a JSON content type on every request, including GETs with
   // no body, so only parse when there is something to parse
   const text = await request.text();

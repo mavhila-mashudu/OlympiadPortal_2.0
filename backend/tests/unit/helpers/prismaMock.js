@@ -31,6 +31,7 @@ const MODELS = [
   "questions",
   "answers",
   "submissions",
+  "exam_assignments",
   "entrant_registrations",
   "results",
 ];

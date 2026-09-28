@@ -1,14 +1,26 @@
+import { ChevronRight } from "lucide-react";
 import React, { Fragment, useEffect, useState } from "react";
 import { AppShell } from "../../components/layout/AppShell";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert } from "../../components/ui/Feedback";
 import { Input } from "../../components/ui/Input";
+import { Label } from "../../components/ui/Label";
 import { Select } from "../../components/ui/Select";
 import { api } from "../../lib/api";
+import { clearCurrentOlympiadCache } from "../../lib/olympiad";
 import { DEFAULT_TIMEZONE, TIMEZONE_OPTIONS, formatDateInZone } from "../../lib/time";
 import { organiserNav } from "../../lib/mockData";
-import { InviteEducatorForm } from "./InviteEducatorForm";
+import { InviteEducatorDialog, InviteEducatorForm } from "./InviteEducatorForm";
+import styles from "./Olympiads.module.css";
+
+const roundStateClasses: Record<string, string | undefined> = {
+  open: styles.stateOpen,
+  closed: styles.stateClosed,
+  marking: styles.stateMarking,
+  results_released: styles.stateReleased,
+};
 
 export default function Olympiads() {
   const [olympiads, setOlympiads] = useState<any[]>([]);
@@ -27,7 +39,7 @@ export default function Olympiads() {
     try {
       const res: any = await api.get(`/olympiads/${olympiadId}/rounds`);
       setRounds(res.rounds || res || []);
-    } catch (err: any) {
+    } catch {
       setRounds([]);
     } finally {
       setLoadingRounds(false);
@@ -65,6 +77,7 @@ export default function Olympiads() {
     setError(null);
     try {
       await api.post("/olympiads", { name, timezone });
+      clearCurrentOlympiadCache();
       setName("");
       setTimezone(DEFAULT_TIMEZONE);
       await loadOlympiads();
@@ -78,6 +91,7 @@ export default function Olympiads() {
   const handleDeleteOlympiad = async (id: string) => {
     try {
       await api.delete(`/olympiads/${id}`);
+      clearCurrentOlympiadCache();
       setDeletingId(null);
       await loadOlympiads();
     } catch (err: any) {
@@ -94,219 +108,179 @@ export default function Olympiads() {
       userInitials="NO"
       userName="Admin user"
     >
-      <PageHeader
-        title="Olympiads"
-        description="Manage and create competition editions."
-      />
+      <div className={styles.stack}>
+        <PageHeader
+          title="Olympiads"
+          description="Manage and create competition editions."
+        />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-        {/* Create Form */}
-        <Card style={{ padding: "1.25rem" }}>
-          <form onSubmit={handleCreate} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-            <label style={{ fontWeight: 600, fontSize: "0.875rem" }}>Create new Olympiad*</label>
-            <div style={{ display: "flex", gap: "0.75rem" }}>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. 2026 National Competition"
-                required
-                style={{ flex: 1 }}
-              />
-              <Button type="submit" disabled={submitting}>
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
+
+        <Card className={styles.createCard}>
+          <form className={styles.createForm} onSubmit={handleCreate}>
+            <h2 className={styles.sectionTitle}>Create new olympiad</h2>
+            <div className={styles.createGrid}>
+              <div className={styles.field}>
+                <Label htmlFor="olympiad-name">
+                  Name <span className={styles.required}>*</span>
+                </Label>
+                <Input
+                  id="olympiad-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. 2026 National Competition"
+                  required
+                />
+              </div>
+              <div className={styles.field}>
+                <Label htmlFor="olympiad-timezone">Timezone</Label>
+                <Select id="olympiad-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+                  {TIMEZONE_OPTIONS.map((zone) => (
+                    <option key={zone.value} value={zone.value}>
+                      {zone.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <Button className={styles.createButton} type="submit" disabled={submitting}>
                 {submitting ? "Creating..." : "Create"}
               </Button>
             </div>
-            <label htmlFor="olympiad-timezone" style={{ fontSize: "0.875rem" }}>
-              Timezone
-            </label>
-            <Select id="olympiad-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
-              {TIMEZONE_OPTIONS.map((zone) => (
-                <option key={zone.value} value={zone.value}>
-                  {zone.label}
-                </option>
-              ))}
-            </Select>
-            <p style={{ fontSize: "0.8125rem", color: "#6b7280", margin: 0 }}>
+            <p className={styles.hint}>
               Round times are entered and shown in this timezone, so every school sees the same official times.
             </p>
-            {error && <p style={{ color: "red", marginTop: "0.25rem" }}>{error}</p>}
           </form>
         </Card>
 
-        {/* Registered Olympiads Table */}
-        <Card style={{ padding: "0", overflow: "hidden" }}>
-          <div style={{ padding: "1.25rem", borderBottom: "1px solid #e5e7eb" }}>
-            <h3 style={{ margin: 0, fontSize: "1.125rem", fontWeight: 600 }}>Registered Olympiads</h3>
+        <Card padded={false} className={styles.tableCard}>
+          <div className={styles.tableHeader}>
+            <h2>Registered olympiads</h2>
           </div>
-          <table style={{ width: "100%", borderCollapse: "collapse", textAlign: "left", fontSize: "0.875rem" }}>
-            <thead>
-              <tr style={{ backgroundColor: "#f9fafb", borderBottom: "1px solid #e5e7eb", color: "#6b7280" }}>
-                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600 }}>Olympiad Name</th>
-                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600 }}>ID</th>
-                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600, textAlign: "center" }}>Rounds</th>
-                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600, textAlign: "center" }}>Schools Registered</th>
-                <th style={{ padding: "0.75rem 1.25rem", fontWeight: 600, textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {olympiads.length === 0 ? (
+          <div className={styles.tableScroller}>
+            <table className={styles.olympiadsTable}>
+              <thead>
                 <tr>
-                  <td colSpan={5} style={{ padding: "1.5rem", textAlign: "center", color: "#9ca3af" }}>
-                    No olympiads registered yet.
-                  </td>
+                  <th>Olympiad Name</th>
+                  <th>ID</th>
+                  <th className={styles.numeric}>Rounds</th>
+                  <th className={styles.numeric}>Schools Registered</th>
+                  <th className={styles.actionColumn}>Actions</th>
                 </tr>
-              ) : (
-                olympiads.map((item) => (
-                  <Fragment key={item.id}>
-                  <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
-                    <td style={{ padding: "1rem 1.25rem", fontWeight: 600 }}>
-                        <button
-                          type="button"
-                          onClick={() => toggleExpand(item.id)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            cursor: "pointer",
-                            padding: 0,
-                            font: "inherit",
-                            fontWeight: 600,
-                            color: "var(--foreground, #111827)",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.5rem",
-                          }}
-                        >
-                          <span style={{
-                            display: "inline-block",
-                            transition: "transform 0.15s",
-                            transform: expandedId === item.id ? "rotate(90deg)" : "rotate(0deg)",
-                            fontSize: "0.75rem",
-                            color: "#9ca3af",
-                          }}>&#9654;</span>
-                          {item.name}
-                        </button>
-                    </td>
-                    <td style={{ padding: "1rem 1.25rem", color: "#6b7280", fontFamily: "monospace" }}>{item.id}</td>
-                    <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.roundsCount ?? item._count?.rounds ?? item.rounds?.length ?? 0}</td>
-                    <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.schoolsCount ?? item._count?.school_registrations ?? 0}</td>
-                    <td style={{ padding: "1rem 1.25rem", textAlign: "right", display: "flex", gap: "0.375rem", justifyContent: "flex-end" }}>
-                      <Button onClick={() => setInviteOlympiadId(item.id)} style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}>
-                        Invite Educator
-                      </Button>
-                      <Button
-                        variant="outline"
-                        to={`/organiser/olympiads/${item.id}/edit`}
-                        style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}
-                      >
-                        Edit olympiad
-                      </Button>
-                      {deletingId === item.id ? (
-                        <>
-                          <Button
-                            onClick={() => handleDeleteOlympiad(item.id)}
-                            style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem", color: "#fff", background: "#dc2626" }}
-                          >
-                            Yes, delete
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => setDeletingId(null)}
-                            style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}
-                          >
-                            No
-                          </Button>
-                        </>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          onClick={() => setDeletingId(item.id)}
-                          style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem", color: "#dc2626" }}
-                        >
-                          Delete
-                        </Button>
-                      )}
+              </thead>
+              <tbody>
+                {olympiads.length === 0 ? (
+                  <tr>
+                    <td className={styles.emptyCell} colSpan={5}>
+                      No olympiads registered yet.
                     </td>
                   </tr>
-                  {expandedId === item.id && (
-                    <tr>
-                          <td colSpan={5} style={{ padding: 0, borderBottom: "1px solid #f3f4f6" }}>
-                        <div style={{ padding: "1rem 1.25rem", background: "#f9fafb" }}>
-                          {loadingRounds ? (
-                            <p style={{ margin: 0, color: "#9ca3af", fontSize: "0.875rem" }}>Loading rounds...</p>
-                          ) : rounds.length === 0 ? (
-                            <p style={{ margin: 0, color: "#9ca3af", fontSize: "0.875rem" }}>No rounds yet.</p>
-                          ) : (
-                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.8125rem" }}>
-                              <thead>
-                                <tr style={{ color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>
-                                  <th style={{ padding: "0.5rem 0.75rem", textAlign: "left", fontWeight: 600 }}>Round</th>
-                                  <th style={{ padding: "0.5rem 0.75rem", textAlign: "left", fontWeight: 600 }}>State</th>
-                                  <th style={{ padding: "0.5rem 0.75rem", textAlign: "left", fontWeight: 600 }}>Opens</th>
-                                  <th style={{ padding: "0.5rem 0.75rem", textAlign: "left", fontWeight: 600 }}>Closes</th>
-                                  <th style={{ padding: "0.5rem 0.75rem", textAlign: "right", fontWeight: 600 }}>Submissions</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rounds.map((r) => (
-                                  <tr key={r.id} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                                    <td style={{ padding: "0.625rem 0.75rem", fontWeight: 500 }}>{r.name}</td>
-                                    <td style={{ padding: "0.625rem 0.75rem" }}>
-                                      <span style={{
-                                        display: "inline-block",
-                                        padding: "0.125rem 0.5rem",
-                                        borderRadius: "9999px",
-                                        fontSize: "0.75rem",
-                                        fontWeight: 500,
-                                        background:
-                                          r.state === "open" ? "#dcfce7" :
-                                          r.state === "closed" ? "#fee2e2" :
-                                          r.state === "marking" ? "#fef3c7" :
-                                          r.state === "results_released" ? "#dbeafe" :
-                                          "#f3f4f6",
-                                        color:
-                                          r.state === "open" ? "#166534" :
-                                          r.state === "closed" ? "#991b1b" :
-                                          r.state === "marking" ? "#92400e" :
-                                          r.state === "results_released" ? "#1e40af" :
-                                          "#374151",
-                                      }}>
-                                        {r.state?.replace("_", " ")}
-                                      </span>
-                                    </td>
-                                    <td style={{ padding: "0.625rem 0.75rem", color: "#6b7280" }}>
-                                      {r.opens_at ? formatDateInZone(r.opens_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
-                                    </td>
-                                    <td style={{ padding: "0.625rem 0.75rem", color: "#6b7280" }}>
-                                      {r.closes_at ? formatDateInZone(r.closes_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
-                                    </td>
-                                    <td style={{ padding: "0.625rem 0.75rem", textAlign: "right", color: "#374151" }}>
-                                      {r._count?.submissions ?? 0}
-                                    </td>
+                ) : (
+                  olympiads.map((item) => (
+                    <Fragment key={item.id}>
+                      <tr>
+                        <td>
+                          <button
+                            aria-expanded={expandedId === item.id}
+                            className={styles.expandButton}
+                            onClick={() => toggleExpand(item.id)}
+                            type="button"
+                          >
+                            <ChevronRight
+                              aria-hidden="true"
+                              className={`${styles.chevron} ${expandedId === item.id ? styles.chevronOpen : ""}`}
+                            />
+                            {item.name}
+                          </button>
+                        </td>
+                        <td className={styles.idCell}>{item.id}</td>
+                        <td className={styles.numeric}>{item.roundsCount ?? item._count?.rounds ?? item.rounds?.length ?? 0}</td>
+                        <td className={styles.numeric}>{item.schoolsCount ?? item._count?.school_registrations ?? 0}</td>
+                        <td className={styles.actionColumn}>
+                          <div className={styles.rowActions}>
+                            <Button size="sm" onClick={() => setInviteOlympiadId(item.id)}>
+                              Invite Educator
+                            </Button>
+                            <Button size="sm" variant="outline" to={`/organiser/olympiads/${item.id}/edit`}>
+                              Edit olympiad
+                            </Button>
+                            {deletingId === item.id ? (
+                              <>
+                                <Button size="sm" className={styles.dangerSolid} onClick={() => handleDeleteOlympiad(item.id)}>
+                                  Yes, delete
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => setDeletingId(null)}>
+                                  No
+                                </Button>
+                              </>
+                            ) : (
+                              <Button size="sm" variant="outline" className={styles.dangerOutline} onClick={() => setDeletingId(item.id)}>
+                                Delete
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {expandedId === item.id && (
+                        <tr className={styles.expandedRow}>
+                          <td colSpan={5}>
+                            {loadingRounds ? (
+                              <p className={styles.muted}>Loading rounds...</p>
+                            ) : rounds.length === 0 ? (
+                              <p className={styles.muted}>No rounds yet.</p>
+                            ) : (
+                              <table className={styles.roundsTable}>
+                                <thead>
+                                  <tr>
+                                    <th>Round</th>
+                                    <th>State</th>
+                                    <th>Opens</th>
+                                    <th>Closes</th>
+                                    <th className={styles.numeric}>Submissions</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                  </Fragment>
-                ))
-              )}
-            </tbody>
-          </table>
+                                </thead>
+                                <tbody>
+                                  {rounds.map((r) => (
+                                    <tr key={r.id}>
+                                      <td className={styles.roundName}>{r.name}</td>
+                                      <td>
+                                        <span className={`${styles.statePill} ${roundStateClasses[r.state] ?? ""}`}>
+                                          {r.state?.replace("_", " ")}
+                                        </span>
+                                      </td>
+                                      <td className={styles.muted}>
+                                        {r.opens_at ? formatDateInZone(r.opens_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
+                                      </td>
+                                      <td className={styles.muted}>
+                                        {r.closes_at ? formatDateInZone(r.closes_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
+                                      </td>
+                                      <td className={styles.numeric}>{r._count?.submissions ?? 0}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </Card>
       </div>
       {inviteOlympiadId && (
-        <InviteEducatorForm
-          olympiads={olympiads}
-          initialOlympiadId={inviteOlympiadId}
-          onCancel={() => setInviteOlympiadId(null)}
-          onSuccess={() => {
-            loadOlympiads();
-          }}
-        />
+        <InviteEducatorDialog onClose={() => setInviteOlympiadId(null)}>
+          <InviteEducatorForm
+            olympiads={olympiads}
+            initialOlympiadId={inviteOlympiadId}
+            onCancel={() => setInviteOlympiadId(null)}
+            onSuccess={() => {
+              loadOlympiads();
+            }}
+          />
+        </InviteEducatorDialog>
       )}
     </AppShell>
   );

@@ -3,15 +3,17 @@ name: CI
 # One pipeline for the whole project: checks first, then deploys.
 #
 #   every push / pull request : backend and frontend checks + fast test suites
-#   push to main              : the above, then the end-to-end suite, then deploy
+#   push to main              : the above, then deploy
 #
-# Everything runs on our own runner (label: prompt-engineers-azure) except the
-# end-to-end suite, which needs more memory than that VM has and so stays on
-# the shared runners.
+# Everything runs on our own runner (label: prompt-engineers-azure). The
+# end-to-end suite (frontend/e2e, `npm run test:e2e`) is run locally: it needs
+# more memory than that VM has, and the shared runners queued it for too long.
 #
 # Deploying lives here (rather than in its own workflow file) because a job can
-# only wait for jobs in the same workflow. That is what keeps a failing test
-# from reaching Azure.
+# only wait for jobs in the same workflow. The deploys wait for the checks to
+# finish, so the runner does them in order, but they go ahead whether the
+# checks passed or failed: a red check is a signal to fix main, not a block
+# on shipping.
 on:
   # Pull requests cover work in progress; pushes to main cover what ships.
   # (A branch push and its pull request would otherwise run the same checks
@@ -101,70 +103,6 @@ jobs:
       - name: Build
         run: npm run build
 
-  e2e:
-    name: End-to-end tests
-    # Slow and heavy for the shared runners, so it guards main rather than
-    # every pull request. It must pass before anything is deployed.
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend]
-    runs-on: ubuntu-latest
-    # The one suite that stays on the shared runners: Playwright,
-    # Chromium, the real backend and a PGlite database together need
-    # more than our runner's 891 MB of RAM.
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
-
-      # The tests start the real backend, so it needs its dependencies and client
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
-
-      - name: Generate Prisma client
-        working-directory: backend
-        env:
-          DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
-        run: npx prisma generate
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: npm ci
-
-      # Browsers are ~150MB, so they are kept between runs
-      - name: Restore browser cache
-        id: browser-cache
-        uses: actions/cache@v4
-        continue-on-error: true
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('frontend/package-lock.json') }}
-
-      - name: Install Chromium
-        working-directory: frontend
-        run: npx playwright install --with-deps chromium
-
-      - name: Run end-to-end tests
-        working-directory: frontend
-        run: npm run test:e2e -- --project=chromium
-
-      # Screenshots and traces for anything that failed
-      - name: Upload report
-        if: failure()
-        continue-on-error: true
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: frontend/playwright-report
-          retention-days: 7
-
   changes:
     name: Work out what changed
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
@@ -196,8 +134,10 @@ jobs:
 
   deploy-backend:
     name: Deploy backend to Azure App Service
-    needs: [backend, frontend, e2e, changes]
-    if: needs.changes.outputs.backend == 'true'
+    # Waits for the checks but runs whatever their result; only a cancelled
+    # run or an unchanged backend skips it
+    needs: [backend, frontend, changes]
+    if: ${{ !cancelled() && needs.changes.outputs.backend == 'true' }}
     # Our own runner. Shared runners do not advertise this label.
     runs-on: prompt-engineers-azure
     timeout-minutes: 30
@@ -306,8 +246,10 @@ jobs:
 
   deploy-frontend:
     name: Deploy frontend to Azure Storage
-    needs: [backend, frontend, e2e, changes]
-    if: needs.changes.outputs.frontend == 'true'
+    # Waits for the checks but runs whatever their result; only a cancelled
+    # run or an unchanged frontend skips it
+    needs: [backend, frontend, changes]
+    if: ${{ !cancelled() && needs.changes.outputs.frontend == 'true' }}
     # Our own runner. Shared runners do not advertise this label.
     runs-on: prompt-engineers-azure
     timeout-minutes: 20

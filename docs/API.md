@@ -375,6 +375,39 @@ Manage the question paper for a round. Both organisers and educators can manage 
 
 ### `GET /rounds/:roundId/questions`
 
+- **Response:** `data.questions`, in the order they were added.
+- For organisers, each question also has `difficulty`: how hard it proved in this round (see below). Educators don't get it.
+
+#### Question difficulty
+
+`difficulty` is `{ value, band, answered }`, derived from how entrants actually answered:
+
+- `value` = 1 − (average score ÷ max points), over the question's **marked** answers, kept between 0 and 1. Unfinished online exams and essays not yet marked don't count; a question left blank in a submitted exam counts as 0.
+- `band` is `easy` (value below 0.3), `medium` (0.3–0.7) or `hard` (above 0.7).
+- `answered` is how many marked answers it is based on. With fewer than 5, `value` and `band` are `null`.
+
+It is worked out on each request, so re-marks, moderation and remarks show straight away.
+
+### `GET /rounds/:roundId/question-bank`
+
+Organiser-only. The organiser's questions from their other rounds, across all their olympiads, to reuse on this round's paper.
+
+- A question and the copies imported from it are listed **once**, as the original.
+- A question already on this round's paper (as the original or any copy) is left out.
+- **Response:** `data.questions` — each question with:
+  - `source_round` — `{ id, name }` of the round the original is on
+  - `used_in` — `[{ id, name }]`, every round the question has been used in
+  - `difficulty` — as above, over its answers in **all** those rounds
+
+### `POST /rounds/:roundId/question-bank/import`
+
+Organiser-only, while the exam is `draft`. Copies the chosen bank questions onto this round's paper; each copy records the original in `source_question_id`.
+
+- **Body:** `question_ids` — array of question UUIDs (at least one)
+- Choosing several versions of one question imports it once.
+- **Response `201`:** `data.questions` — the new copies
+- **Errors:** `400` exam not in draft · `404` a question isn't the organiser's or doesn't exist (nothing is imported) · `409` a question is already on this paper (nothing is imported)
+
 ### `PATCH /rounds/:roundId/questions/:id`
 
 Same fields as create, all optional.

@@ -6,6 +6,7 @@ const {
   ForbiddenError,
   BadRequestError,
 } = require("../errors/AppError");
+const { recalculateRoundResults } = require("./resultRecalculationService");
 
 const BUCKET = "papers";
 
@@ -35,6 +36,109 @@ const mapRoundState = (state) => {
     default: // closed, marking, results_released
       return "closed";
   }
+};
+
+// Importing a class list writes many rows inside one transaction; give it
+// more room than Prisma's 5-second default on a remote database.
+const IMPORT_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 30_000 };
+
+// Finds or creates the school's entrant for every uploaded row, matched by
+// external_ref when one is given and by full name otherwise. Existing learners
+// are fetched in one query rather than one lookup per row, and are only
+// rewritten when the upload changes their name or grade. Returns one entrant
+// per row, in row order.
+const resolveSchoolEntrants = async (tx, schoolId, entrantsData) => {
+  const refs = [...new Set(entrantsData.map((e) => e.external_ref).filter(Boolean))];
+  const names = [...new Set(entrantsData.filter((e) => !e.external_ref).map((e) => e.full_name))];
+  const lookups = [
+    ...(refs.length ? [{ external_ref: { in: refs } }] : []),
+    ...(names.length ? [{ full_name: { in: names } }] : []),
+  ];
+  const existing = lookups.length
+    ? await tx.entrants.findMany({
+        where: { school_id: schoolId, OR: lookups },
+        orderBy: { created_at: "asc" },
+      })
+    : [];
+
+  const byRef = new Map();
+  const byName = new Map();
+  const keep = (map, key, entrant) => {
+    const current = map.get(key);
+    if (!current || current.id === entrant.id) map.set(key, entrant);
+  };
+  const remember = (entrant) => {
+    if (entrant.external_ref) keep(byRef, entrant.external_ref, entrant);
+    keep(byName, entrant.full_name, entrant);
+  };
+  existing.forEach(remember);
+
+  const resolved = [];
+  for (const e of entrantsData) {
+    const grade = e.grade?.toString();
+    let entrant = e.external_ref ? byRef.get(e.external_ref) : byName.get(e.full_name);
+
+    if (entrant) {
+      const changed =
+        entrant.full_name !== e.full_name || (grade !== undefined && entrant.grade !== grade);
+      if (changed) {
+        const previousName = entrant.full_name;
+        entrant = await tx.entrants.update({
+          where: { id: entrant.id },
+          data: { full_name: e.full_name, grade },
+        });
+        if (byName.get(previousName)?.id === entrant.id) byName.delete(previousName);
+      }
+    } else {
+      entrant = await tx.entrants.create({
+        data: {
+          school_id: schoolId,
+          full_name: e.full_name,
+          grade,
+          external_ref: e.external_ref || null,
+        },
+      });
+    }
+
+    remember(entrant);
+    resolved.push(entrant);
+  }
+  return resolved;
+};
+
+// Registers every (entrant, round) pair, reviving an earlier registration
+// where one exists: one update per round plus one bulk insert, instead of an
+// upsert per pair.
+const registerPairs = async (tx, educatorId, pairs) => {
+  const byRound = new Map();
+  for (const { entrantId, roundId } of pairs) {
+    if (!byRound.has(roundId)) byRound.set(roundId, new Set());
+    byRound.get(roundId).add(entrantId);
+  }
+  if (byRound.size === 0) return;
+
+  for (const [roundId, entrantIds] of byRound) {
+    await tx.entrant_registrations.updateMany({
+      where: {
+        round_id: roundId,
+        entrant_id: { in: [...entrantIds] },
+        status: { not: "registered" },
+      },
+      data: { status: "registered" },
+    });
+  }
+
+  await tx.entrant_registrations.createMany({
+    data: [...byRound].flatMap(([roundId, entrantIds]) =>
+      [...entrantIds].map((entrantId) => ({
+        entrant_id: entrantId,
+        round_id: roundId,
+        registered_by: educatorId,
+        status: "registered",
+      })),
+    ),
+    skipDuplicates: true,
+  });
 };
 
 // ─────────────────────────────────────────
@@ -253,65 +357,26 @@ const registerEntrants = async (roundId, userId, entrantsData) => {
 
   // Register each entrant in a transaction
   const registered = await prisma.$transaction(async (tx) => {
-    const results = [];
+    const entrants = await resolveSchoolEntrants(tx, educator.school_id, entrantsData);
 
-    for (const e of entrantsData) {
-      // Find the existing entrant (keyed by school + external_ref,
-      // falling back to school + full_name when no ref is given)
-      let entrant = await tx.entrants.findFirst({
-        where: e.external_ref
-          ? { school_id: educator.school_id, external_ref: e.external_ref }
-          : { school_id: educator.school_id, full_name: e.full_name },
-      });
-
-      if (entrant) {
-        entrant = await tx.entrants.update({
-          where: { id: entrant.id },
-          data: {
-            full_name: e.full_name,
-            grade: e.grade?.toString(),
-          },
-        });
-      } else {
-        entrant = await tx.entrants.create({
-          data: {
-            school_id: educator.school_id,
-            full_name: e.full_name,
-            grade: e.grade?.toString(),
-            external_ref: e.external_ref || null,
-          },
-        });
-      }
-
-      // ── Enforce progression: must have qualified ──
-      if (qualifiedEntrantIds !== null && !qualifiedEntrantIds.has(entrant.id)) {
+    // ── Enforce progression: must have qualified ──
+    if (qualifiedEntrantIds !== null) {
+      const index = entrants.findIndex((entrant) => !qualifiedEntrantIds.has(entrant.id));
+      if (index !== -1) {
         throw new BadRequestError(
-          `${e.full_name} did not qualify in the previous round ("${previousRound.name}") and cannot be registered for this round.`,
+          `${entrantsData[index].full_name} did not qualify in the previous round ("${previousRound.name}") and cannot be registered for this round.`,
         );
       }
-
-      // Create registration (upsert to handle duplicates)
-      await tx.entrant_registrations.upsert({
-        where: {
-          entrant_id_round_id: {
-            entrant_id: entrant.id,
-            round_id: roundId,
-          },
-        },
-        update: { status: "registered" },
-        create: {
-          entrant_id: entrant.id,
-          round_id: roundId,
-          registered_by: educator.id,
-          status: "registered",
-        },
-      });
-
-      results.push(entrant);
     }
 
-    return results;
-  });
+    await registerPairs(
+      tx,
+      educator.id,
+      entrants.map((entrant) => ({ entrantId: entrant.id, roundId })),
+    );
+
+    return entrants;
+  }, IMPORT_TRANSACTION_OPTIONS);
 
   return registered;
 };
@@ -735,92 +800,61 @@ const registerEntrantsForOlympiad = async (olympiadId, userId, entrantsData) => 
   }
 
   const registered = await prisma.$transaction(async (tx) => {
-    const results = [];
+    const entrants = await resolveSchoolEntrants(tx, educator.school_id, entrantsData);
 
-    for (const e of entrantsData) {
-      // Find or create the entrant record
-      let entrant = await tx.entrants.findFirst({
-        where: e.external_ref
-          ? { school_id: educator.school_id, external_ref: e.external_ref }
-          : { school_id: educator.school_id, full_name: e.full_name },
+    // A round whose predecessor has released results only takes learners
+    // who qualified in it; look those passes up once for every row.
+    const gatingRoundIds = rounds
+      .filter((round, i) => i + 1 < rounds.length && round.state === "results_released")
+      .map((round) => round.id);
+    const passed = new Set();
+    if (gatingRoundIds.length && entrants.length) {
+      const qualified = await tx.results.findMany({
+        where: {
+          round_id: { in: gatingRoundIds },
+          entrant_id: { in: [...new Set(entrants.map((entrant) => entrant.id))] },
+          qualified: true,
+        },
+        select: { round_id: true, entrant_id: true },
       });
+      for (const r of qualified) passed.add(`${r.round_id}:${r.entrant_id}`);
+    }
 
-      if (entrant) {
-        entrant = await tx.entrants.update({
-          where: { id: entrant.id },
-          data: {
-            full_name: e.full_name,
-            grade: e.grade?.toString(),
-          },
-        });
-      } else {
-        entrant = await tx.entrants.create({
-          data: {
-            school_id: educator.school_id,
-            full_name: e.full_name,
-            grade: e.grade?.toString(),
-            external_ref: e.external_ref || null,
-          },
-        });
-      }
-
-      // Register for each eligible round
+    const pairs = [];
+    const results = entrants.map((entrant) => {
       const registeredRounds = [];
 
-      for (let i = 0; i < rounds.length; i++) {
-        const round = rounds[i];
-
+      rounds.forEach((round, i) => {
         // Closed rounds take no new registrations
-        if (!REGISTRABLE_STATES.has(round.state)) continue;
+        if (!REGISTRABLE_STATES.has(round.state)) return;
 
-        // First round: always register
-        if (i > 0) {
-          const prevRound = rounds[i - 1];
-          if (prevRound.state === "results_released") {
-            // Must have qualified in the previous round
-            const qualified = await tx.results.findFirst({
-              where: {
-                round_id: prevRound.id,
-                entrant_id: entrant.id,
-                qualified: true,
-              },
-            });
-            if (!qualified) continue; // skip this round
-          }
-          // If previous round results not released, register tentatively
+        // First round: always register. Later rounds need a pass in the
+        // previous round once its results are out, otherwise the learner
+        // is registered tentatively.
+        const prevRound = i > 0 ? rounds[i - 1] : null;
+        if (
+          prevRound?.state === "results_released" &&
+          !passed.has(`${prevRound.id}:${entrant.id}`)
+        ) {
+          return;
         }
 
-        // Upsert the registration
-        await tx.entrant_registrations.upsert({
-          where: {
-            entrant_id_round_id: {
-              entrant_id: entrant.id,
-              round_id: round.id,
-            },
-          },
-          update: { status: "registered" },
-          create: {
-            entrant_id: entrant.id,
-            round_id: round.id,
-            registered_by: educator.id,
-            status: "registered",
-          },
-        });
-
+        pairs.push({ entrantId: entrant.id, roundId: round.id });
         registeredRounds.push({ id: round.id, name: round.name });
-      }
+      });
 
-      results.push({
+      return {
         id: entrant.id,
         full_name: entrant.full_name,
         grade: entrant.grade,
         external_ref: entrant.external_ref,
         rounds: registeredRounds,
-      });
-    }
+      };
+    });
 
+    await registerPairs(tx, educator.id, pairs);
     return results;
-  });
+  }, IMPORT_TRANSACTION_OPTIONS);
 
   return registered;
 };
@@ -1233,7 +1267,7 @@ const listRemarks = async (userId) => {
     olympiadName: remark.results?.rounds?.olympiads?.name || "Olympiad",
     score: Number(remark.results?.total_points ?? 0),
     reason: remark.reason,
-    status: remark.status,
+    status: remark.status === "pending" ? "pending" : "reviewed",
     review_note: remark.review_note,
     created_at: remark.created_at,
     reviewed_at: remark.reviewed_at,
@@ -1315,7 +1349,9 @@ const getRemarkSubmissionAnswers = async (remarkId, userId) => {
 
 /**
  * Re-mark an individual question answer during a remark review.
- * Updates the answer mark and automatically recalculates the student's total_points in results.
+ * The change is logged in marking_reviews, and the round's results are
+ * recalculated: the student's total, every rank, qualification and the next
+ * round's enrolment.
  */
 const updateRemarkAnswer = async (
   remarkId,
@@ -1327,13 +1363,7 @@ const updateRemarkAnswer = async (
 
   const remark = await prisma.remark_requests.findUnique({
     where: { id: remarkId },
-    include: {
-      results: {
-        include: {
-          rounds: { select: { id: true, qualifying_threshold: true } },
-        },
-      },
-    },
+    include: { results: { select: { round_id: true, entrant_id: true } } },
   });
 
   if (!remark) {
@@ -1344,7 +1374,7 @@ const updateRemarkAnswer = async (
     throw new ForbiddenError("You are not assigned to review this remark");
   }
 
-  if (remark.status === "reviewed") {
+  if (remark.status !== "pending") {
     throw new BadRequestError("Cannot adjust marks on an already reviewed remark");
   }
 
@@ -1369,9 +1399,17 @@ const updateRemarkAnswer = async (
   const resolvedIsCorrect =
     is_correct !== undefined ? is_correct : clampedPoints > 0;
 
-  let newTotalPoints = 0;
+  const updatedResult = await prisma.$transaction(async (tx) => {
+    await tx.marking_reviews.create({
+      data: {
+        answer_id: answerId,
+        reviewer_id: educator.user_id,
+        original_points: answer.points_awarded || 0,
+        revised_points: clampedPoints,
+        comment: "Re-marked in a remark review",
+      },
+    });
 
-  await prisma.$transaction(async (tx) => {
     await tx.answers.update({
       where: { id: answerId },
       data: {
@@ -1382,28 +1420,11 @@ const updateRemarkAnswer = async (
       },
     });
 
-    const allAnswers = await tx.answers.findMany({
-      where: { submission_id: answer.submission_id },
-      select: { points_awarded: true },
-    });
+    await recalculateRoundResults(tx, remark.results.round_id);
 
-    newTotalPoints = allAnswers.reduce(
-      (sum, a) => sum + (Number(a.points_awarded) || 0),
-      0,
-    );
-
-    const round = remark.results.rounds;
-    const threshold = round.qualifying_threshold
-      ? Number(round.qualifying_threshold)
-      : null;
-    const qualified = threshold !== null ? newTotalPoints >= threshold : false;
-
-    await tx.results.update({
+    return tx.results.findUnique({
       where: { id: remark.result_id },
-      data: {
-        total_points: newTotalPoints,
-        ...(threshold !== null ? { qualified } : {}),
-      },
+      select: { total_points: true },
     });
   });
 
@@ -1411,7 +1432,7 @@ const updateRemarkAnswer = async (
     answerId,
     pointsAwarded: clampedPoints,
     isCorrect: resolvedIsCorrect,
-    totalPoints: newTotalPoints,
+    totalPoints: Number(updatedResult?.total_points ?? 0),
   };
 };
 
@@ -1431,6 +1452,10 @@ const resolveRemark = async (remarkId, userId, { status, review_note }) => {
 
   if (remark.reviewer_id !== educator.user_id) {
     throw new ForbiddenError("You are not assigned to review this remark");
+  }
+
+  if (remark.status !== "pending") {
+    throw new BadRequestError("This remark has already been reviewed");
   }
 
   return prisma.remark_requests.update({

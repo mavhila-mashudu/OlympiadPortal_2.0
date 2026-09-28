@@ -86,6 +86,8 @@ model educators {
   users                 users                   @relation(fields: [user_id], references: [id], onDelete: Cascade)
   entrant_registrations entrant_registrations[]
   submissions           submissions[]
+
+  @@index([school_id])
 }
 
 model entrants {
@@ -102,6 +104,10 @@ model entrants {
   results               results[]
   remark_requests       remark_requests[]
   submissions           submissions[]
+  exam_assignments      exam_assignments[]
+
+  @@index([school_id, full_name])
+  @@index([school_id, external_ref])
 }
 
 model olympiads {
@@ -115,6 +121,8 @@ model olympiads {
   rounds               rounds[]
   school_registrations school_registrations[]
   notification_rules   notification_rules[]
+
+  @@index([organiser_id])
 }
 
 model notification_rules {
@@ -163,6 +171,7 @@ model school_registrations {
   schools       schools             @relation(fields: [school_id], references: [id])
 
   @@unique([school_id, olympiad_id])
+  @@index([olympiad_id])
 }
 
 model rounds {
@@ -187,8 +196,10 @@ model rounds {
   submissions           submissions[]
   remark_requests       remark_requests[]
   portal_notifications  portal_notifications[]
+  exam_assignments      exam_assignments[]
 
   @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
+  @@index([olympiad_id, opens_at])
 }
 
 model papers {
@@ -202,6 +213,8 @@ model papers {
   created_at    DateTime    @default(now()) @db.Timestamptz(6)
   rounds        rounds      @relation(fields: [round_id], references: [id])
   questions     questions[]
+
+  @@index([round_id])
 }
 
 model questions {
@@ -215,8 +228,16 @@ model questions {
   negative_pct   Decimal   @default(0) @db.Decimal
   max_points     Decimal   @default(1) @db.Decimal
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  // A question imported from the bank points at the original it was copied
+  // from (never at another copy), so all uses of a question are one family
+  source_question_id String?     @db.Uuid
+  source_question    questions?  @relation("QuestionCopies", fields: [source_question_id], references: [id], onDelete: SetNull)
+  copies             questions[] @relation("QuestionCopies")
   answers        answers[]
   papers         papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade)
+
+  @@index([source_question_id])
+  @@index([paper_id])
 }
 
 model answers {
@@ -234,6 +255,7 @@ model answers {
   submissions    submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade)
 
   @@unique([submission_id, question_id])
+  @@index([question_id])
 }
 
 model submissions {
@@ -247,14 +269,37 @@ model submissions {
   idempotency_key      String            @unique
   received_at          DateTime          @default(now()) @db.Timestamptz(6)
   round_close_snapshot DateTime          @db.Timestamptz(6)
+  exam_assignment_id   String?           @db.Uuid
   created_at           DateTime          @default(now()) @db.Timestamptz(6)
   answers              answers[]
   entrants             entrants          @relation(fields: [entrant_id], references: [id])
   rounds               rounds            @relation(fields: [round_id], references: [id])
   educators            educators?        @relation(fields: [submitted_by], references: [id])
+  exam_assignments     exam_assignments?  @relation(fields: [exam_assignment_id], references: [id], onDelete: SetNull)
 
   // One submission per learner per round, whichever route it came by (A11)
   @@unique([round_id, entrant_id])
+  @@index([entrant_id])
+  @@index([round_id, status])
+}
+
+// A stable, system-generated question/option layout for one entrant's online
+// sitting. The option order stores canonical option indexes in displayed order.
+model exam_assignments {
+  id            String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id      String       @db.Uuid
+  entrant_id    String       @db.Uuid
+  question_order Json
+  option_orders  Json
+  variant_hash   String?
+  created_at     DateTime    @default(now()) @db.Timestamptz(6)
+  rounds         rounds      @relation(fields: [round_id], references: [id], onDelete: Cascade)
+  entrants       entrants    @relation(fields: [entrant_id], references: [id], onDelete: Cascade)
+  submissions    submissions[]
+
+  @@unique([round_id, entrant_id])
+  @@unique([round_id, variant_hash])
+  @@index([round_id])
 }
 
 model entrant_registrations {
@@ -269,6 +314,7 @@ model entrant_registrations {
   rounds        rounds    @relation(fields: [round_id], references: [id])
 
   @@unique([entrant_id, round_id])
+  @@index([round_id])
 }
 
 model results {
@@ -285,6 +331,7 @@ model results {
 
   @@unique([round_id, entrant_id])
   @@index([round_id, rank], map: "idx_results_round_rank")
+  @@index([entrant_id])
 }
 
 model remark_requests {
@@ -304,6 +351,9 @@ model remark_requests {
   results  results   @relation(fields: [result_id], references: [id])
   rounds   rounds?   @relation(fields: [round_id], references: [id])
   entrants entrants? @relation(fields: [entrant_id], references: [id])
+
+  @@index([round_id])
+  @@index([entrant_id])
 }
 
 enum round_state {
@@ -413,6 +463,8 @@ model marking_reviews {
   created_at DateTime @default(now()) @db.Timestamptz(6)
   answers answers @relation(fields: [answer_id], references: [id], onDelete: Cascade)
   users users @relation(fields: [reviewer_id], references: [id], onDelete: Cascade)
+
+  @@index([answer_id])
 }
 
 // Append-only records survive changes to round state and submission status.

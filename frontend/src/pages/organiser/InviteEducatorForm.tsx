@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { api } from "../../lib/api";
@@ -20,6 +20,25 @@ type InviteEducatorFormProps = {
   onSuccess?: () => void;
   onCancel?: () => void;
 };
+
+/** Shows the invite form centred over a dimmed page; Escape closes it. */
+export function InviteEducatorDialog({ onClose, children }: { onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className={styles.overlay}>
+      <div aria-label="Invite an educator" aria-modal="true" className={styles.dialog} role="dialog">
+        {children}
+      </div>
+    </div>
+  );
+}
 
 /**
  * Invites an educator who is already on the platform. The invitation appears
@@ -113,11 +132,13 @@ export function InviteEducatorForm({
     return (
       <Card padded>
         <h2 className={styles.heading}>Invitation sent</h2>
-        <p>
+        <p className={styles.subtitle}>
           {sentTo} will see this invitation on their dashboard. Their school joins the
           olympiad as soon as they accept it.
         </p>
-        <Button onClick={onCancel}>Close</Button>
+        <div className={styles.actions}>
+          <Button onClick={onCancel}>Close</Button>
+        </div>
       </Card>
     );
   }

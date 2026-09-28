@@ -138,6 +138,7 @@ describe("organiserRemarkService", () => {
         id: "rem-1",
         status: "pending",
         results: {
+          entrants: { school_id: "school-learner" },
           rounds: {
             olympiads: { id: "oly-1", organiser_id: "org-1" },
           },
@@ -147,6 +148,7 @@ describe("organiserRemarkService", () => {
       prisma.educators.findFirst.mockResolvedValue({
         id: "edu-1",
         user_id: "user-edu-1",
+        school_id: "school-other",
       });
 
       prisma.remark_requests.update.mockResolvedValue({
@@ -160,6 +162,39 @@ describe("organiserRemarkService", () => {
       expect(prisma.remark_requests.update).toHaveBeenCalledWith({
         where: { id: "rem-1" },
         data: { reviewer_id: "user-edu-1" },
+      });
+    });
+
+    it("rejects an educator from the learner's own school", async () => {
+      prisma.remark_requests.findUnique.mockResolvedValue({
+        id: "rem-1",
+        status: "pending",
+        results: {
+          entrants: { school_id: "school-1" },
+          rounds: {
+            olympiads: { id: "oly-1", organiser_id: "org-1" },
+          },
+        },
+      });
+      prisma.educators.findFirst.mockResolvedValue({ id: "edu-1", user_id: "user-edu-1", school_id: "school-1" });
+
+      await expect(svc.assignRemark("org-1", "rem-1", "user-edu-1")).rejects.toMatchObject({
+        statusCode: 400,
+        message: "An educator cannot review a remark from a learner at their own school",
+      });
+      expect(prisma.remark_requests.update).not.toHaveBeenCalled();
+    });
+
+    it.each(["approved", "rejected"])("rejects assignment if the organiser already %s the remark", async (status) => {
+      prisma.remark_requests.findUnique.mockResolvedValue({
+        id: "rem-1",
+        status,
+        results: { rounds: { olympiads: { id: "oly-1", organiser_id: "org-1" } } },
+      });
+
+      await expect(svc.assignRemark("org-1", "rem-1", "user-edu-1")).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Cannot reassign a remark that has already been reviewed",
       });
     });
 
@@ -241,10 +276,61 @@ describe("organiserRemarkService", () => {
 
       expect(result).toEqual({
         assignedCount: 3,
+        skippedCount: 0,
         educatorCount: 2,
       });
 
       expect(prisma.$transaction).toHaveBeenCalled();
+    });
+
+    it("gives each remark to an educator from another school, and skips one no other school can review", async () => {
+      prisma.rounds.findUnique.mockResolvedValue({
+        id: "round-1",
+        olympiad_id: "oly-1",
+        olympiads: { organiser_id: "org-1" },
+      });
+      prisma.school_registrations.findMany.mockResolvedValue([{ school_id: "school-1" }, { school_id: "school-2" }]);
+      prisma.educators.findMany.mockResolvedValue([
+        { id: "edu-1", user_id: "user-1", school_id: "school-1", users: { full_name: "Teacher 1" }, schools: { id: "school-1", name: "School 1" } },
+        { id: "edu-2", user_id: "user-2", school_id: "school-2", users: { full_name: "Teacher 2" }, schools: { id: "school-2", name: "School 2" } },
+      ]);
+      prisma.remark_requests.groupBy.mockResolvedValue([]);
+      prisma.remark_requests.findMany.mockResolvedValue([
+        { id: "rem-1", results: { entrants: { school_id: "school-1" } } },
+        { id: "rem-2", results: { entrants: { school_id: "school-1" } } },
+        { id: "rem-3", results: { entrants: { school_id: "school-2" } } },
+      ]);
+      prisma.remark_requests.update.mockImplementation(async (args) => args);
+
+      const result = await svc.autoAssignRemarks("org-1", "round-1");
+
+      expect(result).toEqual({ assignedCount: 3, skippedCount: 0, educatorCount: 2 });
+      const assigned = Object.fromEntries(
+        prisma.remark_requests.update.mock.calls.map(([args]) => [args.where.id, args.data.reviewer_id]),
+      );
+      expect(assigned).toEqual({ "rem-1": "user-2", "rem-2": "user-2", "rem-3": "user-1" });
+    });
+
+    it("leaves a remark unassigned when every educator is from the learner's school", async () => {
+      prisma.rounds.findUnique.mockResolvedValue({
+        id: "round-1",
+        olympiad_id: "oly-1",
+        olympiads: { organiser_id: "org-1" },
+      });
+      prisma.school_registrations.findMany.mockResolvedValue([{ school_id: "school-1" }]);
+      prisma.educators.findMany.mockResolvedValue([
+        { id: "edu-1", user_id: "user-1", school_id: "school-1", users: { full_name: "Teacher 1" }, schools: { id: "school-1", name: "School 1" } },
+      ]);
+      prisma.remark_requests.groupBy.mockResolvedValue([]);
+      prisma.remark_requests.findMany.mockResolvedValue([
+        { id: "rem-1", results: { entrants: { school_id: "school-1" } } },
+      ]);
+
+      const result = await svc.autoAssignRemarks("org-1", "round-1");
+
+      expect(result).toEqual({ assignedCount: 0, skippedCount: 1, educatorCount: 1 });
+      expect(prisma.remark_requests.update).not.toHaveBeenCalled();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
     it("handles zero unassigned remarks cleanly", async () => {

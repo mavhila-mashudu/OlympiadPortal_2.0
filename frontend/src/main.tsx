@@ -11,6 +11,9 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       retry: 1,
+      // Switching back to the tab shouldn't refetch every query and cover the
+      // page with the loading overlay; pages that need live data poll.
+      refetchOnWindowFocus: false,
     },
   },
 })

@@ -41,7 +41,7 @@ const setupSitting = async ({ roundOverrides = {} } = {}) => {
     user: { userId: user.id, role: "student", entrant: { id: entrant.id, school_id: school.id } },
   });
   const [mcq, short, essay] = questions;
-  return { round, entrant, req, mcq, short, essay };
+  return { round, entrant, school, educator, req, mcq, short, essay };
 };
 
 const data = (res) => res.json.mock.calls[0][0].data;
@@ -51,14 +51,29 @@ describe("online exam sitting", () => {
   it("runs from loading the exam to a marked submission", async () => {
     const { round, entrant, req, mcq, short, essay } = await setupSitting();
 
-    // Load: questions without their answers
+    // Load: the entrant's own variant — question order and option order
+    // personally shuffled — with the answers stripped.
     const loaded = await run(getExam, req());
     const exam = data(loaded.res);
     expect(exam.submission).toBeNull();
     expect(exam.total_points).toBe(16);
-    expect(exam.questions.map((q) => q.id)).toEqual([mcq.id, short.id, essay.id]);
-    expect(exam.questions[0]).toMatchObject({ multi_select: true, negative_pct: 25 });
     for (const q of exam.questions) expect(q).not.toHaveProperty("correct_option");
+    expect(exam.questions.find((q) => q.id === mcq.id)).toMatchObject({ multi_select: true, negative_pct: 25 });
+
+    const assignment = await prisma.exam_assignments.findUnique({
+      where: { round_id_entrant_id: { round_id: round.id, entrant_id: entrant.id } },
+    });
+    expect(exam.questions.map((q) => q.id)).toEqual(assignment.question_order);
+    const displayedMcq = exam.questions.find((q) => q.id === mcq.id);
+    expect(displayedMcq.options).toEqual(
+      assignment.option_orders[mcq.id].map((index) => ["2", "4", "5", "9"][index]),
+    );
+
+    // The student picks the two primes by their displayed position.
+    const primePicks = displayedMcq.options
+      .map((option, index) => (option === "2" || option === "5" ? index : -1))
+      .filter((index) => index >= 0)
+      .join(",");
 
     // Start: one online submission with an empty answer per question
     const started = await run(startExam, req());
@@ -70,11 +85,12 @@ describe("online exam sitting", () => {
       submitted_by: null,
       idempotency_key: `${round.id}:${entrant.id}:online`,
       round_close_snapshot: round.closes_at,
+      exam_assignment_id: assignment.id,
     });
     expect(submission.answers.map((a) => a.answer_value)).toEqual([null, null, null]);
 
     // Save answers as the student works
-    await run(saveAnswer, req({ params: { qid: mcq.id }, body: { answer_value: "0,1" } }));
+    await run(saveAnswer, req({ params: { qid: mcq.id }, body: { answer_value: primePicks } }));
     await run(saveAnswer, req({ params: { qid: short.id }, body: { answer_value: "  pretoria " } }));
     await run(saveAnswer, req({ params: { qid: essay.id }, body: { answer_value: "Plants turn light into sugar." } }));
 
@@ -86,19 +102,20 @@ describe("online exam sitting", () => {
     const reloaded = data((await run(getExam, req())).res);
     expect(reloaded.submission.answers.find((a) => a.question_id === short.id).answer_value).toBe("  pretoria ");
 
-    // Submit: choice and short answers marked, essay waits for a human
+    // Submit: choice and short answers marked against the variant the
+    // entrant sat, essay waits for a human
     const submitted = await run(submitExam, req());
     expect(data(submitted.res)).toEqual({
       message: "Exam submitted successfully",
       status: "queued_for_marking",
-      total_points: 3, // mcq: 2 right − 25% of 4 for the wrong pick = 1; short answer: 2
+      total_points: 6, // full 4 for the primes, wherever they were displayed + 2 for the short answer
       is_late: false,
     });
 
     const answers = await prisma.answers.findMany({ where: { submission_id: submission.id } });
     const byQuestion = Object.fromEntries(answers.map((a) => [a.question_id, a]));
-    expect(byQuestion[mcq.id]).toMatchObject({ is_correct: false, marked_at: expect.any(Date) });
-    expect(String(byQuestion[mcq.id].points_awarded)).toBe("1");
+    expect(byQuestion[mcq.id]).toMatchObject({ is_correct: true, marked_at: expect.any(Date) });
+    expect(String(byQuestion[mcq.id].points_awarded)).toBe("4");
     expect(byQuestion[short.id]).toMatchObject({ is_correct: true });
     expect(String(byQuestion[short.id].points_awarded)).toBe("2");
     expect(byQuestion[essay.id]).toMatchObject({ is_correct: null, points_awarded: null, marked_at: null });
@@ -110,22 +127,47 @@ describe("online exam sitting", () => {
     const result = await prisma.results.findUnique({
       where: { round_id_entrant_id: { round_id: round.id, entrant_id: entrant.id } },
     });
-    expect(String(result.total_points)).toBe("3");
+    expect(String(result.total_points)).toBe("6");
 
     // No second attempt, no more edits
     expect(errorOf((await run(submitExam, req())).next)).toMatchObject({ statusCode: 400 });
     expect(errorOf((await run(startExam, req())).next)).toMatchObject({ message: "This exam has already been submitted" });
     const lateEdit = await run(saveAnswer, req({ params: { qid: mcq.id }, body: { answer_value: "0,2" } }));
     expect(errorOf(lateEdit.next)).toMatchObject({ statusCode: 400 });
-    expect((await prisma.answers.findUnique({ where: { id: byQuestion[mcq.id].id } })).answer_value).toBe("0,1");
+    expect((await prisma.answers.findUnique({ where: { id: byQuestion[mcq.id].id } })).answer_value).toBe(primePicks);
+  });
+
+  it("issues every entrant their own distinct variant of the paper", async () => {
+    const { round, school, educator, req } = await setupSitting();
+    const { user: secondUser, entrant: secondEntrant } = await f.createStudent({ school });
+    await f.registerEntrant({ entrant: secondEntrant, round, educator });
+    const secondReq = {
+      ...req(),
+      user: { userId: secondUser.id, role: "student", entrant: { id: secondEntrant.id, school_id: school.id } },
+    };
+
+    const first = data((await run(getExam, req())).res);
+    const second = data((await run(getExam, secondReq)).res);
+
+    // The same paper, personally shuffled for each entrant.
+    expect([...second.questions.map((q) => q.id)].sort()).toEqual([...first.questions.map((q) => q.id)].sort());
+    const layouts = await prisma.exam_assignments.findMany({ where: { round_id: round.id } });
+    expect(layouts).toHaveLength(2);
+    expect(new Set(layouts.map((layout) => layout.variant_hash)).size).toBe(2);
   });
 
   it("marks an all-objective exam as automarked", async () => {
     const { req, mcq, short, essay } = await setupSitting();
     await prisma.questions.delete({ where: { id: essay.id } });
 
+    const exam = data((await run(getExam, req())).res);
+    const picks = exam.questions.find((q) => q.id === mcq.id).options
+      .map((option, index) => (option === "2" || option === "5" ? index : -1))
+      .filter((index) => index >= 0)
+      .join(",");
+
     await run(startExam, req());
-    await run(saveAnswer, req({ params: { qid: mcq.id }, body: { answer_value: "2,0" } }));
+    await run(saveAnswer, req({ params: { qid: mcq.id }, body: { answer_value: picks } }));
     await run(saveAnswer, req({ params: { qid: short.id }, body: { answer_value: "Durban" } }));
     const { res } = await run(submitExam, req());
 

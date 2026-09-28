@@ -3,6 +3,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert } from "../../components/ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { getSupabaseClient } from "../../lib/supabase";
@@ -25,6 +27,7 @@ function ForgotPassword() {
           <span>Olympiad Portal</span>
         </Link>
 
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
         <Card className={styles.card}>
           <h1>Reset your password</h1>
           <p className={styles.subtitle}>
@@ -59,11 +62,7 @@ function ForgotPassword() {
                   // form can't be used to find out who is registered
                   setSent(true);
                 } catch (err) {
-                  setError(
-                    err instanceof Error && err.message
-                      ? err.message
-                      : "We couldn’t send the reset link. Please try again.",
-                  );
+                  setError(friendlyErrorMessage(err, "We couldn’t send the reset link. Please try again."));
                 } finally {
                   setLoading(false);
                 }
@@ -80,8 +79,6 @@ function ForgotPassword() {
                   type="email"
                 />
               </div>
-
-              {error && <p className={styles.demoNote}>{error}</p>}
 
               <Button disabled={loading} fullWidth type="submit">
                 {loading ? "Sending..." : "Send reset link"}

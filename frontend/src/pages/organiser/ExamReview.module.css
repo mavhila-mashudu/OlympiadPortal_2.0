@@ -220,6 +220,66 @@
   font: inherit;
 }
 
+.bandFilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.bandButton {
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.2rem 0.75rem;
+  cursor: pointer;
+}
+
+.bandButton[aria-pressed="true"] {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.bankEmpty {
+  color: var(--muted-foreground);
+  font-size: 0.8125rem;
+}
+
+/* How hard a question proved, from its marked answers */
+.difficulty {
+  justify-self: start;
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 0.0625rem 0.5rem;
+  white-space: nowrap;
+}
+
+.easy {
+  color: var(--status-open);
+  border-color: color-mix(in oklab, var(--status-open) 30%, transparent);
+  background: color-mix(in oklab, var(--status-open) 10%, transparent);
+}
+
+.medium {
+  color: var(--status-upcoming);
+  border-color: color-mix(in oklab, var(--status-upcoming) 30%, transparent);
+  background: color-mix(in oklab, var(--status-upcoming) 10%, transparent);
+}
+
+.hard {
+  color: var(--destructive);
+  border-color: color-mix(in oklab, var(--destructive) 30%, transparent);
+  background: color-mix(in oklab, var(--destructive) 10%, transparent);
+}
+
 .bankList {
   display: grid;
   gap: 0.5rem;

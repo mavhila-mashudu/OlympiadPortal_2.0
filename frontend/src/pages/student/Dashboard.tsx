@@ -4,6 +4,8 @@ import { InviteInbox } from "../../components/invites/InviteInbox";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert, LoadingIndicator } from "../../components/ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { api } from "../../lib/api";
 import { studentNav } from "../../lib/mockData";
@@ -77,9 +79,7 @@ function StudentDashboard() {
         },
       );
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load dashboard data",
-      );
+      setError(friendlyErrorMessage(err, "We couldn’t load your dashboard. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -131,11 +131,7 @@ function StudentDashboard() {
 
         <InviteInbox onAccepted={load} />
 
-        {error && (
-          <Card className={styles.statCard}>
-            <p>{error}</p>
-          </Card>
-        )}
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} onRetry={load} />}
 
         <section className={styles.statsGrid}>
           {statCards.map((stat) => {
@@ -154,7 +150,7 @@ function StudentDashboard() {
         </section>
 
         {loading ? (
-          <p>Loading rounds…</p>
+          <LoadingIndicator label="Loading your rounds" />
         ) : rounds.length === 0 ? (
           <Card className={styles.statCard}>
             <p>You have not been registered for any rounds yet.</p>

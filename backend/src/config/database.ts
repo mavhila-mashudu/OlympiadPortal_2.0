@@ -17,10 +17,12 @@ const adapter = new PrismaPg({
   ...(Number.isFinite(poolMax) && poolMax > 0 ? { max: poolMax } : {}),
 });
 
+// Printing every SQL statement slows each request and floods the terminal,
+// so query logging is opt-in (PRISMA_LOG_QUERIES=true) even in development.
 const prisma = new PrismaClient({
   adapter,
   log:
-    process.env.NODE_ENV === "development"
+    process.env.PRISMA_LOG_QUERIES === "true"
       ? ["query", "info", "warn", "error"]
       : ["warn", "error"],
 });

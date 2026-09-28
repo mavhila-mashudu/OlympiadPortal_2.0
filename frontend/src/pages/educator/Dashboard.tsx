@@ -3,6 +3,8 @@ import { InviteInbox } from "../../components/invites/InviteInbox";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert, LoadingIndicator } from "../../components/ui/Feedback";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { TablePanel, Th, Td } from "../../components/ui/Table";
 import { educatorNav } from "../../lib/mockData";
@@ -54,15 +56,14 @@ function EducatorDashboard() {
           onAccepted={() => queryClient.invalidateQueries({ queryKey: ["educator"] })}
         />
 
-        {isLoading && (
-          <p className={styles.roundNote}>Loading rounds…</p>
+        {error && (
+          <ErrorAlert
+            message={`Failed to load rounds: ${friendlyErrorMessage(error)}`}
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ["educator", "rounds"] })}
+          />
         )}
 
-        {error && (
-          <p className={styles.roundNote}>
-            Failed to load rounds: {(error as Error).message}
-          </p>
-        )}
+        {isLoading && <LoadingIndicator label="Loading your rounds" />}
 
         {!isLoading && rounds.length === 0 && (
           <p className={styles.roundNote}>

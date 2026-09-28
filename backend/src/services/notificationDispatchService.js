@@ -1,7 +1,7 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
 const { frontend } = require("../config/env");
-const { sendNotificationEmail } = require("../lib/mailer");
+const { sendNotificationEmail, isMailerConfigured } = require("../lib/mailer");
 
 // ─────────────────────────────────────────
 // NOTIFICATION DISPATCH (I11 / I13)
@@ -24,9 +24,10 @@ const { sendNotificationEmail } = require("../lib/mailer");
 //      when no organiser rule exists.  An enabled rule aimed at registered
 //      educators replaces the built-in notice for its trigger.
 //
-// Every send is recorded in sent_notifications keyed by
+// Every delivered email is recorded in sent_notifications keyed by
 // (dedup_key, round, recipient), so a notification is never sent twice —
-// not across ticks, restarts or retries.
+// not across ticks, restarts or retries. An email EmailJS did not accept
+// is not recorded, so later ticks retry it for as long as it is still due.
 // ─────────────────────────────────────────
 
 // Event notifications stop being due once the event is older than this,
@@ -251,7 +252,19 @@ const buildNotificationEmail = ({
 // after state transitions, so event notices
 // see the round in its post-event state.
 // ─────────────────────────────────────────
+let warnedNotConfigured = false;
+
 const processDueNotifications = async (now = new Date()) => {
+  // Without EmailJS nothing can be delivered, and every due email would be
+  // attempted again on every tick, so the pass is skipped (with one warning).
+  if (!isMailerConfigured()) {
+    if (!warnedNotConfigured) {
+      console.warn("[notifications] EmailJS is not configured; notification emails are not being sent");
+      warnedNotConfigured = true;
+    }
+    return { due: 0, sent: 0, failed: 0 };
+  }
+
   const enabledRules = await prisma.notification_rules.findMany({
     where: { enabled: true, channel: "email" },
   });
@@ -264,7 +277,7 @@ const processDueNotifications = async (now = new Date()) => {
     orderBy: { opens_at: "asc" },
   });
 
-  if (rounds.length === 0) return { due: 0, sent: 0 };
+  if (rounds.length === 0) return { due: 0, sent: 0, failed: 0 };
 
   // ── Build the candidate list ──────────────────────
   const candidates = [];
@@ -309,7 +322,7 @@ const processDueNotifications = async (now = new Date()) => {
   const dueCandidates = candidates.filter((c) =>
     isDue(c.trigger, c.offsetMinutes, c.round, now),
   );
-  if (dueCandidates.length === 0) return { due: 0, sent: 0 };
+  if (dueCandidates.length === 0) return { due: 0, sent: 0, failed: 0 };
 
   // ── Skip anything already sent ────────────────────
   const sentRows = await prisma.sent_notifications.findMany({
@@ -323,6 +336,7 @@ const processDueNotifications = async (now = new Date()) => {
   );
 
   let sent = 0;
+  let failed = 0;
   const logRows = [];
 
   for (const candidate of dueCandidates) {
@@ -345,11 +359,16 @@ const processDueNotifications = async (now = new Date()) => {
 
     for (const to of pending) {
       try {
-        await sendNotificationEmail({
+        const { delivered } = await sendNotificationEmail({
           to,
           subject: email.subject,
           html: email.html,
         });
+        // The mailer has already logged why; leaving it unrecorded retries it
+        if (!delivered) {
+          failed += 1;
+          continue;
+        }
         sent += 1;
         logRows.push({
           dedup_key: candidate.dedupKey,
@@ -358,6 +377,7 @@ const processDueNotifications = async (now = new Date()) => {
         });
         sentSet.add(`${candidate.dedupKey}|${round.id}|${to}`);
       } catch (err) {
+        failed += 1;
         console.error(
           `[notifications] failed to notify ${to} about round "${round.name}": ${err.message}`,
         );
@@ -372,7 +392,7 @@ const processDueNotifications = async (now = new Date()) => {
     });
   }
 
-  return { due: dueCandidates.length, sent };
+  return { due: dueCandidates.length, sent, failed };
 };
 
 module.exports = { processDueNotifications };

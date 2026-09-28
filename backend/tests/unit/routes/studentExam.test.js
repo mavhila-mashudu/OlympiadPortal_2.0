@@ -41,6 +41,26 @@ const expectError = (next, statusCode, message) => {
   expect(next.mock.calls[0][0]).toMatchObject(message ? { statusCode, message } : { statusCode });
 };
 
+// Every entrant sits a personal variant: the order of the questions and of
+// each question's options. The identity layout below keeps the pre-variant
+// expectations (original order) intact while still exercising the real
+// assignment flow.
+const variant = (overrides = {}) => ({
+  id: "assign-1",
+  round_id: "round-1",
+  entrant_id: "ent-1",
+  question_order: ["q1", "q2", "q3"],
+  option_orders: { q1: [0, 1, 2], q2: [0, 1], q3: [] },
+  variant_hash: "hash-1",
+  ...overrides,
+});
+
+const seedVariant = (issued = variant()) => {
+  prisma.exam_assignments.findUnique.mockResolvedValue(null);
+  prisma.exam_assignments.count.mockResolvedValue(0);
+  prisma.exam_assignments.create.mockResolvedValue(issued);
+};
+
 beforeEach(resetPrismaMock);
 
 describe("sitting guards (GET exam and POST start)", () => {
@@ -86,6 +106,7 @@ describe("GET /:roundId/exam", () => {
   beforeEach(() => {
     prisma.rounds.findUnique.mockResolvedValue(sittableRound());
     prisma.entrant_registrations.findFirst.mockResolvedValue({ id: "reg" });
+    seedVariant();
   });
 
   it("never sends the correct answers to the student", async () => {
@@ -161,12 +182,47 @@ describe("GET /:roundId/exam", () => {
     const { res } = await run(getExam, studentReq());
     expect(res.json.mock.calls[0][0].data).toMatchObject({ questions: [], total_points: 0 });
   });
+
+  it("serves the entrant their own shuffled question and option order", async () => {
+    prisma.submissions.findFirst.mockResolvedValue(null);
+    seedVariant(variant({
+      question_order: ["q2", "q1", "q3"],
+      option_orders: { q1: [2, 0, 1], q2: [0, 1], q3: [] },
+    }));
+
+    const { res } = await run(getExam, studentReq());
+    const { questions: sent } = res.json.mock.calls[0][0].data;
+
+    expect(sent.map((q) => q.id)).toEqual(["q2", "q1", "q3"]);
+    expect(sent.find((q) => q.id === "q1").options).toEqual(["5", "2", "4"]);
+    expect(sent.find((q) => q.id === "q2").options).toEqual(["True", "False"]);
+  });
+
+  it("reuses the variant already issued to the entrant on resume", async () => {
+    prisma.submissions.findFirst.mockResolvedValue({
+      id: "sub-1", status: "received", exam_assignment_id: "assign-9", answers: [],
+    });
+    prisma.exam_assignments.findUnique.mockResolvedValue(variant({
+      id: "assign-9",
+      question_order: ["q3", "q1", "q2"],
+      option_orders: { q1: [1, 0, 2], q2: [0, 1], q3: [] },
+    }));
+
+    const { res } = await run(getExam, studentReq());
+    const { questions: sent } = res.json.mock.calls[0][0].data;
+
+    expect(sent.map((q) => q.id)).toEqual(["q3", "q1", "q2"]);
+    expect(sent.find((q) => q.id === "q1").options).toEqual(["4", "2", "5"]);
+    expect(prisma.exam_assignments.count).not.toHaveBeenCalled();
+    expect(prisma.exam_assignments.create).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /:roundId/exam/start", () => {
   beforeEach(() => {
     prisma.rounds.findUnique.mockResolvedValue(sittableRound());
     prisma.entrant_registrations.findFirst.mockResolvedValue({ id: "reg" });
+    seedVariant();
   });
 
   it.each([
@@ -220,6 +276,7 @@ describe("POST /:roundId/exam/start", () => {
         status: "received",
         idempotency_key: "round-1:ent-1:online",
         round_close_snapshot: new Date("2026-06-01T10:00:00Z"),
+        exam_assignment_id: "assign-1",
       },
     });
     expect(prisma.answers.create.mock.calls.map(([arg]) => arg.data)).toEqual([
@@ -242,6 +299,24 @@ describe("POST /:roundId/exam/start", () => {
         },
       },
     });
+  });
+
+  it("links the attempt to the entrant's variant and lays the answer rows out in that order", async () => {
+    prisma.submissions.findFirst.mockResolvedValue(null);
+    prisma.submissions.create.mockResolvedValue({ id: "sub-new", status: "received" });
+    prisma.answers.create.mockImplementation(async ({ data }) => ({ id: `ans-${data.question_id}` }));
+    seedVariant(variant({
+      id: "assign-9",
+      question_order: ["q2", "q1", "q3"],
+      option_orders: { q1: [2, 0, 1], q2: [0, 1], q3: [] },
+    }));
+
+    await run(startExam, studentReq());
+
+    expect(prisma.submissions.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ exam_assignment_id: "assign-9", idempotency_key: "round-1:ent-1:online" }),
+    });
+    expect(prisma.answers.create.mock.calls.map(([arg]) => arg.data.question_id)).toEqual(["q2", "q1", "q3"]);
   });
 
   // Losing a race to the database's one-submission-per-learner rule
@@ -391,6 +466,28 @@ describe("POST /:roundId/exam/submit", () => {
       success: true,
       data: { message: "Exam submitted successfully", status: "automarked", total_points: 5, is_late: false },
     });
+  });
+
+  it("marks the answers against the exact variant the entrant sat", async () => {
+    // q1 is shown as ["5", "2", "4"], so the displayed picks "0,1" are the
+    // canonical 2 and 0 — the full key — worth 4 points, not a partial match.
+    prisma.submissions.findFirst.mockResolvedValue(
+      attempt(
+        [
+          ans("a1", questions[0], "0,1"),
+          ans("a2", questions[1], "1"),
+        ],
+        { exam_assignments: { option_orders: { q1: [2, 0, 1], q2: [0, 1] } } },
+      ),
+    );
+
+    const { res } = await run(submitExam, studentReq());
+
+    expect(prisma.answers.update.mock.calls.map(([arg]) => [arg.where.id, arg.data.is_correct, arg.data.points_awarded])).toEqual([
+      ["a1", true, 4],
+      ["a2", true, 1],
+    ]);
+    expect(res.json.mock.calls[0][0].data.total_points).toBe(5);
   });
 
   it("gives zero for a wrong or blank short answer", async () => {
