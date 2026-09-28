@@ -2,7 +2,7 @@
 const express = require("express");
 const { body } = require("express-validator");
 const router = express.Router();
-const { listSchools, listArchive } = require("../controllers/schoolController");
+const { listSchools, listArchive, listSharedArchive } = require("../controllers/schoolController");
 const {
   createOlympiad,
   listOlympiads,
@@ -27,7 +27,8 @@ const createOlympiadRules = [
 ];
 
 const updateOlympiadRules = [
-  body("name").trim().notEmpty().withMessage("Olympiad name is required"),
+  body("name").optional().trim().notEmpty().withMessage("Olympiad name is required"),
+  body("timezone").optional().trim().notEmpty().withMessage("Timezone is required"),
 ];
 
 // === Routes ===
@@ -37,6 +38,7 @@ router.use(requireAuth, requireRole("organiser"));
 
 router.post("/", createOlympiadRules, validate, createOlympiad);
 router.get("/", listOlympiads);
+router.get("/archive", listSharedArchive);
 router.get("/:id", getOlympiad);
 router.patch("/:id", updateOlympiadRules, validate, updateOlympiad);
 router.delete("/:id", deleteOlympiad);

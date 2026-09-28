@@ -24,11 +24,13 @@ describe("migrations", () => {
       "questions",
       "remark_requests",
       "results",
+      "round_events",
       "rounds",
       "school_memberships",
       "school_registrations",
       "schools",
       "sent_notifications",
+      "submission_deadline_decisions",
       "submissions",
       "users",
     ]);

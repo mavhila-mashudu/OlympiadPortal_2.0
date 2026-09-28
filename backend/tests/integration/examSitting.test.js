@@ -132,16 +132,17 @@ describe("online exam sitting", () => {
     expect(data(res)).toMatchObject({ status: "automarked", total_points: 4 });
   });
 
-  it("accepts a submission that arrives after the close time but flags it late", async () => {
+  it("rejects a submission after closing and records why", async () => {
     const { round, req } = await setupSitting();
     await run(startExam, req());
 
     // The round closed after the student started (their snapshot is the old close time)
     await prisma.submissions.updateMany({ data: { round_close_snapshot: f.hoursFromNow(-0.01) } });
-    const { res } = await run(submitExam, req());
+    const { next } = await run(submitExam, req());
 
-    expect(data(res).is_late).toBe(true);
-    expect((await prisma.submissions.findFirst({ where: { round_id: round.id } })).is_late).toBe(true);
+    expect(errorOf(next)).toMatchObject({ statusCode: 400 });
+    expect(await prisma.submission_deadline_decisions.count({ where: { round_id: round.id, accepted: false } })).toBe(1);
+    expect((await prisma.submissions.findFirst({ where: { round_id: round.id } })).status).toBe("received");
   });
 
   it("keeps a started exam resumable on the student's pages until it is submitted", async () => {

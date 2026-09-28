@@ -10,7 +10,11 @@ const {
   getSubmission,
 } = require("../../../src/services/submissionService");
 
-beforeEach(resetPrismaMock);
+beforeEach(() => {
+  resetPrismaMock();
+  jest.useFakeTimers().setSystemTime(new Date("2026-05-01T11:00:00Z"));
+});
+afterEach(() => jest.useRealTimers());
 
 const questions = [
   { id: "q-mcq", type: "mcq", correct_option: "0", negative_pct: 0, max_points: 3 },
@@ -50,8 +54,20 @@ describe("createSubmission", () => {
     await expect(createSubmission("round-x", "edu-user", body())).rejects.toMatchObject({ statusCode: 404 });
   });
 
+  it("rejects a paper submission received exactly at closing and records the ruling", async () => {
+    arrangeValidSubmission();
+    jest.setSystemTime(new Date("2026-05-01T12:00:00Z"));
+    await expect(createSubmission("round-1", "u", body())).rejects.toMatchObject({
+      statusCode: 400, message: "Submission received at or after the round deadline",
+    });
+    expect(prisma.submission_deadline_decisions.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ route: "offline", accepted: false }),
+    });
+    expect(prisma.submissions.create).not.toHaveBeenCalled();
+  });
+
   it("rejects a round that isn't open", async () => {
-    prisma.rounds.findUnique.mockResolvedValue(openRound({ state: "closed" }));
+    arrangeValidSubmission({ round: openRound({ state: "closed" }) });
     await expect(createSubmission("round-1", "edu-user", body())).rejects.toMatchObject({
       statusCode: 400,
       message: 'Submissions are not accepted — round is "closed"',
@@ -202,6 +218,7 @@ describe("createSubmission", () => {
         status: "received",
         idempotency_key: "round-1:ent-1:offline",
         round_close_snapshot: new Date("2026-05-01T12:00:00Z"),
+        received_at: new Date("2026-05-01T11:00:00Z"),
       },
     });
   });

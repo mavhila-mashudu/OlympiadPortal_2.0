@@ -85,11 +85,19 @@ const assertOwnsOlympiad = async (olympiadId, organiserId) => {
 // UPDATE OLYMPIAD
 // Only the owning organiser can rename it
 // ========================================
-const updateOlympiad = async (olympiadId, organiserId, { name }) => {
+const updateOlympiad = async (olympiadId, organiserId, { name, timezone }) => {
   await assertOwnsOlympiad(olympiadId, organiserId);
 
   const data = {};
   if (name !== undefined) data.name = name;
+  if (timezone !== undefined) {
+    try {
+      new Intl.DateTimeFormat("en", { timeZone: timezone });
+    } catch {
+      throw new BadRequestError("Invalid timezone");
+    }
+    data.timezone = timezone;
+  }
 
   if (Object.keys(data).length === 0) {
     throw new BadRequestError("No fields to update");

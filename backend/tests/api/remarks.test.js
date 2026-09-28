@@ -139,8 +139,8 @@ describe("PATCH /rounds/:roundId/remarks/:remarkId", () => {
 
     expectOk(await organiserApi.patch(url).send({ status: "rejected", decision: "Marked correctly against the memo" }));
     const remark = await prisma.remark_requests.findFirst();
-    expect(remark).toMatchObject({ status: "rejected", decision: "Marked correctly against the memo", reviewer_id: organiser.id });
-    expect(remark.decided_at).toBeInstanceOf(Date);
+    expect(remark).toMatchObject({ status: "reviewed", review_note: "rejected: Marked correctly against the memo", reviewer_id: organiser.id });
+    expect(remark.reviewed_at).toBeInstanceOf(Date);
     expect(Number((await prisma.results.findUnique({ where: { id: ayanda.result.id } })).total_points)).toBe(5);
     expect(await prisma.marking_reviews.count()).toBe(0);
   });
@@ -159,7 +159,7 @@ describe("PATCH /rounds/:roundId/remarks/:remarkId", () => {
     expect(await prisma.marking_reviews.findMany()).toEqual([
       expect.objectContaining({ answer_id: ayanda.answer.id, reviewer_id: organiser.id, comment: "The proof was complete" }),
     ]);
-    expect((await prisma.remark_requests.findFirst()).status).toBe("approved");
+    expect((await prisma.remark_requests.findFirst()).status).toBe("reviewed");
   });
 
   it("qualifies a student whose revised total reaches the threshold, and enters them for the next round", async () => {

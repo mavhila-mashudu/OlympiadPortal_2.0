@@ -514,9 +514,10 @@ describe("a single round", () => {
       expect(paper).toMatchObject({
         round_id: round.id,
         title: round.name,
-        file_url: expect.stringMatching(new RegExp(`^rounds/${round.id}/paper-\\d+-paper\\.pdf$`)),
-        memo_file_url: expect.stringMatching(new RegExp(`^rounds/${round.id}/memo-\\d+-memo\\.pdf$`)),
+        file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/),
+        memo_file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/),
       });
+      expect(paper.file_url).toBe(paper.memo_file_url);
       expect(supabase.storage.from).toHaveBeenCalledWith("papers");
       expect(supabase.storage.bucket.upload).toHaveBeenCalledWith(paper.file_url, PDF, { contentType: "application/pdf", upsert: true });
     });
@@ -528,7 +529,7 @@ describe("a single round", () => {
       const res = await client.post(`/rounds/${round.id}/papers`).attach("paper", PDF, "new.pdf");
 
       const { paper } = expectOk(res, 201);
-      expect(paper).toMatchObject({ id: existing.id, file_url: expect.stringMatching(/new\.pdf$/), memo_file_url: "rounds/memo.pdf" });
+      expect(paper).toMatchObject({ id: existing.id, file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/), memo_file_url: "rounds/memo.pdf" });
       expect(await prisma.papers.count()).toBe(1);
     });
 

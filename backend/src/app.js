@@ -69,13 +69,14 @@ app.use("/organiser/remarks", require("./routes/organiserRemarks"));
 //registering olympiads and rounds routes
 // Specific subpaths first
 app.use("/olympiads", require("./routes/olympiads"));
+// Review routes handle the shared remark endpoints before student round routes.
+app.use("/rounds", require("./routes/reviews"));
 app.use("/rounds", require("./routes/studentRounds"));
 app.use("/rounds", require("./routes/studentExam"));
 app.use("/rounds", require("./routes/questions"));
 app.use("/rounds", require("./routes/examStatus"));
 app.use("/rounds", require("./routes/submissions"));
 app.use("/rounds", require("./routes/marking"));
-app.use("/rounds", require("./routes/reviews"));
 app.use("/rounds", require("./routes/standings"));
 // Root parametrised last
 app.use("/rounds", require("./routes/roundDetail"));

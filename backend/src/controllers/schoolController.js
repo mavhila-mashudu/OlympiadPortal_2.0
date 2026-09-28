@@ -20,4 +20,13 @@ const listArchive = async (req, res, next) => {
   }
 };
 
-module.exports = { listSchools, listArchive };
+const listSharedArchive = async (req, res, next) => {
+  try {
+    const rounds = await paperService.listSharedArchive(req.user.userId);
+    res.json({ success: true, data: { rounds } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { listSchools, listArchive, listSharedArchive };

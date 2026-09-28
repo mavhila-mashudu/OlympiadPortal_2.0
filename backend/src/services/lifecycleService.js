@@ -1,6 +1,7 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
 const { autoMarkRoundInternal } = require("./markingService");
+const { recordRoundEvent } = require("./roundAuditService");
 const { processDueNotifications } = require("./notificationDispatchService");
 
 // ─────────────────────────────────────────
@@ -16,6 +17,8 @@ const { processDueNotifications } = require("./notificationDispatchService");
 // ─────────────────────────────────────────
 const runLifecycleTick = async () => {
   const now = new Date();
+  let opened = 0;
+  let closed = 0;
 
   // ── scheduled -> open ──────────────────────────────
   const toOpen = await prisma.rounds.findMany({
@@ -24,14 +27,18 @@ const runLifecycleTick = async () => {
   });
 
   if (toOpen.length > 0) {
-    await prisma.rounds.updateMany({
-      where: { id: { in: toOpen.map((r) => r.id) } },
-      data: { state: "open" },
-    });
-
-    toOpen.forEach((r) =>
-      console.log(`[lifecycle] round "${r.name}" (${r.id}) opened`),
-    );
+    for (const r of toOpen) {
+      const didOpen = await prisma.$transaction(async (tx) => {
+        const updated = await tx.rounds.updateMany({
+          where: { id: r.id, state: "scheduled", opens_at: { lte: now } }, data: { state: "open" },
+        });
+        if (updated.count) await recordRoundEvent(r.id, "round_opened", "lifecycle", `open:${r.id}`, { from: "scheduled", to: "open" }, tx, now);
+        return Boolean(updated.count);
+      });
+      if (!didOpen) continue;
+      opened++;
+      console.log(`[lifecycle] round "${r.name}" (${r.id}) opened`);
+    }
   }
 
   // ── open -> closed ─────────────────────────────────
@@ -41,12 +48,20 @@ const runLifecycleTick = async () => {
   });
 
   if (toClose.length > 0) {
-    await prisma.rounds.updateMany({
-      where: { id: { in: toClose.map((r) => r.id) } },
-      data: { state: "closed" },
-    });
+    const closedRounds = [];
+    for (const r of toClose) {
+      const didClose = await prisma.$transaction(async (tx) => {
+        const updated = await tx.rounds.updateMany({
+          where: { id: r.id, state: "open", closes_at: { lte: now } }, data: { state: "closed" },
+        });
+        if (updated.count) await recordRoundEvent(r.id, "round_closed", "lifecycle", `close:${r.id}`, { from: "open", to: "closed" }, tx, now);
+        return Boolean(updated.count);
+      });
+      if (didClose) closedRounds.push(r);
+    }
 
-    toClose.forEach((r) =>
+    closed = closedRounds.length;
+    closedRounds.forEach((r) =>
       console.log(`[lifecycle] round "${r.name}" (${r.id}) closed`),
     );
 
@@ -54,13 +69,15 @@ const runLifecycleTick = async () => {
     // MCQ + short_answer answers are marked
     // automatically; essays remain in the
     // manual marking queue.
-    for (const r of toClose) {
+    for (const r of closedRounds) {
       try {
         const result = await autoMarkRoundInternal(r.id);
+        await recordRoundEvent(r.id, "round_automarked", "lifecycle", `mark:${r.id}`, { submissions: result.total });
         console.log(
           `[lifecycle] auto-marked ${result.total} submission(s) for round "${r.name}"`,
         );
       } catch (err) {
+        await recordRoundEvent(r.id, "round_automark_failed", "lifecycle", `mark-failed:${r.id}:${Date.now()}`, { message: err.message });
         console.error(
           `[lifecycle] auto-marking failed for round "${r.name}" (${r.id}): ${err.message}`,
         );
@@ -68,22 +85,17 @@ const runLifecycleTick = async () => {
     }
   }
 
-  // ── notifications ─────────────────────────────────
-  // Runs after the transitions above so event notices see the
-  // round in its post-event state.  A dispatch failure is logged
-  // but never breaks the tick.
+  // Dispatch after round transitions; a delivery error must not stop the lifecycle tick.
   try {
     const notifications = await processDueNotifications(now);
     if (notifications.sent > 0) {
-      console.log(
-        `[lifecycle] dispatched ${notifications.sent} notification email(s)`,
-      );
+      console.log(`[lifecycle] dispatched ${notifications.sent} notification email(s)`);
     }
   } catch (err) {
     console.error(`[lifecycle] notification dispatch failed: ${err.message}`);
   }
 
-  return { opened: toOpen.length, closed: toClose.length };
+  return { opened, closed };
 };
 
 module.exports = { runLifecycleTick };

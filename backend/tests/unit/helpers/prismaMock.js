@@ -21,6 +21,8 @@ const MODELS = [
   "notification_rules",
   "sent_notifications",
   "portal_notifications",
+  "round_events",
+  "submission_deadline_decisions",
   "remark_requests",
   "marking_reviews",
   "school_registrations",

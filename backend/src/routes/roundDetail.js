@@ -54,6 +54,12 @@ router.use(requireAuth);
 router.post("/check-dates", requireRole("organiser"), checkDatesRules, validate, checkDates);
 
 router.get("/:id", requireRole("organiser"), getRound);
+router.get("/:id/replay", requireRole("organiser"), async (req, res, next) => {
+  try {
+    const data = await require("../services/roundAuditService").replayRound(req.params.id, req.user.userId);
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
 router.patch("/:id", requireRole("organiser"), updateRoundRules, validate, updateRound);
 router.patch("/:id/state", requireRole("organiser"), setRoundStateRules, validate, setRoundState);
 router.delete("/:id", requireRole("organiser"), deleteRound);

@@ -42,6 +42,7 @@ describe("organiser dashboard", () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
     const round = fx.organiserRound({ id: "r-1", name: "Round 1", opens_at: "2026-10-01T06:00:00.000Z", closes_at: "2026-10-01T08:30:00.000Z" });
     mockApi("get", "/olympiads/oly-1/rounds", { rounds: [round] });
+    mockApi("get", "/rounds/:id", { round: { ...round, state: "scheduled", olympiads: { timezone: "Africa/Johannesburg" }, papers: [] } });
     const edits = mockApi("patch", "/rounds/r-1", { round, warnings: [] });
     const { user } = renderApp("/organiser");
 
@@ -49,7 +50,8 @@ describe("organiser dashboard", () => {
     expect(within(row).getByText("01 Oct 2026, 08:00 SAST")).toBeInTheDocument();
     expect(within(row).getByText("01 Oct 2026, 10:30 SAST")).toBeInTheDocument();
 
-    await user.click(within(row).getByRole("button", { name: "Edit" }));
+    await user.click(within(row).getByRole("link", { name: "Edit round" }));
+    await screen.findByRole("heading", { name: "Edit round: Round 1" });
     const opens = screen.getByLabelText("Opens at (SAST)");
     expect(opens).toHaveValue("2026-10-01T08:00");
     expect(screen.getByLabelText("Closes at (SAST)")).toHaveValue("2026-10-01T10:30");
@@ -140,7 +142,7 @@ describe("olympiads page", () => {
       "oly-1",
       "2",
       "3",
-      "Invite EducatorEditDelete",
+      "Invite EducatorEdit olympiadDelete",
     ]);
 
     await user.type(screen.getByPlaceholderText("e.g. 2026 National Competition"), "Science Olympiad");
