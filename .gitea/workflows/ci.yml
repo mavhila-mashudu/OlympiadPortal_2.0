@@ -42,6 +42,9 @@ jobs:
       # prisma.config.ts reads DIRECT_URL; validate/generate don't connect, so a placeholder is fine.
       # The integration and API suites start their own throwaway database.
       DIRECT_URL: postgresql://ci:ci@localhost:5432/ci
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      SUPABASE_URL: http://supabase.invalid
+      SUPABASE_SERVICE_ROLE_KEY: ci-test-key
     steps:
       - uses: actions/checkout@v4
 
