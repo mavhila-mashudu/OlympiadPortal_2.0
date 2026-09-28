@@ -16,17 +16,29 @@ test("a student sits the exam online and submits it", async ({ page }) => {
 
   await page.getByRole("button", { name: "Start exam" }).click();
 
-  // Question 1: multiple choice, two correct answers
-  await expect(page.getByText("Which of these numbers are prime?")).toBeVisible();
-  await page.getByText("A. 2").click();
-  await page.getByText("C. 5").click();
-  await expect(page.getByText("Answered (1)").first()).toBeVisible();
+  // Every entrant sits their own shuffled variant: the question order and
+  // the option order differ per learner. Answer whichever question is on
+  // screen and pick the primes by their displayed labels.
+  const answerCurrent = async () => {
+    await expect(
+      page
+        .getByText("Which of these numbers are prime?")
+        .or(page.getByText("What is the capital city of South Africa?")),
+    ).toBeVisible();
+    if (await page.getByText("Which of these numbers are prime?").isVisible()) {
+      await page.getByText(/^[A-D]\. 2$/).click();
+      await page.getByText(/^[A-D]\. 5$/).click();
+      // One question answered if the MCQ came first, two if it came second.
+      await expect(page.getByText(/^Answered \([12]\)$/).first()).toBeVisible();
+    } else {
+      await page.getByPlaceholder("Type your answer...").fill("Pretoria");
+      await expect(page.getByText("All answers saved")).toBeVisible();
+    }
+  };
 
-  // Question 2: short answer
+  await answerCurrent();
   await page.getByRole("button", { name: "Next" }).click();
-  await expect(page.getByText("What is the capital city of South Africa?")).toBeVisible();
-  await page.getByPlaceholder("Type your answer...").fill("Pretoria");
-  await expect(page.getByText("All answers saved")).toBeVisible();
+  await answerCurrent();
 
   await page.getByRole("button", { name: "Submit exam" }).click();
   await expect(page.getByText("You have answered 2 of 2 questions.")).toBeVisible();
@@ -57,7 +69,9 @@ test("the organiser closes the round and releases the results", async ({ page })
 test("the student sees their released result", async ({ page }) => {
   await signInAsStudent(page, USERS.student);
 
-  await page.getByRole("link", { name: "Results" }).click();
+  // The full name avoids also matching the dashboard's "View results" link
+  // once the released result has loaded.
+  await page.getByRole("link", { name: "Results & certificates" }).click();
   await expect(page.getByRole("heading", { name: "Results & certificates" })).toBeVisible();
 
   const row = page.getByRole("row").filter({ hasText: LIVE_ROUND.name });

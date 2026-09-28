@@ -1,12 +1,15 @@
 import { Building2, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { AppShell } from "../../components/layout/AppShell";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert } from "../../components/ui/Feedback";
 import { api } from "../../lib/api";
 import { organiserNav } from "../../lib/mockData";
+import { friendlyErrorMessage } from "../../lib/feedback";
 import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
-import { InviteEducatorForm } from "./InviteEducatorForm";
+import { InviteEducatorDialog, InviteEducatorForm } from "./InviteEducatorForm";
 import styles from "./Schools.module.css";
 
 // GET /olympiads/:id/schools lists the schools taking part, plus the educators
@@ -41,14 +44,10 @@ export function SchoolsPage() {
   const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   async function fetchSchools(olympiadId: string) {
-    try {
-      const data = await api.get<{ schools: RegisteredSchool[] }>(
-        `/olympiads/${olympiadId}/schools`
-      );
-      setSchools(data.schools || []);
-    } catch (err) {
-      console.warn("Could not fetch schools:", err);
-    }
+    const data = await api.get<{ schools: RegisteredSchool[] }>(
+      `/olympiads/${olympiadId}/schools`,
+    );
+    setSchools(data.schools || []);
   }
 
   useEffect(() => {
@@ -66,9 +65,7 @@ export function SchoolsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Failed to load olympiad data"
-          );
+          setError(friendlyErrorMessage(err, "We couldn’t load schools and educators. Please try again."));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -91,26 +88,21 @@ export function SchoolsPage() {
       userName="Admin user"
     >
       <div className={styles.stack}>
-        <header className={styles.pageHeader}>
-          <div>
-            <h1>Registered Schools</h1>
-            <p>
-              {olympiad
-                ? `Schools taking part in ${olympiad.name}, and outstanding invitations.`
-                : "Invite educators to bring their schools into an olympiad."}
-            </p>
-          </div>
-          <div className={styles.actions}>
-            <Button
-              icon={<Plus aria-hidden="true" />}
-              onClick={() => setIsInviteOpen(true)}
-            >
+        <PageHeader
+          title="Registered Schools"
+          description={
+            olympiad
+              ? `Schools taking part in ${olympiad.name}, and outstanding invitations.`
+              : "Invite educators to bring their schools into an olympiad."
+          }
+          actions={
+            <Button icon={<Plus aria-hidden="true" />} onClick={() => setIsInviteOpen(true)}>
               Invite educator
             </Button>
-          </div>
-        </header>
+          }
+        />
 
-        {error && <Card className={styles.tableCard}>{error}</Card>}
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} onRetry={() => window.location.reload()} />}
 
         <Card padded={false} className={styles.tableCard}>
           <div className={styles.tableScroller}>
@@ -127,7 +119,7 @@ export function SchoolsPage() {
               <tbody>
                 {!loading && schools.length === 0 && (
                   <tr>
-                    <td colSpan={5}>
+                    <td className={styles.emptyCell} colSpan={5}>
                       No schools taking part yet. Click "Invite educator" to invite one.
                     </td>
                   </tr>
@@ -135,14 +127,14 @@ export function SchoolsPage() {
                 {schools.map((school) => (
                   <tr key={school.id}>
                     <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                        <Building2 size={16} />
+                      <div className={styles.schoolName}>
+                        <Building2 aria-hidden="true" size={16} />
                         <strong>{school.name}</strong>
                       </div>
-                      {school.address && <small>{school.address}</small>}
+                      {school.address && <small className={styles.address}>{school.address}</small>}
                     </td>
                     <td>
-                      <strong>{school.educators.length}</strong>
+                      <strong className={styles.educatorCount}>{school.educators.length}</strong>
                       {school.educators.length > 0 && (
                         <ul className={styles.educators}>
                           {school.educators.map((educator) => (
@@ -168,48 +160,28 @@ export function SchoolsPage() {
           </div>
         </Card>
 
-        {/* --- INVITATION MODAL DIALOG --- */}
         {isInviteOpen && (
-          <div style={overlayStyle}>
-            <div style={modalStyle}>
-              {olympiad?.id ? (
-                <InviteEducatorForm
-                  olympiadId={olympiad.id}
-                  onSuccess={() => {
-                    if (olympiad.id) fetchSchools(olympiad.id);
-                  }}
-                  onCancel={() => setIsInviteOpen(false)}
-                />
-              ) : (
-                <Card padded>
-                  <p style={{ color: "red" }}>No active Olympiad selected.</p>
-                  <Button onClick={() => setIsInviteOpen(false)}>Close</Button>
-                </Card>
-              )}
-            </div>
-          </div>
+          <InviteEducatorDialog onClose={() => setIsInviteOpen(false)}>
+            {olympiad?.id ? (
+              <InviteEducatorForm
+                olympiadId={olympiad.id}
+                onSuccess={() => {
+                  if (olympiad.id) fetchSchools(olympiad.id);
+                }}
+                onCancel={() => setIsInviteOpen(false)}
+              />
+            ) : (
+              <Card padded>
+                <p className={styles.modalError}>No active olympiad is selected.</p>
+                <Button onClick={() => setIsInviteOpen(false)}>Close</Button>
+              </Card>
+            )}
+          </InviteEducatorDialog>
         )}
       </div>
     </AppShell>
   );
 }
 
-const overlayStyle: React.CSSProperties = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: "rgba(0, 0, 0, 0.5)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  zIndex: 1000,
-};
-
-const modalStyle: React.CSSProperties = {
-  maxWidth: "500px",
-  width: "90%",
-};
 
 export default SchoolsPage;

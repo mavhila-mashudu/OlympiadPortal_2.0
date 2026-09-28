@@ -1,3 +1,5 @@
+import { beginPageLoad, endPageLoad } from "./loadingStore";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const TOKEN_KEY = "op_access_token";
@@ -18,7 +20,15 @@ type ApiEnvelope<T> =
   | { success: true; data: T }
   | { success: false; error: string };
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+// background: true marks a refresh the user didn't ask for (polling, health
+// pings) — it must never cover the page with the loading overlay.
+type GetOptions = { background?: boolean };
+
+async function request<T>(
+  path: string,
+  options: RequestInit = {},
+  { background = false }: GetOptions = {},
+): Promise<T> {
   const token = getToken();
   const headers = new Headers(options.headers);
 
@@ -29,28 +39,37 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-
-  let json: ApiEnvelope<T> | null = null;
+  const isInitialDataRequest =
+    !background &&
+    (!options.method || options.method === "GET") &&
+    !path.startsWith("/notifications");
+  if (isInitialDataRequest) beginPageLoad();
   try {
-    json = await res.json();
-  } catch {
-    // no body (e.g. some error responses) — fall through to the status check below
-  }
+    const res = await fetch(`${API_URL}${path}`, { ...options, headers });
 
-  if (!res.ok || !json || json.success === false) {
-    const message =
-      json && "error" in json && json.error
-        ? json.error
-        : `Request failed (${res.status})`;
-    throw new Error(message);
-  }
+    let json: ApiEnvelope<T> | null = null;
+    try {
+      json = await res.json();
+    } catch {
+      // no body (e.g. some error responses) — fall through to the status check below
+    }
 
-  return json.data;
+    if (!res.ok || !json || json.success === false) {
+      const message =
+        json && "error" in json && json.error
+          ? json.error
+          : `Request failed (${res.status})`;
+      throw new Error(message);
+    }
+
+    return json.data;
+  } finally {
+    if (isInitialDataRequest) endPageLoad();
+  }
 }
 
 export const api = {
-  get: <T>(path: string) => request<T>(path),
+  get: <T>(path: string, options?: GetOptions) => request<T>(path, {}, options),
   post: <T>(path: string, body?: unknown) =>
     request<T>(path, {
       method: "POST",

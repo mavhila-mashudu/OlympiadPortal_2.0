@@ -60,7 +60,7 @@ No suite needs a database, a `.env` file or an internet connection. Everything r
 | **MSW** | Frontend integration tests | Intercepts network calls and answers with realistic backend responses, so pages run their real logic without a server. |
 | **PGlite** | Backend integration, API and E2E tests | Real PostgreSQL running inside the test process: genuine constraints and data types, with nothing to install. |
 | **Supertest** | Backend API tests | Sends real HTTP requests to the Express app and checks status codes, headers and bodies. |
-| **Playwright** | End-to-end tests | Drives real browsers from one install, runs headless in CI without a separate GUI runner, and saves screenshots and traces when something fails. |
+| **Playwright** | End-to-end tests | Drives real browsers from one install, runs headless without a display, and saves screenshots and traces when something fails. |
 
 ### 2.2 Unit tests
 
@@ -170,32 +170,33 @@ npm run test:e2e:report           # open the report after a failure
 
 ## 4. How CI enforces the tests
 
-Everything runs through one Gitea Actions pipeline: [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml). Deployment sits in the same file as the tests, because a job can only wait for jobs in the same workflow — that is what stops failing code reaching Azure.
+Everything runs through one Gitea Actions pipeline: [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml). Deployment sits in the same file as the tests, because a job can only wait for jobs in the same workflow — that is what makes the deploys run after the checks.
 
 | Job | Runner | Pull request | Push to `main` | What it does |
 |---|---|---|---|---|
 | Backend checks & tests | ours | Yes | Yes | Prisma schema check, unit, integration and API tests |
 | Frontend checks & tests | ours | Yes | Yes | Lint, test type-check, unit and integration tests, production build |
-| End-to-end tests | shared | No | Yes | The Playwright journeys in Chromium |
 | Work out what changed | ours | No | Yes | Decides whether the backend, the frontend or both need deploying |
 | Deploy backend | ours | No | Yes, if `backend/` changed | Builds, migrates the database, then zip-deploys to Azure App Service |
 | Deploy frontend | ours | No | Yes, if `frontend/` changed | Builds the site and uploads it to the Azure Storage `$web` container |
 
 ### Where the jobs run
 
-Most jobs run on our own runner, `prompt-engineers-runner-1`, an Ubuntu VM in
+Every job runs on our own runner, `prompt-engineers-runner-1`, an Ubuntu VM in
 Azure registered against this repository. It advertises a single label,
 `prompt-engineers-azure`, which the shared runners do not, so a job asking for
 that label can only land on ours — and, because it advertises nothing else, it
 is never pulled into another team's `ubuntu-latest` queue.
 
-The end-to-end job is the deliberate exception. Playwright, Chromium, a real
-backend and a PGlite database together need more memory than the VM has, so it
-keeps `runs-on: ubuntu-latest` and goes to the shared runners. On the 1 GiB VM
-the suite took 12–18 minutes and still failed tests on timeouts, while swapping
-heavily. Bigger machines were considered and set aside: a 4 GB Azure VM costs
-about four times the current one, and Oracle's free Arm machines had no
-capacity in our region.
+**The end-to-end suite is not part of CI; run it locally** (`npm run test:e2e`
+in `frontend/`) before merging changes to a user journey. Playwright, Chromium,
+a real backend and a PGlite database together need more memory than the VM
+has: on the 1 GiB VM the suite took 12–18 minutes and still failed tests on
+timeouts, while swapping heavily. It then ran on the shared runners, but they
+queued it behind other teams for so long that it rarely reported, so it was
+taken out of the pipeline on 28 September 2026. Bigger machines were considered
+and set aside: a 4 GB Azure VM costs about four times the current one, and
+Oracle's free Arm machines had no capacity in our region.
 
 Our runner takes one job at a time (`capacity: 1`), so jobs that once ran
 side by side now queue. That is the cost of guaranteeing where they run.
@@ -217,12 +218,9 @@ ever happened in the test environment.
 
 Rules the pipeline applies:
 
-- **Nothing deploys unless the backend and frontend checks passed.** Both deploy jobs wait for those two jobs.
-- **The end-to-end suite runs alongside the deploys, not before them.** It depends on the shared runners, which can queue behind other teams for a long time, so it reports on the run without holding a deploy back. A red end-to-end result on `main` means something needs fixing promptly, even though the deploy has already gone out.
-- **End-to-end tests run on `main`, not on every pull request.** They are the slowest and heaviest job. Pull requests still get every other suite, which is where nearly all failures show up.
+- **Deploys wait for the checks but don't depend on them.** Both deploy jobs start once the backend and frontend checks have finished, pass or fail. A red check on `main` means the deployed code has a problem that needs fixing promptly; it doesn't hold the deploy back. Pull requests are where failures should be caught, so a pull request with red checks shouldn't be merged.
 - **Only what changed is deployed.** A frontend-only change doesn't rebuild and redeploy the backend.
-- **A newer push replaces a run in progress**, except on `main`, where a deploy is never cancelled half way.
-- A failing end-to-end run uploads its Playwright report (screenshots and traces) as an artifact.
+- **A newer push replaces a run in progress**, except on `main`, where a deploy is never cancelled half way. A cancelled run deploys nothing.
 - The pipeline can also be started by hand (`workflow_dispatch`), which runs everything and deploys both sides.
 
 ---

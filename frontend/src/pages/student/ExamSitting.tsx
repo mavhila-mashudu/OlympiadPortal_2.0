@@ -14,6 +14,7 @@ import { AppShell } from "../../components/layout/AppShell";
 import { api } from "../../lib/api";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ErrorAlert, LoadingIndicator } from "../../components/ui/Feedback";
 import { Input } from "../../components/ui/Input";
 import { Textarea } from "../../components/ui/Textarea";
 import { studentNav } from "../../lib/mockData";
@@ -287,7 +288,7 @@ function ExamSitting() {
     const ping = async () => {
       let ok = false;
       try {
-        await api.get("/health");
+        await api.get("/health", { background: true });
         ok = true;
       } catch {
         ok = false;
@@ -382,7 +383,7 @@ function ExamSitting() {
         userInitials=""
         userName=""
       >
-        <p className={styles.loading}>Loading exam...</p>
+        <LoadingIndicator label="Loading your exam" />
       </AppShell>
     );
   }
@@ -399,9 +400,7 @@ function ExamSitting() {
         userName=""
       >
         <div className={styles.stack}>
-          <div className={styles.errorBanner}>
-            {error || "Exam not available"}
-          </div>
+          <ErrorAlert message={error || "This exam is not available to you right now."} />
           <Button to="/student" variant="outline">
             <ArrowLeft /> Back to dashboard
           </Button>
@@ -472,6 +471,7 @@ function ExamSitting() {
               {questions.length} question{questions.length !== 1 ? "s" : ""}{" "}
               &middot; {examData.total_points} points
             </p>
+            <p>Your question and answer-option order is assigned for this sitting.</p>
           </div>
           <div className={styles.headerRight}>
             <div
@@ -496,7 +496,7 @@ function ExamSitting() {
           </div>
         </header>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
+        {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
 
         {offline && started && (
           <div className={styles.offlineBanner}>
