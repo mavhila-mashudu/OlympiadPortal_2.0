@@ -27,9 +27,9 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | ------------------------ | ------ | ----------- | ------- |
 | Sprint 1 — Foundation    | 18     | 0           | 0       |
 | Sprint 2 — Core Features | 17     | 0           | 0       |
-| Sprint 3 — Advanced      | 14     | 1           | 5       |
+| Sprint 3 — Advanced      | 15     | 1           | 4       |
 | Sprint 4 — Polish and QA | 1      | 3           | 0       |
-| **Total (59 stories)**   | **50** | **4**       | **5**   |
+| **Total (59 stories)**   | **51** | **4**       | **4**   |
 
 ---
 
@@ -133,10 +133,10 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | A2  | Authoritative clock per olympiad timezone   | Done        | Round times are entered and shown in the olympiad's own timezone |
 | A3  | Count submission exactly once (idempotency) | Done        |                                                                                                               |
 | A4  | Consistent deadline boundary handling       | Done        | The closing instant is exclusive on both routes; every ruling is recorded with its reason                     |
-| A5  | Papers from question bank                   | Done        | Organisers reuse questions from their earlier rounds. Known bug: a question can be imported more than once    |
+| A5  | Papers from question bank                   | Done        | Organisers reuse questions from their earlier rounds; each question is listed once and can't go on a paper twice |
 | A6  | Different variants per entrant              | Planned     |                                                                                                               |
 | A7  | Mark against entrant's variant              | Planned     | Depends on A6                                                                                                 |
-| A8  | Difficulty from performance data            | Planned     |                                                                                                               |
+| A8  | Difficulty from performance data            | Done        | 1 − average score ÷ max points over marked answers, shown on exam review and in the question bank            |
 | A9  | Paper sittable online or offline            | Done        | Paper results replace an online attempt the learner opened but never submitted                                |
 | A10 | Merge online and offline results            | Done        | One result per learner, whichever route                                                                       |
 | A11 | Reconcile dual-route entrants               | Done        | One submission per learner per round, enforced in the database                                                |
@@ -175,7 +175,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | --- | ------------------------------------ | ----------- | ---------------------------------------------------------------------------- |
 | P2  | Responsive, accessible on any device | In Progress | Responsive throughout; no accessibility audit yet                            |
 | P3  | Hand-written, documented API         | Done        |                                                                              |
-| P4  | External service integration         | In Progress | Notices are emailed through EmailJS, but it isn't configured in production   |
+| P4  | External service integration         | In Progress | Notices are emailed through EmailJS; configured in production, not yet seen live |
 | P5  | Public documentation site            | In Progress | Documentation is in `docs/` in the repository, not a published site         |
 
 ### Deliverables
@@ -198,5 +198,6 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | 27 September 2026 | Statuses brought in line with the code on `main`; I17 added to Sprint 2, where it was missing; notes added for stories still in progress |
 | 27 September 2026 | A2 and A15 done: round times follow each olympiad's own timezone |
 | 28 September 2026 | After PRs #53, #57 and #58: A4, A12–A14, A17 and A18 done; P4 now uses EmailJS, which still needs configuring in production |
+| 28 September 2026 | A8 done: question difficulty from marked answers; the question bank lists each question once and can't put it on a paper twice; EmailJS configured in production |
 
 This is a living document, reviewed at every Friday retrospective.

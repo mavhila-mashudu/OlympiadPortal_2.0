@@ -129,22 +129,23 @@
   Re-checked after three merges into <code>main</code>: remark reviews by educators (PR #53), advanced organiser
   controls (PR #57) and notification emails (PR #58). Six Advanced stories are now complete: the deadline rule (A4),
   appeals through remark requests (A12–A14), and the round audit log and replay (A17, A18). Checking the new code
-  found six bugs, five of them fixed the same day (listed under <a href="#fixed-28-sep">Found and fixed</a>). The
-  remaining one, email not being configured in production, is defect #1 and replaces the old remark-branch defect,
-  which the merge made obsolete.
+  found six bugs; all are fixed (listed under <a href="#fixed-28-sep">Fixed</a>), including email, which is now
+  configured in production. The old remark-branch defect is gone, since the merge made it obsolete. Later the same
+  day A8 was built: each question’s difficulty now comes from how entrants answered it, and the question bank lists
+  each question once and can’t put it on a paper twice (the old defect #2).
 </div>
 
 <h2>Summary</h2>
 
 <div class="stats">
-  <div class="stat done"><div class="n">50</div><div class="l">Fully complete</div></div>
+  <div class="stat done"><div class="n">51</div><div class="l">Fully complete</div></div>
   <div class="stat part"><div class="n">4</div><div class="l">Partially complete</div></div>
-  <div class="stat todo"><div class="n">5</div><div class="l">Not implemented</div></div>
-  <div class="stat"><div class="n">85%</div><div class="l">Of all stories done</div></div>
+  <div class="stat todo"><div class="n">4</div><div class="l">Not implemented</div></div>
+  <div class="stat"><div class="n">86%</div><div class="l">Of all stories done</div></div>
 </div>
 
-<div class="bar" role="img" aria-label="50 complete, 4 partial, 5 not implemented">
-  <i class="d" style="width:84.7%"></i><i class="p" style="width:6.8%"></i><i class="t" style="width:8.5%"></i>
+<div class="bar" role="img" aria-label="51 complete, 4 partial, 4 not implemented">
+  <i class="d" style="width:86.4%"></i><i class="p" style="width:6.8%"></i><i class="t" style="width:6.8%"></i>
 </div>
 
 <div class="scroll">
@@ -154,7 +155,7 @@
   <tbody>
     <tr><td><strong>Basic (B)</strong></td><td>17</td><td>0</td><td>0</td><td>17</td></tr>
     <tr><td><strong>Intermediate (I)</strong></td><td>18</td><td>1</td><td>0</td><td>19</td></tr>
-    <tr><td><strong>Advanced (A)</strong></td><td>13</td><td>0</td><td>5</td><td>18</td></tr>
+    <tr><td><strong>Advanced (A)</strong></td><td>14</td><td>0</td><td>4</td><td>18</td></tr>
     <tr><td><strong>Platform (P)</strong></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
 </table>
@@ -169,7 +170,7 @@
     <tr><td><span class="role">Organiser</span></td><td>16</td><td>0</td><td>1</td><td>17</td></tr>
     <tr><td><span class="role">Educator</span></td><td>12</td><td>0</td><td>0</td><td>12</td></tr>
     <tr><td><span class="role">Student</span></td><td>8</td><td>0</td><td>0</td><td>8</td></tr>
-    <tr><td><span class="role">System</span></td><td>10</td><td>0</td><td>4</td><td>14</td></tr>
+    <tr><td><span class="role">System</span></td><td>11</td><td>0</td><td>3</td><td>14</td></tr>
     <tr><td><span class="role">Marker</span></td><td>2</td><td>1</td><td>0</td><td>3</td></tr>
     <tr><td><span class="role">Platform</span></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
   </tbody>
@@ -178,7 +179,7 @@
 
 <p><strong>The whole Basic tier is done.</strong> The Intermediate tier is done apart from moderation (I7), which
 works but can’t yet be used in the app. The Advanced tier is
-13 of 18 complete. What is left there is load testing (A1), paper variants (A6–A8) and one archive across
+14 of 18 complete. What is left there is load testing (A1), paper variants (A6, A7) and one archive across
 olympiads (A16).</p>
 
 <h2>Fully complete</h2>
@@ -245,7 +246,8 @@ olympiads (A16).</p>
     <tr><td class="id">A2</td><td><span class="role">System</span></td><td>One authoritative clock</td><td>The server clock decides every deadline (<code>server_time</code>, <code>round_close_snapshot</code>), and since 27 September every round time is entered and shown in the olympiad’s own timezone, labelled (e.g. “14:00 SAST”), so “on time” reads the same for every school whatever its devices are set to. Holidays are checked on the olympiad’s calendar</td></tr>
     <tr><td class="id">A4</td><td><span class="role">Organiser</span></td><td>Defensible deadline boundary</td><td>One written rule, applied by both routes: the closing instant is exclusive, so a submission received at or after it is late. Every ruling is stored in <code>submission_deadline_decisions</code> with the times compared and the rule quoted, and shows in the round replay (<code>roundAuditService.deadlineDecision</code>)</td></tr>
     <tr><td class="id">A3</td><td><span class="role">System</span></td><td>Count a submission exactly once</td><td>Deterministic <code>idempotency_key</code> from round+entrant+route, with a unique index and a pre-check</td></tr>
-    <tr><td class="id">A5</td><td><span class="role">Organiser</span></td><td>Papers from a question bank</td><td>While an exam is a draft, the organiser can copy questions from any of their earlier rounds onto it. Known bug: the same question can be imported more than once (defect #2)</td></tr>
+    <tr><td class="id">A5</td><td><span class="role">Organiser</span></td><td>Papers from a question bank</td><td>While an exam is a draft, the organiser can copy questions from any of their earlier rounds onto it. Each copy records its original, so the bank lists every question once, with the rounds it was used in, and refuses to put one on a paper twice, even from a double click</td></tr>
+    <tr><td class="id">A8</td><td><span class="role">System</span></td><td>Difficulty from real answers</td><td>Each question’s difficulty is 1 − average score ÷ max points over its marked answers, worked out on request so re-marks show at once (<code>questionDifficulty.js</code>). The organiser sees it on each question of the exam review page, and in the question bank, pooled across every round the question was used in, with an Easy / Medium / Hard filter</td></tr>
     <tr><td class="id">A9</td><td><span class="role">Organiser</span></td><td>One paper, online or on paper</td><td>Both routes use the round's one paper and are marked together. A learner who opens the exam online and loses their connection can still have paper answers captured: while the online attempt is unsubmitted, the capture replaces it (a submitted online exam still blocks paper). The educator page lists such learners as “Started online but not submitted”</td></tr>
     <tr><td class="id">A10</td><td><span class="role">System</span></td><td>Merge online and offline results</td><td>One result row per learner (<code>results</code> is unique on round + learner); marking, standings and the organiser's route counts treat both routes as one set</td></tr>
     <tr><td class="id">A11</td><td><span class="role">System</span></td><td>Reconcile dual-route entrants</td><td>A learner may use one route per round, first one wins: each route refuses the other with a clear message, and since 27 September the database enforces it too (unique on round + learner), so two requests at the same moment can't both get through</td></tr>
@@ -276,7 +278,7 @@ olympiads (A16).</p>
       <strong>Missing:</strong> no accessibility audit has been run; WCAG AA is claimed nowhere and verified nowhere.</td></tr>
     <tr><td class="id">P4</td><td><span class="role">Platform</span></td><td>Integrate an external service</td>
       <td><strong>Exists:</strong> Supabase provides auth, Postgres and file storage; Azure hosts both tiers. Since PR #58, round reminders, open/close notices and results notices are emailed to educators through EmailJS, the notification service the story names, and each email is recorded so it is sent once.
-      <strong>Missing:</strong> it isn’t switched on in production. The App Service has none of the EmailJS settings, so the deployed portal sends no email (defect #1).</td></tr>
+      <strong>Missing:</strong> it hasn’t yet been seen working on the live site. The EmailJS settings were added to the App Service on 28 September and a test email with them was delivered; the next round to open will confirm it.</td></tr>
     <tr><td class="id">P5</td><td><span class="role">Platform</span></td><td>Public documentation site</td>
       <td><strong>Exists:</strong> ten substantial documents under <code>docs/</code>.
       <strong>Missing:</strong> they are Markdown in the repository, not a published site — an evaluator still needs repository access.</td></tr>
@@ -294,7 +296,6 @@ olympiads (A16).</p>
     <tr><td class="id">A1</td><td><span class="role">System</span></td><td>Correct under peak load</td><td><span class="tag t-todo">Not started</span></td><td>No load testing exists. The lifecycle tick is idempotent, which helps, but this is unproven.</td></tr>
     <tr><td class="id">A6</td><td><span class="role">System</span></td><td>Per-entrant paper variants</td><td><span class="tag t-todo">Not started</span></td><td>No variant model. (<code>variant</code> in the codebase is a Button styling prop.)</td></tr>
     <tr><td class="id">A7</td><td><span class="role">System</span></td><td>Mark against the sat variant</td><td><span class="tag t-todo">Not started</span></td><td>Depends on A6.</td></tr>
-    <tr><td class="id">A8</td><td><span class="role">System</span></td><td>Difficulty from real answers</td><td><span class="tag t-todo">Not started</span></td><td>Answer data is stored, but nothing derives difficulty from it.</td></tr>
     <tr><td class="id">A16</td><td><span class="role">Organiser</span></td><td>One archive across olympiads</td><td><span class="tag t-todo">Not started</span></td><td>The archive endpoint is <code>/olympiads/:id/archive</code> — scoped per olympiad, which is the opposite of what the story asks.</td></tr>
   </tbody>
 </table>
@@ -302,7 +303,7 @@ olympiads (A16).</p>
 
 <h2>Defects and risks found</h2>
 <p class="sub"><code>docs/bug-tracking.md</code> records 47 bugs, every one marked <em>Fixed</em> — no open
-items at all, which suggests it is a history of resolved work rather than a live register. The six
+items at all, which suggests it is a history of resolved work rather than a live register. The four
 below are still open and are not in it.</p>
 
 <div class="note">
@@ -315,88 +316,8 @@ below are still open and are not in it.</p>
 
 <article class="issue" id="issue-1">
   <div class="issue-head">
-    <h3 class="issue-title">1. The deployed portal sends no email, because EmailJS isn’t configured on the App Service</h3>
+    <h3 class="issue-title">1. Deep links return HTTP 404 even though the page renders correctly</h3>
     <button class="copy" type="button" data-target="md-1">Copy as Markdown</button>
-  </div>
-  <p class="issue-meta">
-    <span class="tag t-todo sev-high">High</span>
-    <span class="role">config / hosting</span>
-  </p>
-  <h4>What is wrong</h4><p>Since PR #58 the backend emails educators through EmailJS: reminders before a round opens or closes, notices when it opens and closes, and a notice when results are released. The mailer reads four settings, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_USER_ID and EMAILJS_PRIVATE_KEY, and the App Service olympiad-portal-api has none of them. So in production every email is skipped, and the log says “[notifications] EmailJS is not configured; notification emails are not being sent”.</p>
-  <h4>Why it matters</h4><p>Educators get only the in-app notices, never an email, so a school that doesn’t log in misses the round opening and closing. It also leaves P4 (integrate an external service) partial: the integration is written, but it doesn’t run where anyone can see it. Until 28 September the dispatcher also recorded unsent emails as sent, so switching the settings on then would not have re-sent anything. That is fixed, so turning email on now works as expected.</p>
-  <h4>Where to look</h4><ul class="where"><li><code>backend/src/lib/mailer.ts: isMailerConfigured and deliver</code></li><li><code>backend/src/services/notificationDispatchService.js: skips the pass when the mailer isn’t configured</code></li><li><code>backend/.env.example: the four EMAILJS_ settings</code></li><li><code>Azure: App Service olympiad-portal-api, resource group olympiad-portal-rg, Settings → Environment variables</code></li></ul>
-  <h4>How to confirm it</h4><p>az webapp config appsettings list -g olympiad-portal-rg -n olympiad-portal-api --query "[].name" -o tsv lists no EMAILJS_ setting, and the App Service log stream shows the “not configured” warning once after each start.</p>
-  <h4>Suggested fix</h4><p>Take the four values from the EmailJS dashboard (service, template, public key as EMAILJS_USER_ID, private key) and set them on the App Service, without quotes (see defect #4). Setting them restarts the app. In the EmailJS account’s security settings, allow API calls from non-browser applications, since these come from the server. Check the plan’s monthly email quota against the number of educators: every notice goes to every educator of every approved school. To test, create a round that opens a few minutes ahead in an olympiad whose approved school has an educator with your own address.</p>
-  <h4>Done when</h4><ul class="done-list"><li>The four EMAILJS_ settings exist on the App Service</li><li>The “not configured” warning no longer appears in the log</li><li>A test notice reaches an inbox, and a row for it appears in sent_notifications</li></ul>
-  <script type="text/plain" id="md-1">**Severity:** High  |  **Area:** config / hosting
-
-### What is wrong
-Since PR #58 the backend emails educators through EmailJS: reminders before a round opens or closes, notices when it opens and closes, and a notice when results are released. The mailer reads four settings, EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_USER_ID and EMAILJS_PRIVATE_KEY, and the App Service olympiad-portal-api has none of them. So in production every email is skipped, and the log says "[notifications] EmailJS is not configured; notification emails are not being sent".
-
-### Why it matters
-Educators get only the in-app notices, never an email, so a school that doesn't log in misses the round opening and closing. It also leaves P4 (integrate an external service) partial: the integration is written, but it doesn't run where anyone can see it. Until 28 September the dispatcher also recorded unsent emails as sent, so switching the settings on then would not have re-sent anything. That is fixed, so turning email on now works as expected.
-
-### Where to look
-- `backend/src/lib/mailer.ts`: isMailerConfigured and deliver
-- `backend/src/services/notificationDispatchService.js`: skips the pass when the mailer isn't configured
-- `backend/.env.example`: the four EMAILJS_ settings
-- Azure: App Service olympiad-portal-api, resource group olympiad-portal-rg, Settings → Environment variables
-
-### How to confirm it
-`az webapp config appsettings list -g olympiad-portal-rg -n olympiad-portal-api --query "[].name" -o tsv` lists no EMAILJS_ setting, and the App Service log stream shows the "not configured" warning once after each start.
-
-### Suggested fix
-Take the four values from the EmailJS dashboard (service, template, public key as EMAILJS_USER_ID, private key) and set them on the App Service, without quotes (see defect #4). Setting them restarts the app. In the EmailJS account's security settings, allow API calls from non-browser applications, since these come from the server. Check the plan's monthly email quota against the number of educators: every notice goes to every educator of every approved school. To test, create a round that opens a few minutes ahead in an olympiad whose approved school has an educator with your own address.
-
-### Done when
-- [ ] The four EMAILJS_ settings exist on the App Service
-- [ ] The "not configured" warning no longer appears in the log
-- [ ] A test notice reaches an inbox, and a row for it appears in sent_notifications</script>
-</article>
-<article class="issue" id="issue-2">
-  <div class="issue-head">
-    <h3 class="issue-title">2. The question bank lets the same question be imported again, and fills up with duplicate copies</h3>
-    <button class="copy" type="button" data-target="md-2">Copy as Markdown</button>
-  </div>
-  <p class="issue-meta">
-    <span class="tag t-part sev-med">Medium</span>
-    <span class="role">backend / question bank</span>
-  </p>
-  <h4>What is wrong</h4><p>After an organiser imports a question from the question bank into a round, that question is still listed in the bank and can be imported again, so it can end up on the same paper twice or more. The bank hides only questions whose id is already on the paper, but importing creates a copy with a new id, so the original is never hidden.</p>
-  <h4>Why it matters</h4><p>Duplicate questions on a paper are answered twice and count twice towards the total. The bank also gets noisier over time: it lists questions from all of the organiser&#x27;s other rounds, including every copy ever imported, so a question reused in three rounds appears three times with nothing saying they are the same.</p>
-  <h4>Where to look</h4><ul class="where"><li><code>backend/src/services/questionService.js, listQuestionBank: excludes by the ids already on this paper</code></li><li><code>backend/src/services/questionService.js, importQuestions: creates copies without recording their source</code></li><li><code>backend/prisma/schema.prisma, model questions: no link from a copy to its original</code></li></ul>
-  <h4>How to confirm it</h4><p>Import a question from round A into draft round B: it stays listed in B&#x27;s bank and can be imported again. Open round C&#x27;s bank: the question appears twice, once from A and once from B.</p>
-  <h4>Suggested fix</h4><p>Add a nullable source_question_id to questions (onDelete SetNull), set it on import to the first version&#x27;s id, hide a bank question when it or its original is already on the paper, show copies under their original, and reject an import of a question already on the paper so a double click can&#x27;t get round the check. The test &quot;imports chosen questions from the bank into a draft exam&quot; in frontend/tests/integration/examReviewAndMarking.test.tsx currently checks that the original stays in the bank; flip that check with the fix.</p>
-  <h4>Done when</h4><ul class="done-list"><li>An imported question no longer appears in that round&#x27;s bank</li><li>The same question can&#x27;t end up on one paper twice, even if the request is sent twice</li><li>Each question appears once in the bank, however many rounds it has been copied into</li><li>Deleting an original question doesn&#x27;t affect its copies</li></ul>
-  <script type="text/plain" id="md-2">**Severity:** Medium  |  **Area:** backend / question bank
-
-### What is wrong
-After an organiser imports a question from the question bank into a round, that question is still listed in the bank and can be imported again, so it can end up on the same paper twice or more. The bank hides only questions whose id is already on the paper, but importing creates a copy with a new id, so the original is never hidden.
-
-### Why it matters
-Duplicate questions on a paper are answered twice and count twice towards the total. The bank also gets noisier over time: it lists questions from all of the organiser's other rounds, including every copy ever imported, so a question reused in three rounds appears three times with nothing saying they are the same.
-
-### Where to look
-- backend/src/services/questionService.js, listQuestionBank: excludes by the ids already on this paper
-- backend/src/services/questionService.js, importQuestions: creates copies without recording their source
-- backend/prisma/schema.prisma, model questions: no link from a copy to its original
-
-### How to confirm it
-Import a question from round A into draft round B: it stays listed in B's bank and can be imported again. Open round C's bank: the question appears twice, once from A and once from B.
-
-### Suggested fix
-Add a nullable source_question_id to questions (onDelete SetNull), set it on import to the first version's id, hide a bank question when it or its original is already on the paper, show copies under their original, and reject an import of a question already on the paper so a double click can't get round the check. The test "imports chosen questions from the bank into a draft exam" in frontend/tests/integration/examReviewAndMarking.test.tsx currently checks that the original stays in the bank; flip that check with the fix.
-
-### Done when
-- [ ] An imported question no longer appears in that round's bank
-- [ ] The same question can't end up on one paper twice, even if the request is sent twice
-- [ ] Each question appears once in the bank, however many rounds it has been copied into
-- [ ] Deleting an original question doesn't affect its copies</script>
-</article>
-<article class="issue" id="issue-3">
-  <div class="issue-head">
-    <h3 class="issue-title">3. Deep links return HTTP 404 even though the page renders correctly</h3>
-    <button class="copy" type="button" data-target="md-3">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -408,7 +329,7 @@ Add a nullable source_question_id to questions (onDelete SetNull), set it on imp
   <h4>How to confirm it</h4><p>curl -o /dev/null -w &#x27;%{http_code}&#x27; https://olympiadportalfe.z1.web.core.windows.net/organiser/schools returns 404 while the body is the app shell.</p>
   <h4>Suggested fix</h4><p>Accept it, or put Azure Front Door in front of the storage account to rewrite unmatched paths with a 200. Front Door costs money, so this is only worth doing if a custom domain is wanted anyway. Azure Static Web Apps would solve it natively but is unavailable — its five regions do not intersect the five this subscription&#x27;s policy permits.</p>
   <h4>Done when</h4><ul class="done-list"><li>Either the status is corrected, or the trade-off is recorded as an accepted decision</li></ul>
-  <script type="text/plain" id="md-3">**Severity:** Low  |  **Area:** frontend / hosting
+  <script type="text/plain" id="md-1">**Severity:** Low  |  **Area:** frontend / hosting
 
 ### What is wrong
 The frontend is served from Azure Blob Storage static website hosting, with `index.html` set as both the index and the error document. A request for a client-side route such as /organiser/schools therefore returns the app correctly, but with a 404 status rather than 200.
@@ -429,10 +350,10 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
 ### Done when
 - [ ] Either the status is corrected, or the trade-off is recorded as an accepted decision</script>
 </article>
-<article class="issue" id="issue-4">
+<article class="issue" id="issue-2">
   <div class="issue-head">
-    <h3 class="issue-title">4. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
-    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
+    <h3 class="issue-title">2. Values in .env are wrapped in quotes and break when copied elsewhere</h3>
+    <button class="copy" type="button" data-target="md-2">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -444,7 +365,7 @@ Accept it, or put Azure Front Door in front of the storage account to rewrite un
   <h4>How to confirm it</h4><p>Copy a quoted value into any environment variable that is read directly from process.env rather than from a .env file, and observe the failure.</p>
   <h4>Suggested fix</h4><p>Remove the quotes from the .env files so they match the examples, since nothing in them needs quoting. Add a line to the README warning that values must be pasted without quotes when configuring hosting or CI secrets.</p>
   <h4>Done when</h4><ul class="done-list"><li>The .env files and their examples use the same unquoted style</li><li>The README warns about hand-copying values</li></ul>
-  <script type="text/plain" id="md-4">**Severity:** Low  |  **Area:** config / developer experience
+  <script type="text/plain" id="md-2">**Severity:** Low  |  **Area:** config / developer experience
 
 ### What is wrong
 Every value in `backend/.env` and `frontend/.env` is wrapped in double quotes. Prisma and Vite both strip quotes when parsing a .env file, so local development works correctly and the problem is invisible day to day. But a value copied by hand into a Gitea secret or an Azure App Service setting carries the quotes with it, and the consuming code receives them as part of the string.
@@ -466,10 +387,10 @@ Remove the quotes from the .env files so they match the examples, since nothing 
 - [ ] The .env files and their examples use the same unquoted style
 - [ ] The README warns about hand-copying values</script>
 </article>
-<article class="issue" id="issue-5">
+<article class="issue" id="issue-3">
   <div class="issue-head">
-    <h3 class="issue-title">5. Two standing lint warnings, one of which can hide a real bug</h3>
-    <button class="copy" type="button" data-target="md-5">Copy as Markdown</button>
+    <h3 class="issue-title">3. Two standing lint warnings, one of which can hide a real bug</h3>
+    <button class="copy" type="button" data-target="md-3">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -481,7 +402,7 @@ Remove the quotes from the .env files so they match the examples, since nothing 
   <h4>How to confirm it</h4><p>Run `npm run lint` in frontend/. Both warnings appear.</p>
   <h4>Suggested fix</h4><p>In Olympiads.tsx, surface the error to the user instead of silently emptying the list. In ExamSitting.tsx, review the effect carefully before changing it — adding the dependencies naively may cause it to re-run more often than intended, so the fix is to restructure it rather than silence the warning.</p>
   <h4>Done when</h4><ul class="done-list"><li>npm run lint reports no warnings</li><li>A failed olympiad fetch shows an error rather than an empty list</li></ul>
-  <script type="text/plain" id="md-5">**Severity:** Low  |  **Area:** frontend / code quality
+  <script type="text/plain" id="md-3">**Severity:** Low  |  **Area:** frontend / code quality
 
 ### What is wrong
 `npm run lint` in frontend/ reports two warnings on every run. Both are pre-existing. The first is cosmetic; the second is the kind that can mask a genuine defect.
@@ -503,10 +424,10 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
 - [ ] npm run lint reports no warnings
 - [ ] A failed olympiad fetch shows an error rather than an empty list</script>
 </article>
-<article class="issue" id="issue-6">
+<article class="issue" id="issue-4">
   <div class="issue-head">
-    <h3 class="issue-title">6. Leftovers from the remark merge: an unused table, three tests that never run, and unused invitation emails</h3>
-    <button class="copy" type="button" data-target="md-6">Copy as Markdown</button>
+    <h3 class="issue-title">4. Leftovers from the remark merge: an unused table, three tests that never run, and unused invitation emails</h3>
+    <button class="copy" type="button" data-target="md-4">Copy as Markdown</button>
   </div>
   <p class="issue-meta">
     <span class="tag  sev-low">Low</span>
@@ -518,7 +439,7 @@ In Olympiads.tsx, surface the error to the user instead of silently emptying the
   <h4>How to confirm it</h4><p>grep -rn portal_remark_requests backend/src backend/prisma/schema.prisma finds nothing. node --test backend/tests/intermediateStories.test.cjs runs three tests that no CI log shows. grep -rn "InviteEmail" backend/src finds only the definitions.</p>
   <h4>Suggested fix</h4><p>Check that portal_remark_requests is empty in the shared database, then add a migration that drops it with IF EXISTS. Move the three node:test cases into Jest under tests/unit if they cover something the Jest suites don’t, otherwise delete the file. Remove the invite senders and their tests, keeping deliver and sendNotificationEmail.</p>
   <h4>Done when</h4><ul class="done-list"><li>portal_remark_requests is gone from every database</li><li>Every backend test file is run by CI</li><li>mailer.ts exports only what the backend uses</li></ul>
-  <script type="text/plain" id="md-6">**Severity:** Low  |  **Area:** backend / cleanup
+  <script type="text/plain" id="md-4">**Severity:** Low  |  **Area:** backend / cleanup
 
 ### What is wrong
 Three things were left behind when PR #53 brought in the result-linked remark_requests table. First, the table portal_remark_requests, which main used for remarks before, is no longer in the schema, but the migration that created it (20260924220100_intermediate_stories_data) still runs, so every database has it, unused. Second, backend/tests/intermediateStories.test.cjs uses Node's built-in test runner, and neither Jest config nor CI runs it, so its three tests never run. Third, sendSchoolInviteEmail, sendStudentInviteEmail and sendEducatorInviteEmail in mailer.ts were revived with the email work, but invitations are in-app and nothing calls them.
@@ -543,12 +464,15 @@ Check that portal_remark_requests is empty in the shared database, then add a mi
 - [ ] mailer.ts exports only what the backend uses</script>
 </article>
 
-<h3 id="fixed-28-sep">Found and fixed, 28 September</h3>
-<p class="sub">Found while checking the three merges; each fix has tests.</p>
+<h3 id="fixed-28-sep">Fixed, 28 September</h3>
+<p class="sub">The first two were defects #1 and #2 on this page; the rest were found while checking the three
+merges. Each code fix has tests.</p>
 <div class="scroll">
 <table>
   <thead><tr><th>Severity</th><th>What was wrong</th><th>Fix</th></tr></thead>
   <tbody>
+    <tr><td><span class="tag t-todo">High</span></td><td>The deployed portal sent no email: the App Service had none of the four EmailJS settings.</td><td>The settings were added to the App Service and a test email was delivered with them.</td></tr>
+    <tr><td><span class="tag t-part">Medium</span></td><td>The question bank kept listing a question after it was imported, so it could go on the same paper twice, and every copy appeared in the bank separately.</td><td>Each copy records its original (<code>source_question_id</code>). The bank lists a question once, hides it once it is on the paper, and an import of a question already there is refused, even two at once. A migration links copies made earlier.</td></tr>
     <tr><td><span class="tag t-todo">High</span></td><td>An email EmailJS refused was still recorded as sent, so it was never retried. With EmailJS unconfigured, every due notice was silently marked as sent.</td><td>Only delivered emails are recorded; the rest are retried on later ticks while still due. With EmailJS unconfigured the pass is skipped, with one warning.</td></tr>
     <tr><td><span class="tag t-todo">High</span></td><td>An educator’s re-mark of a remark changed only the student’s total and qualification. Ranks, other students and next-round entry stayed stale, and the change wasn’t logged.</td><td>Both remark paths share <code>resultRecalculationService</code>, which re-ranks the round and re-syncs next-round entry, and every re-mark is logged in <code>marking_reviews</code>.</td></tr>
     <tr><td><span class="tag t-part">Medium</span></td><td>A remark could be assigned, by hand or automatically, to an educator from the learner’s own school.</td><td>Both kinds of assignment skip the learner’s school, and the organiser is told when a remark has no one else to review it.</td></tr>
@@ -602,7 +526,7 @@ Check that portal_remark_requests is empty in the shared database, then add a mi
   <li><s>Resolve the remark branch.</s> <strong>Merged, 28 September.</strong> The team chose the branch’s
     result-linked design after all: PR #53 brought it into main with educator review and assignment, so the
     old table is main’s table again and nothing is orphaned. Its one leftover, the now-unused
-    portal_remark_requests table, is part of defect #6.</li>
+    portal_remark_requests table, is part of defect #4.</li>
   <li><s>Close the A10/A11 gap.</s> <strong>Done, 27 September.</strong> There was no double-counting:
     each route already refused a learner who had used the other. The rule was only checked in code, though,
     so the database now enforces one submission per learner per round, and a request that loses that race gets

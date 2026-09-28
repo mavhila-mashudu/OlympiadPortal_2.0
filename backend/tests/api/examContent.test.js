@@ -347,6 +347,121 @@ describe("POST /rounds/:roundId/question-bank/import", () => {
   });
 });
 
+// A question and the copies imported from it are one question in the bank:
+// listed once, never on one paper twice, and judged on all its answers
+describe("question families in the bank", () => {
+  const importInto = (api, round, ids) => api.post(`/rounds/${round.id}/question-bank/import`).send({ question_ids: ids });
+
+  // A question first set in round A and already copied into round B
+  const withCopy = async () => {
+    const world = await setup();
+    const roundA = await f.createRound({ olympiad: world.olympiad });
+    const roundB = await f.createRound({ olympiad: world.olympiad });
+    const { questions: [original] } = await f.createPaper({ round: roundA, questions: [mcq()] });
+    const { questions: [copy] } = expectOk(await importInto(world.organiserApi, roundB, [original.id]), 201);
+    return { ...world, roundA, roundB, original, copy };
+  };
+
+  it("lists a question once, as the original, with every round it was used in", async () => {
+    const { round, roundA, roundB, original, copy, organiserApi } = await withCopy();
+    expect(copy.source_question_id).toBe(original.id);
+
+    const { questions } = expectOk(await organiserApi.get(`/rounds/${round.id}/question-bank`));
+    expect(questions).toHaveLength(1);
+    expect(questions[0]).toMatchObject({ id: original.id, source_round: { id: roundA.id, name: roundA.name } });
+    expect(questions[0].used_in.map((r) => r.id).sort()).toEqual([roundA.id, roundB.id].sort());
+  });
+
+  it("drops a question from this round's bank once it is on the paper", async () => {
+    const { round, original, organiserApi } = await withCopy();
+    expectOk(await importInto(organiserApi, round, [original.id]), 201);
+
+    expect(expectOk(await organiserApi.get(`/rounds/${round.id}/question-bank`)).questions).toEqual([]);
+  });
+
+  it("refuses to put a question on a paper twice, whichever version is chosen", async () => {
+    const { round, original, copy, organiserApi } = await withCopy();
+    const message = "One or more of these questions is already on this paper";
+    expectOk(await importInto(organiserApi, round, [copy.id]), 201);
+
+    expectError(await importInto(organiserApi, round, [original.id]), 409, message);
+    expectError(await importInto(organiserApi, round, [copy.id]), 409, message);
+    const onPaper = await prisma.questions.findMany({ where: { papers: { round_id: round.id } } });
+    // Imported from the copy, it still records the original
+    expect(onPaper.map((q) => q.source_question_id)).toEqual([original.id]);
+  });
+
+  it("imports one copy when several versions of a question are chosen together", async () => {
+    const { round, original, copy, organiserApi } = await withCopy();
+    const { questions } = expectOk(await importInto(organiserApi, round, [original.id, copy.id]), 201);
+    expect(questions).toHaveLength(1);
+  });
+
+  it("lets only one of two imports at the same moment through", async () => {
+    const { round, original, organiserApi } = await withCopy();
+    const responses = await Promise.all([importInto(organiserApi, round, [original.id]), importInto(organiserApi, round, [original.id])]);
+
+    expect(responses.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(await prisma.questions.count({ where: { papers: { round_id: round.id } } })).toBe(1);
+  });
+
+  it("keeps the copies when the original is deleted", async () => {
+    const { original, copy } = await withCopy();
+    await prisma.questions.delete({ where: { id: original.id } });
+    expect(await prisma.questions.findUnique({ where: { id: copy.id } })).toMatchObject({ source_question_id: null });
+  });
+});
+
+// A8: a question's difficulty is 1 − average score ÷ max points, over its
+// marked answers
+describe("question difficulty", () => {
+  // One answer per learner at the given points; null leaves it unmarked
+  const answer = async (question, round, pointsList) => {
+    const school = await f.createSchool();
+    for (const points of pointsList) {
+      const entrant = await f.createEntrant({ school });
+      const submission = await prisma.submissions.create({
+        data: { round_id: round.id, entrant_id: entrant.id, route: "online", status: "marked", idempotency_key: `k-${entrant.id}`, round_close_snapshot: round.closes_at },
+      });
+      await prisma.answers.create({
+        data: { submission_id: submission.id, question_id: question.id, answer_value: "…", points_awarded: points, marked_at: points === null ? null : new Date() },
+      });
+    }
+  };
+
+  it("shows the organiser how hard each question proved in the round, from its marked answers", async () => {
+    const { round, organiserApi, educatorApi } = await setup();
+    const { questions: [prime, essay] } = await f.createPaper({ round, questions: [mcq(), { type: "essay", max_points: 10 }] });
+    // Half the marks on average; the unmarked answer doesn't count
+    await answer(prime, round, [4, 4, 0, 0, 2, null]);
+    await answer(essay, round, [10, 8, 9]);
+
+    const { questions } = expectOk(await organiserApi.get(`/rounds/${round.id}/questions`));
+    expect(questions.map((q) => q.difficulty)).toEqual([
+      { value: 0.5, band: "medium", answered: 5 },
+      { value: null, band: null, answered: 3 },
+    ]);
+
+    // Educators digitising the paper don't get it
+    const forEducator = expectOk(await educatorApi.get(`/rounds/${round.id}/questions`)).questions;
+    expect(forEducator[0]).not.toHaveProperty("difficulty");
+  });
+
+  it("judges a bank question on its answers in every round it was used in", async () => {
+    const world = await setup();
+    const roundA = await f.createRound({ olympiad: world.olympiad });
+    const roundB = await f.createRound({ olympiad: world.olympiad });
+    const { questions: [original] } = await f.createPaper({ round: roundA, questions: [mcq()] });
+    const { questions: [copy] } = expectOk(await world.organiserApi.post(`/rounds/${roundB.id}/question-bank/import`).send({ question_ids: [original.id] }), 201);
+    // Full marks in round A, none in round B
+    await answer(original, roundA, [4, 4, 4]);
+    await answer(copy, roundB, [0, 0, 0]);
+
+    const { questions } = expectOk(await world.organiserApi.get(`/rounds/${world.round.id}/question-bank`));
+    expect(questions[0].difficulty).toEqual({ value: 0.5, band: "medium", answered: 6 });
+  });
+});
+
 describe("GET /rounds/:roundId/exam-status", () => {
   it("summarises the exam and who approved it", async () => {
     const { round, organiser, organiserApi } = await setup({ exam_status: "live", approved_at: new Date("2026-09-01T10:00:00Z") });

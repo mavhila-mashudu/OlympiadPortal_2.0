@@ -4,7 +4,14 @@ const {
   NotFoundError,
   ForbiddenError,
   BadRequestError,
+  ConflictError,
 } = require("../errors/AppError");
+const { answerStats, describeDifficulty } = require("./questionDifficulty");
+
+// A question and every copy imported from it share the original's id
+const familyOf = (question) => question.source_question_id ?? question.id;
+
+const NO_ANSWERS = { points: 0, answered: 0 };
 
 // ─────────────────────────────────────────
 // HELPERS
@@ -12,15 +19,15 @@ const {
 
 // Resolve the paper for a round, creating it if it
 // doesn't exist yet.  Questions must attach to a paper.
-const ensurePaperForRound = async (roundId) => {
-  let paper = await prisma.papers.findFirst({ where: { round_id: roundId } });
+const ensurePaperForRound = async (roundId, db = prisma) => {
+  let paper = await db.papers.findFirst({ where: { round_id: roundId } });
 
   if (!paper) {
-    const round = await prisma.rounds.findUnique({
+    const round = await db.rounds.findUnique({
       where: { id: roundId },
       select: { name: true },
     });
-    paper = await prisma.papers.create({
+    paper = await db.papers.create({
       data: { round_id: roundId, title: round.name },
     });
   }
@@ -159,19 +166,24 @@ const listQuestions = async (roundId, userId, role) => {
       questions: { orderBy: { created_at: "asc" } },
     },
   });
+  const questions = paper ? paper.questions : [];
 
-  return paper ? paper.questions : [];
+  // Organisers also see how hard each question proved in this round
+  if (role !== "organiser") return questions;
+  const stats = await answerStats(questions.map((question) => question.id));
+  return questions.map((question) => ({
+    ...question,
+    difficulty: describeDifficulty([{ maxPoints: question.max_points, ...(stats.get(question.id) ?? NO_ANSWERS) }]),
+  }));
 };
 
 // List reusable questions from rounds owned by an organiser. Questions are
 // copied into a paper when selected, so editing a paper never changes the bank.
+// A question and its copies are listed once, as the original, with every
+// round it was used in and its difficulty over all of them. A question already
+// on this round's paper, as the original or a copy, is left out.
 const listQuestionBank = async (roundId, userId) => {
-  const round = await assertRoundAccess(roundId, userId, "organiser");
-  const currentQuestions = await prisma.questions.findMany({
-    where: { papers: { round_id: roundId } },
-    select: { id: true },
-  });
-  const excluded = new Set(currentQuestions.map((question) => question.id));
+  await assertRoundAccess(roundId, userId, "organiser");
 
   const questions = await prisma.questions.findMany({
     where: {
@@ -187,14 +199,40 @@ const listQuestionBank = async (roundId, userId) => {
     orderBy: { created_at: "desc" },
   });
 
-  return questions
-    .filter((question) => !excluded.has(question.id))
-    .map(({ papers, ...question }) => ({
-      ...question,
-      source_round: papers.rounds,
-    }));
+  const onThisPaper = new Set(
+    questions.filter((question) => question.papers.round_id === roundId).map(familyOf),
+  );
+  const families = new Map();
+  for (const question of questions) {
+    const family = familyOf(question);
+    if (onThisPaper.has(family)) continue;
+    if (!families.has(family)) families.set(family, []);
+    families.get(family).push(question);
+  }
+
+  const stats = await answerStats([...families.values()].flat().map((question) => question.id));
+
+  return [...families.entries()]
+    .map(([originalId, versions]) => {
+      const original = versions.find((version) => version.id === originalId) ?? versions[versions.length - 1];
+      const { papers, ...question } = original;
+      const usedIn = new Map(versions.map((version) => [version.papers.rounds.id, version.papers.rounds]));
+      return {
+        ...question,
+        source_round: papers.rounds,
+        used_in: [...usedIn.values()],
+        difficulty: describeDifficulty(versions.map((version) => ({
+          maxPoints: version.max_points,
+          ...(stats.get(version.id) ?? NO_ANSWERS),
+        }))),
+      };
+    })
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 };
 
+// Copies the chosen bank questions onto this round's paper. Each copy records
+// the original, and a question already on the paper (as the original or any
+// copy) is refused, so no question can appear on one paper twice.
 const importQuestions = async (roundId, userId, questionIds) => {
   const round = await assertRoundAccess(roundId, userId, "organiser");
   if (round.exam_status !== "draft") {
@@ -212,10 +250,31 @@ const importQuestions = async (roundId, userId, questionIds) => {
     throw new NotFoundError("One or more bank questions were not found");
   }
 
-  const paper = await ensurePaperForRound(roundId);
-  const imported = await prisma.$transaction(
-    sourceQuestions.map((question) =>
-      prisma.questions.create({
+  // One copy per question, however many of its versions were chosen,
+  // taken from the original when that was one of them
+  const toCopy = new Map();
+  for (const question of sourceQuestions) {
+    const family = familyOf(question);
+    if (!toCopy.has(family) || question.id === family) toCopy.set(family, question);
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // Imports into one round take turns, so two at once (a double click)
+    // can't both create the paper or both pass the check below
+    await tx.$queryRaw`SELECT "id" FROM "rounds" WHERE "id" = ${roundId}::uuid FOR UPDATE`;
+    const paper = await ensurePaperForRound(roundId, tx);
+    const current = await tx.questions.findMany({
+      where: { paper_id: paper.id },
+      select: { id: true, source_question_id: true },
+    });
+    const onPaper = new Set(current.map(familyOf));
+    if ([...toCopy.keys()].some((family) => onPaper.has(family))) {
+      throw new ConflictError("One or more of these questions is already on this paper");
+    }
+
+    const imported = [];
+    for (const [family, question] of toCopy) {
+      imported.push(await tx.questions.create({
         data: {
           paper_id: paper.id,
           type: question.type,
@@ -225,12 +284,12 @@ const importQuestions = async (roundId, userId, questionIds) => {
           correct_answer: question.correct_answer ?? undefined,
           negative_pct: question.negative_pct,
           max_points: question.max_points,
+          source_question_id: family,
         },
-      }),
-    ),
-  );
-
-  return imported;
+      }));
+    }
+    return imported;
+  });
 };
 
 // ─────────────────────────────────────────

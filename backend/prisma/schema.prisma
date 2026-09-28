@@ -215,8 +215,15 @@ model questions {
   negative_pct   Decimal   @default(0) @db.Decimal
   max_points     Decimal   @default(1) @db.Decimal
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  // A question imported from the bank points at the original it was copied
+  // from (never at another copy), so all uses of a question are one family
+  source_question_id String?     @db.Uuid
+  source_question    questions?  @relation("QuestionCopies", fields: [source_question_id], references: [id], onDelete: SetNull)
+  copies             questions[] @relation("QuestionCopies")
   answers        answers[]
   papers         papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade)
+
+  @@index([source_question_id])
 }
 
 model answers {

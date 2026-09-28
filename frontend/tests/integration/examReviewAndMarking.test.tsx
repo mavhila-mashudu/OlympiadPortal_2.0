@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
+import type { Difficulty } from "../../src/lib/questions";
 import * as fx from "./support/fixtures";
 import { mockApi, mockApiError } from "./support/network";
 import { renderApp } from "./support/renderApp";
@@ -164,9 +165,12 @@ describe("organiser exam review", () => {
       bankQuestion({ id: "bank-1", prompt: "Name a prime between 10 and 20." }),
       bankQuestion({ id: "bank-2", type: "essay", prompt: "Why is 1 not prime?" }),
     ];
-    mockApi("get", "/rounds/round-1/question-bank", () => ({ questions: bank }));
+    // Like the backend, the bank leaves out questions already on this paper
+    const onPaper = new Set<string>();
+    mockApi("get", "/rounds/round-1/question-bank", () => ({ questions: bank.filter((q) => !onPaper.has(q.id)) }));
     const imports = mockApi("post", "/rounds/round-1/question-bank/import", (req) => {
       const ids = (req.body as { question_ids: string[] }).question_ids;
+      ids.forEach((id) => onPaper.add(id));
       const copies = bank.filter((q) => ids.includes(q.id)).map((q) => fx.question({ ...q, id: `copy-${q.id}` }));
       state.questions = [...state.questions, ...copies];
       return { questions: copies };
@@ -182,12 +186,79 @@ describe("organiser exam review", () => {
 
     await waitFor(() => expect(imports).toHaveLength(1));
     expect(imports[0].body).toEqual({ question_ids: ["bank-2"] });
-    // The copy joins the paper and the selection clears. The backend leaves
-    // the original in the bank (it only hides questions already on this
-    // paper, and the copy has a new id), so it can still be picked again.
+    // The copy joins the paper, and the question leaves the bank, so it
+    // can't be picked for this paper again
     expect(await screen.findByText("Q5")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /Why is 1 not prime\?/ })).not.toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: /Why is 1 not prime\?/ })).not.toBeInTheDocument();
+    expect(screen.getByText("No questions match.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import selected" })).toBeDisabled();
+  });
+
+  it("says why an import was refused", async () => {
+    mockReview({ status: "draft" });
+    mockApi("get", "/rounds/round-1/question-bank", { questions: [bankQuestion({ id: "bank-1", prompt: "Name a prime between 10 and 20." })] });
+    mockApiError("post", "/rounds/round-1/question-bank/import", 409, "One or more of these questions is already on this paper");
+    const { user } = renderApp("/organiser/rounds/round-1/review");
+
+    await user.click(await screen.findByRole("checkbox", { name: /Name a prime between 10 and 20\./ }));
+    await user.click(screen.getByRole("button", { name: "Import 1" }));
+
+    expect(await screen.findByText("One or more of these questions is already on this paper")).toBeInTheDocument();
+  });
+
+  // A8: difficulty is 1 − average score ÷ max points over marked answers
+  it("shows how hard each question proved once it has been answered", async () => {
+    const state = mockReview({ status: "live" });
+    const [prime, zero, product, proof] = questions();
+    const rated = <Q,>(question: Q, difficulty: Difficulty) => ({ ...question, difficulty });
+    state.questions = [
+      rated(prime, { value: 0.72, band: "hard", answered: 43 }),
+      rated(zero, { value: null, band: null, answered: 3 }),
+      rated(product, { value: 0.1, band: "easy", answered: 20 }),
+      rated(proof, { value: null, band: null, answered: 0 }),
+    ];
+    renderApp("/organiser/rounds/round-1/review");
+
+    await screen.findByText("Which of these are prime?");
+    const card = (prompt: string) => screen.getByText(prompt).parentElement!;
+    expect(within(card("Which of these are prime?")).getByText("Hard · 28% average · 43 answers")).toBeInTheDocument();
+    expect(within(card("Zero is even.")).getByText("Not enough answers yet · 3 answers")).toBeInTheDocument();
+    expect(within(card("What is 7 × 8?")).getByText("Easy · 90% average · 20 answers")).toBeInTheDocument();
+    // Nobody has answered it, so nothing is shown
+    expect(within(card("Prove there are infinitely many primes.")).queryByText(/average|answers/)).not.toBeInTheDocument();
+  });
+
+  it("filters the bank by difficulty and says where each question was used", async () => {
+    mockReview({ status: "draft" });
+    mockApi("get", "/rounds/round-1/question-bank", {
+      questions: [
+        bankQuestion({
+          id: "bank-easy",
+          prompt: "Is 2 prime?",
+          used_in: [{ id: "round-0", name: "2025 Heats" }, { id: "round-00", name: "2025 Final" }],
+          difficulty: { value: 0.15, band: "easy", answered: 60 },
+        }),
+        bankQuestion({ id: "bank-hard", prompt: "Prove Fermat's little theorem.", difficulty: { value: 0.9, band: "hard", answered: 12 } }),
+        bankQuestion({ id: "bank-new", prompt: "Is 91 prime?", difficulty: { value: null, band: null, answered: 0 } }),
+      ],
+    });
+    const { user } = renderApp("/organiser/rounds/round-1/review");
+
+    expect(await screen.findByText("Multiple choice · 2025 Heats · used in 2 rounds")).toBeInTheDocument();
+    expect(screen.getByText("Easy · 85% average · 60 answers")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hard" }));
+    expect(screen.getByRole("button", { name: "Hard" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("Prove Fermat's little theorem.")).toBeInTheDocument();
+    expect(screen.queryByText("Is 2 prime?")).not.toBeInTheDocument();
+    // A question with no difficulty yet only shows under All
+    expect(screen.queryByText("Is 91 prime?")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Medium" }));
+    expect(screen.getByText("No questions match.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "All" }));
+    expect(screen.getByText("Is 91 prime?")).toBeInTheDocument();
   });
 
   it("only offers the bank while the exam is a draft", async () => {
