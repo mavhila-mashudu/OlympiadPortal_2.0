@@ -115,7 +115,7 @@ describe("olympiads page", () => {
       "oly-1",
       "2",
       "3",
-      "Invite EducatorEditDelete",
+      "Invite EducatorEdit olympiadDelete",
     ]);
 
     await user.type(screen.getByPlaceholderText("e.g. 2026 National Competition"), "Science Olympiad");
