@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    // The Playwright suite runs in Node, so it needs process, Buffer and friends.
+    "types": ["node"]
+  },
+  "include": ["playwright.config.ts", "e2e"]
+}

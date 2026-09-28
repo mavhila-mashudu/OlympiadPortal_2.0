@@ -36,6 +36,31 @@ describe("organiser dashboard", () => {
     expect(screen.getByRole("heading", { name: "Maths Olympiad 2026 — Rounds" })).toBeInTheDocument();
   });
 
+  // Round times are the olympiad's official times, whatever the viewer's
+  // device is set to: the table and the edit form must agree
+  it("shows and edits round times in the olympiad's timezone", async () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    const round = fx.organiserRound({ id: "r-1", name: "Round 1", opens_at: "2026-10-01T06:00:00.000Z", closes_at: "2026-10-01T08:30:00.000Z" });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [round] });
+    const edits = mockApi("patch", "/rounds/r-1", { round, warnings: [] });
+    const { user } = renderApp("/organiser");
+
+    const row = (await screen.findByText("Round 1")).closest("tr")!;
+    expect(within(row).getByText("01 Oct 2026, 08:00 SAST")).toBeInTheDocument();
+    expect(within(row).getByText("01 Oct 2026, 10:30 SAST")).toBeInTheDocument();
+
+    await user.click(within(row).getByRole("button", { name: "Edit" }));
+    const opens = screen.getByLabelText("Opens at (SAST)");
+    expect(opens).toHaveValue("2026-10-01T08:00");
+    expect(screen.getByLabelText("Closes at (SAST)")).toHaveValue("2026-10-01T10:30");
+
+    fireEvent.change(opens, { target: { value: "2026-10-01T09:00" } });
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(edits).toHaveLength(1));
+    expect(edits[0].body).toMatchObject({ opens_at: "2026-10-01T07:00:00.000Z", closes_at: "2026-10-01T08:30:00.000Z" });
+  });
+
   it("opens a round and shows its new state", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
     let current = rounds();
@@ -115,15 +140,30 @@ describe("olympiads page", () => {
       "oly-1",
       "2",
       "3",
-      "Invite SchoolEditDelete",
+      "Invite EducatorEditDelete",
     ]);
 
     await user.type(screen.getByPlaceholderText("e.g. 2026 National Competition"), "Science Olympiad");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(await screen.findByText("Science Olympiad")).toBeInTheDocument();
-    expect(created[0].body).toEqual({ name: "Science Olympiad" });
+    // South African time unless the organiser picks another zone
+    expect(created[0].body).toEqual({ name: "Science Olympiad", timezone: "Africa/Johannesburg" });
     expect(screen.getByPlaceholderText("e.g. 2026 National Competition")).toHaveValue("");
+  });
+
+  it("creates an olympiad in the timezone the organiser picks", async () => {
+    mockApi("get", "/olympiads", { olympiads: [] });
+    const created = mockApi("post", "/olympiads", { olympiad: fx.olympiad({ timezone: "Africa/Nairobi" }) }, { status: 201 });
+    const { user } = renderApp("/organiser/olympiads");
+
+    await user.type(await screen.findByPlaceholderText("e.g. 2026 National Competition"), "East Africa Olympiad");
+    await user.selectOptions(screen.getByLabelText("Timezone"), "Africa/Nairobi");
+    await user.click(screen.getByRole("button", { name: "Create" }));
+
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0].body).toEqual({ name: "East Africa Olympiad", timezone: "Africa/Nairobi" });
+    expect(screen.getByLabelText("Timezone")).toHaveValue("Africa/Johannesburg");
   });
 
   it("labels the signed-in user as an organiser", async () => {
@@ -143,28 +183,33 @@ describe("olympiads page", () => {
     expect(await screen.findByText("Name is required")).toBeInTheDocument();
   });
 
-  it("invites a school to the olympiad chosen in the table", async () => {
+  it("invites an educator to the olympiad chosen in the table", async () => {
     mockApi("get", "/olympiads", {
       olympiads: [fx.olympiad(), fx.olympiad({ id: "oly-2", name: "Science Olympiad" })],
     });
-    const invites = mockApi("post", "/auth/invite-school", { code: "SCH-AB12", emailDelivered: true }, { status: 201 });
+    mockApi("get", "/invites/candidates", {
+      candidates: [
+        { id: "edu-1", name: "Ms Naidoo", email: "naidoo@parktown.test", school: { id: "school-1", name: "Parktown High" } },
+      ],
+    });
+    const invites = mockApi("post", "/invites", { invite: { id: "inv-1" } }, { status: 201 });
     const { user } = renderApp("/organiser/olympiads");
 
     const science = (await screen.findByText("Science Olympiad")).closest("tr")!;
-    await user.click(within(science).getByRole("button", { name: "Invite School" }));
+    await user.click(within(science).getByRole("button", { name: "Invite Educator" }));
 
     expect(screen.getByLabelText("Olympiad")).toHaveValue("oly-2");
-    await user.type(screen.getByLabelText("School name"), "Parktown High");
-    await user.type(screen.getByLabelText("Contact email"), "head@parktown.test");
+    await user.selectOptions(await screen.findByLabelText("Educator"), "edu-1");
     await user.click(screen.getByRole("button", { name: "Send invitation" }));
 
-    expect(await screen.findByText("SCH-AB12")).toBeInTheDocument();
-    expect(invites[0].body).toEqual({ school_name: "Parktown High", contact_email: "head@parktown.test", olympiad_id: "oly-2" });
+    expect(await screen.findByText(/Ms Naidoo will see this invitation/)).toBeInTheDocument();
+    expect(invites[0].body).toEqual({ olympiad_id: "oly-2", invitee_id: "edu-1" });
   });
 });
 
 describe("schools page", () => {
-  // GET /olympiads/:id/schools returns invitations merged with registered schools
+  // GET /olympiads/:id/schools returns participating schools plus outstanding
+  // educator invitations
   const schools = [
     {
       id: "inv-1",
@@ -179,7 +224,7 @@ describe("schools page", () => {
       status: "accepted",
     },
     { id: "inv-2", name: "Northview College", address: null, entrants: 0, educators: [], contactEmail: "principal@northview.test", status: "pending" },
-    { id: "inv-3", name: "Old Invite School", address: null, entrants: 0, educators: [], contactEmail: null, status: "expired" },
+    { id: "inv-3", name: "Declined School", address: null, entrants: 0, educators: [], contactEmail: null, status: "declined" },
   ];
 
   it("shows each school's educators, entrants and invitation status", async () => {
@@ -192,37 +237,46 @@ describe("schools page", () => {
     expect(within(parktown).getByText("2")).toBeInTheDocument();
     expect(within(parktown).getByRole("link", { name: "pillay@parktown.test" })).toHaveAttribute("href", "mailto:pillay@parktown.test");
     expect(within(parktown).getByText("35")).toBeInTheDocument();
-    expect(within(parktown).getByText("Accepted")).toBeInTheDocument();
+    expect(within(parktown).getByText("Participating")).toBeInTheDocument();
     expect(within(parktown).getByText("head@parktown.test")).toBeInTheDocument();
-    expect(within(await row("Northview College")).getByText("Pending")).toBeInTheDocument();
-    expect(within(await row("Old Invite School")).getByText("Expired")).toBeInTheDocument();
+    expect(within(await row("Northview College")).getByText("Invited")).toBeInTheDocument();
+    expect(within(await row("Declined School")).getByText("Declined")).toBeInTheDocument();
     expect(screen.queryByText("Invalid Date")).not.toBeInTheDocument();
   });
 
-  it("invites a school from the dialog and refreshes the list", async () => {
+  it("invites an educator from the dialog and refreshes the list", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
     let list: typeof schools = [];
     const listCalls = mockApi("get", "/olympiads/oly-1/schools", () => ({ schools: list }));
+    mockApi("get", "/invites/candidates", {
+      candidates: [
+        {
+          id: "edu-2",
+          name: "Mr Khumalo",
+          email: "principal@northview.test",
+          school: { id: "school-2", name: "Northview College" },
+        },
+      ],
+    });
     const invites = mockApi(
       "post",
-      "/auth/invite-school",
+      "/invites",
       () => {
         list = [schools[1]];
-        return { code: "SCH-NV01", emailDelivered: true };
+        return { invite: { id: "inv-2" } };
       },
       { status: 201 },
     );
     const { user } = renderApp("/organiser/schools");
 
-    expect(await screen.findByText(/No schools registered yet/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Invite school" }));
+    expect(await screen.findByText(/No schools taking part yet/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Invite educator" }));
     expect(screen.queryByLabelText("Olympiad")).not.toBeInTheDocument();
-    await user.type(screen.getByLabelText("School name"), "Northview College");
-    await user.type(screen.getByLabelText("Contact email"), "principal@northview.test");
+    await user.selectOptions(await screen.findByLabelText("Educator"), "edu-2");
     await user.click(screen.getByRole("button", { name: "Send invitation" }));
 
-    expect(await screen.findByText("SCH-NV01")).toBeInTheDocument();
-    expect(invites[0].body).toMatchObject({ olympiad_id: "oly-1" });
+    expect(await screen.findByText(/Mr Khumalo will see this invitation/)).toBeInTheDocument();
+    expect(invites[0].body).toEqual({ olympiad_id: "oly-1", invitee_id: "edu-2" });
     await waitFor(() => expect(listCalls).toHaveLength(2));
 
     await user.click(screen.getByRole("button", { name: "Close" }));
@@ -242,7 +296,8 @@ describe("creating a round", () => {
   });
 
   const fillRoundForm = async (user: ReturnType<typeof renderApp>["user"]) => {
-    await user.selectOptions(await screen.findByLabelText(/^Olympiad/), "oly-1");
+    await screen.findByRole("option", { name: "Maths Olympiad 2026" });
+    await user.selectOptions(screen.getByLabelText(/^Olympiad/), "oly-1");
     await user.type(screen.getByLabelText(/^Round name/), "Round 3 — Provincial");
     await user.type(screen.getByLabelText("Qualifying threshold"), "62.5");
     await user.type(screen.getByLabelText("Instructions for educators"), "Calculators allowed");
@@ -258,20 +313,25 @@ describe("creating a round", () => {
     const { user, currentPath } = renderApp("/organiser/rounds/new");
 
     await fillRoundForm(user);
+    // The form says which timezone the typed times are in
+    expect(screen.getByText(/Times are in the olympiad's timezone \(SAST\)/)).toBeInTheDocument();
     await user.upload(screen.getByLabelText("Paper file"), new File(["%PDF-1.4"], "round3.pdf", { type: "application/pdf" }));
     await user.click(screen.getByRole("button", { name: "Create round" }));
 
     await waitFor(() => expect(currentPath()).toBe("/organiser"));
+    // 08:00 and 10:30 typed for a South African olympiad are 06:00 and 08:30 UTC
     expect(created[0].body).toEqual({
       name: "Round 3 — Provincial",
       notes: "Calculators allowed",
-      opens_at: `${localInput}:00.000Z`,
-      closes_at: `${localClose}:00.000Z`,
+      opens_at: "2026-10-01T06:00:00.000Z",
+      closes_at: "2026-10-01T08:30:00.000Z",
       qualifying_threshold: 62.5,
     });
+    // Holidays are checked on that olympiad's calendar
     expect(dateChecks[0].body).toEqual({
-      opens_at: "2026-10-01T08:00:00.000Z",
-      closes_at: "2026-10-01T10:30:00.000Z",
+      opens_at: "2026-10-01T06:00:00.000Z",
+      closes_at: "2026-10-01T08:30:00.000Z",
+      olympiad_id: "oly-1",
     });
     expect(uploads).toHaveLength(1);
     expect(uploads[0].headers.get("authorization")).toBe("Bearer test-token");

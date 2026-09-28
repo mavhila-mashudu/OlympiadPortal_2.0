@@ -2,7 +2,7 @@
 // account and logging out — each one clicked through the real UI.
 import { expect, test } from "@playwright/test";
 import { readResetLink, signIn } from "./helpers";
-import { INVITE, PASSWORD, USERS } from "./test-data";
+import { PASSWORD, SCHOOL, USERS } from "./test-data";
 
 test.describe("signing in", () => {
   test("each role signs in and lands on their own dashboard", async ({ page }) => {
@@ -57,19 +57,38 @@ test.describe("signing up", () => {
     await signIn(page, { email, password: PASSWORD }, "/organiser");
   });
 
-  test("a student joins with the invitation code from their school", async ({ page }) => {
+  test("a student signs up by picking their school, with no invitation code", async ({ page }) => {
     const email = `new.student.${Date.now()}@e2e.test`;
 
     await page.goto("/signup");
-    await page.getByRole("button", { name: /Educator \/ Student/ }).click();
-    await page.getByLabel("Full name").fill("Invited Learner");
+    await page.getByRole("radio", { name: /Student/ }).click();
+    await expect(page.getByLabel("Invitation code")).toBeHidden();
+
+    await page.getByLabel("School").selectOption({ label: SCHOOL.name });
+    await page.getByLabel("Full name").fill("New Learner");
     await page.getByLabel("Email address").fill(email);
     await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
-    await page.getByLabel("Invitation code").fill(INVITE.code);
     await page.getByRole("button", { name: "Create account" }).click();
 
     await expect(page).toHaveURL(/\/student$/);
     await expect(page.getByRole("heading", { name: "Your olympiad" })).toBeVisible();
+  });
+
+  test("an educator signs up and brings a new school onto the platform", async ({ page }) => {
+    const email = `new.educator.${Date.now()}@e2e.test`;
+    const school = `Eastridge Academy ${Date.now()}`;
+
+    await page.goto("/signup");
+    await page.getByRole("radio", { name: /Educator/ }).click();
+    await page.getByLabel("School").selectOption("__new__");
+    await page.getByLabel("School name").fill(school);
+    await page.getByLabel("Full name").fill("New Educator");
+    await page.getByLabel("Email address").fill(email);
+    await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
+    await page.getByRole("button", { name: "Create account" }).click();
+
+    await expect(page).toHaveURL(/\/educator$/);
+    await expect(page.getByRole("heading", { name: "Your rounds" })).toBeVisible();
   });
 });
 

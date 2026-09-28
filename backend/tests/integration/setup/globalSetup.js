@@ -38,7 +38,6 @@ module.exports = async () => {
     NODE_ENV: "test",
     DATABASE_URL: url,
     DIRECT_URL: url,
-    ORGANISER_SECRET: "integration-test-secret",
     SUPABASE_URL: "http://supabase.invalid",
     SUPABASE_SERVICE_ROLE_KEY: "integration-test-key",
     SUPABASE_SERVICE_KEY: "integration-test-key",

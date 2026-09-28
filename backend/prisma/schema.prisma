@@ -8,45 +8,47 @@ datasource db {
 }
 
 model users {
-  id                  String        @id @db.Uuid
-  email               String        @unique
+  id                  String               @id @db.Uuid
+  email               String               @unique
   full_name           String
   auth_provider_id    String?
-  created_at          DateTime      @default(now()) @db.Timestamptz(6)
-  deleted_at          DateTime?     @db.Timestamptz(6)
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  deleted_at          DateTime?            @db.Timestamptz(6)
   role                user_role
-  answers             answers[]
-  educators           educators?
-  entrants            entrants?
-  sent_invitations    invitations[] @relation("sent_by")
-  claimed_invitations invitations[] @relation("claimed_by")
-  olympiads           olympiads[]
-  school_memberships  school_memberships[]
+  answers              answers[]
+  portal_notifications portal_notifications[]
+  marking_reviews      marking_reviews[]
+  educators            educators?
+  entrants             entrants?
+  invites_sent         olympiad_invites[]     @relation("invited_by")
+  invites_received     olympiad_invites[]     @relation("invitee")
+  olympiads            olympiads[]
+  school_memberships   school_memberships[]
 }
 
-model invitations {
-  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code          String      @unique
-  token_hash    String?     @unique
-  type          invite_type
-  intended_school_role school_role?
-  school_name   String?
-  olympiad_id   String?     @db.Uuid
-  school_id     String?     @db.Uuid
-  email         String?
-  used_by_id    String?     @db.Uuid
-  accepted_at   DateTime?   @db.Timestamptz(6)
-  created_by_id String?     @db.Uuid
-  expires_at    DateTime    @db.Timestamptz(6)
-  created_at    DateTime    @default(now()) @db.Timestamptz(6)
-  created_by    users?     @relation("sent_by", fields: [created_by_id], references: [id], onDelete: Cascade)
-  olympiads     olympiads?  @relation(fields: [olympiad_id], references: [id])
-  schools       schools?    @relation(fields: [school_id], references: [id])
-  used_by       users?       @relation("claimed_by", fields: [used_by_id], references: [id], onDelete: Cascade)
+// An invitation to take part in an olympiad, delivered in-app rather than by
+// email: anyone can sign up on their own, and an invite simply appears on the
+// invitee's dashboard for them to accept or reject.
+model olympiad_invites {
+  id            String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  olympiad_id   String           @db.Uuid
+  school_id     String?          @db.Uuid
+  invitee_id    String           @db.Uuid
+  invited_by_id String           @db.Uuid
+  role          user_role
+  status        invite_status    @default(pending)
+  message       String?
+  created_at    DateTime         @default(now()) @db.Timestamptz(6)
+  responded_at  DateTime?        @db.Timestamptz(6)
+  olympiads     olympiads        @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
+  schools       schools?         @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  invitee       users            @relation("invitee", fields: [invitee_id], references: [id], onDelete: Cascade)
+  invited_by    users            @relation("invited_by", fields: [invited_by_id], references: [id], onDelete: Cascade)
 
-  @@index([code])
+  @@unique([olympiad_id, invitee_id])
+  @@index([invitee_id, status])
+  @@index([olympiad_id, status])
   @@index([school_id])
-  @@index([olympiad_id])
 }
 
 model schools {
@@ -56,7 +58,7 @@ model schools {
   created_at           DateTime               @default(now()) @db.Timestamptz(6)
   educators            educators[]
   entrants             entrants[]
-  invitations          invitations[]
+  olympiad_invites     olympiad_invites[]
   school_registrations school_registrations[]
   school_memberships   school_memberships[]
 }
@@ -98,6 +100,7 @@ model entrants {
   schools               schools                 @relation(fields: [school_id], references: [id])
   users                 users?                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   results               results[]
+  remark_requests       remark_requests[]
   submissions           submissions[]
 }
 
@@ -107,11 +110,11 @@ model olympiads {
   organiser_id         String                 @db.Uuid
   timezone             String                 @default("Africa/Johannesburg")
   created_at           DateTime               @default(now()) @db.Timestamptz(6)
-  invitations          invitations[]
+  olympiad_invites     olympiad_invites[]
   users                users                  @relation(fields: [organiser_id], references: [id], onDelete: Cascade)
   rounds               rounds[]
   school_registrations school_registrations[]
-  notification_rules notification_rules[]
+  notification_rules   notification_rules[]
 }
 
 model notification_rules {
@@ -121,12 +124,14 @@ model notification_rules {
   trigger         notification_trigger
   offset_minutes  Int                    @default(0)
   recipient       notification_recipient
-  channel         notification_channel   @default(email)
+  channel         notification_channel   @default(in_app)
+  action          String                 @default("notify_recipients")
   condition       String?
   enabled         Boolean                @default(true)
   created_at      DateTime               @default(now()) @db.Timestamptz(6)
   updated_at      DateTime               @updatedAt @db.Timestamptz(6)
   olympiads       olympiads              @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
+  portal_notifications portal_notifications[]
 
   @@index([olympiad_id, enabled])
 }
@@ -142,20 +147,20 @@ model sent_notifications {
   round_id  String   @db.Uuid
   recipient String
   sent_at   DateTime @default(now()) @db.Timestamptz(6)
-  rounds    rounds   @relation(fields: [round_id], references: [id], onDelete: Cascade)
+  rounds    rounds   @relation(fields: [round_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([dedup_key, round_id, recipient])
   @@index([round_id])
 }
 
 model school_registrations {
-  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  school_id     String    @db.Uuid
-  olympiad_id   String    @db.Uuid
-  registered_at DateTime  @default(now()) @db.Timestamptz(6)
+  id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id     String              @db.Uuid
+  olympiad_id   String              @db.Uuid
+  registered_at DateTime            @default(now()) @db.Timestamptz(6)
   status        registration_status @default(approved)
-  olympiads     olympiads @relation(fields: [olympiad_id], references: [id])
-  schools       schools   @relation(fields: [school_id], references: [id])
+  olympiads     olympiads           @relation(fields: [olympiad_id], references: [id])
+  schools       schools             @relation(fields: [school_id], references: [id])
 
   @@unique([school_id, olympiad_id])
 }
@@ -177,9 +182,11 @@ model rounds {
   entrant_registrations entrant_registrations[]
   papers                papers[]
   results               results[]
+  sent_notifications    sent_notifications[]
   olympiads             olympiads               @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
   submissions           submissions[]
-  sent_notifications    sent_notifications[]
+  remark_requests       remark_requests[]
+  portal_notifications  portal_notifications[]
 
   @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
 }
@@ -222,6 +229,7 @@ model answers {
   marked_by      String?     @db.Uuid
   marked_at      DateTime?   @db.Timestamptz(6)
   users          users?      @relation(fields: [marked_by], references: [id])
+  marking_reviews marking_reviews[]
   questions      questions   @relation(fields: [question_id], references: [id])
   submissions    submissions @relation(fields: [submission_id], references: [id], onDelete: Cascade)
 
@@ -245,7 +253,8 @@ model submissions {
   rounds               rounds            @relation(fields: [round_id], references: [id])
   educators            educators?        @relation(fields: [submitted_by], references: [id])
 
-  @@unique([round_id, entrant_id, route])
+  // One submission per learner per round, whichever route it came by (A11)
+  @@unique([round_id, entrant_id])
 }
 
 model entrant_registrations {
@@ -263,18 +272,38 @@ model entrant_registrations {
 }
 
 model results {
-  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  round_id     String    @db.Uuid
-  entrant_id   String    @db.Uuid
-  total_points Decimal   @default(0) @db.Decimal
-  rank         Int?
-  qualified    Boolean   @default(false)
-  finalised_at DateTime? @db.Timestamptz(6)
-  entrants     entrants  @relation(fields: [entrant_id], references: [id])
-  rounds       rounds    @relation(fields: [round_id], references: [id])
+  id              String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  round_id        String            @db.Uuid
+  entrant_id      String            @db.Uuid
+  total_points    Decimal           @default(0) @db.Decimal
+  rank            Int?
+  qualified       Boolean           @default(false)
+  finalised_at    DateTime?         @db.Timestamptz(6)
+  entrants        entrants          @relation(fields: [entrant_id], references: [id])
+  rounds          rounds            @relation(fields: [round_id], references: [id])
+  remark_requests remark_requests[]
 
   @@unique([round_id, entrant_id])
   @@index([round_id, rank], map: "idx_results_round_rank")
+}
+
+model remark_requests {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  result_id   String        @unique @db.Uuid
+  round_id    String?       @db.Uuid
+  entrant_id  String?       @db.Uuid
+  reason      String
+  status      remark_status @default(pending)
+  reviewer_id String?       @db.Uuid
+  review_note String?
+  decision    String?
+  decided_at  DateTime?     @db.Timestamptz(6)
+  created_at  DateTime      @default(now()) @db.Timestamptz(6)
+  reviewed_at DateTime?     @db.Timestamptz(6)
+
+  results  results   @relation(fields: [result_id], references: [id])
+  rounds   rounds?   @relation(fields: [round_id], references: [id])
+  entrants entrants? @relation(fields: [entrant_id], references: [id])
 }
 
 enum round_state {
@@ -304,10 +333,10 @@ enum user_role {
   student
 }
 
-enum invite_type {
-  school
-  educator
-  student
+enum invite_status {
+  pending
+  accepted
+  rejected
 }
 
 enum school_role {
@@ -333,6 +362,7 @@ enum exam_status {
 }
 
 enum notification_trigger {
+  missing_submission
   round_opens
   round_closes
   results_released
@@ -345,5 +375,42 @@ enum notification_recipient {
 }
 
 enum notification_channel {
+  in_app
   email
+}
+
+enum remark_status {
+  pending
+  reviewed
+  approved
+  rejected
+}
+
+model portal_notifications {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id String @db.Uuid
+  rule_id String? @db.Uuid
+  round_id String? @db.Uuid
+  dedupe_key String @unique
+  title String
+  body String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  read_at DateTime? @db.Timestamptz(6)
+  users users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  notification_rules notification_rules? @relation(fields: [rule_id], references: [id], onDelete: SetNull)
+  rounds rounds? @relation(fields: [round_id], references: [id], onDelete: Cascade)
+  @@index([user_id, created_at])
+}
+
+
+model marking_reviews {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  answer_id String @db.Uuid
+  reviewer_id String @db.Uuid
+  original_points Decimal @db.Decimal
+  revised_points Decimal @db.Decimal
+  comment String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  answers answers @relation(fields: [answer_id], references: [id], onDelete: Cascade)
+  users users @relation(fields: [reviewer_id], references: [id], onDelete: Cascade)
 }

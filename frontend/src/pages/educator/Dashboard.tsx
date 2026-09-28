@@ -1,3 +1,5 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { InviteInbox } from "../../components/invites/InviteInbox";
 import { AppShell } from "../../components/layout/AppShell";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
@@ -24,6 +26,7 @@ import {
 import styles from "./Dashboard.module.css";
 
 function EducatorDashboard() {
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useEducatorRounds();
   const overviewQuery = useEducatorOverview();
   const rounds = data?.rounds ?? [];
@@ -46,6 +49,10 @@ function EducatorDashboard() {
             <p>Olympiad rounds relevant to {schoolName}.</p>
           </div>
         </header>
+
+        <InviteInbox
+          onAccepted={() => queryClient.invalidateQueries({ queryKey: ["educator"] })}
+        />
 
         {isLoading && (
           <p className={styles.roundNote}>Loading rounds…</p>
@@ -80,11 +87,11 @@ function EducatorDashboard() {
                   <dl className={styles.dateGrid}>
                     <div>
                       <dt>Opens</dt>
-                      <dd>{formatDate(round.opens_at)}</dd>
+                      <dd>{formatDate(round.opens_at, round.timezone)}</dd>
                     </div>
                     <div>
                       <dt>Closes</dt>
-                      <dd>{formatDate(round.closes_at)}</dd>
+                      <dd>{formatDate(round.closes_at, round.timezone)}</dd>
                     </div>
                   </dl>
 

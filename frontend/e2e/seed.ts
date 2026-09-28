@@ -6,10 +6,11 @@ import {
   DRAFT_ROUND,
   EDUCATOR_PROFILE_ID,
   ENTRANT_ID,
-  INVITE,
+  JOINING_ENTRANT_ID,
   LIVE_ROUND,
   OLYMPIAD,
   SCHOOL,
+  UNREGISTERED_SCHOOL,
   USERS,
 } from "./test-data";
 
@@ -26,10 +27,13 @@ export async function seedDatabase(db: PGlite) {
       ${user(USERS.educator, "educator")},
       ${user(USERS.student, "student")},
       ${user(USERS.disposable, "organiser")},
-      ${user(USERS.resetting, "organiser")};
+      ${user(USERS.resetting, "organiser")},
+      ${user(USERS.otherEducator, "educator")},
+      ${user(USERS.joiningStudent, "student")};
 
-    INSERT INTO schools (id, name, address)
-      VALUES ('${SCHOOL.id}', '${SCHOOL.name}', '1 Park Road');
+    INSERT INTO schools (id, name, address) VALUES
+      ('${SCHOOL.id}', '${SCHOOL.name}', '1 Park Road'),
+      ('${UNREGISTERED_SCHOOL.id}', '${UNREGISTERED_SCHOOL.name}', '9 North Street');
 
     INSERT INTO olympiads (id, name, organiser_id)
       VALUES ('${OLYMPIAD.id}', '${OLYMPIAD.name}', '${USERS.organiser.id}');
@@ -40,11 +44,18 @@ export async function seedDatabase(db: PGlite) {
     INSERT INTO educators (id, user_id, school_id)
       VALUES ('${EDUCATOR_PROFILE_ID}', '${USERS.educator.id}', '${SCHOOL.id}');
 
-    INSERT INTO school_memberships (user_id, school_id, role, status)
-      VALUES ('${USERS.educator.id}', '${SCHOOL.id}', 'coordinator', 'active');
+    INSERT INTO school_memberships (user_id, school_id, role, status) VALUES
+      ('${USERS.educator.id}', '${SCHOOL.id}', 'coordinator', 'active'),
+      ('${USERS.otherEducator.id}', '${UNREGISTERED_SCHOOL.id}', 'coordinator', 'active');
 
-    INSERT INTO entrants (id, user_id, school_id, full_name, grade, external_ref)
-      VALUES ('${ENTRANT_ID}', '${USERS.student.id}', '${SCHOOL.id}', '${USERS.student.fullName}', '11', 'STU-001');
+    -- A coordinator at a school that has not joined the olympiad yet, so the
+    -- organiser has someone to invite
+    INSERT INTO educators (id, user_id, school_id)
+      VALUES ('${UNREGISTERED_SCHOOL.educatorProfileId}', '${USERS.otherEducator.id}', '${UNREGISTERED_SCHOOL.id}');
+
+    INSERT INTO entrants (id, user_id, school_id, full_name, grade, external_ref) VALUES
+      ('${ENTRANT_ID}', '${USERS.student.id}', '${SCHOOL.id}', '${USERS.student.fullName}', '11', 'STU-001'),
+      ('${JOINING_ENTRANT_ID}', '${USERS.joiningStudent.id}', '${SCHOOL.id}', '${USERS.joiningStudent.fullName}', '10', 'STU-002');
 
     -- A live, open round: the student can sit it online
     INSERT INTO rounds (id, olympiad_id, name, opens_at, closes_at, state, exam_status, qualifying_threshold)
@@ -70,11 +81,6 @@ export async function seedDatabase(db: PGlite) {
     INSERT INTO rounds (id, olympiad_id, name, opens_at, closes_at, state, exam_status)
       VALUES ('${DRAFT_ROUND.id}', '${OLYMPIAD.id}', '${DRAFT_ROUND.name}',
               '${hoursFromNow(48)}', '${hoursFromNow(50)}', 'scheduled', 'draft');
-
-    -- A pending student invitation, used by the sign-up test
-    INSERT INTO invitations (id, code, type, school_id, olympiad_id, created_by_id, expires_at)
-      VALUES ('${INVITE.id}', '${INVITE.code}', 'student', '${SCHOOL.id}', '${OLYMPIAD.id}',
-              '${USERS.educator.id}', '${hoursFromNow(24 * 30)}');
   `);
 }
 

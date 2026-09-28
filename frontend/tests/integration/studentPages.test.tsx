@@ -14,6 +14,7 @@ const registeredRound = (overrides: Record<string, unknown> = {}) => ({
   id: fx.id("round"),
   title: "Round 1",
   olympiadTitle: "Maths Olympiad 2026",
+  timezone: "Africa/Johannesburg",
   opens_at: fx.inHours(-1),
   closes_at: fx.inHours(2),
   status: "open",
@@ -85,6 +86,7 @@ describe("student round page", () => {
     id: "round-1",
     title: "Round 2 — Regional",
     olympiadTitle: "Maths Olympiad 2026",
+  timezone: "Africa/Johannesburg",
     schoolName: "Parktown High",
     opens_at: fx.inHours(-1),
     closes_at: fx.inHours(2),
@@ -218,8 +220,8 @@ describe("student results", () => {
   it("lists released and pending results with links to each round", async () => {
     mockApi("get", "/rounds/my-results", {
       results: [
-        { id: "round-2", round: "Round 2 — Regional", olympiadTitle: "Maths Olympiad 2026", closes_at: "2026-08-01T10:00:00.000Z", resultStatus: "pending", score: "—", percentage: "—", rank: null, hasCertificate: false },
-        { id: "round-1", round: "Round 1 — School", olympiadTitle: "Maths Olympiad 2026", closes_at: "2026-05-01T10:00:00.000Z", resultStatus: "released", score: "17 / 20", percentage: "85%", rank: 1, hasCertificate: true },
+        { id: "round-2", round: "Round 2 — Regional", olympiadTitle: "Maths Olympiad 2026", timezone: "Africa/Johannesburg", closes_at: "2026-08-01T10:00:00.000Z", resultStatus: "pending", score: "—", percentage: "—", rank: null, hasCertificate: false },
+        { id: "round-1", round: "Round 1 — School", olympiadTitle: "Maths Olympiad 2026", timezone: "Africa/Johannesburg", closes_at: "2026-05-01T10:00:00.000Z", resultStatus: "released", score: "17 / 20", percentage: "85%", rank: 1, hasCertificate: true },
       ],
     });
     // The round detail page each result links to loads its own round
@@ -229,15 +231,16 @@ describe("student results", () => {
     const released = (await screen.findByRole("link", { name: "Round 1 — School" })).closest("tr")!;
     expect(within(released).getAllByRole("cell").map((c) => c.textContent)).toEqual([
       "Round 1 — School",
-      "May 1, 2026",
+      "01 May 2026",
       "Marked",
       "17 / 20",
       "85%",
       "Download",
+    "Request remark",
     ]);
     const pending = screen.getByRole("link", { name: "Round 2 — Regional" }).closest("tr")!;
     expect(within(pending).getByText("Pending")).toBeInTheDocument();
-    expect(within(pending).getAllByText("—")).toHaveLength(3);
+    expect(within(pending).getAllByText("—")).toHaveLength(4);
 
     await user.click(screen.getByRole("link", { name: "Round 1 — School" }));
     expect(currentPath()).toBe("/student/rounds/round-1");

@@ -12,7 +12,7 @@
 
 const MODELS = [
   "users",
-  "invitations",
+  "olympiad_invites",
   "schools",
   "school_memberships",
   "educators",
@@ -20,6 +20,9 @@ const MODELS = [
   "olympiads",
   "notification_rules",
   "sent_notifications",
+  "portal_notifications",
+  "remark_requests",
+  "marking_reviews",
   "school_registrations",
   "rounds",
   "papers",
@@ -35,12 +38,14 @@ const METHODS = [
   "findFirst",
   "findMany",
   "create",
+  "createMany",
   "update",
   "updateMany",
   "upsert",
   "delete",
   "deleteMany",
   "count",
+  "groupBy",
 ];
 
 const prisma = { $transaction: jest.fn() };

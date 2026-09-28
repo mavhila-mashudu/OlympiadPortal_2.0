@@ -14,16 +14,21 @@ describe("migrations", () => {
       "educators",
       "entrant_registrations",
       "entrants",
-      "invitations",
+      "marking_reviews",
       "notification_rules",
+      "olympiad_invites",
       "olympiads",
       "papers",
+      "portal_notifications",
+      "portal_remark_requests",
       "questions",
+      "remark_requests",
       "results",
       "rounds",
       "school_memberships",
       "school_registrations",
       "schools",
+      "sent_notifications",
       "submissions",
       "users",
     ]);
@@ -89,10 +94,13 @@ describe("unique constraints", () => {
     await expectUniqueViolation(f.registerSchool(school, olympiad));
   });
 
-  it("keeps invitation codes and link-token hashes unique", async () => {
-    await f.createInvitation({ code: "STU-SAME", token_hash: "hash-1" });
-    await expectUniqueViolation(f.createInvitation({ code: "STU-SAME" }));
-    await expectUniqueViolation(f.createInvitation({ token_hash: "hash-1" }));
+  it("invites a person to an olympiad only once", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser });
+    const { user: invitee, school } = await f.createEducator();
+    const args = { olympiad, invitee, invitedBy: organiser, school };
+    await f.createInvite(args);
+    await expectUniqueViolation(f.createInvite(args));
   });
 
   it("registers an entrant for a round only once", async () => {
@@ -103,16 +111,16 @@ describe("unique constraints", () => {
     await expectUniqueViolation(f.registerEntrant({ entrant, round, educator }));
   });
 
-  it("allows one submission per entrant, round and route", async () => {
+  it("allows one submission per entrant and round, whichever route it came by", async () => {
     const { olympiad, school } = await f.createOlympiadWithSchool();
     const round = await f.createRound({ olympiad, state: "open" });
     const entrant = await f.createEntrant({ school });
-    const submission = (key) =>
+    const submission = (key, route = "online") =>
       prisma.submissions.create({
         data: {
           round_id: round.id,
           entrant_id: entrant.id,
-          route: "online",
+          route,
           idempotency_key: key,
           round_close_snapshot: round.closes_at,
         },
@@ -121,6 +129,9 @@ describe("unique constraints", () => {
     await submission("key-1");
     await expectUniqueViolation(submission("key-1"));
     await expectUniqueViolation(submission("key-2"));
+    // Paper results for a learner who already sat online would count them twice
+    await expectUniqueViolation(submission("key-3", "offline"));
+    expect(await prisma.submissions.count()).toBe(1);
   });
 
   it("allows one result per entrant per round", async () => {
@@ -146,20 +157,21 @@ describe("unique constraints", () => {
 
 describe("delete rules", () => {
   it("removes an organiser's olympiads, rounds, rules and invitations with the account", async () => {
+    const { user: invitee, school } = await f.createEducator();
     const organiser = await f.createOrganiser();
     const olympiad = await f.createOlympiad({ organiser });
     await f.createRound({ olympiad });
     await prisma.notification_rules.create({
       data: { olympiad_id: olympiad.id, name: "Reminder", trigger: "round_opens", recipient: "registered_schools" },
     });
-    await f.createInvitation({ created_by_id: organiser.id, olympiad_id: olympiad.id, type: "school" });
+    await f.createInvite({ olympiad, invitee, invitedBy: organiser, school });
 
     await prisma.users.delete({ where: { id: organiser.id } });
 
     expect(await prisma.olympiads.count()).toBe(0);
     expect(await prisma.rounds.count()).toBe(0);
     expect(await prisma.notification_rules.count()).toBe(0);
-    expect(await prisma.invitations.count()).toBe(0);
+    expect(await prisma.olympiad_invites.count()).toBe(0);
   });
 
   it("removes an educator's profile and memberships with the account", async () => {

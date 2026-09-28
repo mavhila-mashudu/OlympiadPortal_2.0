@@ -17,6 +17,7 @@ const mockLandingPages = () => {
   mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
   mockApi("get", "/educator/rounds", { rounds: [], school: fx.school });
   mockApi("get", "/rounds/registered", { rounds: [], stats: { roundsEntered: 0, resultsAvailable: 0, certificatesEarned: 0 } });
+  mockApi("get", "/invites/mine", { invites: [] });
 };
 
 beforeEach(() => {
@@ -114,14 +115,26 @@ describe("signing up", () => {
     await user.type(screen.getByLabelText("Password"), "Secret123");
   };
 
+  const mockSchools = () =>
+    mockApi("get", "/auth/schools", {
+      schools: [
+        { id: "school-1", name: "Parktown High" },
+        { id: "school-2", name: "Northview College" },
+      ],
+    });
+
   it("registers an organiser, signs them in and opens the organiser dashboard", async () => {
     mockLandingPages();
-    const registrations = mockApi("post", "/auth/register/organiser", { user: { id: "organiser-user" } }, { status: 201 });
+    mockSchools();
+    const registrations = mockApi("post", "/auth/register", { user: { id: "organiser-user" } }, { status: 201 });
     mockSupabaseSignIn({ userId: "organiser-user", accessToken: "fresh-jwt" });
     mockApi("get", "/auth/me", fx.me("organiser"));
     const { user, currentPath } = renderApp("/signup");
 
+    // An organiser needs no school, and no invitation code exists any more
+    expect(screen.queryByLabelText("School")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Invitation code")).not.toBeInTheDocument();
+
     await fillDetails(user);
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
@@ -131,12 +144,14 @@ describe("signing up", () => {
       full_name: "Thandi Mokoena",
       email: "thandi@olympiad.test",
       password: "Secret123",
+      role: "organiser",
     });
     expect(localStorage.getItem("op_access_token")).toBe("fresh-jwt");
   });
 
   it("shows the backend's validation error and doesn't sign in", async () => {
-    mockApiError("post", "/auth/register/organiser", 409, "Email already registered");
+    mockSchools();
+    mockApiError("post", "/auth/register", 409, "Email already registered");
     const signIns = mockSupabaseSignIn({ userId: "x" });
     const { user, currentPath } = renderApp("/signup");
 
@@ -148,16 +163,17 @@ describe("signing up", () => {
     expect(currentPath()).toBe("/signup");
   });
 
-  it("registers an invited educator with the code they typed", async () => {
+  it("registers an educator against a school picked from the list, with no invitation code", async () => {
     mockLandingPages();
+    mockSchools();
     const registrations = mockApi("post", "/auth/register", { user: { id: "educator-user" } }, { status: 201 });
     mockSupabaseSignIn({ userId: "educator-user" });
     mockApi("get", "/auth/me", fx.me("educator"));
     const { user, currentPath } = renderApp("/signup");
 
-    await user.click(screen.getByRole("button", { name: /Educator \/ Student/ }));
+    await user.click(screen.getByRole("radio", { name: /Educator/ }));
+    await user.selectOptions(await screen.findByLabelText("School"), "school-1");
     await fillDetails(user);
-    await user.type(screen.getByLabelText("Invitation code"), "EDU-1A2B-3C4D");
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
     expect(await screen.findByRole("heading", { name: "Your rounds" })).toBeInTheDocument();
@@ -166,28 +182,66 @@ describe("signing up", () => {
       full_name: "Thandi Mokoena",
       email: "thandi@olympiad.test",
       password: "Secret123",
-      code: "EDU-1A2B-3C4D",
-      invite_token: "",
+      role: "educator",
+      school_id: "school-1",
     });
   });
 
-  it("opens an emailed invitation link in the invited form and sends its token", async () => {
+  it("lets an educator name a school that is not listed yet", async () => {
     mockLandingPages();
+    mockSchools();
+    const registrations = mockApi("post", "/auth/register", { user: { id: "educator-user" } }, { status: 201 });
+    mockSupabaseSignIn({ userId: "educator-user" });
+    mockApi("get", "/auth/me", fx.me("educator"));
+    const { user } = renderApp("/signup");
+
+    await user.click(screen.getByRole("radio", { name: /Educator/ }));
+    await user.selectOptions(await screen.findByLabelText("School"), "__new__");
+    await user.type(screen.getByLabelText("School name"), "Eastridge Academy");
+    await fillDetails(user);
+    await user.click(screen.getByRole("button", { name: "Create account" }));
+
+    await waitFor(() => expect(registrations).toHaveLength(1));
+    expect(registrations[0].body).toEqual({
+      full_name: "Thandi Mokoena",
+      email: "thandi@olympiad.test",
+      password: "Secret123",
+      role: "educator",
+      school_name: "Eastridge Academy",
+    });
+  });
+
+  it("registers a student against an existing school, and offers no way to invent one", async () => {
+    mockLandingPages();
+    mockSchools();
     const registrations = mockApi("post", "/auth/register", { user: { id: "student-user" } }, { status: 201 });
     mockSupabaseSignIn({ userId: "student-user" });
     mockApi("get", "/auth/me", fx.me("student"));
-    const { user, currentPath } = renderApp("/register?token=emailed-token&code=STU-9F8E-7D6C");
+    const { user, currentPath } = renderApp("/signup");
 
-    expect(screen.getByLabelText("Invitation code")).toHaveValue("STU-9F8E-7D6C");
+    await user.click(screen.getByRole("radio", { name: /Student/ }));
+    const schoolSelect = await screen.findByLabelText("School");
+    expect(within(schoolSelect).queryByText(/isn’t listed/)).not.toBeInTheDocument();
+
+    await user.selectOptions(schoolSelect, "school-2");
     await fillDetails(user);
     await user.click(screen.getByRole("button", { name: "Create account" }));
 
     expect(await screen.findByRole("heading", { name: "Your olympiad" })).toBeInTheDocument();
     expect(currentPath()).toBe("/student");
-    expect(registrations[0].body).toMatchObject({ code: "STU-9F8E-7D6C", invite_token: "emailed-token" });
+    expect(registrations[0].body).toMatchObject({ role: "student", school_id: "school-2" });
+  });
+
+  it("still offers the school list when /register is opened directly", async () => {
+    mockSchools();
+    renderApp("/register");
+
+    expect(screen.getByRole("heading", { name: "Create account" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Invitation code")).not.toBeInTheDocument();
   });
 
   it("links back to login", async () => {
+    mockSchools();
     const { user, currentPath } = renderApp("/signup");
     await user.click(screen.getByRole("link", { name: "Log in" }));
     expect(currentPath()).toBe("/login");

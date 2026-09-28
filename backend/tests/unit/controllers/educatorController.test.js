@@ -11,6 +11,10 @@ jest.mock("../../../src/services/educatorService", () => ({
   listAllResults: jest.fn(),
   listPastPapers: jest.fn(),
   getPaperDownloadUrl: jest.fn(),
+  listRemarks: jest.fn(),
+  getRemarkSubmissionAnswers: jest.fn(),
+  updateRemarkAnswer: jest.fn(),
+  resolveRemark: jest.fn(),
 }));
 
 const educatorService = require("../../../src/services/educatorService");
@@ -123,6 +127,46 @@ describeControllerCases(controller, [
     req: roundReq({ query: { type: "memo" } }),
     args: ["round-1", "edu-user", "memo"],
     json: (result) => ok({ url: result }),
+  },
+  {
+    handler: "listRemarks",
+    service: educatorService,
+    method: "listRemarks",
+    req: mockReq({ user }),
+    args: ["edu-user"],
+    json: (remarks) => ok({ remarks }),
+  },
+  {
+    handler: "getRemarkSubmissionAnswers",
+    service: educatorService,
+    method: "getRemarkSubmissionAnswers",
+    req: mockReq({ user, params: { remarkId: "rem-1" } }),
+    args: ["rem-1", "edu-user"],
+    json: (data) => ok(data),
+  },
+  {
+    handler: "updateRemarkAnswer",
+    service: educatorService,
+    method: "updateRemarkAnswer",
+    req: mockReq({
+      user,
+      params: { remarkId: "rem-1", answerId: "ans-1" },
+      body: { points_awarded: 4, is_correct: true },
+    }),
+    args: ["rem-1", "ans-1", "edu-user", { points_awarded: 4, is_correct: true }],
+    json: (data) => ok(data),
+  },
+  {
+    handler: "resolveRemark",
+    service: educatorService,
+    method: "resolveRemark",
+    req: mockReq({
+      user,
+      params: { remarkId: "rem-1" },
+      body: { status: "reviewed", review_note: "Accepted" },
+    }),
+    args: ["rem-1", "edu-user", { status: "reviewed", review_note: "Accepted" }],
+    json: (remark) => ok({ remark }),
   },
 ]);
 

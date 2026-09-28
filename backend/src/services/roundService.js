@@ -24,7 +24,7 @@ const createRound = async ({
   closesAt,
   qualifyingThreshold,
 }) => {
-  await assertOwnsOlympiad(olympiadId, organiserId);
+  const olympiad = await assertOwnsOlympiad(olympiadId, organiserId);
 
   const opens = new Date(opensAt);
   const closes = new Date(closesAt);
@@ -36,7 +36,7 @@ const createRound = async ({
     throw new BadRequestError("closes_at must be after opens_at");
   }
 
-  const warnings = await checkDatesForHolidays([opens, closes]);
+  const warnings = await checkDatesForHolidays([opens, closes], olympiad.timezone);
 
   const round = await prisma.rounds.create({
     data: {
@@ -52,6 +52,24 @@ const createRound = async ({
     },
   });
 
+  // If this is the next round created after results were released, carry
+  // qualified entrants forward now as well.
+  const previous = await prisma.rounds.findFirst({
+    where: { olympiad_id: olympiadId, opens_at: { lt: opens } },
+    orderBy: { opens_at: "desc" },
+    select: { id: true, state: true },
+  });
+  if (previous?.state === "results_released") {
+    const qualified = await prisma.results.findMany({ where: { round_id: previous.id, qualified: true }, select: { entrant_id: true } });
+    const registrations = await prisma.entrant_registrations.findMany({
+      where: { round_id: previous.id, entrant_id: { in: qualified.map((r) => r.entrant_id) } },
+      select: { entrant_id: true, registered_by: true },
+    });
+    if (registrations.length) await prisma.entrant_registrations.createMany({
+      data: registrations.map((r) => ({ entrant_id: r.entrant_id, registered_by: r.registered_by, round_id: round.id })),
+      skipDuplicates: true,
+    });
+  }
   return { round, warnings };
 };
 
@@ -137,7 +155,7 @@ const updateRound = async (
     data.closes_at = closes;
   }
 
-  const warnings = await checkDatesForHolidays([opens, closes]);
+  const warnings = await checkDatesForHolidays([opens, closes], round.olympiads?.timezone);
 
   const updated = await prisma.rounds.update({
     where: { id: roundId },
@@ -195,22 +213,19 @@ const setRoundState = async (roundId, organiserId, state) => {
     );
   }
 
+  if (state === "results_released") {
+    // Delegates to generateResults, which records results_release_at —
+    // the notification dispatcher uses it to send "results are out"
+    // notices.
+    const { generateResults } = require("./markingService");
+    await generateResults(roundId, organiserId, "organiser");
+    return getRound(roundId, organiserId);
+  }
+
   const updated = await prisma.rounds.update({
     where: { id: roundId },
-    data:
-      state === "results_released"
-        ? // Record the actual release moment — the notification
-          // dispatcher uses it to send "results are out" notices.
-          { state, results_release_at: new Date() }
-        : { state },
+    data: { state },
   });
-
-  if (state === "results_released") {
-    await prisma.papers.updateMany({
-      where: { round_id: roundId },
-      data: { is_archived: true, released_at: new Date() },
-    });
-  }
 
   // Closing a round kicks off auto-marking,
   // matching the lifecycle job's behaviour.

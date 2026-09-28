@@ -71,7 +71,7 @@ OKLCH provides perceptually uniform colours — colours at the same lightness va
 | Section heading | Semi-bold (600) | Card titles                   |
 | Body            | Regular (400)   | Content, labels, descriptions |
 | Small           | Regular (400)   | Timestamps, helper text       |
-| Mono            | Monospace       | Invitation codes, IDs         |
+| Mono            | Monospace       | IDs and reference numbers     |
 
 ### Spacing and Layout
 
@@ -113,7 +113,7 @@ OKLCH provides perceptually uniform colours — colours at the same lightness va
 
 **Login page (/login):** Centred card on subtle background. Fields for email, password, and a role selector (Organiser/Educator/Student) as tabbed pills. "Forgot password" link and "Create account" link below the submit button.
 
-**Signup page (/signup):** Same centred card layout. Fields for full name, email, password (with requirements helper text: min 8 chars, uppercase, number), and invitation code with an inline "Verify code" button that shows the school and olympiad details before confirming registration.
+**Signup page (/signup):** Same centred card layout. An account-type selector (Organiser / Educator / Student), then full name, email and password (with requirements helper text: min 8 chars, uppercase, number). Educators and students also pick their school from a dropdown; an educator whose school is not listed can choose “My school isn’t listed…” and type its name. No invitation code is involved — anyone can sign up.
 
 ### Organiser Pages
 
@@ -123,7 +123,7 @@ OKLCH provides perceptually uniform colours — colours at the same lightness va
 
 **Create Round (/organiser/rounds/new):** Form with round name, olympiad selector, opens_at and closes_at date-time pickers, optional qualifying threshold, and file upload sections for paper and memo PDFs.
 
-**Schools (/organiser/schools):** Table of registered schools for the selected olympiad. "Invite School" button opens a form for school name and contact email. Shows invitation status (pending, accepted, expired).
+**Schools (/organiser/schools):** Table of the schools taking part in the selected olympiad. "Invite educator" opens a picker of educators already on the platform, with a search box and an optional message. Shows status (Participating, Invited, Declined).
 
 **Archive (/organiser/archive):** Searchable list of past papers across all olympiads with download links.
 
@@ -149,9 +149,9 @@ OKLCH provides perceptually uniform colours — colours at the same lightness va
 
 ## 5. Key User Flows
 
-**Organiser creates a competition:** Login > Olympiads > Create Olympiad > Invite School > Create Round > Upload Paper > Wait for auto-open > Mark Submissions > Generate Results > Papers auto-archived.
+**Organiser creates a competition:** Login > Olympiads > Create Olympiad > Invite Educator > Create Round > Upload Paper > Wait for auto-open > Mark Submissions > Generate Results > Papers auto-archived.
 
-**Educator registers and submits:** Receive invitation email > Signup with code > Verify school details > Create account > Add Entrants > Register for round > Download paper (when open) > Upload results > View scores (when released).
+**Educator registers and submits:** Signup > Pick or name their school > Accept the olympiad invitation on their dashboard > Add Entrants > Register for round > Download paper (when open) > Upload results > View scores (when released).
 
 **Student sits a paper online:** Receive code from educator > Signup > See open round > Click round > Timer starts (server-calculated) > Answer questions with auto-save > Flag difficult questions > Submit > View results later > Download certificate if qualified.
 

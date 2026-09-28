@@ -22,12 +22,15 @@ import {
 import styles from "./Entrants.module.css";
 
 // ── Invitation types ────────────────────────────────────────
+// Students sign up on their own; an invitation is an in-app request to join
+// one of this school's olympiads, which the student accepts or declines.
 type Olympiad = { id: string; name: string };
+type Candidate = { id: string; name: string; email: string };
 type Invitation = {
   id: string;
-  email: string | null;
-  olympiadName: string;
-  status: "pending" | "accepted" | "expired";
+  status: "pending" | "accepted" | "rejected";
+  olympiad: { id: string; name: string } | null;
+  invitee: { id: string; name: string; email: string } | null;
 };
 
 function Entrants() {
@@ -38,16 +41,15 @@ function Entrants() {
   // ── Invitation state ─────────────────────────────────────
   const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
   const [olympiadId, setOlympiadId] = useState("");
-  const [email, setEmail] = useState("");
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [inviteeId, setInviteeId] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [toast, setToast] = useState<{
     type: "success" | "error";
     message: string;
   } | null>(null);
   const [sending, setSending] = useState(false);
-  const [isCoordinator, setIsCoordinator] = useState(false);
-  const [educatorEmail, setEducatorEmail] = useState("");
-  const [invitingEducator, setInvitingEducator] = useState(false);
 
   // ── Olympiad-level registration state ──────────────────────
   const [fullName, setFullName] = useState("");
@@ -62,23 +64,15 @@ function Entrants() {
 
   async function loadInvitations() {
     try {
-      const [olympiadData, invitationData, meData] = await Promise.all([
+      const [olympiadData, invitationData] = await Promise.all([
         api.get<{ olympiads: Olympiad[] }>("/auth/educator-olympiads"),
-        api.get<{ invitations: Invitation[] }>("/auth/student-invitations"),
-        api.get<{
-          user: { school_memberships: { role: string }[] };
-        }>("/auth/me"),
+        api.get<{ invites: Invitation[] }>("/invites/sent"),
       ]);
       setOlympiads(olympiadData.olympiads);
       setOlympiadId(
         (current) => current || olympiadData.olympiads[0]?.id || "",
       );
-      setInvitations(invitationData.invitations);
-      setIsCoordinator(
-        meData.user.school_memberships.some(
-          (m) => m.role === "coordinator",
-        ),
-      );
+      setInvitations(invitationData.invites);
     } catch {
       setToast({
         type: "error",
@@ -91,6 +85,34 @@ function Entrants() {
   useEffect(() => {
     loadInvitations();
   }, []);
+
+  // Only students of this school who have not been invited to the selected
+  // olympiad yet can be picked.
+  useEffect(() => {
+    if (!olympiadId) {
+      setCandidates([]);
+      return;
+    }
+    let cancelled = false;
+
+    api
+      .get<{ candidates: Candidate[] }>(
+        `/invites/candidates?olympiad_id=${olympiadId}`,
+      )
+      .then((data) => {
+        if (!cancelled) {
+          setCandidates(data.candidates || []);
+          setInviteeId("");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCandidates([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [olympiadId]);
 
   // ── Handlers ─────────────────────────────────────────────
 
@@ -129,56 +151,30 @@ function Entrants() {
     setToast(null);
     setSending(true);
     try {
-      const result = await api.post<{
-        code: string;
-        emailDelivered: boolean;
-      }>("/auth/invite-student", {
-        email,
+      await api.post("/invites", {
         olympiad_id: olympiadId,
+        invitee_id: inviteeId,
+        message: inviteMessage.trim() || undefined,
       });
-      setEmail("");
+      const invited = candidates.find((c) => c.id === inviteeId);
+      setInviteeId("");
+      setInviteMessage("");
+      setCandidates((current) => current.filter((c) => c.id !== invited?.id));
       setToast({
         type: "success",
-        message: result.emailDelivered
-          ? "Student invitation sent successfully."
-          : `Invitation code ${result.code} was created, but email delivery is unavailable. Check the server email settings.`,
+        message: `${invited?.name || "The student"} will see this invitation on their dashboard.`,
       });
       await loadInvitations();
-    } catch {
+    } catch (err) {
       setToast({
         type: "error",
         message:
-          "We couldn't send the student invitation. Check the email and Olympiad, then try again.",
+          err instanceof Error
+            ? err.message
+            : "We couldn't send the invitation. Please try again.",
       });
     } finally {
       setSending(false);
-    }
-  }
-
-  async function handleEducatorInvite(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setToast(null);
-    setInvitingEducator(true);
-    try {
-      const result = await api.post<{ emailDelivered: boolean }>(
-        "/auth/invite-educator",
-        { email: educatorEmail, olympiad_id: olympiadId },
-      );
-      setEducatorEmail("");
-      setToast({
-        type: "success",
-        message: result.emailDelivered
-          ? "Educator invitation sent successfully."
-          : "Educator invitation created. Email delivery is unavailable; check the server email settings.",
-      });
-    } catch {
-      setToast({
-        type: "error",
-        message:
-          "We couldn't invite that educator. Check the email and Olympiad, then try again.",
-      });
-    } finally {
-      setInvitingEducator(false);
     }
   }
 
@@ -196,7 +192,7 @@ function Entrants() {
       <div className={styles.stack}>
         <PageHeader
           title="Entrants & invitations"
-          description="Invite students to create accounts, or register them for an olympiad. Progression to later rounds is automatic based on results."
+          description="Invite students who already have an account, or add entrants yourself. Progression to later rounds is automatic based on results."
         />
 
         {/* ── Shared olympiad selector ──────────────────────── */}
@@ -223,63 +219,58 @@ function Entrants() {
           </Select>
         </div>
 
-        {/* ── Section 1: Invite students (creates accounts) ─── */}
+        {/* ── Section 1: Invite students to this olympiad ──── */}
         <Card className={styles.formCard}>
           <h2 className={styles.sectionTitle}>Invite students</h2>
           <p className={styles.loading}>
-            Send invitation codes so students can register, log in, and access
-            their own dashboards.
+            Students at {schoolName} sign up on their own. Invite one here and the
+            request appears on their dashboard; accepting enters them into this
+            olympiad.
           </p>
           <form className={styles.form} onSubmit={handleStudentInvite}>
             <div className={styles.field}>
-              <Label htmlFor="student-email">
-                Student email
+              <Label htmlFor="student-invitee">
+                Student
                 <span className={styles.required}> *</span>
               </Label>
-              <Input
-                id="student-email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="student@example.com"
+              <Select
+                id="student-invitee"
+                value={inviteeId}
+                onChange={(e) => setInviteeId(e.target.value)}
                 required
+                disabled={!olympiadId || candidates.length === 0}
+              >
+                <option value="">
+                  {candidates.length === 0
+                    ? "No students left to invite"
+                    : "Select a student…"}
+                </option>
+                {candidates.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.name} ({candidate.email})
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className={styles.field}>
+              <Label htmlFor="invite-note">Message (optional)</Label>
+              <Input
+                id="invite-note"
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+                placeholder="Anything they should know before accepting"
+                maxLength={500}
               />
             </div>
             <Button
               icon={<Plus aria-hidden="true" />}
               type="submit"
-              disabled={sending || !olympiadId}
+              disabled={sending || !olympiadId || !inviteeId}
             >
               {sending ? "Sending..." : "Send invitation"}
             </Button>
           </form>
         </Card>
-
-        {/* ── Invite educator (coordinators only) ───────────── */}
-        {isCoordinator && (
-          <Card className={styles.formCard}>
-            <h2 className={styles.sectionTitle}>Invite an educator</h2>
-            <form className={styles.form} onSubmit={handleEducatorInvite}>
-              <div className={styles.field}>
-                <Label htmlFor="educator-email">Educator email</Label>
-                <Input
-                  id="educator-email"
-                  type="email"
-                  value={educatorEmail}
-                  onChange={(e) => setEducatorEmail(e.target.value)}
-                  placeholder="colleague@school.edu"
-                  required
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={invitingEducator || !olympiadId}
-              >
-                {invitingEducator ? "Sending..." : "Invite educator"}
-              </Button>
-            </form>
-          </Card>
-        )}
 
         {/* ── Invitation status list ────────────────────────── */}
         <Card
@@ -299,7 +290,8 @@ function Entrants() {
               {invitations.map((inv) => (
                 <li key={inv.id}>
                   <span>
-                    {inv.email || "Student"} · {inv.olympiadName}
+                    {inv.invitee?.name || "Student"} ·{" "}
+                    {inv.olympiad?.name || "Olympiad"}
                   </span>
                   <strong
                     className={
@@ -308,7 +300,7 @@ function Entrants() {
                       ]
                     }
                   >
-                    {inv.status}
+                    {inv.status === "rejected" ? "declined" : inv.status}
                   </strong>
                 </li>
               ))}

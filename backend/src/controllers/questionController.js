@@ -48,6 +48,31 @@ const listQuestions = async (req, res, next) => {
   }
 };
 
+const listQuestionBank = async (req, res, next) => {
+  try {
+    const questions = await questionService.listQuestionBank(
+      req.params.roundId,
+      req.user.userId,
+    );
+    res.json({ success: true, data: { questions } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const importQuestions = async (req, res, next) => {
+  try {
+    const questions = await questionService.importQuestions(
+      req.params.roundId,
+      req.user.userId,
+      req.body.question_ids,
+    );
+    res.status(201).json({ success: true, data: { questions } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const updateQuestion = async (req, res, next) => {
   try {
     const {
@@ -99,6 +124,8 @@ const deleteQuestion = async (req, res, next) => {
 module.exports = {
   createQuestion,
   listQuestions,
+  listQuestionBank,
+  importQuestions,
   updateQuestion,
   deleteQuestion,
 };

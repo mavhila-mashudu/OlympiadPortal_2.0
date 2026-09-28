@@ -13,6 +13,9 @@ const { sendNotificationEmail } = require("../lib/mailer");
 //   • when a round opens / closes
 //   • when results are released
 //
+// Only rules whose channel is "email" are dispatched from here; rules
+// on other channels (in_app) are delivered by notificationDeliveryService.
+//
 // Two kinds of notification:
 //   1. Organiser-configured rules (notification_rules) — these honour the
 //      rule's trigger, offset, recipient and condition.
@@ -250,7 +253,7 @@ const buildNotificationEmail = ({
 // ─────────────────────────────────────────
 const processDueNotifications = async (now = new Date()) => {
   const enabledRules = await prisma.notification_rules.findMany({
-    where: { enabled: true },
+    where: { enabled: true, channel: "email" },
   });
 
   const rounds = await prisma.rounds.findMany({

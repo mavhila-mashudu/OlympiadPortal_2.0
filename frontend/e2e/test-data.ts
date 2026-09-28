@@ -47,6 +47,22 @@ export const USERS = {
     password: PASSWORD,
     fullName: "Forgetful Organiser",
   },
+  // A second learner at the same school, so the invite-and-accept test has
+  // somebody of its own to invite
+  joiningStudent: {
+    id: "77777777-7777-4777-8777-777777777777",
+    email: "joining@e2e.test",
+    password: PASSWORD,
+    fullName: "Lerato Nkosi",
+  },
+  // A coordinator at a school that has not joined the olympiad yet, so the
+  // organiser has somebody to invite
+  otherEducator: {
+    id: "66666666-6666-4666-8666-666666666666",
+    email: "northview@e2e.test",
+    password: PASSWORD,
+    fullName: "Nomsa Zulu",
+  },
 };
 
 export const SCHOOL = {
@@ -61,6 +77,7 @@ export const OLYMPIAD = {
 
 export const EDUCATOR_PROFILE_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 export const ENTRANT_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+export const JOINING_ENTRANT_ID = "60606060-6060-4060-8060-606060606060";
 
 // A live, open round the student can sit online
 export const LIVE_ROUND = {
@@ -77,8 +94,10 @@ export const DRAFT_ROUND = {
   name: "Round 2 — Provincial",
 };
 
-export const INVITE = {
-  // A pending student invitation code, used by the sign-up test
-  code: "STU-E2E1-0001",
+// A school that is not taking part yet, whose coordinator the organiser can
+// invite from the schools page
+export const UNREGISTERED_SCHOOL = {
   id: "40404040-4040-4040-8040-404040404040",
+  name: "Northview College",
+  educatorProfileId: "50505050-5050-4050-8050-505050505050",
 };

@@ -351,10 +351,8 @@ const generateResults = async (roundId, userId, role) => {
     throw new ForbiddenError("Only organisers can generate final results");
   }
 
-  if (round.state === "scheduled" || round.state === "open") {
-    throw new BadRequestError(
-      `Cannot generate results — round is "${round.state}"`,
-    );
+  if (round.state !== "closed" && round.state !== "marking") {
+    throw new BadRequestError(`Cannot release results — round is "${round.state}"`);
   }
 
   const results = await prisma.results.findMany({
@@ -366,12 +364,22 @@ const generateResults = async (roundId, userId, role) => {
     throw new BadRequestError("No results to generate — no submissions found");
   }
 
-  const threshold = round.qualifying_threshold
+  const threshold = round.qualifying_threshold != null
     ? Number(round.qualifying_threshold)
     : null;
 
   const now = new Date();
 
+  const nextRound = await prisma.rounds.findFirst({
+    where: { olympiad_id: round.olympiad_id, opens_at: { gt: round.opens_at } },
+    orderBy: { opens_at: "asc" },
+    select: { id: true },
+  });
+  const registrations = await prisma.entrant_registrations.findMany({
+    where: { round_id: roundId },
+    select: { entrant_id: true, registered_by: true },
+  });
+  const registeredBy = new Map(registrations.map((r) => [r.entrant_id, r.registered_by]));
   await prisma.$transaction(async (tx) => {
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
@@ -382,6 +390,14 @@ const generateResults = async (roundId, userId, role) => {
       await tx.results.update({
         where: { id: result.id },
         data: { rank, qualified, finalised_at: now },
+      });
+    }
+
+    if (nextRound && threshold !== null) {
+      await tx.entrant_registrations.createMany({
+        data: results.filter((r) => Number(r.total_points) >= threshold && registeredBy.has(r.entrant_id))
+          .map((r) => ({ entrant_id: r.entrant_id, round_id: nextRound.id, registered_by: registeredBy.get(r.entrant_id) })),
+        skipDuplicates: true,
       });
     }
 

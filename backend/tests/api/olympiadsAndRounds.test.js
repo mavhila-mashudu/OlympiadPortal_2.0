@@ -31,6 +31,17 @@ describe("POST /olympiads", () => {
   it.each([{}, { name: "   " }])("responds 422 without a name (%o)", async (body) => {
     expectError(await as(await f.createOrganiser()).post("/olympiads").send(body), 422, "Olympiad name is required");
   });
+
+  // Round times are entered and shown in this zone, so it must be a real one
+  it.each(["Mars/Olympus", "+02:00", "SAST", ""])("responds 422 for a timezone that isn't an IANA name (%p)", async (timezone) => {
+    const organiser = await f.createOrganiser();
+    expectError(
+      await as(organiser).post("/olympiads").send({ name: "Maths", timezone }),
+      422,
+      "timezone must be an IANA timezone such as Africa/Johannesburg",
+    );
+    expect(await prisma.olympiads.count()).toBe(0);
+  });
 });
 
 describe("GET /olympiads", () => {
@@ -151,16 +162,30 @@ describe("olympiad rounds", () => {
 });
 
 describe("GET /olympiads/:olympiadId/schools", () => {
-  it("merges invitations with registered schools", async () => {
+  it("lists participating schools alongside outstanding invitations", async () => {
     const { organiser, olympiad, school, educatorUser } = await f.createOlympiadWithSchool();
     await f.createEntrant({ school });
-    await f.createInvitation({ type: "school", school_name: "Northview College", olympiad_id: olympiad.id, email: "p@n.test", school_id: null });
+
+    const invitedSchool = await f.createSchool({ name: "Northview College" });
+    const head = await f.createEducator({
+      school: invitedSchool,
+      userOverrides: { full_name: "Mr Pillay", email: "p@n.test" },
+    });
+    await f.createInvite({ olympiad, invitee: head.user, invitedBy: organiser, school: invitedSchool });
 
     const { schools } = expectOk(await as(organiser).get(`/olympiads/${olympiad.id}/schools`));
 
     expect(schools).toEqual(
       expect.arrayContaining([
-        { id: expect.any(String), name: "Northview College", address: null, entrants: 0, educators: [], contactEmail: "p@n.test", status: "pending" },
+        {
+          id: expect.any(String),
+          name: "Northview College",
+          address: null,
+          entrants: 0,
+          educators: [{ name: "Mr Pillay", email: "p@n.test" }],
+          contactEmail: "p@n.test",
+          status: "pending",
+        },
         {
           id: school.id,
           name: school.name,
@@ -227,12 +252,12 @@ describe("notification rules", () => {
     const client = as(organiser);
 
     const { rule } = expectOk(await client.post(base(olympiad)).send(ruleBody({ name: "  Opening reminder ", condition: "  " })), 201);
-    expect(rule).toMatchObject({ olympiad_id: olympiad.id, name: "Opening reminder", channel: "email", condition: null, enabled: true, offset_minutes: 60 });
+    expect(rule).toMatchObject({ olympiad_id: olympiad.id, name: "Opening reminder", channel: "in_app", condition: null, enabled: true, offset_minutes: 60 });
 
     expect(expectOk(await client.get(base(olympiad))).rules.map((r) => r.id)).toEqual([rule.id]);
 
-    const updated = expectOk(await client.patch(`${base(olympiad)}/${rule.id}`).send({ enabled: false, trigger: "round_closes", condition: " Only open rounds " }));
-    expect(updated.rule).toMatchObject({ enabled: false, trigger: "round_closes", condition: "Only open rounds", name: "Opening reminder" });
+    const updated = expectOk(await client.patch(`${base(olympiad)}/${rule.id}`).send({ enabled: false, trigger: "round_closes", condition: " Only rounds with submissions " }));
+    expect(updated.rule).toMatchObject({ enabled: false, trigger: "round_closes", condition: "Only rounds with submissions", name: "Opening reminder" });
 
     expect(expectOk(await client.delete(`${base(olympiad)}/${rule.id}`))).toEqual({ message: "Notification rule deleted" });
     expect(expectOk(await client.get(base(olympiad))).rules).toEqual([]);
@@ -249,7 +274,7 @@ describe("notification rules", () => {
   });
 
   it.each([
-    [{ trigger: "round_deleted" }, "trigger must be one of: round_opens, round_closes, results_released"],
+    [{ trigger: "round_deleted" }, "trigger must be one of: round_opens, round_closes, results_released, missing_submission"],
     [{ recipient: "everyone" }, "recipient must be one of: registered_educators, registered_schools, qualifying_entrants"],
     [{ offset_minutes: -5 }, "offset_minutes must be a non-negative integer"],
     [{ enabled: "sometimes" }, "enabled must be true or false"],
@@ -380,6 +405,13 @@ describe("a single round", () => {
       ["marking", "results_released"],
     ])("moves a %s round to %s", async (from, to) => {
       const { round, client } = await owned({ state: from });
+      if (to === "results_released") {
+        const school = await f.createSchool();
+        const entrant = await f.createEntrant({ school });
+        await prisma.results.create({
+          data: { round_id: round.id, entrant_id: entrant.id, total_points: 0 },
+        });
+      }
       expect(expectOk(await client.patch(`/rounds/${round.id}/state`).send({ state: to })).round.state).toBe(to);
     });
 
@@ -389,12 +421,24 @@ describe("a single round", () => {
       ["results_released", "marking"],
     ])("responds 400 for %s → %s", async (from, to) => {
       const { round, client } = await owned({ state: from });
+      if (to === "results_released") {
+        const school = await f.createSchool();
+        const entrant = await f.createEntrant({ school });
+        await prisma.results.create({
+          data: { round_id: round.id, entrant_id: entrant.id, total_points: 0 },
+        });
+      }
       expectError(await client.patch(`/rounds/${round.id}/state`).send({ state: to }), 400, `Cannot transition from "${from}" to "${to}"`);
     });
 
     it("archives the paper when results are released", async () => {
       const { round, client } = await owned({ state: "marking" });
       const { paper } = await f.createPaper({ round });
+      const school = await f.createSchool();
+      const entrant = await f.createEntrant({ school });
+      await prisma.results.create({
+        data: { round_id: round.id, entrant_id: entrant.id, total_points: 0 },
+      });
       expectOk(await client.patch(`/rounds/${round.id}/state`).send({ state: "results_released" }));
       expect(await prisma.papers.findUnique({ where: { id: paper.id } })).toMatchObject({ is_archived: true, released_at: expect.any(Date) });
     });
@@ -517,5 +561,45 @@ describe("a single round", () => {
       expectError(await intruder.post(`/rounds/${round.id}/papers`).attach("paper", PDF, "p.pdf"), 403, "Not your round");
       expect(supabase.storage.bucket.upload).not.toHaveBeenCalled();
     });
+  });
+});
+
+// The create-round form asks for holiday warnings before saving. Holidays are
+// calendar days, so the check reads the dates in the olympiad's timezone.
+describe("POST /rounds/check-dates", () => {
+  const { checkDatesForHolidays } = require("../../src/services/holidayService");
+  const dates = { opens_at: "2026-06-15T22:30:00.000Z", closes_at: "2026-06-16T08:00:00.000Z" };
+
+  it("returns the holiday warnings for the round's dates", async () => {
+    checkDatesForHolidays.mockResolvedValueOnce(["2026-06-16 falls on a public holiday: Youth Day"]);
+    const organiser = await f.createOrganiser();
+
+    expect(expectOk(await as(organiser).post("/rounds/check-dates").send(dates))).toEqual({
+      warnings: ["2026-06-16 falls on a public holiday: Youth Day"],
+    });
+    expect(checkDatesForHolidays).toHaveBeenCalledWith([new Date(dates.opens_at), new Date(dates.closes_at)], undefined);
+  });
+
+  it("checks on the olympiad's calendar when told which olympiad", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser, timezone: "Asia/Kolkata" });
+
+    expectOk(await as(organiser).post("/rounds/check-dates").send({ ...dates, olympiad_id: olympiad.id }));
+    expect(checkDatesForHolidays).toHaveBeenCalledWith(expect.any(Array), "Asia/Kolkata");
+  });
+
+  it("only for the organiser's own olympiad", async () => {
+    const olympiad = await f.createOlympiad();
+    const intruder = as(await f.createOrganiser());
+
+    expectError(await intruder.post("/rounds/check-dates").send({ ...dates, olympiad_id: olympiad.id }), 403, "Not your olympiad");
+    expectError(await intruder.post("/rounds/check-dates").send({ ...dates, olympiad_id: "oly-1" }), 422, "olympiad_id must be a valid UUID");
+    expect(checkDatesForHolidays).not.toHaveBeenCalled();
+  });
+
+  it("needs valid dates", async () => {
+    const organiser = as(await f.createOrganiser());
+    expectError(await organiser.post("/rounds/check-dates").send({ ...dates, opens_at: "tomorrow" }), 422, "opens_at must be a valid date");
+    expectError(await organiser.post("/rounds/check-dates").send({ opens_at: dates.opens_at }), 422, "closes_at must be a valid date");
   });
 });

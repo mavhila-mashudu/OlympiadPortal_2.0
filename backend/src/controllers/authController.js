@@ -3,6 +3,24 @@ const prisma = require("../config/database").default;
 const authService = require("../services/authService");
 const { UnauthorizedError } = require("../errors/AppError");
 
+const register = async (req, res, next) => {
+  try {
+    const { full_name, email, password, role, school_id, school_name } = req.body;
+    const { user } = await authService.register({
+      full_name,
+      email,
+      password,
+      role,
+      school_id,
+      school_name,
+    });
+
+    res.status(201).json({ success: true, data: { user } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const registerOrganiser = async (req, res, next) => {
   try {
     const { full_name, email, password } = req.body;
@@ -18,27 +36,11 @@ const registerOrganiser = async (req, res, next) => {
   }
 };
 
-const registerWithCode = async (req, res, next) => {
+// Public: the school list that fills the signup form's dropdown.
+const listSchools = async (_req, res, next) => {
   try {
-    const { full_name, email, password, code, invite_token } = req.body;
-    const { user } = await authService.registerWithCode({
-      full_name,
-      email,
-      password,
-      code,
-      invite_token,
-    });
-
-    res.status(201).json({ success: true, data: { user } });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const validateCode = async (req, res, next) => {
-  try {
-    const result = await authService.validateInvitationCode(req.params.code);
-    res.json({ success: true, data: result });
+    const schools = await authService.listSchools();
+    res.json({ success: true, data: { schools } });
   } catch (err) {
     next(err);
   }
@@ -78,79 +80,6 @@ const deleteAccount = async (req, res, next) => {
   }
 };
 
-const inviteSchool = async (req, res, next) => {
-  try {
-    const { school_name, contact_email, olympiad_id } = req.body;
-    const result = await authService.inviteSchool({
-      schoolName: school_name,
-      contactEmail: contact_email,
-      olympiadId: olympiad_id,
-      organiserId: req.user.userId,
-    });
-
-    res.status(201).json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const inviteEducator = async (req, res, next) => {
-  try {
-    const { email, olympiad_id } = req.body;
-    const educator = await prisma.educators.findUnique({
-      where: { user_id: req.user.userId },
-    });
-
-    if (!educator) {
-      throw new UnauthorizedError("Educator profile not found");
-    }
-
-    const result = await authService.inviteEducator({
-      email,
-      schoolId: educator.school_id,
-      olympiadId: olympiad_id,
-      createdById: req.user.userId,
-    });
-
-    res.status(201).json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const generateStudentCodes = async (req, res, next) => {
-  try {
-    const { count, olympiad_id } = req.body;
-    const educator = await prisma.educators.findUnique({
-      where: { user_id: req.user.userId },
-    });
-
-    if (!educator) {
-      throw new UnauthorizedError("Educator profile not found");
-    }
-
-    const codes = await authService.generateStudentCodes({
-      count: parseInt(count, 10),
-      schoolId: educator.school_id,
-      olympiadId: olympiad_id,
-      createdById: req.user.userId,
-    });
-
-    res.status(201).json({ success: true, data: { codes } });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const validateInviteToken = async (req, res, next) => {
-  try {
-    const result = await authService.validateInvitationToken(req.params.token);
-    res.json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
 const getEducatorOlympiads = async (req, res, next) => {
   try {
     const educator = await prisma.educators.findUnique({ where: { user_id: req.user.userId } });
@@ -162,44 +91,11 @@ const getEducatorOlympiads = async (req, res, next) => {
   }
 };
 
-const inviteStudent = async (req, res, next) => {
-  try {
-    const educator = await prisma.educators.findUnique({ where: { user_id: req.user.userId } });
-    if (!educator) throw new UnauthorizedError("Educator profile not found");
-    const result = await authService.inviteStudent({
-      email: req.body.email,
-      olympiadId: req.body.olympiad_id,
-      schoolId: educator.school_id,
-      createdById: req.user.userId,
-    });
-    res.status(201).json({ success: true, data: result });
-  } catch (err) {
-    next(err);
-  }
-};
-
-const getStudentInvitations = async (req, res, next) => {
-  try {
-    const educator = await prisma.educators.findUnique({ where: { user_id: req.user.userId } });
-    if (!educator) throw new UnauthorizedError("Educator profile not found");
-    const invitations = await authService.listStudentInvitations(educator.school_id);
-    res.json({ success: true, data: { invitations } });
-  } catch (err) {
-    next(err);
-  }
-};
-
 module.exports = {
+  register,
   registerOrganiser,
-  registerWithCode,
-  validateCode,
-  validateInviteToken,
+  listSchools,
   me,
   deleteAccount,
-  inviteSchool,
-  inviteEducator,
-  generateStudentCodes,
   getEducatorOlympiads,
-  inviteStudent,
-  getStudentInvitations,
 };

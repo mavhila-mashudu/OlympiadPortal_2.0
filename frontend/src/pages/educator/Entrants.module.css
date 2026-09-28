@@ -78,7 +78,7 @@
 
 .statusPending { color: #92400e; }
 .statusAccepted { color: #166534; }
-.statusExpired { color: #991b1b; }
+.statusRejected { color: #991b1b; }
 
 @media (min-width: 40rem) {
   .form {

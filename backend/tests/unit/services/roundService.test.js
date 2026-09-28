@@ -4,6 +4,7 @@ jest.mock("../../../src/config/database", () => ({
 }));
 jest.mock("../../../src/services/markingService", () => ({
   autoMarkRoundInternal: jest.fn(),
+  generateResults: jest.fn(),
 }));
 // The real one calls a public-holiday API over the internet
 jest.mock("../../../src/services/holidayService", () => ({
@@ -11,7 +12,7 @@ jest.mock("../../../src/services/holidayService", () => ({
 }));
 
 const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
-const { autoMarkRoundInternal } = require("../../../src/services/markingService");
+const { autoMarkRoundInternal, generateResults } = require("../../../src/services/markingService");
 const { checkDatesForHolidays } = require("../../../src/services/holidayService");
 const {
   createRound,
@@ -22,7 +23,7 @@ const {
   setRoundState,
 } = require("../../../src/services/roundService");
 
-const ownedOlympiad = { id: "oly-1", organiser_id: "org-1" };
+const ownedOlympiad = { id: "oly-1", organiser_id: "org-1", timezone: "Africa/Johannesburg" };
 
 const storedRound = (overrides = {}) => ({
   id: "round-1",
@@ -39,6 +40,7 @@ let consoleError;
 beforeEach(() => {
   resetPrismaMock();
   autoMarkRoundInternal.mockReset();
+  generateResults.mockReset();
   consoleLog = jest.spyOn(console, "log").mockImplementation(() => {});
   consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
 });
@@ -165,10 +167,11 @@ describe("public holiday warnings", () => {
     const result = await createRound(input());
 
     expect(result.warnings).toEqual(["2026-06-16 falls on a public holiday: Youth Day"]);
-    expect(checkDatesForHolidays).toHaveBeenCalledWith([
-      new Date("2026-06-01T08:00:00Z"),
-      new Date("2026-06-01T10:00:00Z"),
-    ]);
+    // Checked on the olympiad's own calendar
+    expect(checkDatesForHolidays).toHaveBeenCalledWith(
+      [new Date("2026-06-01T08:00:00Z"), new Date("2026-06-01T10:00:00Z")],
+      "Africa/Johannesburg",
+    );
     // The round is still created; the warning is advice, not a refusal
     expect(prisma.rounds.create).toHaveBeenCalled();
   });
@@ -184,6 +187,7 @@ describe("public holiday warnings", () => {
       round: { id: "round-1" },
       warnings: ["2026-12-16 falls on a public holiday: Day of Reconciliation"],
     });
+    expect(checkDatesForHolidays).toHaveBeenCalledWith(expect.any(Array), "Africa/Johannesburg");
   });
 });
 
@@ -272,18 +276,20 @@ describe("setRoundState", () => {
     ["closed", "marking"],
     ["marking", "results_released"],
   ])("allows %s → %s", async (from, to) => {
-    prisma.rounds.findUnique.mockResolvedValue(storedRound({ state: from }));
+    prisma.rounds.findUnique.mockResolvedValueOnce(storedRound({ state: from }));
+    prisma.rounds.findUnique.mockResolvedValue(storedRound({ state: to }));
     prisma.rounds.update.mockResolvedValue({ id: "round-1", state: to });
     autoMarkRoundInternal.mockResolvedValue({ total: 0 });
+    generateResults.mockResolvedValue({ state: "results_released" });
 
-    await expect(setRoundState("round-1", "org-1", to)).resolves.toEqual({ id: "round-1", state: to });
-    expect(prisma.rounds.update).toHaveBeenCalledWith({
-      where: { id: "round-1" },
-      data:
-        to === "results_released"
-          ? { state: to, results_release_at: expect.any(Date) }
-          : { state: to },
-    });
+    if (to === "results_released") {
+      await expect(setRoundState("round-1", "org-1", to)).resolves.toMatchObject({ id: "round-1", state: to });
+      expect(generateResults).toHaveBeenCalledWith("round-1", "org-1", "organiser");
+      expect(prisma.rounds.update).not.toHaveBeenCalled();
+    } else {
+      await expect(setRoundState("round-1", "org-1", to)).resolves.toEqual({ id: "round-1", state: to });
+      expect(prisma.rounds.update).toHaveBeenCalledWith({ where: { id: "round-1" }, data: { state: to } });
+    }
   });
 
   it.each([
@@ -301,13 +307,12 @@ describe("setRoundState", () => {
     expect(prisma.rounds.update).not.toHaveBeenCalled();
   });
 
-  it("archives the round's papers when results are released", async () => {
-    prisma.rounds.findUnique.mockResolvedValue(storedRound({ state: "marking" }));
+  it("routes manual release through the results service", async () => {
+    prisma.rounds.findUnique.mockResolvedValueOnce(storedRound({ state: "marking" }));
+    prisma.rounds.findUnique.mockResolvedValue(storedRound({ state: "results_released" }));
+    generateResults.mockResolvedValue({ state: "results_released" });
     await setRoundState("round-1", "org-1", "results_released");
-    expect(prisma.papers.updateMany).toHaveBeenCalledWith({
-      where: { round_id: "round-1" },
-      data: { is_archived: true, released_at: expect.any(Date) },
-    });
+    expect(generateResults).toHaveBeenCalledWith("round-1", "org-1", "organiser");
   });
 
   it("auto-marks submissions when the round is closed", async () => {

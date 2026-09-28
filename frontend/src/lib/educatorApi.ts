@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import { formatDateInZone, formatDateTimeInZone } from "./time";
 
 // ── Type definitions ───────────────────────────────────────
 
@@ -15,6 +16,8 @@ export type EducatorRound = {
   name: string;
   olympiad_id: string;
   olympiad_name: string;
+  // The olympiad's IANA timezone; round times are shown in it
+  timezone: string;
   opens_at: string;
   closes_at: string;
   state: string;
@@ -44,6 +47,8 @@ export type EducatorRoundDetail = {
   name: string;
   olympiad_id: string;
   olympiad_name: string;
+  // The olympiad's IANA timezone; round times are shown in it
+  timezone: string;
   opens_at: string;
   closes_at: string;
   results_release_at: string | null;
@@ -91,6 +96,7 @@ export type EducatorAllResultsRound = {
   id: string;
   name: string;
   olympiad_name: string;
+  timezone: string;
   closes_at: string;
   results: EducatorResult[];
 };
@@ -101,6 +107,7 @@ export type PastPaper = {
   round_name: string;
   title: string;
   closed_at: string;
+  timezone: string;
   has_paper: boolean;
   has_memo: boolean;
 };
@@ -209,22 +216,14 @@ export type EducatorOverview = {
 
 // ── Date formatting helper ─────────────────────────────────
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-ZA", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+// Round times are shown in the olympiad's timezone, labelled, so every
+// school reads the same official times whatever its devices are set to
+export function formatDate(iso: string, timeZone: string): string {
+  return formatDateTimeInZone(iso, timeZone);
 }
 
-export function formatDateShort(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-ZA", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  });
+export function formatDateShort(iso: string, timeZone: string): string {
+  return formatDateInZone(iso, timeZone);
 }
 
 // ── Query hooks ────────────────────────────────────────────

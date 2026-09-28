@@ -9,8 +9,8 @@ const ruleFields = [
   body("name").optional().isString().withMessage("name must be text"),
   body("trigger")
     .optional()
-    .isIn(["round_opens", "round_closes", "results_released"])
-    .withMessage("trigger must be one of: round_opens, round_closes, results_released"),
+    .isIn(["round_opens", "round_closes", "results_released", "missing_submission"])
+    .withMessage("trigger must be one of: round_opens, round_closes, results_released, missing_submission"),
   body("offset_minutes")
     .optional()
     .isInt({ min: 0 })
@@ -20,6 +20,8 @@ const ruleFields = [
     .isIn(["registered_educators", "registered_schools", "qualifying_entrants"])
     .withMessage("recipient must be one of: registered_educators, registered_schools, qualifying_entrants"),
   body("condition").optional({ values: "null" }).isString().withMessage("condition must be text"),
+  body("action").optional().isIn(["notify_recipients", "alert_organiser"])
+    .withMessage("action must be notify_recipients or alert_organiser"),
   body("enabled").optional().isBoolean().withMessage("enabled must be true or false"),
 ];
 

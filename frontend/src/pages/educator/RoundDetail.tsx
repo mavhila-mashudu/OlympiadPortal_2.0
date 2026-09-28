@@ -28,6 +28,7 @@ import {
   downloadPaperFile,
   formatDate,
   formatDateShort,
+  type EducatorRoundSubmission,
   type SubmissionReceipt,
 } from "../../lib/educatorApi";
 import styles from "./RoundDetail.module.css";
@@ -102,8 +103,16 @@ function EducatorRoundDetail() {
   // B8: Results cannot be submitted after the round closes.
   const canSubmitResults = round.state === "open";
 
+  // A learner who opened the exam online but hasn't submitted it can still
+  // have paper results captured while the round is open; those replace the
+  // unfinished attempt (A9). Once the round closes, the attempt is marked.
+  const unfinishedOnline = (s: EducatorRoundSubmission) =>
+    canSubmitResults && s.route === "online" && s.status === "received";
+  const finished = round.submissions.filter((s) => !unfinishedOnline(s));
+  const startedOnline = round.submissions.filter(unfinishedOnline);
+
   // Learners who already have results in, and those still to submit
-  const submittedIds = new Set(round.submissions.map((s) => s.entrant.id));
+  const submittedIds = new Set(finished.map((s) => s.entrant.id));
   const remainingEntrants = (entrants ?? []).filter(
     (ent) => !submittedIds.has(ent.id),
   );
@@ -153,8 +162,8 @@ function EducatorRoundDetail() {
           <div>
             <h1>{round.name}</h1>
             <p>
-              {round.school.name} · Opens {formatDate(round.opens_at)} ·
-              Closes {formatDate(round.closes_at)}
+              {round.school.name} · Opens {formatDate(round.opens_at, round.timezone)} ·
+              Closes {formatDate(round.closes_at, round.timezone)}
             </p>
           </div>
           <div className={styles.pageActions}>
@@ -248,7 +257,7 @@ function EducatorRoundDetail() {
                         </span>
                         <span className={styles.pastPaperRound}>
                           {pp.round_name} · Closed{" "}
-                          {formatDateShort(pp.closed_at)}
+                          {formatDateShort(pp.closed_at, pp.timezone)}
                         </span>
                       </div>
                     </div>
@@ -296,7 +305,7 @@ function EducatorRoundDetail() {
                   </span>
                   <span>
                     <strong>Received at:</strong>{" "}
-                    {formatDate(receipt.submission.received_at)}
+                    {formatDate(receipt.submission.received_at, round.timezone)}
                   </span>
                   <span>
                     <strong>Status:</strong> {receipt.submission.status}
@@ -343,6 +352,14 @@ function EducatorRoundDetail() {
                     <a href="/educator/entrants">Register entrants</a> first.
                   </p>
                 )}
+                {startedOnline.length > 0 && (
+                  <p className={styles.sectionNote}>
+                    Started online but not submitted:{" "}
+                    {startedOnline.map((s) => s.entrant.full_name).join(", ")}.
+                    If they finish on paper, capture their answers here; that
+                    replaces the unfinished online attempt.
+                  </p>
+                )}
                 <Button
                   icon={<Upload aria-hidden="true" />}
                   type="submit"
@@ -366,21 +383,21 @@ function EducatorRoundDetail() {
               </div>
             )}
 
-            {round.submissions.length > 0 && (
+            {finished.length > 0 && (
               <div>
                 <h3 className={styles.submittedHeading}>
-                  Submitted ({round.submissions.length}
+                  Submitted ({finished.length}
                   {entrants && entrants.length > 0 ? ` of ${entrants.length}` : ""})
                 </h3>
                 <ul className={styles.submittedList}>
-                  {round.submissions.map((s) => (
+                  {finished.map((s) => (
                     <li key={s.id} className={styles.submittedItem}>
                       <span className={styles.pastPaperName}>
                         {s.entrant.full_name}
                       </span>
                       <span className={styles.pastPaperRound}>
                         {s.route === "online" ? "Sat online" : "Captured"} ·{" "}
-                        {formatDate(s.received_at)} · {s.status}
+                        {formatDate(s.received_at, round.timezone)} · {s.status}
                       </span>
                     </li>
                   ))}

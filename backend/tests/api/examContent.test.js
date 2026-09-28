@@ -253,6 +253,100 @@ describe("DELETE /rounds/:roundId/questions/:id", () => {
   });
 });
 
+// The organiser's question bank: every question on their other rounds' papers
+describe("GET /rounds/:roundId/question-bank", () => {
+  it("lists the organiser's questions from other rounds, with the round each came from", async () => {
+    const { olympiad, organiser, round, organiserApi } = await setup();
+    const earlier = await f.createRound({ olympiad });
+    const { questions: [banked] } = await f.createPaper({ round: earlier, questions: [mcq()] });
+    await f.createPaper({ round, questions: [mcq({ prompt: "Already on this paper" })] });
+    // Another organiser's questions never appear
+    const stranger = await f.createRound({ olympiad: await f.createOlympiad() });
+    await f.createPaper({ round: stranger, questions: [mcq()] });
+    // The bank spans all of the organiser's olympiads, not just this one
+    const otherOlympiad = await f.createOlympiad({ organiser });
+    const { questions: [fromOtherOlympiad] } = await f.createPaper({
+      round: await f.createRound({ olympiad: otherOlympiad }),
+      questions: [mcq()],
+    });
+
+    const { questions } = expectOk(await organiserApi.get(`/rounds/${round.id}/question-bank`));
+    expect(questions.map((q) => q.id).sort()).toEqual([banked.id, fromOtherOlympiad.id].sort());
+    expect(questions.find((q) => q.id === banked.id).source_round).toEqual({ id: earlier.id, name: earlier.name });
+  });
+
+  it("is for the round's organiser only", async () => {
+    const { round, otherOrganiserApi, organiserApi } = await setup();
+    expectError(await otherOrganiserApi.get(`/rounds/${round.id}/question-bank`), 403, "Not your round");
+    expectError(await organiserApi.get(`/rounds/${MISSING}/question-bank`), 404, "Round not found");
+  });
+});
+
+describe("POST /rounds/:roundId/question-bank/import", () => {
+  const withBank = async (roundOverrides) => {
+    const world = await setup(roundOverrides);
+    const earlier = await f.createRound({ olympiad: world.olympiad });
+    const { questions } = await f.createPaper({
+      round: earlier,
+      questions: [mcq(), { type: "short_answer", prompt: "Capital of South Africa?", correct_answer: "Pretoria" }],
+    });
+    return { ...world, bank: questions, url: `/rounds/${world.round.id}/question-bank/import` };
+  };
+
+  it("copies the chosen questions onto this round's paper, leaving the originals untouched", async () => {
+    const { round, bank, url, organiserApi } = await withBank();
+
+    const { questions } = expectOk(await organiserApi.post(url).send({ question_ids: bank.map((q) => q.id) }), 201);
+    expect(questions).toHaveLength(2);
+    expect(questions.map((q) => q.id)).not.toEqual(expect.arrayContaining([bank[0].id]));
+
+    const onPaper = await prisma.questions.findMany({ where: { papers: { round_id: round.id } } });
+    expect(onPaper.map((q) => q.prompt).sort()).toEqual(bank.map((q) => q.prompt).sort());
+    expect(onPaper.find((q) => q.type === "mcq")).toMatchObject({ correct_option: "0,2", options: ["2", "4", "5", "9"] });
+    // 2 originals + 2 copies
+    expect(await prisma.questions.count()).toBe(4);
+  });
+
+  it("imports a question sent twice only once", async () => {
+    const { bank, url, organiserApi } = await withBank();
+    const { questions } = expectOk(await organiserApi.post(url).send({ question_ids: [bank[0].id, bank[0].id] }), 201);
+    expect(questions).toHaveLength(1);
+  });
+
+  it("only imports into a draft exam", async () => {
+    const { bank, url, organiserApi } = await withBank({ exam_status: "ready" });
+    expectError(await organiserApi.post(url).send({ question_ids: [bank[0].id] }), 400, "Questions can only be imported while the exam is in draft status");
+    expect(await prisma.questions.count()).toBe(2);
+  });
+
+  it("refuses another organiser's questions, and imports nothing if any id is unknown", async () => {
+    const { bank, url, organiserApi } = await withBank();
+    const { questions: [foreign] } = await f.createPaper({
+      round: await f.createRound({ olympiad: await f.createOlympiad() }),
+      questions: [mcq()],
+    });
+
+    expectError(await organiserApi.post(url).send({ question_ids: [bank[0].id, foreign.id] }), 404, "One or more bank questions were not found");
+    expectError(await organiserApi.post(url).send({ question_ids: [MISSING] }), 404, "One or more bank questions were not found");
+    expect(await prisma.questions.count()).toBe(3);
+  });
+
+  it("needs at least one valid question id", async () => {
+    const { url, organiserApi } = await withBank();
+    expectError(await organiserApi.post(url).send({ question_ids: [] }), 422, "At least one question is required");
+    expectError(await organiserApi.post(url).send({ question_ids: ["q-1"] }), 422, "Question ids must be valid UUIDs");
+  });
+
+  it("is for the round's organiser only", async () => {
+    const { bank, round, otherOrganiserApi } = await withBank();
+    expectError(
+      await otherOrganiserApi.post(`/rounds/${round.id}/question-bank/import`).send({ question_ids: [bank[0].id] }),
+      403,
+      "Not your round",
+    );
+  });
+});
+
 describe("GET /rounds/:roundId/exam-status", () => {
   it("summarises the exam and who approved it", async () => {
     const { round, organiser, organiserApi } = await setup({ exam_status: "live", approved_at: new Date("2026-09-01T10:00:00Z") });
