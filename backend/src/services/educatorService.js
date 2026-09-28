@@ -6,6 +6,7 @@ const {
   ForbiddenError,
   BadRequestError,
 } = require("../errors/AppError");
+const { recalculateRoundResults } = require("./resultRecalculationService");
 
 const BUCKET = "papers";
 
@@ -1233,7 +1234,7 @@ const listRemarks = async (userId) => {
     olympiadName: remark.results?.rounds?.olympiads?.name || "Olympiad",
     score: Number(remark.results?.total_points ?? 0),
     reason: remark.reason,
-    status: remark.status,
+    status: remark.status === "pending" ? "pending" : "reviewed",
     review_note: remark.review_note,
     created_at: remark.created_at,
     reviewed_at: remark.reviewed_at,
@@ -1315,7 +1316,9 @@ const getRemarkSubmissionAnswers = async (remarkId, userId) => {
 
 /**
  * Re-mark an individual question answer during a remark review.
- * Updates the answer mark and automatically recalculates the student's total_points in results.
+ * The change is logged in marking_reviews, and the round's results are
+ * recalculated: the student's total, every rank, qualification and the next
+ * round's enrolment.
  */
 const updateRemarkAnswer = async (
   remarkId,
@@ -1327,13 +1330,7 @@ const updateRemarkAnswer = async (
 
   const remark = await prisma.remark_requests.findUnique({
     where: { id: remarkId },
-    include: {
-      results: {
-        include: {
-          rounds: { select: { id: true, qualifying_threshold: true } },
-        },
-      },
-    },
+    include: { results: { select: { round_id: true, entrant_id: true } } },
   });
 
   if (!remark) {
@@ -1344,7 +1341,7 @@ const updateRemarkAnswer = async (
     throw new ForbiddenError("You are not assigned to review this remark");
   }
 
-  if (remark.status === "reviewed") {
+  if (remark.status !== "pending") {
     throw new BadRequestError("Cannot adjust marks on an already reviewed remark");
   }
 
@@ -1369,9 +1366,17 @@ const updateRemarkAnswer = async (
   const resolvedIsCorrect =
     is_correct !== undefined ? is_correct : clampedPoints > 0;
 
-  let newTotalPoints = 0;
+  const updatedResult = await prisma.$transaction(async (tx) => {
+    await tx.marking_reviews.create({
+      data: {
+        answer_id: answerId,
+        reviewer_id: educator.user_id,
+        original_points: answer.points_awarded || 0,
+        revised_points: clampedPoints,
+        comment: "Re-marked in a remark review",
+      },
+    });
 
-  await prisma.$transaction(async (tx) => {
     await tx.answers.update({
       where: { id: answerId },
       data: {
@@ -1382,28 +1387,11 @@ const updateRemarkAnswer = async (
       },
     });
 
-    const allAnswers = await tx.answers.findMany({
-      where: { submission_id: answer.submission_id },
-      select: { points_awarded: true },
-    });
+    await recalculateRoundResults(tx, remark.results.round_id);
 
-    newTotalPoints = allAnswers.reduce(
-      (sum, a) => sum + (Number(a.points_awarded) || 0),
-      0,
-    );
-
-    const round = remark.results.rounds;
-    const threshold = round.qualifying_threshold
-      ? Number(round.qualifying_threshold)
-      : null;
-    const qualified = threshold !== null ? newTotalPoints >= threshold : false;
-
-    await tx.results.update({
+    return tx.results.findUnique({
       where: { id: remark.result_id },
-      data: {
-        total_points: newTotalPoints,
-        ...(threshold !== null ? { qualified } : {}),
-      },
+      select: { total_points: true },
     });
   });
 
@@ -1411,7 +1399,7 @@ const updateRemarkAnswer = async (
     answerId,
     pointsAwarded: clampedPoints,
     isCorrect: resolvedIsCorrect,
-    totalPoints: newTotalPoints,
+    totalPoints: Number(updatedResult?.total_points ?? 0),
   };
 };
 
@@ -1431,6 +1419,10 @@ const resolveRemark = async (remarkId, userId, { status, review_note }) => {
 
   if (remark.reviewer_id !== educator.user_id) {
     throw new ForbiddenError("You are not assigned to review this remark");
+  }
+
+  if (remark.status !== "pending") {
+    throw new BadRequestError("This remark has already been reviewed");
   }
 
   return prisma.remark_requests.update({

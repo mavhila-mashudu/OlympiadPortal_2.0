@@ -99,6 +99,17 @@ describe("runLifecycleTick", () => {
     );
   });
 
+  it("warns about notification emails that were not delivered", async () => {
+    arrange({});
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    processDueNotifications.mockResolvedValueOnce({ due: 1, sent: 0, failed: 2 });
+
+    await runLifecycleTick();
+    expect(consoleWarn).toHaveBeenCalledWith(
+      "[lifecycle] 2 notification email(s) not delivered; retrying next tick",
+    );
+  });
+
   it("keeps the tick alive when notification dispatch fails", async () => {
     arrange({});
     processDueNotifications.mockRejectedValueOnce(new Error("mailer down"));

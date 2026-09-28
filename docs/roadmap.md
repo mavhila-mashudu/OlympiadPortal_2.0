@@ -1,8 +1,8 @@
 # Project Roadmap — Olympiad Portal
 
 > **Team:** Prompt Engineers
-> **Version:** 1.1
-> **Last updated:** 27 September 2026
+> **Version:** 1.2
+> **Last updated:** 28 September 2026
 
 ---
 
@@ -21,15 +21,15 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
       |           || Sitting   || Features  ||           |
 ```
 
-### Status at a glance (27 September 2026)
+### Status at a glance (28 September 2026)
 
 | Sprint                   | Done   | In Progress | Planned |
 | ------------------------ | ------ | ----------- | ------- |
 | Sprint 1 — Foundation    | 18     | 0           | 0       |
 | Sprint 2 — Core Features | 17     | 0           | 0       |
-| Sprint 3 — Advanced      | 8      | 2           | 10      |
+| Sprint 3 — Advanced      | 14     | 1           | 5       |
 | Sprint 4 — Polish and QA | 1      | 3           | 0       |
-| **Total (59 stories)**   | **44** | **5**       | **10**  |
+| **Total (59 stories)**   | **50** | **4**       | **5**   |
 
 ---
 
@@ -132,7 +132,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | A1  | Handle round open/close under peak load     | Planned     | No load testing yet                                                                                           |
 | A2  | Authoritative clock per olympiad timezone   | Done        | Round times are entered and shown in the olympiad's own timezone |
 | A3  | Count submission exactly once (idempotency) | Done        |                                                                                                               |
-| A4  | Consistent deadline boundary handling       | In Progress | Each submission records the deadline it was judged against; no published tie-break rule yet                   |
+| A4  | Consistent deadline boundary handling       | Done        | The closing instant is exclusive on both routes; every ruling is recorded with its reason                     |
 | A5  | Papers from question bank                   | Done        | Organisers reuse questions from their earlier rounds. Known bug: a question can be imported more than once    |
 | A6  | Different variants per entrant              | Planned     |                                                                                                               |
 | A7  | Mark against entrant's variant              | Planned     | Depends on A6                                                                                                 |
@@ -140,13 +140,13 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | A9  | Paper sittable online or offline            | Done        | Paper results replace an online attempt the learner opened but never submitted                                |
 | A10 | Merge online and offline results            | Done        | One result per learner, whichever route                                                                       |
 | A11 | Reconcile dual-route entrants               | Done        | One submission per learner per round, enforced in the database                                                |
-| A12 | Appeal a mark                               | Planned     |                                                                                                               |
-| A13 | Route appeals to reviewer                   | Planned     |                                                                                                               |
-| A14 | Appeal outcome updates standings            | Planned     |                                                                                                               |
+| A12 | Appeal a mark                               | Done        | A remark request is the appeal: one per released result, with a reason and a visible outcome                 |
+| A13 | Route appeals to reviewer                   | Done        | Assigned by hand or evenly by workload, never to an educator from the learner's school                       |
+| A14 | Appeal outcome updates standings            | Done        | A revised mark re-ranks the round and updates qualification and next-round entry                             |
 | A15 | Multiple concurrent olympiads               | Done        | Each olympiad has its own schedule and timezone |
 | A16 | Shared paper archive                        | Planned     | The archive is per olympiad                                                                                   |
-| A17 | Log every automatic action                  | Planned     |                                                                                                               |
-| A18 | Replay round event history                  | Planned     | Depends on A17                                                                                                |
+| A17 | Log every automatic action                  | Done        | Automatic round actions are written to an append-only audit table                                            |
+| A18 | Replay round event history                  | Done        | The organiser's Replay page shows a round's events and deadline rulings in order                              |
 | I6  | Marker awards partial credit                | Done        |                                                                                                               |
 | I7  | Moderator reviews marking consistency       | In Progress | Built and tested, but unusable in the app: only the organiser marks, and a marker can't moderate their own marking |
 
@@ -175,7 +175,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | --- | ------------------------------------ | ----------- | ---------------------------------------------------------------------------- |
 | P2  | Responsive, accessible on any device | In Progress | Responsive throughout; no accessibility audit yet                            |
 | P3  | Hand-written, documented API         | Done        |                                                                              |
-| P4  | External service integration         | In Progress | Supabase and Azure are integrated; no notification or OMR integration        |
+| P4  | External service integration         | In Progress | Notices are emailed through EmailJS, but it isn't configured in production   |
 | P5  | Public documentation site            | In Progress | Documentation is in `docs/` in the repository, not a published site         |
 
 ### Deliverables
@@ -197,5 +197,6 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | September 2026    | Initial roadmap created                                                                                                                 |
 | 27 September 2026 | Statuses brought in line with the code on `main`; I17 added to Sprint 2, where it was missing; notes added for stories still in progress |
 | 27 September 2026 | A2 and A15 done: round times follow each olympiad's own timezone |
+| 28 September 2026 | After PRs #53, #57 and #58: A4, A12–A14, A17 and A18 done; P4 now uses EmailJS, which still needs configuring in production |
 
 This is a living document, reviewed at every Friday retrospective.

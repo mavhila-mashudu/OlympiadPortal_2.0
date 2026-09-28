@@ -6,6 +6,10 @@ const {
   BadRequestError,
 } = require("../errors/AppError");
 
+// An educator's review leaves a remark "reviewed"; an organiser's decision
+// leaves it "approved" or "rejected". This page shows all three as reviewed.
+const DECIDED_STATUSES = ["reviewed", "approved", "rejected"];
+
 /**
  * Asserts that the given round belongs to an olympiad owned by the organiser.
  */
@@ -49,7 +53,7 @@ const listRemarks = async (organiserId, { olympiadId, roundId, status } = {}) =>
     where.reviewer_id = { not: null };
     where.status = "pending";
   } else if (status === "reviewed") {
-    where.status = "reviewed";
+    where.status = { in: DECIDED_STATUSES };
   } else if (status === "pending") {
     where.status = "pending";
   }
@@ -105,6 +109,7 @@ const listRemarks = async (organiserId, { olympiadId, roundId, status } = {}) =>
       id: remark.id,
       resultId: remark.result_id,
       studentName: remark.results?.entrants?.full_name || "Student",
+      schoolId: remark.results?.entrants?.schools?.id || null,
       schoolName: remark.results?.entrants?.schools?.name || "School",
       roundId: remark.results?.rounds?.id || null,
       roundName: remark.results?.rounds?.name || "Round",
@@ -112,11 +117,13 @@ const listRemarks = async (organiserId, { olympiadId, roundId, status } = {}) =>
       olympiadName: remark.results?.rounds?.olympiads?.name || "Olympiad",
       score: Number(remark.results?.total_points ?? 0),
       reason: remark.reason,
-      status: remark.status,
+      status: remark.status === "pending" ? "pending" : "reviewed",
       reviewerId: remark.reviewer_id,
       reviewerName: reviewer ? reviewer.name : null,
       reviewerSchool: reviewer ? reviewer.schoolName : null,
-      reviewNote: remark.review_note,
+      reviewNote: remark.decision
+        ? `${remark.status === "approved" ? "Approved" : "Rejected"}: ${remark.decision}`
+        : remark.review_note,
       createdAt: remark.created_at,
       reviewedAt: remark.reviewed_at,
     };
@@ -176,7 +183,9 @@ const listEligibleEducators = async (organiserId, roundId) => {
 };
 
 /**
- * Manually assign a remark request to a specific educator.
+ * Manually assign a remark request to a specific educator. The educator must
+ * be from another school than the learner, so no one reviews their own
+ * school's marks.
  */
 const assignRemark = async (organiserId, remarkId, reviewerUserId) => {
   const remark = await prisma.remark_requests.findUnique({
@@ -184,6 +193,7 @@ const assignRemark = async (organiserId, remarkId, reviewerUserId) => {
     include: {
       results: {
         include: {
+          entrants: { select: { school_id: true } },
           rounds: {
             include: { olympiads: { select: { id: true, organiser_id: true } } },
           },
@@ -200,7 +210,7 @@ const assignRemark = async (organiserId, remarkId, reviewerUserId) => {
     throw new ForbiddenError("You do not own this round's olympiad");
   }
 
-  if (remark.status === "reviewed") {
+  if (remark.status !== "pending") {
     throw new BadRequestError("Cannot reassign a remark that has already been reviewed");
   }
 
@@ -222,6 +232,11 @@ const assignRemark = async (organiserId, remarkId, reviewerUserId) => {
     throw new BadRequestError("The selected educator is not participating in this olympiad");
   }
 
+  const learnerSchoolId = remark.results.entrants?.school_id;
+  if (learnerSchoolId && educator.school_id === learnerSchoolId) {
+    throw new BadRequestError("An educator cannot review a remark from a learner at their own school");
+  }
+
   return prisma.remark_requests.update({
     where: { id: remarkId },
     data: { reviewer_id: reviewerUserId },
@@ -230,7 +245,9 @@ const assignRemark = async (organiserId, remarkId, reviewerUserId) => {
 
 /**
  * Automatically distribute all unassigned pending remarks for a round
- * across eligible educators, balancing the review workload evenly.
+ * across eligible educators, balancing the review workload evenly. A remark
+ * only goes to an educator from another school than the learner; one with
+ * no such educator stays unassigned and is counted as skipped.
  */
 const autoAssignRemarks = async (organiserId, roundId) => {
   const eligibleEducators = await listEligibleEducators(organiserId, roundId);
@@ -245,12 +262,14 @@ const autoAssignRemarks = async (organiserId, roundId) => {
       status: "pending",
       reviewer_id: null,
     },
+    include: { results: { select: { entrants: { select: { school_id: true } } } } },
     orderBy: { created_at: "asc" },
   });
 
   if (unassignedRemarks.length === 0) {
     return {
       assignedCount: 0,
+      skippedCount: 0,
       educatorCount: eligibleEducators.length,
       message: "No unassigned pending remarks to assign",
     };
@@ -259,15 +278,19 @@ const autoAssignRemarks = async (organiserId, roundId) => {
   // Track each educator's workload and assign to whoever has the fewest pending items
   const workload = eligibleEducators.map((edu) => ({
     userId: edu.userId,
+    schoolId: edu.schoolId,
     count: edu.pendingCount,
   }));
 
   const updates = [];
 
   for (const remark of unassignedRemarks) {
-    // Sort ascending by current count to pick the least-loaded educator
-    workload.sort((a, b) => a.count - b.count);
-    const chosen = workload[0];
+    const learnerSchoolId = remark.results?.entrants?.school_id;
+    // The least-loaded educator from another school than the learner
+    const chosen = workload
+      .filter((edu) => edu.schoolId !== learnerSchoolId)
+      .sort((a, b) => a.count - b.count)[0];
+    if (!chosen) continue;
     chosen.count += 1;
 
     updates.push(
@@ -278,10 +301,11 @@ const autoAssignRemarks = async (organiserId, roundId) => {
     );
   }
 
-  await prisma.$transaction(updates);
+  if (updates.length > 0) await prisma.$transaction(updates);
 
   return {
-    assignedCount: unassignedRemarks.length,
+    assignedCount: updates.length,
+    skippedCount: unassignedRemarks.length - updates.length,
     educatorCount: eligibleEducators.length,
   };
 };

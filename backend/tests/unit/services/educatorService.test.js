@@ -6,9 +6,13 @@ jest.mock("../../../src/config/supabase", () => {
   const bucket = { createSignedUrl: jest.fn() };
   return { storage: { from: jest.fn(() => bucket), bucket } };
 });
+jest.mock("../../../src/services/resultRecalculationService", () => ({
+  recalculateRoundResults: jest.fn(),
+}));
 
 const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
 const supabase = require("../../../src/config/supabase");
+const { recalculateRoundResults } = require("../../../src/services/resultRecalculationService");
 const svc = require("../../../src/services/educatorService");
 
 const educator = { id: "edu-1", user_id: "u", school_id: "school-1", schools: { id: "school-1", name: "Parktown High" } };
@@ -900,6 +904,7 @@ describe("resolveRemark", () => {
     prisma.remark_requests.findUnique.mockResolvedValue({
       id: "rem-1",
       reviewer_id: "u",
+      status: "pending",
     });
     prisma.remark_requests.update.mockResolvedValue({
       id: "rem-1",
@@ -925,6 +930,22 @@ describe("resolveRemark", () => {
         reviewed_at: expect.any(Date),
       },
     });
+  });
+
+  it("rejects a remark that has already been concluded", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "u",
+      status: "reviewed",
+    });
+
+    await expect(
+      svc.resolveRemark("rem-1", "u", { status: "reviewed", review_note: "Again" }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "This remark has already been reviewed",
+    });
+    expect(prisma.remark_requests.update).not.toHaveBeenCalled();
   });
 
   it("rejects an educator who is not assigned to this remark", async () => {
@@ -1042,11 +1063,7 @@ describe("updateRemarkAnswer", () => {
     reviewer_id: "u",
     status: "pending",
     result_id: "res-1",
-    results: {
-      round_id: "round-1",
-      entrant_id: "ent-1",
-      rounds: { id: "round-1", qualifying_threshold: "15" },
-    },
+    results: { round_id: "round-1", entrant_id: "ent-1" },
   };
 
   const answerRecord = {
@@ -1071,10 +1088,10 @@ describe("updateRemarkAnswer", () => {
     });
   });
 
-  it("rejects updating an already reviewed remark", async () => {
+  it.each(["reviewed", "approved", "rejected"])("rejects updating a %s remark", async (status) => {
     prisma.remark_requests.findUnique.mockResolvedValue({
       ...remarkRecord,
-      status: "reviewed",
+      status,
     });
 
     await expect(
@@ -1100,15 +1117,11 @@ describe("updateRemarkAnswer", () => {
     });
   });
 
-  it("updates answer points clamped to maxPoints and recalculates total_points", async () => {
+  it("updates answer points clamped to maxPoints, logs the change and recalculates the round", async () => {
     prisma.remark_requests.findUnique.mockResolvedValue(remarkRecord);
     prisma.answers.findUnique.mockResolvedValue(answerRecord);
     prisma.answers.update.mockResolvedValue({ id: "ans-1" });
-    prisma.answers.findMany.mockResolvedValue([
-      { points_awarded: 5 },
-      { points_awarded: 11 },
-    ]);
-    prisma.results.update.mockResolvedValue({ id: "res-1" });
+    prisma.results.findUnique.mockResolvedValue({ total_points: "16" });
 
     const result = await svc.updateRemarkAnswer("rem-1", "ans-1", "u", {
       points_awarded: 10,
@@ -1121,6 +1134,16 @@ describe("updateRemarkAnswer", () => {
       totalPoints: 16,
     });
 
+    expect(prisma.marking_reviews.create).toHaveBeenCalledWith({
+      data: {
+        answer_id: "ans-1",
+        reviewer_id: "u",
+        original_points: 2,
+        revised_points: 5,
+        comment: "Re-marked in a remark review",
+      },
+    });
+
     expect(prisma.answers.update).toHaveBeenCalledWith({
       where: { id: "ans-1" },
       data: {
@@ -1131,13 +1154,8 @@ describe("updateRemarkAnswer", () => {
       },
     });
 
-    expect(prisma.results.update).toHaveBeenCalledWith({
-      where: { id: "res-1" },
-      data: {
-        total_points: 16,
-        qualified: true,
-      },
-    });
+    // Ranks, qualification and next-round enrolment all follow the new total
+    expect(recalculateRoundResults).toHaveBeenCalledWith(prisma, "round-1");
   });
 });
 

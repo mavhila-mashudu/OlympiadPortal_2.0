@@ -2,6 +2,7 @@ const router = require("express").Router();
 const prisma = require("../config/database").default;
 const { requireAuth, requireRole } = require("../middlewares/auth");
 const { BadRequestError, ForbiddenError, NotFoundError, ConflictError } = require("../errors/AppError");
+const { recalculateRoundResults: recalculate } = require("../services/resultRecalculationService");
 
 router.use(requireAuth);
 async function ownedRound(roundId, organiserId) {
@@ -9,48 +10,6 @@ async function ownedRound(roundId, organiserId) {
   if (!round) throw new NotFoundError("Round not found");
   if (round.olympiads.organiser_id !== organiserId) throw new ForbiddenError("Not your round");
   return round;
-}
-async function recalculate(tx, roundId) {
-  const round = await tx.rounds.findUnique({ where: { id: roundId } });
-  const submissions = await tx.submissions.findMany({ where: { round_id: roundId }, include: { answers: true } });
-  for (const submission of submissions) {
-    const total = submission.answers.reduce((n, a) => n + Number(a.points_awarded || 0), 0);
-    await tx.results.upsert({
-      where: { round_id_entrant_id: { round_id: roundId, entrant_id: submission.entrant_id } },
-      create: { round_id: roundId, entrant_id: submission.entrant_id, total_points: total },
-      update: { total_points: total },
-    });
-  }
-  if (round.state === "results_released") {
-    const results = await tx.results.findMany({ where: { round_id: roundId }, orderBy: [{ total_points: "desc" }, { id: "asc" }] });
-    for (let i = 0; i < results.length; i++) {
-      await tx.results.update({ where: { id: results[i].id }, data: {
-        rank: i + 1,
-        qualified: round.qualifying_threshold !== null && Number(results[i].total_points) >= Number(round.qualifying_threshold),
-      } });
-    }
-    const nextRound = await tx.rounds.findFirst({
-      where: { olympiad_id: round.olympiad_id, opens_at: { gt: round.opens_at } },
-      orderBy: { opens_at: "asc" }, select: { id: true, state: true },
-    });
-    if (nextRound && ["scheduled", "open"].includes(nextRound.state)) {
-      const previousRegistrations = await tx.entrant_registrations.findMany({
-        where: { round_id: roundId }, select: { entrant_id: true, registered_by: true },
-      });
-      const registrants = new Map(previousRegistrations.map((r) => [r.entrant_id, r.registered_by]));
-      const qualified = new Set(results.filter((r) => round.qualifying_threshold !== null && Number(r.total_points) >= Number(round.qualifying_threshold)).map((r) => r.entrant_id));
-      const newlyQualified = [...qualified].filter((id) => registrants.has(id));
-      if (newlyQualified.length) await tx.entrant_registrations.createMany({
-        data: newlyQualified.map((id) => ({ entrant_id: id, round_id: nextRound.id, registered_by: registrants.get(id) })), skipDuplicates: true,
-      });
-      const noLongerQualified = [...registrants.keys()].filter((id) => !qualified.has(id));
-      if (noLongerQualified.length && nextRound.state === "scheduled") {
-        const submitted = await tx.submissions.findMany({ where: { round_id: nextRound.id, entrant_id: { in: noLongerQualified } }, select: { entrant_id: true } });
-        const protectedIds = new Set(submitted.map((s) => s.entrant_id));
-        await tx.entrant_registrations.deleteMany({ where: { round_id: nextRound.id, entrant_id: { in: noLongerQualified.filter((id) => !protectedIds.has(id)) } } });
-      }
-    }
-  }
 }
 
 router.get("/:roundId/review-sample", requireRole("organiser"), async (req, res, next) => {
@@ -85,19 +44,14 @@ router.patch("/:roundId/review-sample/:answerId", requireRole("organiser"), asyn
     res.json({ success: true, data: { message: "Review saved and results recalculated" } });
   } catch (err) { next(err); }
 });
-// Keep the round-level API compatible with the existing result-linked remark table.
-const presentRemark = (remark) => {
-  const [action, ...parts] = (remark.review_note || "").split(": ");
-  return {
-    ...remark,
-    round_id: remark.results?.round_id,
-    entrant_id: remark.results?.entrant_id,
-    entrants: remark.results?.entrants,
-    status: remark.status === "reviewed" && ["approved", "rejected"].includes(action) ? action : remark.status,
-    decision: remark.status === "reviewed" && ["approved", "rejected"].includes(action) ? parts.join(": ") : null,
-    decided_at: remark.reviewed_at,
-  };
-};
+// Remarks a student made from their results page carry only the result link,
+// so the round and entrant come from the result.
+const presentRemark = (remark) => ({
+  ...remark,
+  round_id: remark.results?.round_id,
+  entrant_id: remark.results?.entrant_id,
+  entrants: remark.results?.entrants,
+});
 router.get("/:roundId/remarks", requireRole("organiser"), async (req, res, next) => {
   try {
     await ownedRound(req.params.roundId, req.user.userId);
@@ -166,7 +120,8 @@ router.patch("/:roundId/remarks/:remarkId", requireRole("organiser"), async (req
         await tx.answers.update({ where: { id: answer.id }, data: { points_awarded: points } });
         await recalculate(tx, req.params.roundId);
       }
-      await tx.remark_requests.update({ where: { id: remark.id }, data: { status: "reviewed", review_note: `${status}: ${decision}`, reviewer_id: req.user.userId, reviewed_at: new Date() } });
+      const now = new Date();
+      await tx.remark_requests.update({ where: { id: remark.id }, data: { status, decision, decided_at: now, reviewer_id: req.user.userId, reviewed_at: now } });
     });
     res.json({ success: true, data: { message: "Remark decided" } });
   } catch (err) { next(err); }
