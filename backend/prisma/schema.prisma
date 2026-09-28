@@ -100,6 +100,7 @@ model entrants {
   schools               schools                 @relation(fields: [school_id], references: [id])
   users                 users?                  @relation(fields: [user_id], references: [id], onDelete: Cascade)
   results               results[]
+  remark_requests       remark_requests[]
   submissions           submissions[]
 }
 
@@ -135,6 +136,23 @@ model notification_rules {
   @@index([olympiad_id, enabled])
 }
 
+// One row per notification email actually sent, keyed by
+// (dedup_key, round, recipient) so the dispatcher never sends
+// the same notification twice.  dedup_key is "rule:<rule id>"
+// for organiser-configured rules and "default:<trigger>" for
+// the built-in educator notifications.
+model sent_notifications {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dedup_key String
+  round_id  String   @db.Uuid
+  recipient String
+  sent_at   DateTime @default(now()) @db.Timestamptz(6)
+  rounds    rounds   @relation(fields: [round_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([dedup_key, round_id, recipient])
+  @@index([round_id])
+}
+
 model school_registrations {
   id            String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   school_id     String              @db.Uuid
@@ -167,6 +185,7 @@ model rounds {
   sent_notifications    sent_notifications[]
   olympiads             olympiads               @relation(fields: [olympiad_id], references: [id], onDelete: Cascade)
   submissions           submissions[]
+  remark_requests       remark_requests[]
   portal_notifications  portal_notifications[]
 
   @@index([state, opens_at, closes_at], map: "idx_rounds_state_times")
@@ -198,18 +217,6 @@ model questions {
   created_at     DateTime  @default(now()) @db.Timestamptz(6)
   answers        answers[]
   papers         papers    @relation(fields: [paper_id], references: [id], onDelete: Cascade)
-}
-
-model sent_notifications {
-  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  dedup_key String
-  round_id  String   @db.Uuid
-  recipient String
-  sent_at   DateTime @default(now()) @db.Timestamptz(6)
-  rounds    rounds   @relation(fields: [round_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([dedup_key, round_id, recipient])
-  @@index([round_id])
 }
 
 model answers {
@@ -283,14 +290,20 @@ model results {
 model remark_requests {
   id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   result_id   String        @unique @db.Uuid
+  round_id    String?       @db.Uuid
+  entrant_id  String?       @db.Uuid
   reason      String
   status      remark_status @default(pending)
   reviewer_id String?       @db.Uuid
   review_note String?
+  decision    String?
+  decided_at  DateTime?     @db.Timestamptz(6)
   created_at  DateTime      @default(now()) @db.Timestamptz(6)
   reviewed_at DateTime?     @db.Timestamptz(6)
 
-  results results @relation(fields: [result_id], references: [id])
+  results  results   @relation(fields: [result_id], references: [id])
+  rounds   rounds?   @relation(fields: [round_id], references: [id])
+  entrants entrants? @relation(fields: [entrant_id], references: [id])
 }
 
 enum round_state {
@@ -369,6 +382,8 @@ enum notification_channel {
 enum remark_status {
   pending
   reviewed
+  approved
+  rejected
 }
 
 model portal_notifications {

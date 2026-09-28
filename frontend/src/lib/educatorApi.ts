@@ -167,6 +167,53 @@ export type SubmissionReceipt = {
   autoMarked: boolean;
 };
 
+export type EducatorOverviewRound = {
+  id: string;
+  name: string;
+  state: string;
+  status: RoundStatus;
+  opens_at: string;
+  closes_at: string;
+  entrant_count: number;
+  submitted_count: number;
+  results_available: boolean;
+  school_average: number | null;
+  qualified_count: number | null;
+  top_rank: number | null;
+};
+
+export type EducatorOverviewOlympiad = {
+  id: string;
+  name: string;
+  rounds: EducatorOverviewRound[];
+};
+
+export type EducatorOverviewEntrantRound = {
+  round_id: string;
+  round_name: string;
+  olympiad_id: string | null;
+  state: string | null;
+  submitted: boolean;
+  submitted_at: string | null;
+  score: number | null;
+  rank: number | null;
+  qualified: boolean | null;
+};
+
+export type EducatorOverviewEntrant = {
+  id: string;
+  full_name: string;
+  grade: string | null;
+  external_ref: string | null;
+  rounds: EducatorOverviewEntrantRound[];
+};
+
+export type EducatorOverview = {
+  school: EducatorSchool;
+  olympiads: EducatorOverviewOlympiad[];
+  entrants: EducatorOverviewEntrant[];
+};
+
 // ── Date formatting helper ─────────────────────────────────
 
 // Round times are shown in the olympiad's timezone, labelled, so every
@@ -188,6 +235,13 @@ export function useEducatorRounds() {
       api.get<{ rounds: EducatorRound[]; school: EducatorSchool }>(
         "/educator/rounds",
       ),
+  });
+}
+
+export function useEducatorOverview() {
+  return useQuery({
+    queryKey: ["educator", "overview"],
+    queryFn: () => api.get<EducatorOverview>("/educator/overview"),
   });
 }
 

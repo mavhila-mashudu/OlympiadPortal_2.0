@@ -2,6 +2,7 @@
 const prisma = require("../config/database").default;
 const { autoMarkRoundInternal } = require("./markingService");
 const { recordRoundEvent } = require("./roundAuditService");
+const { processDueNotifications } = require("./notificationDispatchService");
 
 // ─────────────────────────────────────────
 // RUN ONE LIFECYCLE PASS
@@ -11,6 +12,8 @@ const { recordRoundEvent } = require("./roundAuditService");
 //   open      -> closed   (once closes_at has passed)
 //   closed    -> auto-marked (immediately after closing)
 // Results release stays manual (organiser action).
+// After the transitions, due notification emails are dispatched
+// (round opening/closing reminders and results-out notices).
 // ─────────────────────────────────────────
 const runLifecycleTick = async () => {
   const now = new Date();
@@ -80,6 +83,16 @@ const runLifecycleTick = async () => {
         );
       }
     }
+  }
+
+  // Dispatch after round transitions; a delivery error must not stop the lifecycle tick.
+  try {
+    const notifications = await processDueNotifications(now);
+    if (notifications.sent > 0) {
+      console.log(`[lifecycle] dispatched ${notifications.sent} notification email(s)`);
+    }
+  } catch (err) {
+    console.error(`[lifecycle] notification dispatch failed: ${err.message}`);
   }
 
   return { opened, closed };

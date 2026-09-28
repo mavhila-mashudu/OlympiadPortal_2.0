@@ -1,3 +1,5 @@
+-- Delivery log for notification emails: one row per (dedup_key, round,
+-- recipient) send so the dispatcher never sends the same notification twice.
 -- This migration was already applied to the shared Supabase database.
 -- It is retained locally so Prisma migration history matches the database.
 

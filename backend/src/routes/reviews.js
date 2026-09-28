@@ -121,7 +121,11 @@ router.post("/:roundId/remark", requireRole("student"), async (req, res, next) =
     if (!result || result.rounds.state !== "results_released") throw new ForbiddenError("Result not released for this student");
     const reason = String(req.body.reason || "").trim();
     if (reason.length < 10 || reason.length > 2000) throw new BadRequestError("Provide a reason of 10 to 2000 characters");
-    const remark = await prisma.remark_requests.create({ data: { result_id: result.id, reason }, include: { results: { select: { round_id: true, entrant_id: true } } } }).catch((err) => {
+    // Store both the direct round link and the result link used by educator reviews.
+    const remark = await prisma.remark_requests.create({
+      data: { round_id: req.params.roundId, entrant_id: entrantId, result_id: result.id, reason },
+      include: { results: { select: { round_id: true, entrant_id: true } } },
+    }).catch((err) => {
       if (err.code === "P2002") throw new ConflictError("You already requested a remark for this round");
       throw err;
     });

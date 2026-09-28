@@ -19,6 +19,7 @@ const MODELS = [
   "entrants",
   "olympiads",
   "notification_rules",
+  "sent_notifications",
   "portal_notifications",
   "round_events",
   "submission_deadline_decisions",
@@ -32,7 +33,6 @@ const MODELS = [
   "submissions",
   "entrant_registrations",
   "results",
-  "remark_requests",
 ];
 
 const METHODS = [

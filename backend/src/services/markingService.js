@@ -401,6 +401,10 @@ const generateResults = async (roundId, userId, role) => {
         skipDuplicates: true,
       });
     }
+
+    // Transition round to results_released.  results_release_at records
+    // the actual release moment — the notification dispatcher uses it to
+    // send the "results are out" notices.
     await tx.rounds.update({
       where: { id: roundId },
       data: { state: "results_released", results_release_at: now },

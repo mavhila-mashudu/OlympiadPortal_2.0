@@ -5,9 +5,13 @@ jest.mock("../../../src/config/database", () => ({
 jest.mock("../../../src/services/markingService", () => ({
   autoMarkRoundInternal: jest.fn(),
 }));
+jest.mock("../../../src/services/notificationDispatchService", () => ({
+  processDueNotifications: jest.fn(),
+}));
 
 const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
 const { autoMarkRoundInternal } = require("../../../src/services/markingService");
+const { processDueNotifications } = require("../../../src/services/notificationDispatchService");
 const { runLifecycleTick } = require("../../../src/services/lifecycleService");
 
 const NOW = new Date("2026-06-01T09:00:00Z");
@@ -18,6 +22,7 @@ beforeEach(() => {
   resetPrismaMock();
   prisma.rounds.updateMany.mockResolvedValue({ count: 1 });
   autoMarkRoundInternal.mockReset().mockResolvedValue({ total: 0 });
+  processDueNotifications.mockReset().mockResolvedValue({ due: 0, sent: 0 });
   jest.useFakeTimers().setSystemTime(NOW);
   consoleLog = jest.spyOn(console, "log").mockImplementation(() => {});
   consoleError = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -81,5 +86,26 @@ describe("runLifecycleTick", () => {
     arrange({ toOpen: [{ id: "r1", name: "A" }], toClose: [{ id: "r2", name: "B" }] });
     await expect(runLifecycleTick()).resolves.toEqual({ opened: 1, closed: 1 });
     expect(prisma.rounds.updateMany).toHaveBeenCalledTimes(2);
+  });
+
+  it("dispatches due notifications after the transitions", async () => {
+    arrange({ toOpen: [{ id: "r1", name: "A" }] });
+    processDueNotifications.mockResolvedValueOnce({ due: 3, sent: 2 });
+
+    await runLifecycleTick();
+    expect(processDueNotifications).toHaveBeenCalledWith(NOW);
+    expect(consoleLog).toHaveBeenCalledWith(
+      "[lifecycle] dispatched 2 notification email(s)",
+    );
+  });
+
+  it("keeps the tick alive when notification dispatch fails", async () => {
+    arrange({});
+    processDueNotifications.mockRejectedValueOnce(new Error("mailer down"));
+
+    await expect(runLifecycleTick()).resolves.toEqual({ opened: 0, closed: 0 });
+    expect(consoleError).toHaveBeenCalledWith(
+      "[lifecycle] notification dispatch failed: mailer down",
+    );
   });
 });

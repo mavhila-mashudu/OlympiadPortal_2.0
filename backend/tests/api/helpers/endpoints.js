@@ -95,6 +95,7 @@ const endpoints = [
   { method: "patch", path: "/rounds/:roundId/answers/:id", roles: STAFF },
 
   // Educator portal
+  { method: "get", path: "/educator/overview", roles: EDUCATOR },
   { method: "get", path: "/educator/rounds", roles: EDUCATOR },
   { method: "get", path: "/educator/rounds/:roundId", roles: EDUCATOR },
   { method: "post", path: "/educator/rounds/:roundId/entrants", roles: EDUCATOR },
