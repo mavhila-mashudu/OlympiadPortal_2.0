@@ -24,6 +24,7 @@ const { bucket } = supabase.storage;
 const ownedRound = (overrides = {}) => ({
   id: "round-1",
   name: "Round 1",
+  state: "scheduled",
   olympiads: { id: "oly-1", organiser_id: "org-1" },
   ...overrides,
 });
@@ -39,6 +40,12 @@ const pdf = (name) => ({ originalname: name, buffer: Buffer.from("%PDF"), mimety
 const sharedPath = `shared/${require("node:crypto").createHash("sha256").update(Buffer.from("%PDF")).digest("hex")}`;
 
 describe("uploadRoundPapers", () => {
+  it("rejects replacements after the round opens", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(ownedRound({ state: "open" }));
+    await expect(uploadRoundPapers({ roundId: "round-1", organiserId: "org-1", paperFile: pdf("new.pdf") }))
+      .rejects.toMatchObject({ statusCode: 400, message: "Papers can only be changed before the round opens" });
+    expect(bucket.upload).not.toHaveBeenCalled();
+  });
   it("requires at least one file", async () => {
     prisma.rounds.findUnique.mockResolvedValue(ownedRound());
     await expect(uploadRoundPapers({ roundId: "round-1", organiserId: "org-1" })).rejects.toMatchObject({

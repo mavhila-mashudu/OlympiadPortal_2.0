@@ -14,8 +14,6 @@ export default function Olympiads() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteOlympiadId, setInviteOlympiadId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rounds, setRounds] = useState<any[]>([]);
@@ -70,18 +68,6 @@ export default function Olympiads() {
       setError(err.message || "Failed to create Olympiad.");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleRename = async (id: string) => {
-    if (!editingName.trim()) return;
-    try {
-      await api.patch(`/olympiads/${id}`, { name: editingName.trim() });
-      setEditingId(null);
-      setEditingName("");
-      await loadOlympiads();
-    } catch (err: any) {
-      setError(err.message || "Failed to rename olympiad.");
     }
   };
 
@@ -157,18 +143,6 @@ export default function Olympiads() {
                   <Fragment key={item.id}>
                   <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "1rem 1.25rem", fontWeight: 600 }}>
-                      {editingId === item.id ? (
-                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                          <Input
-                            value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") handleRename(item.id); if (e.key === "Escape") setEditingId(null); }}
-                            style={{ padding: "0.25rem 0.5rem", fontSize: "0.875rem" }}
-                          />
-                          <Button onClick={() => handleRename(item.id)} style={{ padding: "0.25rem 0.75rem", fontSize: "0.8125rem" }}>Save</Button>
-                          <Button onClick={() => setEditingId(null)} variant="outline" style={{ padding: "0.25rem 0.75rem", fontSize: "0.8125rem" }}>Cancel</Button>
-                        </div>
-                      ) : (
                         <button
                           type="button"
                           onClick={() => toggleExpand(item.id)}
@@ -194,7 +168,6 @@ export default function Olympiads() {
                           }}>&#9654;</span>
                           {item.name}
                         </button>
-                      )}
                     </td>
                     <td style={{ padding: "1rem 1.25rem", color: "#6b7280", fontFamily: "monospace" }}>{item.id}</td>
                     <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.roundsCount ?? item._count?.rounds ?? item.rounds?.length ?? 0}</td>
@@ -205,10 +178,10 @@ export default function Olympiads() {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => { setEditingId(item.id); setEditingName(item.name); }}
+                        to={`/organiser/olympiads/${item.id}/edit`}
                         style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}
                       >
-                        Edit
+                        Edit olympiad
                       </Button>
                       {deletingId === item.id ? (
                         <>

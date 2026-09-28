@@ -28,6 +28,10 @@ const uploadRoundPapers = async ({
 
   const round = await getRound(roundId, organiserId);
 
+  if (round.state !== "scheduled") {
+    throw new BadRequestError("Papers can only be changed before the round opens");
+  }
+
   if (!paperFile && !memoFile) {
     throw new BadRequestError("At least one of paper or memo file is required");
   }

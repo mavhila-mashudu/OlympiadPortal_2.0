@@ -22,7 +22,8 @@ const createOlympiadRules = [
 ];
 
 const updateOlympiadRules = [
-  body("name").trim().notEmpty().withMessage("Olympiad name is required"),
+  body("name").optional().trim().notEmpty().withMessage("Olympiad name is required"),
+  body("timezone").optional().trim().notEmpty().withMessage("Timezone is required"),
 ];
 
 // === Routes ===
