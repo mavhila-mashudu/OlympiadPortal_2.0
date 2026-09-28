@@ -1,4 +1,5 @@
 import { api } from "./api";
+import { formatDateInZone, formatDateTimeInZone } from "./time";
 
 export type StudentProfile = {
   userName: string;
@@ -81,24 +82,13 @@ export function formatCountdown(opensAtIso: string): string {
   return `${minutes}m`;
 }
 
-export function formatDateTime(isoString: string): string {
+// Round times are shown in the olympiad's timezone, labelled
+export function formatDateTime(isoString: string, timeZone: string): string {
   if (!isoString) return "—";
-  const d = new Date(isoString);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTimeInZone(isoString, timeZone);
 }
 
-export function formatDateOnly(isoString: string): string {
+export function formatDateOnly(isoString: string, timeZone: string): string {
   if (!isoString) return "—";
-  const d = new Date(isoString);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDateInZone(isoString, timeZone);
 }

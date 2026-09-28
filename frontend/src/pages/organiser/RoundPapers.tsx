@@ -10,6 +10,7 @@ import { Label } from "../../components/ui/Label";
 import { Textarea } from "../../components/ui/Textarea";
 import { api } from "../../lib/api";
 import { organiserNav } from "../../lib/mockData";
+import { DEFAULT_TIMEZONE, isoToZonedInput, timeZoneLabel, zonedInputToIso } from "../../lib/time";
 import styles from "./CreateRound.module.css";
 
 type Round = {
@@ -20,12 +21,8 @@ type Round = {
   notes: string | null;
   qualifying_threshold: number | string | null;
   papers: { id: string; file_url: string | null; memo_file_url: string | null }[];
+  olympiads: { timezone?: string };
 };
-
-function toUTCISO(value: string) {
-  const [date, time] = value.split("T");
-  return `${date}T${time}:00.000Z`;
-}
 
 export default function RoundPapers() {
   const { id } = useParams<{ id: string }>();
@@ -61,8 +58,8 @@ export default function RoundPapers() {
     try {
       const result = await api.patch<{ warnings?: string[] }>(`/rounds/${id}`, {
         name: String(values.get("name") ?? "").trim(),
-        opens_at: toUTCISO(String(values.get("opensAt"))),
-        closes_at: toUTCISO(String(values.get("closesAt"))),
+        opens_at: zonedInputToIso(String(values.get("opensAt")), timeZone),
+        closes_at: zonedInputToIso(String(values.get("closesAt")), timeZone),
         qualifying_threshold: values.get("threshold") ? Number(values.get("threshold")) : null,
         notes: String(values.get("notes") ?? ""),
       });
@@ -90,6 +87,7 @@ export default function RoundPapers() {
   }
 
   const current = round?.papers[0];
+  const timeZone = round?.olympiads?.timezone ?? DEFAULT_TIMEZONE;
   return (
     <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
       <div className={styles.stack}>
@@ -102,8 +100,8 @@ export default function RoundPapers() {
             <div className={styles.field}><Label htmlFor="edit-round-threshold">Qualifying threshold</Label><Input id="edit-round-threshold" name="threshold" type="number" min="0" step="any" defaultValue={round.qualifying_threshold ?? ""} /></div>
             <div className={styles.field}><Label htmlFor="edit-round-notes">Instructions for educators</Label><Textarea id="edit-round-notes" name="notes" rows={3} defaultValue={round.notes ?? ""} /></div>
             <div className={styles.dateGrid}>
-              <div className={styles.field}><Label htmlFor="edit-round-opens">Opens at (UTC)</Label><Input id="edit-round-opens" name="opensAt" type="datetime-local" defaultValue={round.opens_at.slice(0, 16)} required /></div>
-              <div className={styles.field}><Label htmlFor="edit-round-closes">Closes at (UTC)</Label><Input id="edit-round-closes" name="closesAt" type="datetime-local" defaultValue={round.closes_at.slice(0, 16)} required /></div>
+              <div className={styles.field}><Label htmlFor="edit-round-opens">Opens at ({timeZoneLabel(timeZone)})</Label><Input id="edit-round-opens" name="opensAt" type="datetime-local" defaultValue={isoToZonedInput(round.opens_at, timeZone)} required /></div>
+              <div className={styles.field}><Label htmlFor="edit-round-closes">Closes at ({timeZoneLabel(timeZone)})</Label><Input id="edit-round-closes" name="closesAt" type="datetime-local" defaultValue={isoToZonedInput(round.closes_at, timeZone)} required /></div>
             </div>
             <p>Paper: {current?.file_url ? "Uploaded" : "Not uploaded"}; memo: {current?.memo_file_url ? "Uploaded" : "Not uploaded"}</p>
             <p className={styles.hint}>Select a file only when adding or replacing it. The other file stays unchanged. Maximum 20 MB per file.</p>

@@ -85,11 +85,32 @@ router.patch("/:roundId/review-sample/:answerId", requireRole("organiser"), asyn
     res.json({ success: true, data: { message: "Review saved and results recalculated" } });
   } catch (err) { next(err); }
 });
+// Keep the round-level API compatible with the existing result-linked remark table.
+const presentRemark = (remark) => {
+  const [action, ...parts] = (remark.review_note || "").split(": ");
+  return {
+    ...remark,
+    round_id: remark.results?.round_id,
+    entrant_id: remark.results?.entrant_id,
+    entrants: remark.results?.entrants,
+    status: remark.status === "reviewed" && ["approved", "rejected"].includes(action) ? action : remark.status,
+    decision: remark.status === "reviewed" && ["approved", "rejected"].includes(action) ? parts.join(": ") : null,
+    decided_at: remark.reviewed_at,
+  };
+};
 router.get("/:roundId/remarks", requireRole("organiser"), async (req, res, next) => {
   try {
     await ownedRound(req.params.roundId, req.user.userId);
-    const remarks = await prisma.remark_requests.findMany({ where: { round_id: req.params.roundId }, orderBy: { created_at: "asc" }, include: { entrants: { select: { full_name: true, submissions: { where: { round_id: req.params.roundId }, select: { id: true, answers: { select: { id: true, answer_value: true, points_awarded: true, questions: { select: { prompt: true, max_points: true } } } } } } } } } });
-    res.json({ success: true, data: { remarks } });
+    const remarks = await prisma.remark_requests.findMany({
+      where: { results: { round_id: req.params.roundId } },
+      orderBy: { created_at: "asc" },
+      include: { results: { include: { entrants: { select: { full_name: true, submissions: {
+        where: { round_id: req.params.roundId },
+        select: { id: true, answers: { select: { id: true, answer_value: true, points_awarded: true,
+          questions: { select: { prompt: true, max_points: true } } } } },
+      } } } } } },
+    });
+    res.json({ success: true, data: { remarks: remarks.map(presentRemark) } });
   } catch (err) { next(err); }
 });
 router.post("/:roundId/remark", requireRole("student"), async (req, res, next) => {
@@ -100,25 +121,28 @@ router.post("/:roundId/remark", requireRole("student"), async (req, res, next) =
     if (!result || result.rounds.state !== "results_released") throw new ForbiddenError("Result not released for this student");
     const reason = String(req.body.reason || "").trim();
     if (reason.length < 10 || reason.length > 2000) throw new BadRequestError("Provide a reason of 10 to 2000 characters");
-    const remark = await prisma.remark_requests.create({ data: { round_id: req.params.roundId, entrant_id: entrantId, reason } }).catch((err) => {
+    const remark = await prisma.remark_requests.create({ data: { result_id: result.id, reason }, include: { results: { select: { round_id: true, entrant_id: true } } } }).catch((err) => {
       if (err.code === "P2002") throw new ConflictError("You already requested a remark for this round");
       throw err;
     });
-    res.status(201).json({ success: true, data: { remark } });
+    res.status(201).json({ success: true, data: { remark: presentRemark(remark) } });
   } catch (err) { next(err); }
 });
 router.get("/:roundId/my-remark", requireRole("student"), async (req, res, next) => {
   try {
     if (!req.user.entrant) throw new ForbiddenError("No linked entrant profile");
-    const remark = await prisma.remark_requests.findUnique({ where: { round_id_entrant_id: { round_id: req.params.roundId, entrant_id: req.user.entrant.id } }, select: { id: true, status: true, decision: true, created_at: true } });
-    res.json({ success: true, data: { remark } });
+    const remark = await prisma.remark_requests.findFirst({
+      where: { results: { round_id: req.params.roundId, entrant_id: req.user.entrant.id } },
+      include: { results: { select: { round_id: true, entrant_id: true } } },
+    });
+    res.json({ success: true, data: { remark: remark ? presentRemark(remark) : null } });
   } catch (err) { next(err); }
 });
 router.patch("/:roundId/remarks/:remarkId", requireRole("organiser"), async (req, res, next) => {
   try {
     await ownedRound(req.params.roundId, req.user.userId);
-    const remark = await prisma.remark_requests.findUnique({ where: { id: req.params.remarkId } });
-    if (!remark || remark.round_id !== req.params.roundId) throw new NotFoundError("Remark not found");
+    const remark = await prisma.remark_requests.findUnique({ where: { id: req.params.remarkId }, include: { results: { select: { round_id: true, entrant_id: true } } } });
+    if (!remark || remark.results.round_id !== req.params.roundId) throw new NotFoundError("Remark not found");
     if (remark.status !== "pending") throw new ConflictError("Remark has already been decided");
     const status = req.body.status;
     const decision = String(req.body.decision || "").trim();
@@ -128,7 +152,7 @@ router.patch("/:roundId/remarks/:remarkId", requireRole("organiser"), async (req
     if (status === "approved") {
       points = Number(req.body.points_awarded);
       answer = await prisma.answers.findUnique({ where: { id: req.body.answer_id }, include: { questions: true, submissions: true } });
-      if (!answer || answer.submissions.round_id !== req.params.roundId || answer.submissions.entrant_id !== remark.entrant_id || !Number.isFinite(points) || points < 0 || points > Number(answer.questions.max_points)) {
+      if (!answer || answer.submissions.round_id !== req.params.roundId || answer.submissions.entrant_id !== remark.results.entrant_id || !Number.isFinite(points) || points < 0 || points > Number(answer.questions.max_points)) {
         throw new BadRequestError("Select an answer from this entrant and valid revised points");
       }
     }
@@ -138,7 +162,7 @@ router.patch("/:roundId/remarks/:remarkId", requireRole("organiser"), async (req
         await tx.answers.update({ where: { id: answer.id }, data: { points_awarded: points } });
         await recalculate(tx, req.params.roundId);
       }
-      await tx.remark_requests.update({ where: { id: remark.id }, data: { status, decision, reviewer_id: req.user.userId, decided_at: new Date() } });
+      await tx.remark_requests.update({ where: { id: remark.id }, data: { status: "reviewed", review_note: `${status}: ${decision}`, reviewer_id: req.user.userId, reviewed_at: new Date() } });
     });
     res.json({ success: true, data: { message: "Remark decided" } });
   } catch (err) { next(err); }

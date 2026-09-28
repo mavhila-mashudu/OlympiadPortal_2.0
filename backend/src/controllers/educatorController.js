@@ -177,6 +177,60 @@ const downloadPaper = async (req, res, next) => {
   }
 };
 
+const listRemarks = async (req, res, next) => {
+  try {
+    const remarks = await educatorService.listRemarks(req.user.userId);
+    res.json({ success: true, data: { remarks } });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getRemarkSubmissionAnswers = async (req, res, next) => {
+  try {
+    const data = await educatorService.getRemarkSubmissionAnswers(
+      req.params.remarkId,
+      req.user.userId,
+    );
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateRemarkAnswer = async (req, res, next) => {
+  try {
+    const result = await educatorService.updateRemarkAnswer(
+      req.params.remarkId,
+      req.params.answerId,
+      req.user.userId,
+      {
+        points_awarded: req.body.points_awarded,
+        is_correct: req.body.is_correct,
+      },
+    );
+    res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resolveRemark = async (req, res, next) => {
+  try {
+    const remark = await educatorService.resolveRemark(
+      req.params.remarkId,
+      req.user.userId,
+      {
+        status: req.body.status,
+        review_note: req.body.review_note,
+      },
+    );
+    res.json({ success: true, data: { remark } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   listRounds,
   getRound,
@@ -190,4 +244,10 @@ module.exports = {
   listAllResults,
   listPastPapers,
   downloadPaper,
+  listRemarks,
+  getRemarkSubmissionAnswers,
+  updateRemarkAnswer,
+  resolveRemark,
 };
+
+

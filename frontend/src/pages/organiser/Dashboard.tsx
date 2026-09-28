@@ -14,6 +14,10 @@ import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import {
+  DEFAULT_TIMEZONE,
+  formatDateTimeInZone,
+} from "../../lib/time";
 import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
 import { toBadgeStatus, type RoundState } from "./roundStatus";
 import styles from "./Dashboard.module.css";
@@ -30,11 +34,6 @@ type Round = {
   _count: { submissions?: number; entrant_registrations?: number };
 };
 
-const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 function OrganiserDashboard() {
   const [olympiad, setOlympiad] = useState<Olympiad | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -42,6 +41,7 @@ function OrganiserDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingRoundId, setDeletingRoundId] = useState<string | null>(null);
+  const timeZone = olympiad?.timezone ?? DEFAULT_TIMEZONE;
 
   async function loadRounds(olympiadId: string) {
     const { rounds: roundList } = await api.get<{ rounds: Round[] }>(
@@ -289,8 +289,8 @@ function OrganiserDashboard() {
                           </span>
                         )}
                       </td>
-                      <td>{dateFormatter.format(new Date(round.opens_at))}</td>
-                      <td>{dateFormatter.format(new Date(round.closes_at))}</td>
+                      <td>{formatDateTimeInZone(round.opens_at, timeZone)}</td>
+                      <td>{formatDateTimeInZone(round.closes_at, timeZone)}</td>
                       <td>
                         <StatusBadge status={toBadgeStatus(round.state)} />
                       </td>

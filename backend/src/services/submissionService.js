@@ -103,12 +103,17 @@ const createSubmission = async (roundId, educatorUserId, body) => {
     );
   }
 
-  // One set of results per learner: not also when they sat it online
+  // One set of results per learner: not also when they sat it online.
+  // The exception (A9) is an online attempt the learner opened but never
+  // submitted, e.g. their connection failed and they finished on paper: the
+  // paper results replace it.
   const otherRoute = await prisma.submissions.findFirst({
     where: { round_id: roundId, entrant_id, route: { not: route } },
-    select: { id: true },
+    select: { id: true, route: true, status: true },
   });
-  if (otherRoute) {
+  const replacesUnfinishedAttempt =
+    otherRoute && route === "offline" && otherRoute.route === "online" && otherRoute.status === "received";
+  if (otherRoute && !replacesUnfinishedAttempt) {
     throw new ConflictError("This entrant already has a submission for this round");
   }
 
@@ -133,18 +138,39 @@ const createSubmission = async (roundId, educatorUserId, body) => {
 
   // 6. Create submission + answers + auto-mark in a transaction
   const result = await prisma.$transaction(async (tx) => {
-    const submission = await tx.submissions.create({
-      data: {
-        round_id: roundId,
-        entrant_id,
-        submitted_by: educator.id,
-        route,
-        status: "received",
-        idempotency_key: idempotencyKey,
-        round_close_snapshot: round.closes_at,
-        received_at: receivedAt,
-      },
-    });
+    if (replacesUnfinishedAttempt) {
+      // Only while it is still unsubmitted: if the learner submitted online
+      // since the check above, their exam stands and the capture is refused.
+      // Its autosaved answers go with it (answers cascade on delete).
+      const { count } = await tx.submissions.deleteMany({
+        where: { id: otherRoute.id, status: "received" },
+      });
+      if (count === 0) {
+        throw new ConflictError("This entrant already has a submission for this round");
+      }
+    }
+
+    const submission = await tx.submissions
+      .create({
+        data: {
+          round_id: roundId,
+          entrant_id,
+          submitted_by: educator.id,
+          route,
+          status: "received",
+          idempotency_key: idempotencyKey,
+          round_close_snapshot: round.closes_at,
+          received_at: receivedAt,
+        },
+      })
+      .catch((err) => {
+        // Another submission for this learner landed between the checks
+        // above and this insert; the database's one-per-round rule caught it
+        if (err.code === "P2002") {
+          throw new ConflictError("This entrant already has a submission for this round");
+        }
+        throw err;
+      });
 
     let totalPoints = 0;
     let allAutoMarked = true;

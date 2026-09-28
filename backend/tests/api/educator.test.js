@@ -59,7 +59,7 @@ describe("GET /educator/rounds", () => {
       [science.id, "open", true, 0],
       [round2.id, "upcoming", false, 0],
     ]);
-    expect(data.rounds[0]).toMatchObject({ olympiad_id: olympiad.id, olympiad_name: olympiad.name, state: "results_released", submission_count: 0 });
+    expect(data.rounds[0]).toMatchObject({ olympiad_id: olympiad.id, olympiad_name: olympiad.name, timezone: "Africa/Johannesburg", state: "results_released", submission_count: 0 });
   });
 
   it("responds 403 for an educator account without an educator profile", async () => {
@@ -81,6 +81,8 @@ describe("GET /educator/rounds/:roundId", () => {
       submissions: [],
       results_available: true,
       school: { id: school.id, name: school.name },
+      // The page shows round times in the olympiad's timezone
+      timezone: "Africa/Johannesburg",
     });
     // Storage paths stay on the server
     expect(JSON.stringify(round)).not.toContain("p.pdf");
@@ -372,6 +374,7 @@ describe("GET /educator/results", () => {
         id: round1.id,
         name: "Round 1",
         olympiad_name: olympiad.name,
+        timezone: "Africa/Johannesburg",
         closes_at: round1.closes_at.toISOString(),
         results: [
           expect.objectContaining({ rank: 1, entrant: expect.objectContaining({ id: ayanda.id }) }),
@@ -400,6 +403,7 @@ describe("GET /educator/rounds/:roundId/papers/past", () => {
           round_name: "Round 1",
           title: "Round 1 paper",
           closed_at: round1.closes_at.toISOString(),
+          timezone: "Africa/Johannesburg",
           has_paper: true,
           has_memo: true,
         },

@@ -38,6 +38,8 @@ const setRoundStateRules = [
 const checkDatesRules = [
   body("opens_at").isISO8601().withMessage("opens_at must be a valid date"),
   body("closes_at").isISO8601().withMessage("closes_at must be a valid date"),
+  // Holidays are checked on the olympiad's local calendar
+  body("olympiad_id").optional().isUUID().withMessage("olympiad_id must be a valid UUID"),
 ];
 
 // ── Routes ──────────────────────────────────────────────

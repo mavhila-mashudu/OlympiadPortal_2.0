@@ -76,11 +76,11 @@ function EducatorDashboard() {
                   <dl className={styles.dateGrid}>
                     <div>
                       <dt>Opens</dt>
-                      <dd>{formatDate(round.opens_at)}</dd>
+                      <dd>{formatDate(round.opens_at, round.timezone)}</dd>
                     </div>
                     <div>
                       <dt>Closes</dt>
-                      <dd>{formatDate(round.closes_at)}</dd>
+                      <dd>{formatDate(round.closes_at, round.timezone)}</dd>
                     </div>
                   </dl>
 

@@ -6,6 +6,7 @@ import { Button } from "../../components/ui/Button";
 import { TablePanel, Td, Th } from "../../components/ui/Table";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import { DEFAULT_TIMEZONE, formatDateInZone } from "../../lib/time";
 import styles from "./Archive.module.css";
 
 type Paper = {
@@ -19,10 +20,8 @@ type ArchivedRound = {
   name: string;
   closes_at: string;
   papers: Paper[];
-  olympiads: { id: string; name: string };
+  olympiads: { id: string; name: string; timezone?: string };
 };
-
-const dateFormatter = new Intl.DateTimeFormat("en-ZA", { dateStyle: "medium" });
 
 function Archive() {
   const [rounds, setRounds] = useState<ArchivedRound[]>([]);
@@ -119,7 +118,7 @@ const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
                   <Td strong muted={false}>
                     {round.name}
                   </Td>
-                  <Td>{dateFormatter.format(new Date(round.closes_at))}</Td>
+                  <Td>{formatDateInZone(round.closes_at, round.olympiads.timezone ?? DEFAULT_TIMEZONE)}</Td>
                   <Td>
                     <span className={styles.fileName}>
                       <FileText aria-hidden="true" />

@@ -261,7 +261,7 @@ it("shares archived rounds only across the organiser's olympiads", async () => {
   expect(prisma.rounds.findMany).toHaveBeenCalledWith({
     where: { olympiads: { organiser_id: "org-1" }, state: "results_released", papers: { some: { is_archived: true } } },
     orderBy: { closes_at: "desc" },
-    include: { papers: true, olympiads: { select: { id: true, name: true } } },
+    include: { papers: true, olympiads: { select: { id: true, name: true, timezone: true } } },
   });
 });
 

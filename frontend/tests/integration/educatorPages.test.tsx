@@ -57,6 +57,7 @@ describe("educator round page", () => {
     name: "Round 1 — Regional",
     olympiad_id: "oly-1",
     olympiad_name: "Maths Olympiad 2026",
+    timezone: "Africa/Johannesburg",
     opens_at: fx.inHours(-1),
     closes_at: fx.inHours(3),
     results_release_at: null,
@@ -190,6 +191,30 @@ describe("educator round page", () => {
     expect(within(section).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose an entrant…", "Lerato Nkosi"]);
   });
 
+  // A9: the learner opened the exam online but never submitted it, e.g. their
+  // connection failed, so the school can capture what they wrote on paper
+  it("still offers a learner whose online attempt was never submitted, and says what capturing does", async () => {
+    mockRound(roundDetail({ submissions: [submitted(entrants[0], { route: "online", status: "received" })] }));
+    renderApp("/educator/rounds/round-1");
+
+    const section = (await screen.findByRole("heading", { name: "Submit results" })).closest("section")!;
+    expect(within(section).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose an entrant…", "Ayanda Khumalo (Grade 11)", "Lerato Nkosi"]);
+    expect(within(section).getByText(/Started online but not submitted: Ayanda Khumalo\./)).toHaveTextContent(
+      "replaces the unfinished online attempt",
+    );
+    expect(within(section).queryByText(/Sat online/)).not.toBeInTheDocument();
+    expect(within(section).queryByRole("heading", { name: /Submitted/ })).not.toBeInTheDocument();
+  });
+
+  it("counts an unfinished online attempt as submitted once the round has closed", async () => {
+    mockRound(roundDetail({ state: "closed", status: "closed", submissions: [submitted(entrants[0], { route: "online", status: "received" })] }));
+    renderApp("/educator/rounds/round-1");
+
+    expect(await screen.findByRole("heading", { name: "Submitted (1 of 2)" })).toBeInTheDocument();
+    expect(screen.getByText(/Sat online · .* · received/)).toBeInTheDocument();
+    expect(screen.queryByText(/Started online but not submitted/)).not.toBeInTheDocument();
+  });
+
   it("lists what was submitted once the round has closed", async () => {
     mockRound(roundDetail({ state: "closed", status: "closed", submissions: [submitted(entrants[1], { status: "marked" })] }));
     renderApp("/educator/rounds/round-1");
@@ -202,7 +227,7 @@ describe("educator round page", () => {
 
   it("lists released past papers and downloads one by its round", async () => {
     mockRound(roundDetail(), {
-      pastPapers: [{ id: "paper-0", round_id: "round-0", round_name: "Round 0 — School", title: "School paper", closed_at: "2026-05-01T10:00:00.000Z", has_paper: true, has_memo: false }],
+      pastPapers: [{ id: "paper-0", round_id: "round-0", round_name: "Round 0 — School", title: "School paper", timezone: "Africa/Johannesburg", closed_at: "2026-05-01T10:00:00.000Z", has_paper: true, has_memo: false }],
     });
     const downloads = mockApi("get", "/educator/rounds/:roundId/paper/download", { url: "https://storage.test/past.pdf" });
     const open = vi.spyOn(window, "open").mockReturnValue(null);
@@ -452,12 +477,13 @@ describe("educator results", () => {
       id: "round-2",
       name: "Round 2 — Provincial",
       olympiad_name: "Maths Olympiad 2026",
+    timezone: "Africa/Johannesburg",
       closes_at: "2026-08-01T10:00:00.000Z",
       results: [
         { id: "res-1", rank: 3, total_points: "81.25", qualified: true, entrant: { id: "ent-1", full_name: "Ayanda Khumalo", grade: "11", external_ref: "S001" } },
       ],
     },
-    { id: "round-1", name: "Round 1 — Regional", olympiad_name: "Maths Olympiad 2026", closes_at: "2026-05-01T10:00:00.000Z", results: [] },
+    { id: "round-1", name: "Round 1 — Regional", olympiad_name: "Maths Olympiad 2026", timezone: "Africa/Johannesburg", closes_at: "2026-05-01T10:00:00.000Z", results: [] },
   ];
 
   it("shows the latest round's results and switches rounds", async () => {

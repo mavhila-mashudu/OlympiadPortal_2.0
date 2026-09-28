@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import * as fx from "./support/fixtures";
 import { mockApi, mockApiError } from "./support/network";
 import { renderApp } from "./support/renderApp";
@@ -22,6 +22,8 @@ describe("organiser exam review", () => {
     mockApi("get", "/rounds/round-1/exam-status", () => state.status);
     if (memo) mockApi("get", "/papers/by-round/round-1", (req) => ({ url: `https://storage.test/memo.pdf${req.search}` }));
     else mockApiError("get", "/papers/by-round/round-1", 404, "No paper uploaded for this round");
+    // A draft exam also offers the organiser's question bank
+    mockApi("get", "/rounds/round-1/question-bank", { questions: [] });
     return state;
   };
 
@@ -149,9 +151,77 @@ describe("organiser exam review", () => {
     expect(await screen.findByText("Approved — live")).toBeInTheDocument();
     expect(screen.queryByTitle("Correct answer")).not.toBeInTheDocument();
   });
+
+  // GET /rounds/:id/question-bank: the organiser's questions from other rounds
+  const bankQuestion = (overrides: Record<string, unknown>) => ({
+    ...fx.question(overrides),
+    source_round: { id: "round-0", name: "2025 Heats" },
+  });
+
+  it("imports chosen questions from the bank into a draft exam", async () => {
+    const state = mockReview({ status: "draft" });
+    const bank = [
+      bankQuestion({ id: "bank-1", prompt: "Name a prime between 10 and 20." }),
+      bankQuestion({ id: "bank-2", type: "essay", prompt: "Why is 1 not prime?" }),
+    ];
+    mockApi("get", "/rounds/round-1/question-bank", () => ({ questions: bank }));
+    const imports = mockApi("post", "/rounds/round-1/question-bank/import", (req) => {
+      const ids = (req.body as { question_ids: string[] }).question_ids;
+      const copies = bank.filter((q) => ids.includes(q.id)).map((q) => fx.question({ ...q, id: `copy-${q.id}` }));
+      state.questions = [...state.questions, ...copies];
+      return { questions: copies };
+    }, { status: 201 });
+    const { user } = renderApp("/organiser/rounds/round-1/review");
+
+    expect(await screen.findByRole("heading", { name: "Question bank" })).toBeInTheDocument();
+    expect(screen.getByText("Multiple choice · 2025 Heats")).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Search question bank"), "why");
+    expect(screen.queryByText("Name a prime between 10 and 20.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("checkbox", { name: /Why is 1 not prime\?/ }));
+    await user.click(screen.getByRole("button", { name: "Import 1" }));
+
+    await waitFor(() => expect(imports).toHaveLength(1));
+    expect(imports[0].body).toEqual({ question_ids: ["bank-2"] });
+    // The copy joins the paper and the selection clears. The backend leaves
+    // the original in the bank (it only hides questions already on this
+    // paper, and the copy has a new id), so it can still be picked again.
+    expect(await screen.findByText("Q5")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Why is 1 not prime\?/ })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "Import selected" })).toBeDisabled();
+  });
+
+  it("only offers the bank while the exam is a draft", async () => {
+    mockReview({ status: "ready" });
+    const bankCalls = mockApi("get", "/rounds/round-1/question-bank", { questions: [bankQuestion({ id: "bank-1" })] });
+    renderApp("/organiser/rounds/round-1/review");
+
+    expect(await screen.findByText("Awaiting approval")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Question bank" })).not.toBeInTheDocument();
+    expect(bankCalls).toHaveLength(0);
+  });
+
+  it("keeps the exam on screen when the bank can't be loaded", async () => {
+    mockReview({ status: "draft" });
+    mockApiError("get", "/rounds/round-1/question-bank", 500, "Could not load the question bank");
+    renderApp("/organiser/rounds/round-1/review");
+
+    expect(await screen.findByText("Could not load the question bank")).toBeInTheDocument();
+    expect(screen.getByText("4 questions · 16 total points")).toBeInTheDocument();
+    expect(screen.getByText("Which of these are prime?")).toBeInTheDocument();
+  });
 });
 
 describe("organiser marking queue", () => {
+  // Besides the queue, the page loads the round's submissions (for the route
+  // counts), the moderation sample and remark requests. They start empty;
+  // tests about those panels register their own responses, which take
+  // precedence over these.
+  beforeEach(() => {
+    mockApi("get", "/rounds/round-1/submissions", { submissions: [] });
+    mockApi("get", "/rounds/round-1/review-sample", { sample: [] });
+    mockApi("get", "/rounds/round-1/remarks", { remarks: [] });
+  });
+
   type QueueAnswer = ReturnType<typeof essayAnswer>;
   type QueueSubmission = {
     id: string;
@@ -302,5 +372,116 @@ describe("organiser marking queue", () => {
     mockApiError("get", "/rounds/round-1/marking-queue", 403, "Not authorised for this round");
     renderApp("/organiser/rounds/round-1/marking");
     expect(await screen.findByText("Not authorised for this round")).toBeInTheDocument();
+  });
+
+  it("counts the round's submissions by sitting route, and the late ones", async () => {
+    mockApi("get", "/rounds/round-1/marking-queue", { submissions: [] });
+    mockApi("get", "/rounds/round-1/submissions", {
+      submissions: [
+        { id: "s-1", route: "online", is_late: false },
+        { id: "s-2", route: "online", is_late: true },
+        { id: "s-3", route: "offline", is_late: false },
+      ],
+    });
+    renderApp("/organiser/rounds/round-1/marking");
+
+    await screen.findByRole("heading", { name: "One paper, two sitting routes" });
+    expect(screen.getByText("online").parentElement).toHaveTextContent("2 online");
+    expect(screen.getByText("paper").parentElement).toHaveTextContent("1 paper");
+    expect(screen.getByText("late").parentElement).toHaveTextContent("1 late");
+  });
+
+  // The queue is the point of the page; the side panels failing mustn't hide it
+  it("still shows the queue when the moderation sample can't be loaded", async () => {
+    mockApi("get", "/rounds/round-1/marking-queue", { submissions: queue() });
+    mockApiError("get", "/rounds/round-1/review-sample", 500, "Could not load the moderation sample");
+    renderApp("/organiser/rounds/round-1/marking");
+
+    expect(await screen.findByText("Could not load the moderation sample")).toBeInTheDocument();
+    expect(screen.getByText("awaiting marking across", { exact: false })).toHaveTextContent(
+      "3 answers awaiting marking across 2 submissions",
+    );
+  });
+
+  it("saves a moderation review of a sampled answer and reloads", async () => {
+    let reviews: { id: string }[] = [];
+    mockApi("get", "/rounds/round-1/marking-queue", { submissions: [] });
+    mockApi("get", "/rounds/round-1/review-sample", () => ({
+      sample: [
+        {
+          id: "ans-7",
+          answer_value: "Euclid's argument, written out",
+          points_awarded: "6",
+          questions: { prompt: "Prove there are infinitely many primes.", max_points: "10" },
+          submissions: { entrants: { full_name: "Ayanda Khumalo" } },
+          marking_reviews: reviews,
+        },
+      ],
+    }));
+    const saved = mockApi("patch", "/rounds/round-1/review-sample/:answerId", () => {
+      reviews = [{ id: "review-1" }];
+      return { message: "Review saved and results recalculated" };
+    });
+    const { user } = renderApp("/organiser/rounds/round-1/marking");
+
+    expect(await screen.findByText("Ayanda Khumalo")).toBeInTheDocument();
+    expect(screen.getByText(/Mark: 6\/10 \| Reviews: 0/)).toBeInTheDocument();
+    const points = screen.getByLabelText("Reviewed points");
+    await user.clear(points);
+    await user.type(points, "8");
+    await user.type(screen.getByLabelText("Review comment"), "Marked too harshly");
+    await user.click(screen.getByRole("button", { name: "Save review" }));
+
+    expect(await screen.findByText(/Reviews: 1/)).toBeInTheDocument();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({
+      path: "/rounds/round-1/review-sample/ans-7",
+      body: { points_awarded: 8, comment: "Marked too harshly" },
+    });
+  });
+
+  it("records a decision on a student's remark request", async () => {
+    let status = "pending";
+    mockApi("get", "/rounds/round-1/marking-queue", { submissions: [] });
+    mockApi("get", "/rounds/round-1/remarks", () => ({
+      remarks: [
+        {
+          id: "remark-1",
+          status,
+          reason: "My proof was complete but got half marks",
+          decision: status === "pending" ? null : "The proof was complete",
+          entrants: {
+            full_name: "Lerato Nkosi",
+            submissions: [
+              {
+                id: "sub-2",
+                answers: [
+                  { id: "ans-9", answer_value: "...", points_awarded: "5", questions: { prompt: "Prove there are infinitely many primes.", max_points: "10" } },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    }));
+    const decisions = mockApi("patch", "/rounds/round-1/remarks/:remarkId", () => {
+      status = "approved";
+      return { remark: { id: "remark-1", status } };
+    });
+    const { user } = renderApp("/organiser/rounds/round-1/marking");
+
+    expect(await screen.findByText(/pending: My proof was complete/)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Decision"), "approved");
+    await user.selectOptions(screen.getByLabelText("Answer"), "ans-9");
+    await user.type(screen.getByLabelText("Revised points"), "8");
+    await user.type(screen.getByLabelText("Explanation"), "The proof was complete");
+    await user.click(screen.getByRole("button", { name: "Record decision" }));
+
+    expect(await screen.findByText("Decision: The proof was complete")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Record decision" })).not.toBeInTheDocument();
+    expect(decisions[0]).toMatchObject({
+      path: "/rounds/round-1/remarks/remark-1",
+      body: { status: "approved", answer_id: "ans-9", points_awarded: 8, decision: "The proof was complete" },
+    });
   });
 });

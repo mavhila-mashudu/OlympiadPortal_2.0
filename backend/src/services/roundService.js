@@ -24,7 +24,7 @@ const createRound = async ({
   closesAt,
   qualifyingThreshold,
 }) => {
-  await assertOwnsOlympiad(olympiadId, organiserId);
+  const olympiad = await assertOwnsOlympiad(olympiadId, organiserId);
 
   const opens = new Date(opensAt);
   const closes = new Date(closesAt);
@@ -36,7 +36,7 @@ const createRound = async ({
     throw new BadRequestError("closes_at must be after opens_at");
   }
 
-  const warnings = await checkDatesForHolidays([opens, closes]);
+  const warnings = await checkDatesForHolidays([opens, closes], olympiad.timezone);
 
   const round = await prisma.rounds.create({
     data: {
@@ -155,7 +155,7 @@ const updateRound = async (
     data.closes_at = closes;
   }
 
-  const warnings = await checkDatesForHolidays([opens, closes]);
+  const warnings = await checkDatesForHolidays([opens, closes], round.olympiads?.timezone);
 
   const updated = await prisma.rounds.update({
     where: { id: roundId },

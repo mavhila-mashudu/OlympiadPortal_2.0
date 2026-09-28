@@ -170,7 +170,7 @@ const listSharedArchive = async (organiserId) => prisma.rounds.findMany({
     papers: { some: { is_archived: true } },
   },
   orderBy: { closes_at: "desc" },
-  include: { papers: true, olympiads: { select: { id: true, name: true } } },
+  include: { papers: true, olympiads: { select: { id: true, name: true, timezone: true } } },
 });
 
 module.exports = {

@@ -1,6 +1,7 @@
 // @ts-nocheck
 const roundService = require("../services/roundService");
 const { checkDatesForHolidays } = require("../services/holidayService");
+const { assertOwnsOlympiad } = require("../services/olympiadService");
 
 const createRound = async (req, res, next) => {
   try {
@@ -89,9 +90,10 @@ const setRoundState = async (req, res, next) => {
 
 const checkDates = async (req, res, next) => {
   try {
-    const { opens_at, closes_at } = req.body;
+    const { opens_at, closes_at, olympiad_id } = req.body;
     const dates = [opens_at, closes_at].filter(Boolean).map((d) => new Date(d));
-    const warnings = await checkDatesForHolidays(dates);
+    const olympiad = olympiad_id ? await assertOwnsOlympiad(olympiad_id, req.user.userId) : null;
+    const warnings = await checkDatesForHolidays(dates, olympiad?.timezone);
     res.json({ success: true, data: { warnings } });
   } catch (err) {
     next(err);

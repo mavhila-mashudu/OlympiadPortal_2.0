@@ -14,6 +14,7 @@ const {
   getStudentRoundDetail,
   getStudentResults,
   getStudentPaperUrl,
+  submitRemarkRequest,
 } = require("../../../src/services/studentRoundService");
 
 beforeEach(resetPrismaMock);
@@ -179,6 +180,10 @@ describe("getStudentRoundDetail", () => {
       hasPaper: true,
       paperNote: "Paper is available for download or online sitting.",
       result: null,
+      remarkStatus: null,
+      remarkReason: null,
+      remarkNote: null,
+      remarkReviewedAt: null,
     });
   });
 
@@ -264,6 +269,7 @@ describe("getStudentResults", () => {
         percentage: "50%",
         rank: 3,
         hasCertificate: true,
+        remarkStatus: null,
       },
       expect.objectContaining({ id: "r2", resultStatus: "pending", score: "—", percentage: "—", rank: 1 }),
       expect.objectContaining({ id: "r3", resultStatus: "pending", score: "—", rank: null, hasCertificate: false }),
@@ -343,6 +349,84 @@ describe("getStudentPaperUrl", () => {
     await expect(getStudentPaperUrl("round-1", "ent-1")).rejects.toMatchObject({
       statusCode: 400,
       message: "Could not generate download link: bucket missing",
+    });
+  });
+});
+
+describe("submitRemarkRequest", () => {
+  it("creates a pending remark request with reviewer_id null for organiser assignment", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue({
+      entrant_id: "ent-1",
+      round_id: "round-1",
+      entrants: { id: "ent-1", school_id: "school-1", full_name: "Ava Ndlovu" },
+      rounds: { id: "round-1", olympiad_id: "olympiad-1", state: "results_released" },
+    });
+    prisma.results.findFirst.mockResolvedValue({ id: "result-1", round_id: "round-1", entrant_id: "ent-1" });
+    prisma.school_registrations.findFirst.mockResolvedValue({ school_id: "school-1", olympiad_id: "olympiad-1" });
+    prisma.remark_requests.findFirst.mockResolvedValue(null);
+    prisma.remark_requests.create.mockResolvedValue({
+      id: "remark-1",
+      result_id: "result-1",
+      reason: "Question 2 seems marked wrongly",
+      status: "pending",
+      reviewer_id: null,
+    });
+
+    const result = await submitRemarkRequest("ent-1", "round-1", "Question 2 seems marked wrongly");
+
+    expect(result).toMatchObject({
+      reason: "Question 2 seems marked wrongly",
+      status: "pending",
+      reviewer_id: null,
+    });
+    expect(prisma.remark_requests.create).toHaveBeenCalledWith({
+      data: {
+        result_id: "result-1",
+        reason: "Question 2 seems marked wrongly",
+        status: "pending",
+        reviewer_id: null,
+      },
+    });
+  });
+
+  it("rejects a remark if results have not been released", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue({
+      entrants: { id: "ent-1", school_id: "school-1" },
+      rounds: { id: "round-1", olympiad_id: "olympiad-1", state: "open" },
+    });
+
+    await expect(submitRemarkRequest("ent-1", "round-1", "Reason")).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Results are not released yet",
+    });
+  });
+
+  it("rejects when a remark already exists for the result", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue({
+      entrants: { id: "ent-1", school_id: "school-1" },
+      rounds: { id: "round-1", olympiad_id: "olympiad-1", state: "results_released" },
+    });
+    prisma.results.findFirst.mockResolvedValue({ id: "result-1" });
+    prisma.remark_requests.findFirst.mockResolvedValue({ id: "remark-1", status: "pending" });
+
+    await expect(submitRemarkRequest("ent-1", "round-1", "Reason")).rejects.toMatchObject({
+      statusCode: 409,
+      message: "A remark request already exists for this result",
+    });
+  });
+
+  it("rejects when the school is not registered for the olympiad", async () => {
+    prisma.entrant_registrations.findFirst.mockResolvedValue({
+      entrants: { id: "ent-1", school_id: "school-1" },
+      rounds: { id: "round-1", olympiad_id: "olympiad-1", state: "results_released" },
+    });
+    prisma.results.findFirst.mockResolvedValue({ id: "result-1" });
+    prisma.remark_requests.findFirst.mockResolvedValue(null);
+    prisma.school_registrations.findFirst.mockResolvedValue(null);
+
+    await expect(submitRemarkRequest("ent-1", "round-1", "Reason")).rejects.toMatchObject({
+      statusCode: 400,
+      message: "This school is not registered for the olympiad",
     });
   });
 });

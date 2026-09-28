@@ -1,4 +1,6 @@
 // @ts-nocheck
+const { DEFAULT_TIMEZONE, localDate } = require("../utils/timezones");
+
 const cache = new Map();
 
 async function getHolidaysForYear(year) {
@@ -29,9 +31,13 @@ async function getHolidaysForYear(year) {
   }
 }
 
-async function checkDatesForHolidays(dates) {
+// Public holidays are calendar days, so compare each instant's date in the
+// olympiad's own timezone: 00:30 on a holiday in Johannesburg is still the
+// previous day in UTC.
+async function checkDatesForHolidays(dates, timeZone = DEFAULT_TIMEZONE) {
   const warnings = [];
-  const years = [...new Set(dates.map((d) => d.getUTCFullYear()))];
+  const dateStrings = dates.map((date) => localDate(date, timeZone));
+  const years = [...new Set(dateStrings.map((d) => Number(d.slice(0, 4))))];
 
   const holidaysByYear = await Promise.all(
     years.map(async (year) => ({ year, holidays: await getHolidaysForYear(year) })),
@@ -39,11 +45,7 @@ async function checkDatesForHolidays(dates) {
 
   const allHolidays = holidaysByYear.flatMap(({ holidays }) => holidays);
 
-  for (const date of dates) {
-    const y = date.getUTCFullYear();
-    const m = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(date.getUTCDate()).padStart(2, "0");
-    const dateStr = `${y}-${m}-${d}`;
+  for (const dateStr of dateStrings) {
     const match = allHolidays.find((h) => h.date === dateStr);
     if (match) {
       warnings.push(`${dateStr} falls on a public holiday: ${match.name}`);

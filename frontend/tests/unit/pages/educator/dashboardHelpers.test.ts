@@ -11,6 +11,7 @@ const round = (overrides: Partial<EducatorRound> = {}): EducatorRound => ({
   name: "Round 1",
   olympiad_id: "o1",
   olympiad_name: "Maths",
+  timezone: "Africa/Johannesburg",
   opens_at: "2026-06-01T08:00:00Z",
   closes_at: "2026-06-01T10:00:00Z",
   state: "open",

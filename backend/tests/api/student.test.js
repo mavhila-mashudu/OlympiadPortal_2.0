@@ -53,6 +53,7 @@ describe("GET /rounds/registered", () => {
         id: released.id,
         title: "Round 1",
         olympiadTitle: olympiad.name,
+        timezone: "Africa/Johannesburg",
         opens_at: expect.any(String),
         closes_at: expect.any(String),
         status: "closed",
@@ -96,6 +97,7 @@ describe("GET /rounds/:roundId/details", () => {
       hasPaper: true,
       paperNote: "Paper is available for download or online sitting.",
       result: null,
+      timezone: "Africa/Johannesburg",
     });
     expect(JSON.stringify(detail)).not.toContain("rounds/r2/");
   });

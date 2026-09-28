@@ -19,12 +19,15 @@ type StudentResultItem = {
   id: string;
   round: string;
   olympiadTitle: string;
+  // The olympiad's IANA timezone; times are shown in it
+  timezone: string;
   closes_at: string;
   resultStatus: "released" | "pending";
   score: string;
   percentage: string;
   rank: number | null;
   hasCertificate: boolean;
+  remarkStatus?: "pending" | "reviewed" | null;
 };
 
 function StudentResults() {
@@ -152,7 +155,7 @@ function StudentResults() {
                       {row.round}
                     </Link>
                   </Td>
-                  <Td>{formatDateOnly(row.closes_at)}</Td>
+                  <Td>{formatDateOnly(row.closes_at, row.timezone)}</Td>
                   <Td muted={false}>
                     <span
                       className={`${styles.badge} ${row.resultStatus === "released"

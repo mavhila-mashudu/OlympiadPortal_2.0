@@ -12,13 +12,18 @@ const {
 } = require("../controllers/olympiadController");
 const { requireAuth, requireRole } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
+const { isValidTimeZone } = require("../utils/timezones");
 const roundsRouter = require("./rounds");
 
 // === Validation rules ====
 
 const createOlympiadRules = [
   body("name").trim().notEmpty().withMessage("Olympiad name is required"),
-  body("timezone").optional().trim().notEmpty(),
+  // Round times are entered and shown in this zone; omitted means the default
+  body("timezone")
+    .optional()
+    .custom(isValidTimeZone)
+    .withMessage("timezone must be an IANA timezone such as Africa/Johannesburg"),
 ];
 
 const updateOlympiadRules = [
