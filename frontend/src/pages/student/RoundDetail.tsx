@@ -293,7 +293,7 @@ function StudentRoundDetail() {
                             ? "Your remark request has been submitted and is currently being processed by an assigned educator."
                             : `Your remark request has been reviewed${
                                 round.remarkReviewedAt
-                                  ? ` on ${formatDateTime(round.remarkReviewedAt)}`
+                                  ? ` on ${formatDateTime(round.remarkReviewedAt, round.timezone)}`
                                   : ""
                               }. Any mark adjustments have been applied to your score above.`}
                         </p>

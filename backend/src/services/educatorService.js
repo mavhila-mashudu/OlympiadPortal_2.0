@@ -987,6 +987,218 @@ const getOlympiadProgressionInfo = async (olympiadId, userId) => {
   return { rounds: roundProgression };
 };
 
+// ─────────────────────────────────────────
+// SCHOOL OVERVIEW (I19)
+//
+// One-call dashboard payload: every olympiad the
+// school is registered for, with per-round
+// participation stats, plus every entrant with
+// their per-round submission and — only once
+// released — their result.  Scores stay hidden
+// until the round reaches results_released,
+// matching getResults / listAllResults.
+// ─────────────────────────────────────────
+const getSchoolOverview = async (userId) => {
+  const educator = await resolveEducator(userId);
+
+  const registrations = await prisma.school_registrations.findMany({
+    where: { school_id: educator.school_id },
+    include: {
+      olympiads: { include: { rounds: { orderBy: { opens_at: "asc" } } } },
+    },
+  });
+
+  const olympiads = registrations.map((r) => r.olympiads);
+  const olympiadIds = olympiads.map((o) => o.id);
+  const hasOlympiads = olympiadIds.length > 0;
+
+  // Everything below is scoped to the school's own entrants
+  const schoolEntrantRegs = hasOlympiads
+    ? await prisma.entrant_registrations.findMany({
+        where: {
+          rounds: { olympiad_id: { in: olympiadIds } },
+          entrants: { school_id: educator.school_id },
+        },
+        include: {
+          entrants: {
+            select: {
+              id: true,
+              full_name: true,
+              grade: true,
+              external_ref: true,
+            },
+          },
+        },
+      })
+    : [];
+
+  const schoolSubmissions = hasOlympiads
+    ? await prisma.submissions.findMany({
+        where: {
+          rounds: { olympiad_id: { in: olympiadIds } },
+          entrants: { school_id: educator.school_id },
+        },
+        select: { round_id: true, entrant_id: true, received_at: true },
+      })
+    : [];
+
+  const schoolResults = hasOlympiads
+    ? await prisma.results.findMany({
+        where: {
+          rounds: { olympiad_id: { in: olympiadIds } },
+          entrants: { school_id: educator.school_id },
+        },
+        select: {
+          round_id: true,
+          entrant_id: true,
+          total_points: true,
+          rank: true,
+          qualified: true,
+        },
+      })
+    : [];
+
+  // round_id -> round (with olympiad context), for quick lookups
+  const roundById = new Map();
+  for (const olympiad of olympiads) {
+    for (const round of olympiad.rounds) {
+      roundById.set(round.id, {
+        ...round,
+        olympiad_name: olympiad.name,
+      });
+    }
+  }
+
+  // Latest submission per (round, entrant)
+  const submissionMap = new Map();
+  for (const s of schoolSubmissions) {
+    const key = `${s.round_id}|${s.entrant_id}`;
+    const existing = submissionMap.get(key);
+    if (!existing || new Date(s.received_at) > new Date(existing.received_at)) {
+      submissionMap.set(key, s);
+    }
+  }
+
+  // Result per (round, entrant)
+  const resultMap = new Map();
+  for (const r of schoolResults) {
+    resultMap.set(`${r.round_id}|${r.entrant_id}`, r);
+  }
+
+  // ── Per-olympiad / per-round stats ────────────
+  const olympiadSummaries = olympiads.map((olympiad) => ({
+    id: olympiad.id,
+    name: olympiad.name,
+    rounds: olympiad.rounds.map((round) => {
+      const registered = schoolEntrantRegs
+        .filter((reg) => reg.round_id === round.id)
+        .map((reg) => reg.entrants);
+      const released = round.state === "results_released";
+
+      const submittedIds = new Set(
+        schoolSubmissions
+          .filter((s) => s.round_id === round.id)
+          .map((s) => s.entrant_id),
+      );
+
+      let school_average = null;
+      let qualified_count = null;
+      let top_rank = null;
+      if (released) {
+        const roundResults = registered
+          .map((e) => resultMap.get(`${round.id}|${e.id}`))
+          .filter(Boolean);
+
+        if (roundResults.length > 0) {
+          const points = roundResults.map((r) => Number(r.total_points) || 0);
+          school_average =
+            Math.round(
+              (points.reduce((sum, p) => sum + p, 0) / points.length) * 10,
+            ) / 10;
+          qualified_count = roundResults.filter((r) => r.qualified).length;
+          const ranks = roundResults.map((r) => r.rank).filter((r) => r != null);
+          top_rank = ranks.length > 0 ? Math.min(...ranks) : null;
+        }
+      }
+
+      return {
+        id: round.id,
+        name: round.name,
+        state: round.state,
+        status: mapRoundState(round.state),
+        opens_at: round.opens_at,
+        closes_at: round.closes_at,
+        entrant_count: registered.length,
+        submitted_count: submittedIds.size,
+        results_available: released,
+        school_average,
+        qualified_count,
+        top_rank,
+      };
+    }),
+  }));
+
+  // ── Per-entrant rows ───────────────────────────
+  // One row per entrant; one entry per round they are
+  // registered for, carrying their submission and —
+  // only once released — their result.
+  const entrantMap = new Map();
+  for (const reg of schoolEntrantRegs) {
+    const e = reg.entrants;
+    if (!entrantMap.has(e.id)) {
+      entrantMap.set(e.id, {
+        id: e.id,
+        full_name: e.full_name,
+        grade: e.grade,
+        external_ref: e.external_ref,
+        rounds: [],
+      });
+    }
+
+    const row = entrantMap.get(e.id);
+    if (row.rounds.some((r) => r.round_id === reg.round_id)) continue;
+
+    const round = roundById.get(reg.round_id);
+    const released = round?.state === "results_released";
+    const submission = submissionMap.get(`${reg.round_id}|${e.id}`) ?? null;
+    const result = released
+      ? resultMap.get(`${reg.round_id}|${e.id}`) ?? null
+      : null;
+
+    row.rounds.push({
+      round_id: reg.round_id,
+      round_name: round?.name ?? "Round",
+      olympiad_id: round?.olympiad_id ?? null,
+      state: round?.state ?? null,
+      submitted: Boolean(submission),
+      submitted_at: submission?.received_at ?? null,
+      score: result ? Number(result.total_points) : null,
+      rank: result?.rank ?? null,
+      qualified: result ? result.qualified : null,
+    });
+  }
+
+  const entrants = [...entrantMap.values()]
+    .map((e) => ({
+      ...e,
+      rounds: [...e.rounds].sort(
+        (a, b) =>
+          new Date(roundById.get(a.round_id)?.opens_at ?? 0) -
+          new Date(roundById.get(b.round_id)?.opens_at ?? 0),
+      ),
+    }))
+    .sort((a, b) => a.full_name.localeCompare(b.full_name));
+
+  return {
+    school: {
+      id: educator.schools.id,
+      name: educator.schools.name,
+    },
+    olympiads: olympiadSummaries,
+    entrants,
+  };
+};
+
 /**
  * List remarks specifically assigned to this educator for review.
  */
@@ -1242,6 +1454,7 @@ module.exports = {
   getOlympiadProgressionInfo,
   getResults,
   listAllResults,
+  getSchoolOverview,
   listPastPapers,
   getPaperDownloadUrl,
   listRemarks,

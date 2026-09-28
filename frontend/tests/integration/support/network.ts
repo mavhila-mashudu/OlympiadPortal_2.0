@@ -4,6 +4,7 @@
 // { success: false, error }) and the shapes its services actually return, so
 // pages are tested against what they will really receive.
 import { http, HttpResponse, type JsonBodyType } from "msw";
+import { File as NodeFile } from "node:buffer";
 import { server } from "./server";
 
 export const API_URL = "http://api.test";
@@ -21,7 +22,19 @@ export type RecordedRequest = {
 
 const readBody = async (request: Request): Promise<unknown> => {
   const type = request.headers.get("content-type") ?? "";
-  if (type.includes("multipart/form-data")) return request.formData();
+  if (type.includes("multipart/form-data")) {
+    // Node's multipart parser creates each file with the global `File`
+    // constructor and then asserts it is one of Node's own File objects.
+    // jsdom's File, which the test environment installs as the global, is not,
+    // so the parser gets Node's File for the duration of the parse.
+    const jsdomFile = globalThis.File;
+    (globalThis as Record<string, unknown>).File = NodeFile;
+    try {
+      return await request.formData();
+    } finally {
+      (globalThis as Record<string, unknown>).File = jsdomFile;
+    }
+  }
   // api.ts sends a JSON content type on every request, including GETs with
   // no body, so only parse when there is something to parse
   const text = await request.text();

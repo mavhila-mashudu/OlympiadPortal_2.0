@@ -447,6 +447,143 @@ describe("listAllResults", () => {
   });
 });
 
+describe("getSchoolOverview", () => {
+  const opensA = new Date("2026-05-01T08:00:00Z");
+  const closesA = new Date("2026-05-02T08:00:00Z");
+  const opensB = new Date("2026-07-01T08:00:00Z");
+  const closesB = new Date("2026-07-02T08:00:00Z");
+
+  const arrangeOlympiad = () => {
+    prisma.school_registrations.findMany.mockResolvedValue([
+      {
+        olympiads: {
+          id: "oly-1",
+          name: "Maths Olympiad",
+          rounds: [
+            { id: "round-1", olympiad_id: "oly-1", name: "Round 1", state: "results_released", opens_at: opensA, closes_at: closesA },
+            { id: "round-2", olympiad_id: "oly-1", name: "Round 2", state: "open", opens_at: opensB, closes_at: closesB },
+          ],
+        },
+      },
+    ]);
+    prisma.entrant_registrations.findMany.mockResolvedValue([
+      { round_id: "round-1", entrants: { id: "e1", full_name: "Zane", grade: "11", external_ref: "S1" } },
+      { round_id: "round-1", entrants: { id: "e2", full_name: "Ayanda", grade: "10", external_ref: null } },
+      { round_id: "round-2", entrants: { id: "e1", full_name: "Zane", grade: "11", external_ref: "S1" } },
+      { round_id: "round-2", entrants: { id: "e2", full_name: "Ayanda", grade: "10", external_ref: null } },
+    ]);
+    prisma.submissions.findMany.mockResolvedValue([
+      { round_id: "round-1", entrant_id: "e1", received_at: "2026-05-01T09:00:00Z" },
+      { round_id: "round-1", entrant_id: "e2", received_at: "2026-05-01T09:30:00Z" },
+      { round_id: "round-2", entrant_id: "e1", received_at: "2026-07-01T09:00:00Z" },
+    ]);
+    prisma.results.findMany.mockResolvedValue([
+      { round_id: "round-1", entrant_id: "e1", total_points: 10, rank: 1, qualified: true },
+      { round_id: "round-1", entrant_id: "e2", total_points: 5, rank: 3, qualified: false },
+      // Exists internally, but round 2 hasn't released results yet
+      { round_id: "round-2", entrant_id: "e1", total_points: 99, rank: 1, qualified: true },
+    ]);
+  };
+
+  it("returns an empty overview when the school has no registrations", async () => {
+    prisma.school_registrations.findMany.mockResolvedValue([]);
+
+    await expect(svc.getSchoolOverview("u")).resolves.toEqual({
+      school: { id: "school-1", name: "Parktown High" },
+      olympiads: [],
+      entrants: [],
+    });
+    expect(prisma.entrant_registrations.findMany).not.toHaveBeenCalled();
+  });
+
+  it("summarises every round and hides scores until results are released", async () => {
+    arrangeOlympiad();
+
+    await expect(svc.getSchoolOverview("u")).resolves.toEqual({
+      school: { id: "school-1", name: "Parktown High" },
+      olympiads: [
+        {
+          id: "oly-1",
+          name: "Maths Olympiad",
+          rounds: [
+            {
+              id: "round-1",
+              name: "Round 1",
+              state: "results_released",
+              status: "closed",
+              opens_at: opensA,
+              closes_at: closesA,
+              entrant_count: 2,
+              submitted_count: 2,
+              results_available: true,
+              school_average: 7.5,
+              qualified_count: 1,
+              top_rank: 1,
+            },
+            {
+              id: "round-2",
+              name: "Round 2",
+              state: "open",
+              status: "open",
+              opens_at: opensB,
+              closes_at: closesB,
+              entrant_count: 2,
+              submitted_count: 1,
+              results_available: false,
+              school_average: null,
+              qualified_count: null,
+              top_rank: null,
+            },
+          ],
+        },
+      ],
+      entrants: [
+        {
+          id: "e2",
+          full_name: "Ayanda",
+          grade: "10",
+          external_ref: null,
+          rounds: [
+            { round_id: "round-1", round_name: "Round 1", olympiad_id: "oly-1", state: "results_released", submitted: true, submitted_at: "2026-05-01T09:30:00Z", score: 5, rank: 3, qualified: false },
+            { round_id: "round-2", round_name: "Round 2", olympiad_id: "oly-1", state: "open", submitted: false, submitted_at: null, score: null, rank: null, qualified: null },
+          ],
+        },
+        {
+          id: "e1",
+          full_name: "Zane",
+          grade: "11",
+          external_ref: "S1",
+          rounds: [
+            { round_id: "round-1", round_name: "Round 1", olympiad_id: "oly-1", state: "results_released", submitted: true, submitted_at: "2026-05-01T09:00:00Z", score: 10, rank: 1, qualified: true },
+            { round_id: "round-2", round_name: "Round 2", olympiad_id: "oly-1", state: "open", submitted: true, submitted_at: "2026-07-01T09:00:00Z", score: null, rank: null, qualified: null },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("scopes registrations, submissions and results to the school's entrants", async () => {
+    arrangeOlympiad();
+
+    await svc.getSchoolOverview("u");
+    expect(prisma.entrant_registrations.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { rounds: { olympiad_id: { in: ["oly-1"] } }, entrants: { school_id: "school-1" } },
+      }),
+    );
+    expect(prisma.submissions.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { rounds: { olympiad_id: { in: ["oly-1"] } }, entrants: { school_id: "school-1" } },
+      }),
+    );
+    expect(prisma.results.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { rounds: { olympiad_id: { in: ["oly-1"] } }, entrants: { school_id: "school-1" } },
+      }),
+    );
+  });
+});
+
 describe("listPastPapers", () => {
   it("lists earlier closed rounds that have an uploaded paper", async () => {
     prisma.rounds.findUnique.mockResolvedValue(round());

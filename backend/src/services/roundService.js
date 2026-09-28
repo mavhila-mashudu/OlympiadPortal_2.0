@@ -214,6 +214,9 @@ const setRoundState = async (roundId, organiserId, state) => {
   }
 
   if (state === "results_released") {
+    // Delegates to generateResults, which records results_release_at —
+    // the notification dispatcher uses it to send "results are out"
+    // notices.
     const { generateResults } = require("./markingService");
     await generateResults(roundId, organiserId, "organiser");
     return getRound(roundId, organiserId);

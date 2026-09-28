@@ -100,7 +100,8 @@ router.post("/:roundId/remark", requireRole("student"), async (req, res, next) =
     if (!result || result.rounds.state !== "results_released") throw new ForbiddenError("Result not released for this student");
     const reason = String(req.body.reason || "").trim();
     if (reason.length < 10 || reason.length > 2000) throw new BadRequestError("Provide a reason of 10 to 2000 characters");
-    const remark = await prisma.remark_requests.create({ data: { round_id: req.params.roundId, entrant_id: entrantId, reason } }).catch((err) => {
+    // Keep the result link too: the educator review flow reads remarks through their result.
+    const remark = await prisma.remark_requests.create({ data: { round_id: req.params.roundId, entrant_id: entrantId, result_id: result.id, reason } }).catch((err) => {
       if (err.code === "P2002") throw new ConflictError("You already requested a remark for this round");
       throw err;
     });
@@ -110,7 +111,7 @@ router.post("/:roundId/remark", requireRole("student"), async (req, res, next) =
 router.get("/:roundId/my-remark", requireRole("student"), async (req, res, next) => {
   try {
     if (!req.user.entrant) throw new ForbiddenError("No linked entrant profile");
-    const remark = await prisma.remark_requests.findUnique({ where: { round_id_entrant_id: { round_id: req.params.roundId, entrant_id: req.user.entrant.id } }, select: { id: true, status: true, decision: true, created_at: true } });
+    const remark = await prisma.remark_requests.findFirst({ where: { round_id: req.params.roundId, entrant_id: req.user.entrant.id }, select: { id: true, status: true, decision: true, created_at: true } });
     res.json({ success: true, data: { remark } });
   } catch (err) { next(err); }
 });
