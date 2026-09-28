@@ -3,15 +3,18 @@ name: CI
 # One pipeline for the whole project: checks first, then deploys.
 #
 #   every push / pull request : backend and frontend checks + fast test suites
-#   push to main              : the above, then the end-to-end suite, then deploy
+#   push to main              : the above, then deploy, with the end-to-end
+#                               suite running alongside
 #
 # Everything runs on our own runner (label: prompt-engineers-azure) except the
 # end-to-end suite, which needs more memory than that VM has and so stays on
 # the shared runners.
 #
 # Deploying lives here (rather than in its own workflow file) because a job can
-# only wait for jobs in the same workflow. That is what keeps a failing test
-# from reaching Azure.
+# only wait for jobs in the same workflow. That is what keeps a failing backend
+# or frontend check from reaching Azure. The end-to-end suite reports on the
+# same run but doesn't hold a deploy back: it depends on the shared runners,
+# which can be queued behind other teams for a long time.
 on:
   # Pull requests cover work in progress; pushes to main cover what ships.
   # (A branch push and its pull request would otherwise run the same checks
@@ -103,8 +106,10 @@ jobs:
 
   e2e:
     name: End-to-end tests
-    # Slow and heavy for the shared runners, so it guards main rather than
-    # every pull request. It must pass before anything is deployed.
+    # Slow and heavy for the shared runners, so it checks main rather than
+    # every pull request. It runs alongside the deploys rather than before
+    # them: a red result here means main needs a fix, but it doesn't stop
+    # (or wait for) a deploy.
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: [backend, frontend]
     runs-on: ubuntu-latest
@@ -196,7 +201,8 @@ jobs:
 
   deploy-backend:
     name: Deploy backend to Azure App Service
-    needs: [backend, frontend, e2e, changes]
+    # Gated by the backend and frontend checks, not by the end-to-end suite
+    needs: [backend, frontend, changes]
     if: needs.changes.outputs.backend == 'true'
     # Our own runner. Shared runners do not advertise this label.
     runs-on: prompt-engineers-azure
@@ -306,7 +312,8 @@ jobs:
 
   deploy-frontend:
     name: Deploy frontend to Azure Storage
-    needs: [backend, frontend, e2e, changes]
+    # Gated by the backend and frontend checks, not by the end-to-end suite
+    needs: [backend, frontend, changes]
     if: needs.changes.outputs.frontend == 'true'
     # Our own runner. Shared runners do not advertise this label.
     runs-on: prompt-engineers-azure

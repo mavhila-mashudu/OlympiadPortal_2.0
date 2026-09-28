@@ -191,7 +191,11 @@ is never pulled into another team's `ubuntu-latest` queue.
 
 The end-to-end job is the deliberate exception. Playwright, Chromium, a real
 backend and a PGlite database together need more memory than the VM has, so it
-keeps `runs-on: ubuntu-latest` and goes to the shared runners.
+keeps `runs-on: ubuntu-latest` and goes to the shared runners. On the 1 GiB VM
+the suite took 12–18 minutes and still failed tests on timeouts, while swapping
+heavily. Bigger machines were considered and set aside: a 4 GB Azure VM costs
+about four times the current one, and Oracle's free Arm machines had no
+capacity in our region.
 
 Our runner takes one job at a time (`capacity: 1`), so jobs that once ran
 side by side now queue. That is the cost of guaranteeing where they run.
@@ -206,7 +210,8 @@ test fail for reasons that have nothing to do with their change.
 
 Rules the pipeline applies:
 
-- **Nothing deploys unless every test job passed.** Both deploy jobs wait for the backend, frontend and end-to-end jobs.
+- **Nothing deploys unless the backend and frontend checks passed.** Both deploy jobs wait for those two jobs.
+- **The end-to-end suite runs alongside the deploys, not before them.** It depends on the shared runners, which can queue behind other teams for a long time, so it reports on the run without holding a deploy back. A red end-to-end result on `main` means something needs fixing promptly, even though the deploy has already gone out.
 - **End-to-end tests run on `main`, not on every pull request.** They are the slowest and heaviest job. Pull requests still get every other suite, which is where nearly all failures show up.
 - **Only what changed is deployed.** A frontend-only change doesn't rebuild and redeploy the backend.
 - **A newer push replaces a run in progress**, except on `main`, where a deploy is never cancelled half way.
