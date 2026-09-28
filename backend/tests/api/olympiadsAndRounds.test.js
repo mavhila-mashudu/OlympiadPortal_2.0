@@ -31,6 +31,17 @@ describe("POST /olympiads", () => {
   it.each([{}, { name: "   " }])("responds 422 without a name (%o)", async (body) => {
     expectError(await as(await f.createOrganiser()).post("/olympiads").send(body), 422, "Olympiad name is required");
   });
+
+  // Round times are entered and shown in this zone, so it must be a real one
+  it.each(["Mars/Olympus", "+02:00", "SAST", ""])("responds 422 for a timezone that isn't an IANA name (%p)", async (timezone) => {
+    const organiser = await f.createOrganiser();
+    expectError(
+      await as(organiser).post("/olympiads").send({ name: "Maths", timezone }),
+      422,
+      "timezone must be an IANA timezone such as Africa/Johannesburg",
+    );
+    expect(await prisma.olympiads.count()).toBe(0);
+  });
 });
 
 describe("GET /olympiads", () => {
@@ -503,9 +514,10 @@ describe("a single round", () => {
       expect(paper).toMatchObject({
         round_id: round.id,
         title: round.name,
-        file_url: expect.stringMatching(new RegExp(`^rounds/${round.id}/paper-\\d+-paper\\.pdf$`)),
-        memo_file_url: expect.stringMatching(new RegExp(`^rounds/${round.id}/memo-\\d+-memo\\.pdf$`)),
+        file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/),
+        memo_file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/),
       });
+      expect(paper.file_url).toBe(paper.memo_file_url);
       expect(supabase.storage.from).toHaveBeenCalledWith("papers");
       expect(supabase.storage.bucket.upload).toHaveBeenCalledWith(paper.file_url, PDF, { contentType: "application/pdf", upsert: true });
     });
@@ -517,7 +529,7 @@ describe("a single round", () => {
       const res = await client.post(`/rounds/${round.id}/papers`).attach("paper", PDF, "new.pdf");
 
       const { paper } = expectOk(res, 201);
-      expect(paper).toMatchObject({ id: existing.id, file_url: expect.stringMatching(/new\.pdf$/), memo_file_url: "rounds/memo.pdf" });
+      expect(paper).toMatchObject({ id: existing.id, file_url: expect.stringMatching(/^shared\/[a-f0-9]{64}$/), memo_file_url: "rounds/memo.pdf" });
       expect(await prisma.papers.count()).toBe(1);
     });
 
@@ -550,5 +562,45 @@ describe("a single round", () => {
       expectError(await intruder.post(`/rounds/${round.id}/papers`).attach("paper", PDF, "p.pdf"), 403, "Not your round");
       expect(supabase.storage.bucket.upload).not.toHaveBeenCalled();
     });
+  });
+});
+
+// The create-round form asks for holiday warnings before saving. Holidays are
+// calendar days, so the check reads the dates in the olympiad's timezone.
+describe("POST /rounds/check-dates", () => {
+  const { checkDatesForHolidays } = require("../../src/services/holidayService");
+  const dates = { opens_at: "2026-06-15T22:30:00.000Z", closes_at: "2026-06-16T08:00:00.000Z" };
+
+  it("returns the holiday warnings for the round's dates", async () => {
+    checkDatesForHolidays.mockResolvedValueOnce(["2026-06-16 falls on a public holiday: Youth Day"]);
+    const organiser = await f.createOrganiser();
+
+    expect(expectOk(await as(organiser).post("/rounds/check-dates").send(dates))).toEqual({
+      warnings: ["2026-06-16 falls on a public holiday: Youth Day"],
+    });
+    expect(checkDatesForHolidays).toHaveBeenCalledWith([new Date(dates.opens_at), new Date(dates.closes_at)], undefined);
+  });
+
+  it("checks on the olympiad's calendar when told which olympiad", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser, timezone: "Asia/Kolkata" });
+
+    expectOk(await as(organiser).post("/rounds/check-dates").send({ ...dates, olympiad_id: olympiad.id }));
+    expect(checkDatesForHolidays).toHaveBeenCalledWith(expect.any(Array), "Asia/Kolkata");
+  });
+
+  it("only for the organiser's own olympiad", async () => {
+    const olympiad = await f.createOlympiad();
+    const intruder = as(await f.createOrganiser());
+
+    expectError(await intruder.post("/rounds/check-dates").send({ ...dates, olympiad_id: olympiad.id }), 403, "Not your olympiad");
+    expectError(await intruder.post("/rounds/check-dates").send({ ...dates, olympiad_id: "oly-1" }), 422, "olympiad_id must be a valid UUID");
+    expect(checkDatesForHolidays).not.toHaveBeenCalled();
+  });
+
+  it("needs valid dates", async () => {
+    const organiser = as(await f.createOrganiser());
+    expectError(await organiser.post("/rounds/check-dates").send({ ...dates, opens_at: "tomorrow" }), 422, "opens_at must be a valid date");
+    expectError(await organiser.post("/rounds/check-dates").send({ opens_at: dates.opens_at }), 422, "closes_at must be a valid date");
   });
 });

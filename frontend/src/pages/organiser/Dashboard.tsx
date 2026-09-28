@@ -14,6 +14,10 @@ import { Card } from "../../components/ui/Card";
 import { StatusBadge } from "../../components/ui/StatusBadge";
 import { organiserNav } from "../../lib/mockData";
 import { api } from "../../lib/api";
+import {
+  DEFAULT_TIMEZONE,
+  formatDateTimeInZone,
+} from "../../lib/time";
 import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
 import { toBadgeStatus, type RoundState } from "./roundStatus";
 import styles from "./Dashboard.module.css";
@@ -30,43 +34,14 @@ type Round = {
   _count: { submissions?: number; entrant_registrations?: number };
 };
 
-type EditRoundForm = {
-  name: string;
-  opensAt: string;
-  closesAt: string;
-  qualifyingThreshold: string;
-  notes: string;
-};
-const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-function toDatetimeLocal(iso: string): string {
-  return iso.slice(0, 16);
-}
-
-function toUTCISO(localValue: string): string {
-  const [date, time] = localValue.split("T");
-  return `${date}T${time || "00:00"}:00.000Z`;
-}
-
 function OrganiserDashboard() {
   const [olympiad, setOlympiad] = useState<Olympiad | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [editingRound, setEditingRound] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<EditRoundForm>({
-    name: "",
-    opensAt: "",
-    closesAt: "",
-    qualifyingThreshold: "",
-    notes: "",
-  });
-  const [editWarnings, setEditWarnings] = useState<string[]>([]);
   const [deletingRoundId, setDeletingRoundId] = useState<string | null>(null);
+  const timeZone = olympiad?.timezone ?? DEFAULT_TIMEZONE;
 
   async function loadRounds(olympiadId: string) {
     const { rounds: roundList } = await api.get<{ rounds: Round[] }>(
@@ -155,46 +130,6 @@ function OrganiserDashboard() {
     } finally {
       setUpdatingId(null);
     }
-  }
-
-  async function handleUpdateRound(roundId: string) {
-    if (!editForm.name.trim()) return;
-    setError(null);
-    setEditWarnings([]);
-    try {
-      const { warnings } = await api.patch<{
-        round: Round;
-        warnings?: string[];
-      }>(`/rounds/${roundId}`, {
-        name: editForm.name.trim(),
-        opens_at: toUTCISO(editForm.opensAt),
-        closes_at: toUTCISO(editForm.closesAt),
-        qualifying_threshold: editForm.qualifyingThreshold
-          ? Number(editForm.qualifyingThreshold)
-          : null,
-        notes: editForm.notes || undefined,
-      });
-      if (warnings && warnings.length > 0) {
-        setEditWarnings(warnings);
-      } else {
-        setEditingRound(null);
-      }
-      if (olympiad) await loadRounds(olympiad.id);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update round");
-    }
-  }
-
-  function startEditingRound(round: Round) {
-    setEditingRound(round.id);
-    setEditWarnings([]);
-    setEditForm({
-      name: round.name,
-      opensAt: toDatetimeLocal(round.opens_at),
-      closesAt: toDatetimeLocal(round.closes_at),
-      qualifyingThreshold: round.qualifying_threshold != null ? String(round.qualifying_threshold) : "",
-      notes: round.notes ?? "",
-    });
   }
 
   async function handleDeleteRound(roundId: string) {
@@ -354,8 +289,8 @@ function OrganiserDashboard() {
                           </span>
                         )}
                       </td>
-                      <td>{dateFormatter.format(new Date(round.opens_at))}</td>
-                      <td>{dateFormatter.format(new Date(round.closes_at))}</td>
+                      <td>{formatDateTimeInZone(round.opens_at, timeZone)}</td>
+                      <td>{formatDateTimeInZone(round.closes_at, timeZone)}</td>
                       <td>
                         <StatusBadge status={toBadgeStatus(round.state)} />
                       </td>
@@ -363,6 +298,7 @@ function OrganiserDashboard() {
                         {round._count?.submissions ?? 0}
                       </td>
                       <td className={styles.actionColumn}>
+                        <Button size="sm" variant="outline" to={`/organiser/rounds/${round.id}/replay`}>Replay</Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -384,9 +320,9 @@ function OrganiserDashboard() {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => startEditingRound(round)}
+                              to={`/organiser/rounds/${round.id}/edit`}
                             >
-                              {editingRound === round.id ? "Editing…" : "Edit"}
+                              Edit round
                             </Button>
                             {deletingRoundId === round.id ? (
                               <>
@@ -446,109 +382,6 @@ function OrganiserDashboard() {
                         )}
                       </td>
                     </tr>
-                    {editingRound === round.id && (
-                      <tr key={`${round.id}-edit`}>
-                        <td colSpan={6} className={styles.editPanel}>
-                          <div className={styles.editPanelInner}>
-                            <p className={styles.editPanelTitle}>Edit round</p>
-
-                            <div className={styles.editGrid}>
-                              <label className={styles.editField}>
-                                <span>Round name</span>
-                                <input
-                                  type="text"
-                                  value={editForm.name}
-                                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
-                                  className={styles.editInput}
-                                />
-                              </label>
-
-                              <label className={styles.editField}>
-                                <span>Opens at</span>
-                                <input
-                                  type="datetime-local"
-                                  value={editForm.opensAt}
-                                  onChange={(e) => setEditForm((f) => ({ ...f, opensAt: e.target.value }))}
-                                  className={styles.editInput}
-                                />
-                              </label>
-
-                              <label className={styles.editField}>
-                                <span>Closes at</span>
-                                <input
-                                  type="datetime-local"
-                                  value={editForm.closesAt}
-                                  onChange={(e) => setEditForm((f) => ({ ...f, closesAt: e.target.value }))}
-                                  className={styles.editInput}
-                                />
-                              </label>
-
-                              <label className={styles.editField}>
-                                <span>Qualifying threshold</span>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  step="any"
-                                  value={editForm.qualifyingThreshold}
-                                  onChange={(e) => setEditForm((f) => ({ ...f, qualifyingThreshold: e.target.value }))}
-                                  placeholder="e.g. 60"
-                                  className={styles.editInput}
-                                />
-                              </label>
-                            </div>
-
-                            <label className={styles.editField}>
-                              <span>Notes for educators</span>
-                              <textarea
-                                value={editForm.notes}
-                                onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
-                                rows={2}
-                                placeholder="Optional instructions shown to educators"
-                                className={styles.editInput}
-                              />
-                            </label>
-
-                            {editWarnings.length > 0 && (
-                              <div className={styles.editWarnings}>
-                                <p>Public holiday clashes:</p>
-                                <ul>
-                                  {editWarnings.map((w) => (
-                                    <li key={w}>{w}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-
-                            <div className={styles.editActions}>
-                              {editWarnings.length > 0 ? (
-                                <Button
-                                  size="sm"
-                                  onClick={() => { setEditingRound(null); setEditWarnings([]); }}
-                                >
-                                  Done
-                                </Button>
-                              ) : (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleUpdateRound(round.id)}
-                                  >
-                                    Save changes
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => setEditingRound(null)}
-                                  >
-                                    Cancel
-                                  </Button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
                   </Fragment>
                 ))}
               </tbody>

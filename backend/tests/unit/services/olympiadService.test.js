@@ -9,11 +9,30 @@ const {
   listOlympiads,
   getOlympiad,
   assertOwnsOlympiad,
+  updateOlympiad,
 } = require("../../../src/services/olympiadService");
 
 beforeEach(() => {
   resetPrismaMock();
   prisma.olympiads.create.mockResolvedValue({ id: "oly-1" });
+});
+
+describe("updateOlympiad", () => {
+  it("updates the name and timezone of an owned olympiad", async () => {
+    prisma.olympiads.findUnique.mockResolvedValue({ id: "oly-1", organiser_id: "org-1" });
+    prisma.olympiads.update.mockResolvedValue({ id: "oly-1", name: "Maths", timezone: "Africa/Johannesburg" });
+    await updateOlympiad("oly-1", "org-1", { name: "Maths", timezone: "Africa/Johannesburg" });
+    expect(prisma.olympiads.update).toHaveBeenCalledWith({
+      where: { id: "oly-1" }, data: { name: "Maths", timezone: "Africa/Johannesburg" },
+    });
+  });
+
+  it("rejects an invalid timezone", async () => {
+    prisma.olympiads.findUnique.mockResolvedValue({ id: "oly-1", organiser_id: "org-1" });
+    await expect(updateOlympiad("oly-1", "org-1", { timezone: "Moon/Base" }))
+      .rejects.toMatchObject({ statusCode: 400, message: "Invalid timezone" });
+    expect(prisma.olympiads.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("createOlympiad", () => {

@@ -11,7 +11,7 @@ const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
 const supabase = require("../../../src/config/supabase");
 const svc = require("../../../src/services/educatorService");
 
-const educator = { id: "edu-1", school_id: "school-1", schools: { id: "school-1", name: "Parktown High" } };
+const educator = { id: "edu-1", user_id: "u", school_id: "school-1", schools: { id: "school-1", name: "Parktown High" } };
 
 const round = (overrides = {}) => ({
   id: "round-2",
@@ -447,6 +447,143 @@ describe("listAllResults", () => {
   });
 });
 
+describe("getSchoolOverview", () => {
+  const opensA = new Date("2026-05-01T08:00:00Z");
+  const closesA = new Date("2026-05-02T08:00:00Z");
+  const opensB = new Date("2026-07-01T08:00:00Z");
+  const closesB = new Date("2026-07-02T08:00:00Z");
+
+  const arrangeOlympiad = () => {
+    prisma.school_registrations.findMany.mockResolvedValue([
+      {
+        olympiads: {
+          id: "oly-1",
+          name: "Maths Olympiad",
+          rounds: [
+            { id: "round-1", olympiad_id: "oly-1", name: "Round 1", state: "results_released", opens_at: opensA, closes_at: closesA },
+            { id: "round-2", olympiad_id: "oly-1", name: "Round 2", state: "open", opens_at: opensB, closes_at: closesB },
+          ],
+        },
+      },
+    ]);
+    prisma.entrant_registrations.findMany.mockResolvedValue([
+      { round_id: "round-1", entrants: { id: "e1", full_name: "Zane", grade: "11", external_ref: "S1" } },
+      { round_id: "round-1", entrants: { id: "e2", full_name: "Ayanda", grade: "10", external_ref: null } },
+      { round_id: "round-2", entrants: { id: "e1", full_name: "Zane", grade: "11", external_ref: "S1" } },
+      { round_id: "round-2", entrants: { id: "e2", full_name: "Ayanda", grade: "10", external_ref: null } },
+    ]);
+    prisma.submissions.findMany.mockResolvedValue([
+      { round_id: "round-1", entrant_id: "e1", received_at: "2026-05-01T09:00:00Z" },
+      { round_id: "round-1", entrant_id: "e2", received_at: "2026-05-01T09:30:00Z" },
+      { round_id: "round-2", entrant_id: "e1", received_at: "2026-07-01T09:00:00Z" },
+    ]);
+    prisma.results.findMany.mockResolvedValue([
+      { round_id: "round-1", entrant_id: "e1", total_points: 10, rank: 1, qualified: true },
+      { round_id: "round-1", entrant_id: "e2", total_points: 5, rank: 3, qualified: false },
+      // Exists internally, but round 2 hasn't released results yet
+      { round_id: "round-2", entrant_id: "e1", total_points: 99, rank: 1, qualified: true },
+    ]);
+  };
+
+  it("returns an empty overview when the school has no registrations", async () => {
+    prisma.school_registrations.findMany.mockResolvedValue([]);
+
+    await expect(svc.getSchoolOverview("u")).resolves.toEqual({
+      school: { id: "school-1", name: "Parktown High" },
+      olympiads: [],
+      entrants: [],
+    });
+    expect(prisma.entrant_registrations.findMany).not.toHaveBeenCalled();
+  });
+
+  it("summarises every round and hides scores until results are released", async () => {
+    arrangeOlympiad();
+
+    await expect(svc.getSchoolOverview("u")).resolves.toEqual({
+      school: { id: "school-1", name: "Parktown High" },
+      olympiads: [
+        {
+          id: "oly-1",
+          name: "Maths Olympiad",
+          rounds: [
+            {
+              id: "round-1",
+              name: "Round 1",
+              state: "results_released",
+              status: "closed",
+              opens_at: opensA,
+              closes_at: closesA,
+              entrant_count: 2,
+              submitted_count: 2,
+              results_available: true,
+              school_average: 7.5,
+              qualified_count: 1,
+              top_rank: 1,
+            },
+            {
+              id: "round-2",
+              name: "Round 2",
+              state: "open",
+              status: "open",
+              opens_at: opensB,
+              closes_at: closesB,
+              entrant_count: 2,
+              submitted_count: 1,
+              results_available: false,
+              school_average: null,
+              qualified_count: null,
+              top_rank: null,
+            },
+          ],
+        },
+      ],
+      entrants: [
+        {
+          id: "e2",
+          full_name: "Ayanda",
+          grade: "10",
+          external_ref: null,
+          rounds: [
+            { round_id: "round-1", round_name: "Round 1", olympiad_id: "oly-1", state: "results_released", submitted: true, submitted_at: "2026-05-01T09:30:00Z", score: 5, rank: 3, qualified: false },
+            { round_id: "round-2", round_name: "Round 2", olympiad_id: "oly-1", state: "open", submitted: false, submitted_at: null, score: null, rank: null, qualified: null },
+          ],
+        },
+        {
+          id: "e1",
+          full_name: "Zane",
+          grade: "11",
+          external_ref: "S1",
+          rounds: [
+            { round_id: "round-1", round_name: "Round 1", olympiad_id: "oly-1", state: "results_released", submitted: true, submitted_at: "2026-05-01T09:00:00Z", score: 10, rank: 1, qualified: true },
+            { round_id: "round-2", round_name: "Round 2", olympiad_id: "oly-1", state: "open", submitted: true, submitted_at: "2026-07-01T09:00:00Z", score: null, rank: null, qualified: null },
+          ],
+        },
+      ],
+    });
+  });
+
+  it("scopes registrations, submissions and results to the school's entrants", async () => {
+    arrangeOlympiad();
+
+    await svc.getSchoolOverview("u");
+    expect(prisma.entrant_registrations.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { rounds: { olympiad_id: { in: ["oly-1"] } }, entrants: { school_id: "school-1" } },
+      }),
+    );
+    expect(prisma.submissions.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { rounds: { olympiad_id: { in: ["oly-1"] } }, entrants: { school_id: "school-1" } },
+      }),
+    );
+    expect(prisma.results.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { rounds: { olympiad_id: { in: ["oly-1"] } }, entrants: { school_id: "school-1" } },
+      }),
+    );
+  });
+});
+
 describe("listPastPapers", () => {
   it("lists earlier closed rounds that have an uploaded paper", async () => {
     prisma.rounds.findUnique.mockResolvedValue(round());
@@ -720,3 +857,288 @@ describe("when file storage isn't configured", () => {
     });
   });
 });
+
+describe("listRemarks", () => {
+  it("lists remarks specifically assigned to this educator", async () => {
+    prisma.remark_requests.findMany.mockResolvedValue([
+      {
+        id: "rem-1",
+        reason: "Please check question 3",
+        status: "pending",
+        review_note: null,
+        created_at: new Date("2026-09-25T12:00:00Z"),
+        reviewed_at: null,
+        results: {
+          total_points: 38,
+          entrants: { full_name: "John Doe", schools: { name: "Parktown High" } },
+          rounds: { name: "Round 1", olympiads: { name: "Maths Olympiad" } },
+        },
+      },
+    ]);
+
+    const result = await svc.listRemarks("u");
+    expect(result).toEqual([
+      {
+        id: "rem-1",
+        studentName: "John Doe",
+        studentSchool: "Parktown High",
+        roundName: "Round 1",
+        olympiadName: "Maths Olympiad",
+        score: 38,
+        reason: "Please check question 3",
+        status: "pending",
+        review_note: null,
+        created_at: expect.any(Date),
+        reviewed_at: null,
+      },
+    ]);
+  });
+});
+
+describe("resolveRemark", () => {
+  it("updates remark status and review note when educator is assigned", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "u",
+    });
+    prisma.remark_requests.update.mockResolvedValue({
+      id: "rem-1",
+      status: "reviewed",
+      review_note: "Recount confirmed, mark adjusted",
+    });
+
+    const result = await svc.resolveRemark("rem-1", "u", {
+      status: "reviewed",
+      review_note: "Recount confirmed, mark adjusted",
+    });
+
+    expect(result).toMatchObject({
+      id: "rem-1",
+      status: "reviewed",
+      review_note: "Recount confirmed, mark adjusted",
+    });
+    expect(prisma.remark_requests.update).toHaveBeenCalledWith({
+      where: { id: "rem-1" },
+      data: {
+        status: "reviewed",
+        review_note: "Recount confirmed, mark adjusted",
+        reviewed_at: expect.any(Date),
+      },
+    });
+  });
+
+  it("rejects an educator who is not assigned to this remark", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "other-user",
+    });
+
+    await expect(
+      svc.resolveRemark("rem-1", "u", { status: "reviewed", review_note: "Test" }),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You are not assigned to review this remark",
+    });
+  });
+
+  it("throws NotFoundError if remark does not exist", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(null);
+
+    await expect(
+      svc.resolveRemark("rem-missing", "u", { status: "reviewed" }),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Remark request not found",
+    });
+  });
+});
+
+describe("getRemarkSubmissionAnswers", () => {
+  it("rejects an educator who is not assigned to this remark", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "other-user",
+      results: { entrants: { id: "ent-1" }, rounds: { id: "round-1" } },
+    });
+
+    await expect(svc.getRemarkSubmissionAnswers("rem-1", "u")).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You are not assigned to review this remark",
+    });
+  });
+
+  it("throws NotFoundError if remark does not exist", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(null);
+
+    await expect(svc.getRemarkSubmissionAnswers("rem-missing", "u")).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Remark request not found",
+    });
+  });
+
+  it("returns question-by-question submission answers", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "u",
+      result_id: "res-1",
+      results: {
+        round_id: "round-1",
+        entrant_id: "ent-1",
+        total_points: 10,
+        entrants: { id: "ent-1", full_name: "Ayanda" },
+        rounds: { id: "round-1", name: "Round 1" },
+      },
+    });
+
+    prisma.submissions.findFirst.mockResolvedValue({
+      id: "sub-1",
+      answers: [
+        {
+          id: "ans-1",
+          question_id: "q-1",
+          answer_value: "B",
+          points_awarded: 2,
+          is_correct: true,
+          marked_at: new Date("2026-09-25T10:00:00Z"),
+          questions: {
+            id: "q-1",
+            prompt: "What is 2+2?",
+            type: "mcq",
+            options: ["2", "4"],
+            correct_option: 1,
+            correct_answer: null,
+            max_points: 2,
+          },
+        },
+      ],
+    });
+
+    const result = await svc.getRemarkSubmissionAnswers("rem-1", "u");
+    expect(result).toMatchObject({
+      remarkId: "rem-1",
+      submissionId: "sub-1",
+      studentName: "Ayanda",
+      roundName: "Round 1",
+      totalPoints: 10,
+      answers: [
+        {
+          id: "ans-1",
+          questionId: "q-1",
+          prompt: "What is 2+2?",
+          type: "mcq",
+          maxPoints: 2,
+          studentAnswer: "B",
+          pointsAwarded: 2,
+          isCorrect: true,
+        },
+      ],
+    });
+  });
+});
+
+describe("updateRemarkAnswer", () => {
+  const remarkRecord = {
+    id: "rem-1",
+    reviewer_id: "u",
+    status: "pending",
+    result_id: "res-1",
+    results: {
+      round_id: "round-1",
+      entrant_id: "ent-1",
+      rounds: { id: "round-1", qualifying_threshold: "15" },
+    },
+  };
+
+  const answerRecord = {
+    id: "ans-1",
+    submission_id: "sub-1",
+    points_awarded: 2,
+    submissions: { round_id: "round-1", entrant_id: "ent-1" },
+    questions: { max_points: 5 },
+  };
+
+  it("rejects non-assigned reviewer", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      ...remarkRecord,
+      reviewer_id: "other",
+    });
+
+    await expect(
+      svc.updateRemarkAnswer("rem-1", "ans-1", "u", { points_awarded: 3 }),
+    ).rejects.toMatchObject({
+      statusCode: 403,
+      message: "You are not assigned to review this remark",
+    });
+  });
+
+  it("rejects updating an already reviewed remark", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      ...remarkRecord,
+      status: "reviewed",
+    });
+
+    await expect(
+      svc.updateRemarkAnswer("rem-1", "ans-1", "u", { points_awarded: 3 }),
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Cannot adjust marks on an already reviewed remark",
+    });
+  });
+
+  it("rejects an answer not matching the remark submission", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(remarkRecord);
+    prisma.answers.findUnique.mockResolvedValue({
+      ...answerRecord,
+      submissions: { round_id: "round-different", entrant_id: "ent-1" },
+    });
+
+    await expect(
+      svc.updateRemarkAnswer("rem-1", "ans-1", "u", { points_awarded: 3 }),
+    ).rejects.toMatchObject({
+      statusCode: 404,
+      message: "Answer not found for this remark request",
+    });
+  });
+
+  it("updates answer points clamped to maxPoints and recalculates total_points", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue(remarkRecord);
+    prisma.answers.findUnique.mockResolvedValue(answerRecord);
+    prisma.answers.update.mockResolvedValue({ id: "ans-1" });
+    prisma.answers.findMany.mockResolvedValue([
+      { points_awarded: 5 },
+      { points_awarded: 11 },
+    ]);
+    prisma.results.update.mockResolvedValue({ id: "res-1" });
+
+    const result = await svc.updateRemarkAnswer("rem-1", "ans-1", "u", {
+      points_awarded: 10,
+    });
+
+    expect(result).toEqual({
+      answerId: "ans-1",
+      pointsAwarded: 5,
+      isCorrect: true,
+      totalPoints: 16,
+    });
+
+    expect(prisma.answers.update).toHaveBeenCalledWith({
+      where: { id: "ans-1" },
+      data: {
+        points_awarded: 5,
+        is_correct: true,
+        marked_by: "u",
+        marked_at: expect.any(Date),
+      },
+    });
+
+    expect(prisma.results.update).toHaveBeenCalledWith({
+      where: { id: "res-1" },
+      data: {
+        total_points: 16,
+        qualified: true,
+      },
+    });
+  });
+});
+
+

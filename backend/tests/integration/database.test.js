@@ -22,12 +22,15 @@ describe("migrations", () => {
       "portal_notifications",
       "portal_remark_requests",
       "questions",
-      
+      "remark_requests",
       "results",
+      "round_events",
       "rounds",
       "school_memberships",
       "school_registrations",
       "schools",
+      "sent_notifications",
+      "submission_deadline_decisions",
       "submissions",
       "users",
     ]);
@@ -110,16 +113,16 @@ describe("unique constraints", () => {
     await expectUniqueViolation(f.registerEntrant({ entrant, round, educator }));
   });
 
-  it("allows one submission per entrant, round and route", async () => {
+  it("allows one submission per entrant and round, whichever route it came by", async () => {
     const { olympiad, school } = await f.createOlympiadWithSchool();
     const round = await f.createRound({ olympiad, state: "open" });
     const entrant = await f.createEntrant({ school });
-    const submission = (key) =>
+    const submission = (key, route = "online") =>
       prisma.submissions.create({
         data: {
           round_id: round.id,
           entrant_id: entrant.id,
-          route: "online",
+          route,
           idempotency_key: key,
           round_close_snapshot: round.closes_at,
         },
@@ -128,6 +131,9 @@ describe("unique constraints", () => {
     await submission("key-1");
     await expectUniqueViolation(submission("key-1"));
     await expectUniqueViolation(submission("key-2"));
+    // Paper results for a learner who already sat online would count them twice
+    await expectUniqueViolation(submission("key-3", "offline"));
+    expect(await prisma.submissions.count()).toBe(1);
   });
 
   it("allows one result per entrant per round", async () => {

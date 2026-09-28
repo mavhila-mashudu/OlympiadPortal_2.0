@@ -2,6 +2,7 @@
 const crypto = require("crypto");
 const prisma = require("../config/database").default;
 const { scoreMcq } = require("./markingMath");
+const { deadlineDecision, recordDeadlineDecision, recordRoundEvent } = require("./roundAuditService");
 const {
   NotFoundError,
   ForbiddenError,
@@ -31,12 +32,6 @@ const assertRoundOpen = async (roundId) => {
   });
 
   if (!round) throw new NotFoundError("Round not found");
-  if (round.state !== "open") {
-    throw new BadRequestError(
-      `Submissions are not accepted — round is "${round.state}"`,
-    );
-  }
-
   return round;
 };
 
@@ -55,6 +50,7 @@ const buildIdempotencyKey = (roundId, entrantId, route) =>
 // marking rules (markingMath.scoreMcq).
 // ─────────────────────────────────────────
 const createSubmission = async (roundId, educatorUserId, body) => {
+  const receivedAt = new Date(); // Server receipt time, before any database work.
   const { entrant_id, answers } = body;
   // Resolve the default first: the duplicate check and the stored row must
   // use the same route, or omitting it once and sending "offline" later
@@ -84,6 +80,17 @@ const createSubmission = async (roundId, educatorUserId, body) => {
     throw new ForbiddenError("Entrant is not registered for this round");
   }
 
+  const decision = deadlineDecision(receivedAt, round.closes_at);
+  if (round.state !== "open") {
+    decision.accepted = false;
+    decision.explanation = `Round was "${round.state}" when the submission arrived.`;
+  }
+  if (!decision.accepted) {
+    await recordDeadlineDecision(roundId, entrant_id, route, decision);
+    if (round.state !== "open") throw new BadRequestError(`Submissions are not accepted — round is "${round.state}"`);
+    throw new BadRequestError("Submission received at or after the round deadline");
+  }
+
   // 3. Idempotency — reject duplicate (round + entrant + route)
   const idempotencyKey = buildIdempotencyKey(roundId, entrant_id, route);
 
@@ -96,12 +103,17 @@ const createSubmission = async (roundId, educatorUserId, body) => {
     );
   }
 
-  // One set of results per learner: not also when they sat it online
+  // One set of results per learner: not also when they sat it online.
+  // The exception (A9) is an online attempt the learner opened but never
+  // submitted, e.g. their connection failed and they finished on paper: the
+  // paper results replace it.
   const otherRoute = await prisma.submissions.findFirst({
     where: { round_id: roundId, entrant_id, route: { not: route } },
-    select: { id: true },
+    select: { id: true, route: true, status: true },
   });
-  if (otherRoute) {
+  const replacesUnfinishedAttempt =
+    otherRoute && route === "offline" && otherRoute.route === "online" && otherRoute.status === "received";
+  if (otherRoute && !replacesUnfinishedAttempt) {
     throw new ConflictError("This entrant already has a submission for this round");
   }
 
@@ -126,17 +138,39 @@ const createSubmission = async (roundId, educatorUserId, body) => {
 
   // 6. Create submission + answers + auto-mark in a transaction
   const result = await prisma.$transaction(async (tx) => {
-    const submission = await tx.submissions.create({
-      data: {
-        round_id: roundId,
-        entrant_id,
-        submitted_by: educator.id,
-        route,
-        status: "received",
-        idempotency_key: idempotencyKey,
-        round_close_snapshot: round.closes_at,
-      },
-    });
+    if (replacesUnfinishedAttempt) {
+      // Only while it is still unsubmitted: if the learner submitted online
+      // since the check above, their exam stands and the capture is refused.
+      // Its autosaved answers go with it (answers cascade on delete).
+      const { count } = await tx.submissions.deleteMany({
+        where: { id: otherRoute.id, status: "received" },
+      });
+      if (count === 0) {
+        throw new ConflictError("This entrant already has a submission for this round");
+      }
+    }
+
+    const submission = await tx.submissions
+      .create({
+        data: {
+          round_id: roundId,
+          entrant_id,
+          submitted_by: educator.id,
+          route,
+          status: "received",
+          idempotency_key: idempotencyKey,
+          round_close_snapshot: round.closes_at,
+          received_at: receivedAt,
+        },
+      })
+      .catch((err) => {
+        // Another submission for this learner landed between the checks
+        // above and this insert; the database's one-per-round rule caught it
+        if (err.code === "P2002") {
+          throw new ConflictError("This entrant already has a submission for this round");
+        }
+        throw err;
+      });
 
     let totalPoints = 0;
     let allAutoMarked = true;
@@ -215,6 +249,10 @@ const createSubmission = async (roundId, educatorUserId, body) => {
       });
     }
 
+    await recordDeadlineDecision(roundId, entrant_id, route, decision, tx);
+    if (allAutoMarked) {
+      await recordRoundEvent(roundId, "submission_automarked", "automatic", `offline-mark:${submission.id}`, { submission_id: submission.id, total_points: totalPoints }, tx, receivedAt);
+    }
     return { submission, answers: answerRows, totalPoints, allAutoMarked };
   });
 

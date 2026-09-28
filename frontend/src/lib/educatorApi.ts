@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "./api";
+import { formatDateInZone, formatDateTimeInZone } from "./time";
 
 // ── Type definitions ───────────────────────────────────────
 
@@ -15,6 +16,8 @@ export type EducatorRound = {
   name: string;
   olympiad_id: string;
   olympiad_name: string;
+  // The olympiad's IANA timezone; round times are shown in it
+  timezone: string;
   opens_at: string;
   closes_at: string;
   state: string;
@@ -44,6 +47,8 @@ export type EducatorRoundDetail = {
   name: string;
   olympiad_id: string;
   olympiad_name: string;
+  // The olympiad's IANA timezone; round times are shown in it
+  timezone: string;
   opens_at: string;
   closes_at: string;
   results_release_at: string | null;
@@ -91,6 +96,7 @@ export type EducatorAllResultsRound = {
   id: string;
   name: string;
   olympiad_name: string;
+  timezone: string;
   closes_at: string;
   results: EducatorResult[];
 };
@@ -101,6 +107,7 @@ export type PastPaper = {
   round_name: string;
   title: string;
   closed_at: string;
+  timezone: string;
   has_paper: boolean;
   has_memo: boolean;
 };
@@ -160,24 +167,63 @@ export type SubmissionReceipt = {
   autoMarked: boolean;
 };
 
+export type EducatorOverviewRound = {
+  id: string;
+  name: string;
+  state: string;
+  status: RoundStatus;
+  opens_at: string;
+  closes_at: string;
+  entrant_count: number;
+  submitted_count: number;
+  results_available: boolean;
+  school_average: number | null;
+  qualified_count: number | null;
+  top_rank: number | null;
+};
+
+export type EducatorOverviewOlympiad = {
+  id: string;
+  name: string;
+  rounds: EducatorOverviewRound[];
+};
+
+export type EducatorOverviewEntrantRound = {
+  round_id: string;
+  round_name: string;
+  olympiad_id: string | null;
+  state: string | null;
+  submitted: boolean;
+  submitted_at: string | null;
+  score: number | null;
+  rank: number | null;
+  qualified: boolean | null;
+};
+
+export type EducatorOverviewEntrant = {
+  id: string;
+  full_name: string;
+  grade: string | null;
+  external_ref: string | null;
+  rounds: EducatorOverviewEntrantRound[];
+};
+
+export type EducatorOverview = {
+  school: EducatorSchool;
+  olympiads: EducatorOverviewOlympiad[];
+  entrants: EducatorOverviewEntrant[];
+};
+
 // ── Date formatting helper ─────────────────────────────────
 
-export function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-ZA", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+// Round times are shown in the olympiad's timezone, labelled, so every
+// school reads the same official times whatever its devices are set to
+export function formatDate(iso: string, timeZone: string): string {
+  return formatDateTimeInZone(iso, timeZone);
 }
 
-export function formatDateShort(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-ZA", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  });
+export function formatDateShort(iso: string, timeZone: string): string {
+  return formatDateInZone(iso, timeZone);
 }
 
 // ── Query hooks ────────────────────────────────────────────
@@ -189,6 +235,13 @@ export function useEducatorRounds() {
       api.get<{ rounds: EducatorRound[]; school: EducatorSchool }>(
         "/educator/rounds",
       ),
+  });
+}
+
+export function useEducatorOverview() {
+  return useQuery({
+    queryKey: ["educator", "overview"],
+    queryFn: () => api.get<EducatorOverview>("/educator/overview"),
   });
 }
 

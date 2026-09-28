@@ -10,7 +10,11 @@ const {
   getSubmission,
 } = require("../../../src/services/submissionService");
 
-beforeEach(resetPrismaMock);
+beforeEach(() => {
+  resetPrismaMock();
+  jest.useFakeTimers().setSystemTime(new Date("2026-05-01T11:00:00Z"));
+});
+afterEach(() => jest.useRealTimers());
 
 const questions = [
   { id: "q-mcq", type: "mcq", correct_option: "0", negative_pct: 0, max_points: 3 },
@@ -50,8 +54,20 @@ describe("createSubmission", () => {
     await expect(createSubmission("round-x", "edu-user", body())).rejects.toMatchObject({ statusCode: 404 });
   });
 
+  it("rejects a paper submission received exactly at closing and records the ruling", async () => {
+    arrangeValidSubmission();
+    jest.setSystemTime(new Date("2026-05-01T12:00:00Z"));
+    await expect(createSubmission("round-1", "u", body())).rejects.toMatchObject({
+      statusCode: 400, message: "Submission received at or after the round deadline",
+    });
+    expect(prisma.submission_deadline_decisions.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ route: "offline", accepted: false }),
+    });
+    expect(prisma.submissions.create).not.toHaveBeenCalled();
+  });
+
   it("rejects a round that isn't open", async () => {
-    prisma.rounds.findUnique.mockResolvedValue(openRound({ state: "closed" }));
+    arrangeValidSubmission({ round: openRound({ state: "closed" }) });
     await expect(createSubmission("round-1", "edu-user", body())).rejects.toMatchObject({
       statusCode: 400,
       message: 'Submissions are not accepted — round is "closed"',
@@ -105,16 +121,62 @@ describe("createSubmission", () => {
 
   it("rejects a capture for a learner who already sat the round online", async () => {
     arrangeValidSubmission();
-    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-online" });
+    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-online", route: "online", status: "automarked" });
     await expect(createSubmission("round-1", "u", body())).rejects.toMatchObject({
       statusCode: 409,
       message: "This entrant already has a submission for this round",
     });
     expect(prisma.submissions.findFirst).toHaveBeenCalledWith({
       where: { round_id: "round-1", entrant_id: "ent-1", route: { not: "offline" } },
-      select: { id: true },
+      select: { id: true, route: true, status: true },
+    });
+    expect(prisma.submissions.deleteMany).not.toHaveBeenCalled();
+    expect(prisma.submissions.create).not.toHaveBeenCalled();
+  });
+
+  // A9: the learner opened the exam online, lost their connection and
+  // finished on paper
+  it("replaces an online attempt the learner never submitted", async () => {
+    arrangeValidSubmission();
+    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-online", route: "online", status: "received" });
+    prisma.submissions.deleteMany.mockResolvedValue({ count: 1 });
+
+    await createSubmission("round-1", "u", body());
+
+    expect(prisma.submissions.deleteMany).toHaveBeenCalledWith({ where: { id: "sub-online", status: "received" } });
+    expect(prisma.submissions.deleteMany.mock.invocationCallOrder[0]).toBeLessThan(prisma.submissions.create.mock.invocationCallOrder[0]);
+    expect(prisma.submissions.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ route: "offline" }) }));
+  });
+
+  it("keeps the online exam if the learner submitted it while the school was capturing", async () => {
+    arrangeValidSubmission();
+    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-online", route: "online", status: "received" });
+    prisma.submissions.deleteMany.mockResolvedValue({ count: 0 });
+
+    await expect(createSubmission("round-1", "u", body())).rejects.toMatchObject({
+      statusCode: 409,
+      message: "This entrant already has a submission for this round",
     });
     expect(prisma.submissions.create).not.toHaveBeenCalled();
+  });
+
+  // The learner started online after the checks above but before the insert;
+  // the database's one-submission-per-round index refuses the second row
+  it("reports a learner's online sitting that lands mid-capture as a conflict", async () => {
+    arrangeValidSubmission();
+    prisma.submissions.create.mockRejectedValue(Object.assign(new Error("Unique constraint failed"), { code: "P2002" }));
+    await expect(createSubmission("round-1", "u", body())).rejects.toMatchObject({
+      statusCode: 409,
+      message: "This entrant already has a submission for this round",
+    });
+    expect(prisma.answers.create).not.toHaveBeenCalled();
+  });
+
+  it("passes other database failures through unchanged", async () => {
+    arrangeValidSubmission();
+    const failure = Object.assign(new Error("connection lost"), { code: "P1001" });
+    prisma.submissions.create.mockRejectedValue(failure);
+    await expect(createSubmission("round-1", "u", body())).rejects.toBe(failure);
   });
 
   it("rejects a duplicate for the same round, entrant and route", async () => {
@@ -156,6 +218,7 @@ describe("createSubmission", () => {
         status: "received",
         idempotency_key: "round-1:ent-1:offline",
         round_close_snapshot: new Date("2026-05-01T12:00:00Z"),
+        received_at: new Date("2026-05-01T11:00:00Z"),
       },
     });
   });

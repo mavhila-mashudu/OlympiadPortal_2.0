@@ -19,7 +19,10 @@ const MODELS = [
   "entrants",
   "olympiads",
   "notification_rules",
+  "sent_notifications",
   "portal_notifications",
+  "round_events",
+  "submission_deadline_decisions",
   "remark_requests",
   "marking_reviews",
   "school_registrations",
@@ -44,6 +47,7 @@ const METHODS = [
   "delete",
   "deleteMany",
   "count",
+  "groupBy",
 ];
 
 const prisma = { $transaction: jest.fn() };

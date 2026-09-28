@@ -4,18 +4,19 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
+import { Select } from "../../components/ui/Select";
 import { api } from "../../lib/api";
+import { DEFAULT_TIMEZONE, TIMEZONE_OPTIONS, formatDateInZone } from "../../lib/time";
 import { organiserNav } from "../../lib/mockData";
 import { InviteEducatorForm } from "./InviteEducatorForm";
 
 export default function Olympiads() {
   const [olympiads, setOlympiads] = useState<any[]>([]);
   const [name, setName] = useState("");
+  const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [inviteOlympiadId, setInviteOlympiadId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editingName, setEditingName] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rounds, setRounds] = useState<any[]>([]);
@@ -63,25 +64,14 @@ export default function Olympiads() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.post("/olympiads", { name });
+      await api.post("/olympiads", { name, timezone });
       setName("");
+      setTimezone(DEFAULT_TIMEZONE);
       await loadOlympiads();
     } catch (err: any) {
       setError(err.message || "Failed to create Olympiad.");
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleRename = async (id: string) => {
-    if (!editingName.trim()) return;
-    try {
-      await api.patch(`/olympiads/${id}`, { name: editingName.trim() });
-      setEditingId(null);
-      setEditingName("");
-      await loadOlympiads();
-    } catch (err: any) {
-      setError(err.message || "Failed to rename olympiad.");
     }
   };
 
@@ -126,6 +116,19 @@ export default function Olympiads() {
                 {submitting ? "Creating..." : "Create"}
               </Button>
             </div>
+            <label htmlFor="olympiad-timezone" style={{ fontSize: "0.875rem" }}>
+              Timezone
+            </label>
+            <Select id="olympiad-timezone" value={timezone} onChange={(e) => setTimezone(e.target.value)}>
+              {TIMEZONE_OPTIONS.map((zone) => (
+                <option key={zone.value} value={zone.value}>
+                  {zone.label}
+                </option>
+              ))}
+            </Select>
+            <p style={{ fontSize: "0.8125rem", color: "#6b7280", margin: 0 }}>
+              Round times are entered and shown in this timezone, so every school sees the same official times.
+            </p>
             {error && <p style={{ color: "red", marginTop: "0.25rem" }}>{error}</p>}
           </form>
         </Card>
@@ -157,18 +160,6 @@ export default function Olympiads() {
                   <Fragment key={item.id}>
                   <tr style={{ borderBottom: "1px solid #f3f4f6" }}>
                     <td style={{ padding: "1rem 1.25rem", fontWeight: 600 }}>
-                      {editingId === item.id ? (
-                        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                          <Input
-                            value={editingName}
-                            onChange={(e) => setEditingName(e.target.value)}
-                            onKeyDown={(e) => { if (e.key === "Enter") handleRename(item.id); if (e.key === "Escape") setEditingId(null); }}
-                            style={{ padding: "0.25rem 0.5rem", fontSize: "0.875rem" }}
-                          />
-                          <Button onClick={() => handleRename(item.id)} style={{ padding: "0.25rem 0.75rem", fontSize: "0.8125rem" }}>Save</Button>
-                          <Button onClick={() => setEditingId(null)} variant="outline" style={{ padding: "0.25rem 0.75rem", fontSize: "0.8125rem" }}>Cancel</Button>
-                        </div>
-                      ) : (
                         <button
                           type="button"
                           onClick={() => toggleExpand(item.id)}
@@ -194,7 +185,6 @@ export default function Olympiads() {
                           }}>&#9654;</span>
                           {item.name}
                         </button>
-                      )}
                     </td>
                     <td style={{ padding: "1rem 1.25rem", color: "#6b7280", fontFamily: "monospace" }}>{item.id}</td>
                     <td style={{ padding: "1rem 1.25rem", textAlign: "center" }}>{item.roundsCount ?? item._count?.rounds ?? item.rounds?.length ?? 0}</td>
@@ -205,13 +195,10 @@ export default function Olympiads() {
                       </Button>
                       <Button
                         variant="outline"
-                        onClick={() => {
-                          setEditingId(item.id);
-                          setEditingName(item.name);
-                        }}
+                        to={`/organiser/olympiads/${item.id}/edit`}
                         style={{ padding: "0.4rem 0.85rem", fontSize: "0.8125rem" }}
                       >
-                        Edit
+                        Edit olympiad
                       </Button>
                       {deletingId === item.id ? (
                         <>
@@ -287,10 +274,10 @@ export default function Olympiads() {
                                       </span>
                                     </td>
                                     <td style={{ padding: "0.625rem 0.75rem", color: "#6b7280" }}>
-                                      {r.opens_at ? new Date(r.opens_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                                      {r.opens_at ? formatDateInZone(r.opens_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
                                     </td>
                                     <td style={{ padding: "0.625rem 0.75rem", color: "#6b7280" }}>
-                                      {r.closes_at ? new Date(r.closes_at).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                                      {r.closes_at ? formatDateInZone(r.closes_at, item.timezone ?? DEFAULT_TIMEZONE) : "—"}
                                     </td>
                                     <td style={{ padding: "0.625rem 0.75rem", textAlign: "right", color: "#374151" }}>
                                       {r._count?.submissions ?? 0}

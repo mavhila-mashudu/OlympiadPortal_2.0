@@ -53,6 +53,7 @@ describe("GET /rounds/registered", () => {
         id: released.id,
         title: "Round 1",
         olympiadTitle: olympiad.name,
+        timezone: "Africa/Johannesburg",
         opens_at: expect.any(String),
         closes_at: expect.any(String),
         status: "closed",
@@ -96,6 +97,7 @@ describe("GET /rounds/:roundId/details", () => {
       hasPaper: true,
       paperNote: "Paper is available for download or online sitting.",
       result: null,
+      timezone: "Africa/Johannesburg",
     });
     expect(JSON.stringify(detail)).not.toContain("rounds/r2/");
   });
@@ -310,12 +312,13 @@ describe("sitting an exam online", () => {
       expect(expectOk(await studentApi.post(`${exam(round)}/submit`))).toMatchObject({ status: "automarked", total_points: 6 });
     });
 
-    it("accepts a late submission but flags it", async () => {
+    it("rejects a late submission and stores the ruling", async () => {
       const { round, studentApi } = await setup();
       expectOk(await studentApi.post(`${exam(round)}/start`), 201);
       await prisma.submissions.updateMany({ data: { round_close_snapshot: f.hoursFromNow(-0.01) } });
 
-      expect(expectOk(await studentApi.post(`${exam(round)}/submit`)).is_late).toBe(true);
+      expectError(await studentApi.post(`${exam(round)}/submit`), 400, "Submission received at or after the round deadline");
+      expect(await prisma.submission_deadline_decisions.count({ where: { round_id: round.id, accepted: false } })).toBe(1);
     });
   });
 });

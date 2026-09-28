@@ -1,5 +1,6 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
+const { recordRoundEvent } = require("./roundAuditService");
 const {
   NotFoundError,
   ForbiddenError,
@@ -400,15 +401,26 @@ const generateResults = async (roundId, userId, role) => {
         skipDuplicates: true,
       });
     }
+
+    // Transition round to results_released.  results_release_at records
+    // the actual release moment — the notification dispatcher uses it to
+    // send the "results are out" notices.
     await tx.rounds.update({
       where: { id: roundId },
       data: { state: "results_released", results_release_at: now },
     });
+    await recordRoundEvent(roundId, "results_released", "organiser", `results:${roundId}`,
+      { entrants: results.length, threshold }, tx, now);
 
-    await tx.papers.updateMany({
+    const archived = await tx.papers.updateMany({
       where: { round_id: roundId },
       data: { is_archived: true, released_at: now },
     });
+    if (archived?.count) await recordRoundEvent(roundId, "papers_archived", "automatic", `archive:${roundId}`, { count: archived.count }, tx, now);
+    if (nextRound && threshold !== null) {
+      await recordRoundEvent(roundId, "qualifiers_advanced", "automatic", `advance:${roundId}:${nextRound.id}`,
+        { next_round_id: nextRound.id, threshold }, tx, now);
+    }
   });
 
   return {

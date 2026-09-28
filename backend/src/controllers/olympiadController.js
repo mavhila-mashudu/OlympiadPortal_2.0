@@ -41,7 +41,7 @@ const updateOlympiad = async (req, res, next) => {
     const olympiad = await olympiadService.updateOlympiad(
       req.params.id,
       req.user.userId,
-      { name: req.body.name },
+      { name: req.body.name, timezone: req.body.timezone },
     );
     res.json({ success: true, data: { olympiad } });
   } catch (err) {

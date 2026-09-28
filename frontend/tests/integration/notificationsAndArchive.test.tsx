@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import * as fx from "./support/fixtures";
-import { mockApi, mockApiError } from "./support/network";
+import { mockApi, mockApiError, mockNetworkFailure } from "./support/network";
 import { renderApp } from "./support/renderApp";
 
 // A notification_rules row as the backend returns it
@@ -13,7 +13,8 @@ const rule = (overrides: Record<string, unknown> = {}) => ({
   offset_minutes: 60,
   recipient: "registered_educators",
   action: "notify_recipients",
-  channel: "email",
+  // The backend only creates in-app rules
+  channel: "in_app",
   condition: null,
   enabled: true,
   created_at: "2026-01-10T08:00:00.000Z",
@@ -34,7 +35,7 @@ describe("announcement rules", () => {
   it("lists rules with readable trigger, recipients and timing", async () => {
     mockRules([
       rule({ name: "Opening reminder" }),
-      rule({ name: "Results out", trigger: "results_released", recipient: "qualifying_entrants", offset_minutes: 0, condition: "Only qualifiers", enabled: false }),
+      rule({ name: "Results out", trigger: "results_released", recipient: "qualifying_entrants", offset_minutes: 0, condition: "Only rounds with submissions", enabled: false }),
     ]);
     renderApp("/organiser/notifications");
 
@@ -46,7 +47,7 @@ describe("announcement rules", () => {
       "Enabled",
     ]);
     const results = screen.getByText("Results out").closest("tr")!;
-    expect(within(results).getByText("Only qualifiers")).toBeInTheDocument();
+    expect(within(results).getByText("Only rounds with submissions")).toBeInTheDocument();
     expect(within(results).getByText("At trigger")).toBeInTheDocument();
     expect(within(results).getByRole("button", { name: "Enable" })).toBeInTheDocument();
     expect(screen.getByText("Send announcements for Maths Olympiad 2026.")).toBeInTheDocument();
@@ -148,21 +149,93 @@ describe("announcement rules", () => {
   });
 });
 
+// The bell in the page header: in-app notifications the scheduler delivered
+describe("notification bell", () => {
+  const note = (overrides: Record<string, unknown> = {}) => ({
+    id: fx.id("note"),
+    title: "Round opens soon",
+    body: "Qualifier opens at 2026-10-01T11:00:00.000Z.",
+    created_at: "2026-10-01T10:00:00.000Z",
+    read_at: null as string | null,
+    round_id: "round-1",
+    ...overrides,
+  });
+
+  // Any signed-in page has the bell; the announcements page is a small one
+  const renderPage = () => {
+    mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
+    mockApi("get", "/olympiads/oly-1/notification-rules", { rules: [] });
+    mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
+    return renderApp("/organiser/notifications");
+  };
+
+  it("counts the unread notifications and lists them when opened", async () => {
+    mockApi("get", "/notifications", {
+      notifications: [
+        note({ id: "n-1", title: "Round opens soon" }),
+        note({ id: "n-2", title: "Results released", body: "Results for Heat 1 are available in the portal.", read_at: "2026-09-30T08:00:00.000Z" }),
+      ],
+    });
+    const { user } = renderPage();
+
+    const bell = await screen.findByRole("button", { name: "Notifications (1)" });
+    expect(screen.queryByRole("region", { name: "Notifications" })).not.toBeInTheDocument();
+    await user.click(bell);
+
+    const panel = screen.getByRole("region", { name: "Notifications" });
+    expect(within(panel).getByText("Round opens soon")).toBeInTheDocument();
+    expect(within(panel).getByText("Qualifier opens at 2026-10-01T11:00:00.000Z.")).toBeInTheDocument();
+    expect(within(panel).getByText("Results for Heat 1 are available in the portal.")).toBeInTheDocument();
+    // Only the unread one can be marked read
+    expect(within(panel).getAllByRole("button", { name: "Mark read" })).toHaveLength(1);
+  });
+
+  it("marks a notification read and updates the count", async () => {
+    mockApi("get", "/notifications", { notifications: [note({ id: "n-1" })] });
+    const reads = mockApi("patch", "/notifications/:id/read", { message: "Read" });
+    const { user } = renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Notifications (1)" }));
+    await user.click(screen.getByRole("button", { name: "Mark read" }));
+
+    expect(await screen.findByRole("button", { name: "Notifications (0)" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark read" })).not.toBeInTheDocument();
+    expect(reads.map((r) => r.path)).toEqual(["/notifications/n-1/read"]);
+  });
+
+  it("says so when there is nothing yet", async () => {
+    const { user } = renderPage();
+
+    await user.click(await screen.findByRole("button", { name: "Notifications (0)" }));
+    expect(screen.getByText("No notifications yet.")).toBeInTheDocument();
+  });
+
+  it("leaves the page working when notifications can't be loaded", async () => {
+    mockNetworkFailure("get", "/notifications");
+    renderPage();
+
+    expect(await screen.findByText("No announcements configured.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Notifications (0)" })).toBeInTheDocument();
+  });
+});
+
 describe("paper archive", () => {
   const archived = [
     {
       ...fx.organiserRound({ id: "r-2", name: "Round 2", state: "results_released", closes_at: "2026-06-12T10:00:00.000Z" }),
+      olympiads: { id: "oly-1", name: "Maths Olympiad 2026" },
       papers: [{ id: "paper-2", file_url: "rounds/r-2/paper.pdf", memo_file_url: null, is_archived: true }],
     },
     {
       ...fx.organiserRound({ id: "r-1", name: "Round 1", state: "results_released", closes_at: "2026-03-02T10:00:00.000Z" }),
+      olympiads: { id: "oly-1", name: "Maths Olympiad 2026" },
       papers: [{ id: "paper-1", file_url: "rounds/r-1/paper.pdf", memo_file_url: "rounds/r-1/memo.pdf", is_archived: true }],
     },
   ];
 
   it("lists archived rounds and enables only the files that exist", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: archived });
+    mockApi("get", "/olympiads/archive", { rounds: archived });
     renderApp("/organiser/archive");
 
     const round2 = (await screen.findByText("Round 2")).closest("tr")!;
@@ -175,7 +248,7 @@ describe("paper archive", () => {
 
   it("opens a signed download link for the chosen file", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: archived });
+    mockApi("get", "/olympiads/archive", { rounds: archived });
     const downloads = mockApi("get", "/papers/:id/download", (req) => ({
       url: `https://storage.test/${req.path.split("/")[2]}${req.search}`,
     }));
@@ -190,7 +263,7 @@ describe("paper archive", () => {
 
   it("shows a download failure", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: archived });
+    mockApi("get", "/olympiads/archive", { rounds: archived });
     mockApiError("get", "/papers/:id/download", 404, "Paper file not found");
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     const { user } = renderApp("/organiser/archive");
@@ -203,7 +276,7 @@ describe("paper archive", () => {
 
   it("explains when nothing has been archived yet", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
-    mockApi("get", "/olympiads/oly-1/archive", { rounds: [] });
+    mockApi("get", "/olympiads/archive", { rounds: [] });
     renderApp("/organiser/archive");
     expect(await screen.findByText("No released rounds have been archived yet.")).toBeInTheDocument();
   });

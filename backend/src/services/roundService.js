@@ -24,7 +24,7 @@ const createRound = async ({
   closesAt,
   qualifyingThreshold,
 }) => {
-  await assertOwnsOlympiad(olympiadId, organiserId);
+  const olympiad = await assertOwnsOlympiad(olympiadId, organiserId);
 
   const opens = new Date(opensAt);
   const closes = new Date(closesAt);
@@ -36,7 +36,7 @@ const createRound = async ({
     throw new BadRequestError("closes_at must be after opens_at");
   }
 
-  const warnings = await checkDatesForHolidays([opens, closes]);
+  const warnings = await checkDatesForHolidays([opens, closes], olympiad.timezone);
 
   const round = await prisma.rounds.create({
     data: {
@@ -155,7 +155,7 @@ const updateRound = async (
     data.closes_at = closes;
   }
 
-  const warnings = await checkDatesForHolidays([opens, closes]);
+  const warnings = await checkDatesForHolidays([opens, closes], round.olympiads?.timezone);
 
   const updated = await prisma.rounds.update({
     where: { id: roundId },
@@ -214,6 +214,9 @@ const setRoundState = async (roundId, organiserId, state) => {
   }
 
   if (state === "results_released") {
+    // Delegates to generateResults, which records results_release_at —
+    // the notification dispatcher uses it to send "results are out"
+    // notices.
     const { generateResults } = require("./markingService");
     await generateResults(roundId, organiserId, "organiser");
     return getRound(roundId, organiserId);
@@ -229,6 +232,8 @@ const setRoundState = async (roundId, organiserId, state) => {
   if (state === "closed") {
     try {
       const result = await autoMarkRoundInternal(roundId);
+      await require("./roundAuditService").recordRoundEvent(roundId, "round_automarked", "manual_close", `mark:${roundId}`,
+        { submissions: result.total });
       console.log(
         `[round] auto-marked ${result.total} submission(s) for round "${round.name}"`,
       );
