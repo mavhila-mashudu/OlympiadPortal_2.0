@@ -145,15 +145,31 @@ describe("createQuestion", () => {
 });
 
 describe("listQuestions", () => {
-  it("returns the paper's questions in creation order", async () => {
+  it("returns the paper's questions in creation order, each with its difficulty for the organiser", async () => {
     prisma.rounds.findUnique.mockResolvedValue(round());
-    prisma.papers.findFirst.mockResolvedValue({ questions: [{ id: "q-1" }] });
+    prisma.papers.findFirst.mockResolvedValue({ questions: [{ id: "q-1", max_points: "4" }, { id: "q-2", max_points: "2" }] });
+    prisma.answers.groupBy.mockResolvedValue([
+      { question_id: "q-1", _sum: { points_awarded: "4" }, _count: { _all: 5 } },
+    ]);
 
-    await expect(listQuestions("round-1", "org-1", "organiser")).resolves.toEqual([{ id: "q-1" }]);
+    await expect(listQuestions("round-1", "org-1", "organiser")).resolves.toEqual([
+      { id: "q-1", max_points: "4", difficulty: { value: 0.8, band: "hard", answered: 5 } },
+      { id: "q-2", max_points: "2", difficulty: { value: null, band: null, answered: 0 } },
+    ]);
     expect(prisma.papers.findFirst).toHaveBeenCalledWith({
       where: { round_id: "round-1" },
       include: { questions: { orderBy: { created_at: "asc" } } },
     });
+  });
+
+  it("gives an educator the questions without their difficulty", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(round());
+    prisma.educators.findUnique.mockResolvedValue({ school_id: "school-1" });
+    prisma.school_registrations.findFirst.mockResolvedValue({ id: "reg-1" });
+    prisma.papers.findFirst.mockResolvedValue({ questions: [{ id: "q-1", max_points: "4" }] });
+
+    await expect(listQuestions("round-1", "edu-1", "educator")).resolves.toEqual([{ id: "q-1", max_points: "4" }]);
+    expect(prisma.answers.groupBy).not.toHaveBeenCalled();
   });
 
   it("returns an empty list when the round has no paper", async () => {

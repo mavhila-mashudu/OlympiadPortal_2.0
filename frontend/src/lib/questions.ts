@@ -11,6 +11,23 @@ export type Question = {
   // Number() before doing arithmetic or comparisons
   negative_pct: number | string | null;
   max_points: number | string;
+  // Organisers only: how hard the question proved in this round
+  difficulty?: Difficulty;
+};
+
+// How hard a question proved: 1 − average score ÷ max points over its marked
+// answers. value and band stay null until there are enough answers to judge.
+export type Difficulty = {
+  value: number | null;
+  band: "easy" | "medium" | "hard" | null;
+  answered: number;
+};
+
+// A question in the organiser's bank: the original, the rounds it was used
+// in, and its difficulty across all of them
+export type BankQuestion = Question & {
+  source_round: { id: string; name: string };
+  used_in?: { id: string; name: string }[];
 };
 
 export const TYPE_LABELS: Record<QuestionType, string> = {

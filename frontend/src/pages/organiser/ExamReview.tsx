@@ -19,6 +19,8 @@ import {
   TYPE_LABELS,
   perCorrectPoints,
   splitCorrect,
+  type BankQuestion,
+  type Difficulty,
   type Question,
 } from "../../lib/questions";
 import { CorrectAnswerEditor } from "./CorrectAnswerEditor";
@@ -29,13 +31,36 @@ const dateFormatter = new Intl.DateTimeFormat("en-ZA", {
   timeStyle: "short",
 });
 
+const BAND_LABELS = { easy: "Easy", medium: "Medium", hard: "Hard" } as const;
+type BandFilter = "all" | keyof typeof BAND_LABELS;
+
+// How hard a question proved, e.g. "Hard · 28% average · 43 answers".
+// Nothing is shown until someone has answered it.
+function DifficultyBadge({ difficulty }: { difficulty?: Difficulty }) {
+  if (!difficulty || difficulty.answered === 0) return null;
+  const answers = `${difficulty.answered} answer${difficulty.answered === 1 ? "" : "s"}`;
+  if (difficulty.band === null || difficulty.value === null) {
+    return <span className={styles.difficulty}>Not enough answers yet · {answers}</span>;
+  }
+  const average = Math.round((1 - difficulty.value) * 100);
+  return (
+    <span
+      className={`${styles.difficulty} ${styles[difficulty.band]}`}
+      title="Difficulty is 1 − average score ÷ max points, over the marked answers"
+    >
+      {BAND_LABELS[difficulty.band]} · {average}% average · {answers}
+    </span>
+  );
+}
+
 function ExamReview() {
   const { id: roundId } = useParams<{ id: string }>();
 
   const [questions, setQuestions] = useState<Question[]>([]);
-  const [bankQuestions, setBankQuestions] = useState<(Question & { source_round: { id: string; name: string } })[]>([]);
+  const [bankQuestions, setBankQuestions] = useState<BankQuestion[]>([]);
   const [selectedBankQuestions, setSelectedBankQuestions] = useState<string[]>([]);
   const [bankSearch, setBankSearch] = useState("");
+  const [bankBand, setBankBand] = useState<BandFilter>("all");
   const [examStatus, setExamStatus] = useState<string>("draft");
   const [questionCount, setQuestionCount] = useState(0);
   const [approvedBy, setApprovedBy] = useState<string | null>(null);
@@ -67,7 +92,7 @@ function ExamReview() {
       if (sRes.exam_status === "draft") {
         // The bank is optional: if it can't load, say so, but keep the exam
         try {
-          const bank = await api.get<{ questions: (Question & { source_round: { id: string; name: string } })[] }>(
+          const bank = await api.get<{ questions: BankQuestion[] }>(
             `/rounds/${roundId}/question-bank`,
           );
           setBankQuestions(bank.questions);
@@ -169,6 +194,11 @@ function ExamReview() {
   };
 
   const totalPoints = questions.reduce((sum, q) => sum + Number(q.max_points), 0);
+  const filteredBank = bankQuestions.filter(
+    (question) =>
+      question.prompt.toLowerCase().includes(bankSearch.toLowerCase()) &&
+      (bankBand === "all" || question.difficulty?.band === bankBand),
+  );
   const mcqCount = questions.filter((q) => q.type === "mcq").length;
   const tfCount = questions.filter((q) => q.type === "true_false").length;
   const shortCount = questions.filter((q) => q.type === "short_answer").length;
@@ -330,19 +360,41 @@ function ExamReview() {
                 placeholder="Search question bank"
                 aria-label="Search question bank"
               />
+              <div className={styles.bandFilter} role="group" aria-label="Filter by difficulty">
+                {(["all", "easy", "medium", "hard"] as const).map((band) => (
+                  <button
+                    key={band}
+                    type="button"
+                    className={styles.bandButton}
+                    aria-pressed={bankBand === band}
+                    onClick={() => setBankBand(band)}
+                  >
+                    {band === "all" ? "All" : BAND_LABELS[band]}
+                  </button>
+                ))}
+              </div>
               <div className={styles.bankList}>
-                {bankQuestions
-                  .filter((question) => question.prompt.toLowerCase().includes(bankSearch.toLowerCase()))
-                  .map((question) => (
+                {filteredBank.length === 0 && <p className={styles.bankEmpty}>No questions match.</p>}
+                {filteredBank.map((question) => {
+                  const rounds = question.used_in?.length ?? 1;
+                  return (
                     <label key={question.id} className={styles.bankItem}>
                       <input
                         type="checkbox"
                         checked={selectedBankQuestions.includes(question.id)}
                         onChange={() => setSelectedBankQuestions((current) => current.includes(question.id) ? current.filter((id) => id !== question.id) : [...current, question.id])}
                       />
-                      <span><strong>{question.prompt}</strong><small>{TYPE_LABELS[question.type]} · {question.source_round.name}</small></span>
+                      <span>
+                        <strong>{question.prompt}</strong>
+                        <small>
+                          {TYPE_LABELS[question.type]} · {question.source_round.name}
+                          {rounds > 1 && ` · used in ${rounds} rounds`}
+                        </small>
+                        <DifficultyBadge difficulty={question.difficulty} />
+                      </span>
                     </label>
-                  ))}
+                  );
+                })}
               </div>
             </Card>
           )}
@@ -361,6 +413,7 @@ function ExamReview() {
                         ? " (multiple answers)"
                         : ""}
                     </span>
+                    <DifficultyBadge difficulty={q.difficulty} />
                     <span className={styles.points}>
                       {Number(q.max_points)} pt{Number(q.max_points) !== 1 ? "s" : ""}
                     </span>
