@@ -107,8 +107,6 @@ export default function Olympiads() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-
-
     >
       <div className={styles.stack}>
         <PageHeader

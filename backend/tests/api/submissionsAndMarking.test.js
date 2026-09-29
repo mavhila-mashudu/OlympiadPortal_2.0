@@ -372,7 +372,8 @@ describe("PATCH /rounds/:roundId/answers/:id", () => {
 
 describe("POST /rounds/:roundId/results", () => {
   it("ranks the entrants, applies the qualifying threshold and releases the results", async () => {
-    const world = await withSubmissions({ qualifying_threshold: 10 });
+    // The paper is out of 14; 50% is 7 marks
+    const world = await withSubmissions({ qualifying_threshold: 50 });
     await prisma.rounds.update({ where: { id: world.round.id }, data: { state: "marking" } });
     const [ayandaEssay, leratoEssay] = await Promise.all([
       prisma.answers.findFirst({ where: { submission_id: world.mine.id, question_id: world.essay.id } }),
@@ -383,13 +384,37 @@ describe("POST /rounds/:roundId/results", () => {
 
     const { result } = expectOk(await world.organiserApi.post(`/rounds/${world.round.id}/results`));
 
-    expect(result).toEqual({ roundId: world.round.id, entrantCount: 2, threshold: 10, state: "results_released" });
+    expect(result).toEqual({ roundId: world.round.id, entrantCount: 2, threshold: 50, state: "results_released" });
     const results = await prisma.results.findMany({ orderBy: { rank: "asc" } });
     expect(results.map((r) => [r.entrant_id, r.rank, r.qualified, String(r.total_points)])).toEqual([
       [world.ayanda.id, 1, true, "13"],
       [world.lerato.id, 2, false, "6"],
     ]);
     expect((await prisma.rounds.findUnique({ where: { id: world.round.id } })).state).toBe("results_released");
+  });
+
+  // Reported: a 20% (or 60%) threshold failed students who scored 80%,
+  // because it was compared with raw points on a 10-mark paper
+  it.each([20, 60])("qualifies an 80%% score against a %i%% threshold, and enters it for the next round", async (threshold) => {
+    const { olympiad, school, educator, organiser } = await f.createOlympiadWithSchool();
+    const round = await f.createRound({ olympiad, state: "marking", qualifying_threshold: threshold, opens_at: f.hoursFromNow(-48), closes_at: f.hoursFromNow(-24) });
+    const nextRound = await f.createRound({ olympiad, state: "scheduled", opens_at: f.hoursFromNow(24), closes_at: f.hoursFromNow(26) });
+    await f.createPaper({ round, questions: [{ type: "essay", max_points: 10 }] });
+    const sat = async (points) => {
+      const entrant = await f.createEntrant({ school });
+      await f.registerEntrant({ entrant, round, educator });
+      await prisma.results.create({ data: { round_id: round.id, entrant_id: entrant.id, total_points: points } });
+      return entrant;
+    };
+    const strong = await sat(8); // 80%
+    const weak = await sat(1); // 10%
+
+    expectOk(await as(organiser).post(`/rounds/${round.id}/results`));
+
+    const qualified = Object.fromEntries((await prisma.results.findMany()).map((r) => [r.entrant_id, r.qualified]));
+    expect(qualified).toEqual({ [strong.id]: true, [weak.id]: false });
+    const entered = await prisma.entrant_registrations.findMany({ where: { round_id: nextRound.id } });
+    expect(entered.map((r) => r.entrant_id)).toEqual([strong.id]);
   });
 
   it("responds 400 while the round is still open", async () => {

@@ -348,7 +348,7 @@ describe("creating a round", () => {
     await within(screen.getByRole("main")).findByRole("option", { name: "Maths Olympiad 2026" });
     await user.selectOptions(screen.getByLabelText(/^Olympiad/), "oly-1");
     await user.type(screen.getByLabelText(/^Round name/), "Round 3 — Provincial");
-    await user.type(screen.getByLabelText("Qualifying threshold"), "62.5");
+    await user.type(screen.getByLabelText("Qualifying threshold (%)"), "62.5");
     await user.type(screen.getByLabelText("Instructions for educators"), "Calculators allowed");
     fireEvent.change(screen.getByLabelText(/^Opens at/), { target: { value: localInput } });
     fireEvent.change(screen.getByLabelText(/^Closes at/), { target: { value: localClose } });
@@ -398,7 +398,7 @@ describe("creating a round", () => {
     const { user, currentPath } = renderApp("/organiser/rounds/new");
 
     await fillRoundForm(user);
-    await user.clear(screen.getByLabelText("Qualifying threshold"));
+    await user.clear(screen.getByLabelText("Qualifying threshold (%)"));
     await user.click(screen.getByRole("button", { name: "Create round" }));
 
     await waitFor(() => expect(currentPath()).toBe("/organiser"));

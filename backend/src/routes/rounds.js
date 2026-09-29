@@ -21,8 +21,8 @@ const createRoundRules = [
   body("closes_at").isISO8601().withMessage("closes_at must be a valid date"),
   body("qualifying_threshold")
     .optional({ values: "null" })
-    .isFloat({ min: 0 })
-    .withMessage("qualifying_threshold must be a non-negative number"),
+    .isFloat({ min: 0, max: 100 })
+    .withMessage("qualifying_threshold must be a percentage from 0 to 100"),
 ];
 
 const updateRoundRules = [
@@ -31,8 +31,8 @@ const updateRoundRules = [
   body("closes_at").optional().isISO8601(),
   body("qualifying_threshold")
     .optional({ values: "null" })
-    .isFloat({ min: 0 })
-    .withMessage("qualifying_threshold must be a non-negative number"),
+    .isFloat({ min: 0, max: 100 })
+    .withMessage("qualifying_threshold must be a percentage from 0 to 100"),
 ];
 
 // ── Routes ──────────────────────────────────────────────

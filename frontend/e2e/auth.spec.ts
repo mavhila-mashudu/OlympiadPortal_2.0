@@ -146,3 +146,12 @@ test("an account is deleted and can no longer sign in", async ({ page }) => {
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByText("Invalid login credentials")).toBeVisible();
 });
+
+test("Log out and Delete account stay in view on a short laptop screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 420 });
+  await signIn(page, USERS.organiser, "/organiser");
+
+  // The organiser's sidebar is the longest; its links scroll instead
+  await expect(page.getByRole("button", { name: "Log out" })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Delete account" })).toBeInViewport();
+});

@@ -186,8 +186,6 @@ function Entrants() {
       navItems={educatorNav}
       organisation={schoolName}
       portalLabel="Educator portal"
-
-
     >
       <div className={styles.stack}>
         <PageHeader

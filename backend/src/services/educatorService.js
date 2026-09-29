@@ -7,6 +7,8 @@ const {
   BadRequestError,
 } = require("../errors/AppError");
 const { recalculateRoundResults } = require("./resultRecalculationService");
+const { canonicalizeAnswer } = require("./examVariantService");
+const { parseOptionList } = require("./markingMath");
 
 const BUCKET = "papers";
 
@@ -1306,6 +1308,8 @@ const getRemarkSubmissionAnswers = async (remarkId, userId) => {
       entrant_id: remark.results.entrant_id,
     },
     include: {
+      // The student's own option order, for choice questions
+      exam_assignments: { select: { option_orders: true } },
       answers: {
         include: {
           questions: {
@@ -1324,26 +1328,43 @@ const getRemarkSubmissionAnswers = async (remarkId, userId) => {
     },
   });
 
+  // A choice answer is stored as option numbers in the order the student saw
+  // them, which is shuffled per student; the key uses the paper's own order.
+  // Both are shown as the options' text, so the reviewer compares like with
+  // like.
+  const optionText = (options, indexes) => {
+    if (!Array.isArray(options) || indexes == null) return null;
+    const texts = parseOptionList(indexes).map((i) => options[Number(i)]);
+    return texts.every((text) => text !== undefined) ? texts.join(", ") : null;
+  };
+
   return {
     remarkId: remark.id,
     submissionId: submission?.id || null,
     studentName: remark.results?.entrants?.full_name || "Student",
     roundName: remark.results?.rounds?.name || "Round",
     totalPoints: Number(remark.results?.total_points ?? 0),
-    answers: (submission?.answers || []).map((a) => ({
+    answers: (submission?.answers || []).map((a) => {
+      const q = a.questions;
+      const isChoice = q?.type === "mcq" || q?.type === "true_false";
+      const selected = isChoice
+        ? canonicalizeAnswer(a.answer_value, submission.exam_assignments, a.question_id)
+        : a.answer_value;
+      return {
       id: a.id,
       questionId: a.question_id,
-      prompt: a.questions?.prompt || "",
-      type: a.questions?.type || "",
-      options: a.questions?.options || null,
-      correctOption: a.questions?.correct_option || null,
-      correctAnswer: a.questions?.correct_answer || null,
-      maxPoints: Number(a.questions?.max_points || 0),
-      studentAnswer: a.answer_value,
+      prompt: q?.prompt || "",
+      type: q?.type || "",
+      options: q?.options || null,
+      correctOption: q?.correct_option || null,
+      correctAnswer: (isChoice ? optionText(q.options, q.correct_option) : null) ?? q?.correct_answer ?? null,
+      maxPoints: Number(q?.max_points || 0),
+      studentAnswer: (isChoice ? optionText(q.options, selected) : null) ?? selected,
       pointsAwarded: a.points_awarded !== null ? Number(a.points_awarded) : null,
       isCorrect: a.is_correct,
       markedAt: a.marked_at,
-    })),
+      };
+    }),
   };
 };
 

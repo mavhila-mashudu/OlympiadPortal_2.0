@@ -106,6 +106,23 @@ signup form needs it before anyone has an account.
 
 - **Response:** `data.schools`
 
+### `POST /auth/forgot-password`
+
+Emails a password reset link. Supabase makes the one-time link without sending
+anything, and the portal emails it through EmailJS, because Supabase's own
+sender allows only a few emails an hour for the whole project. The link opens
+`/reset-password?token_hash=…&type=recovery`, where the browser exchanges the
+token with Supabase and sets the new password. If EmailJS isn't configured, or
+can't deliver, Supabase's sender is used instead.
+
+- **Auth:** none (rate limited per client IP, like the other public auth endpoints)
+- **Body:** `email` (required, valid email)
+- **Response:** `data.message` — always "If an account exists for that address,
+  a reset link is on its way.", so the endpoint can't be used to find out who
+  has an account. Nothing is sent to an unknown or deleted account, and at most
+  one email a minute goes to the same address.
+- **Errors:** `422` invalid email; `429` too many requests
+
 ### `GET /auth/me`
 
 Current user profile.
@@ -284,7 +301,7 @@ The same list, for a single olympiad. Closed rounds with downloadable paper/memo
 | `notes` | string | optional |
 | `opens_at` | ISO 8601 date | required |
 | `closes_at` | ISO 8601 date | required |
-| `qualifying_threshold` | number ≥ 0 | optional |
+| `qualifying_threshold` | number 0–100 | optional; a **percentage** of the paper's total marks (e.g. `60` = 60%) |
 
 - **Response `201`:** `data.round`; optional `data.warnings` (array of strings) when `opens_at` or `closes_at` falls on a SA public holiday — e.g. `"2026-12-16 falls on a public holiday: Day of Reconciliation"`. The round is still created; warnings are advisory only.
 
@@ -520,6 +537,9 @@ Answers still awaiting manual marking (essays), grouped by submission, with the 
 ### `POST /rounds/:roundId/results`
 
 Generate final results with ranks and qualification status. Requires all answers to be marked first.
+
+- **Ranks:** highest total first; equal totals share a rank and the next rank skips ("1, 1, 3").
+- **Qualification:** an entrant qualifies when their total is at least `qualifying_threshold` percent of the paper's total marks (the sum of its questions' `max_points`). Qualifiers are entered for the olympiad's next round. With no threshold, nobody qualifies.
 
 ### `PATCH /rounds/:roundId/answers/:id`
 

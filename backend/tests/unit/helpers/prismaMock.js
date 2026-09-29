@@ -49,6 +49,7 @@ const METHODS = [
   "deleteMany",
   "count",
   "groupBy",
+  "aggregate",
 ];
 
 const prisma = { $transaction: jest.fn(), $queryRaw: jest.fn() };

@@ -117,7 +117,8 @@ describe("olympiad rounds", () => {
       [{ name: "" }, "Round name is required"],
       [{ opens_at: "tomorrow" }, "opens_at must be a valid date"],
       [{ closes_at: undefined }, "closes_at must be a valid date"],
-      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a non-negative number"],
+      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a percentage from 0 to 100"],
+      [{ qualifying_threshold: 120 }, "qualifying_threshold must be a percentage from 0 to 100"],
     ])("responds 422 for %o", async (overrides, message) => {
       const organiser = await f.createOrganiser();
       const olympiad = await f.createOlympiad({ organiser });
@@ -435,8 +436,9 @@ describe("a single round", () => {
     it.each([
       [{ name: "" }, "Round name can't be empty"],
       [{ opens_at: "not a date" }, "opens_at must be a valid date"],
-      [{ qualifying_threshold: "high" }, "qualifying_threshold must be a non-negative number"],
-      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a non-negative number"],
+      [{ qualifying_threshold: "high" }, "qualifying_threshold must be a percentage from 0 to 100"],
+      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a percentage from 0 to 100"],
+      [{ qualifying_threshold: 100.5 }, "qualifying_threshold must be a percentage from 0 to 100"],
     ])("responds 422 for %o", async (body, message) => {
       const { round, client } = await owned();
       expectError(await client.patch(`/rounds/${round.id}`).send(body), 422, message);

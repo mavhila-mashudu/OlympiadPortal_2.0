@@ -191,8 +191,6 @@ function OrganiserDashboard() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-
-
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>

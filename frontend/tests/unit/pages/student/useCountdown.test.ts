@@ -18,7 +18,16 @@ afterEach(() => {
 describe("useCountdown", () => {
   it("shows the time left as HH:MM:SS straight away", () => {
     const { result } = renderHook(() => useCountdown(closesIn(90 * MIN + 5 * SEC)));
-    expect(result.current).toEqual({ remaining: "01:30:05", expired: false, urgent: false });
+    expect(result.current).toEqual({ remaining: "01:30:05", expired: false, urgent: false, msLeft: 90 * MIN + 5 * SEC });
+  });
+
+  it("reports the milliseconds left, for acting just before the close", () => {
+    const { result } = renderHook(() => useCountdown(closesIn(8 * SEC)));
+    expect(result.current.msLeft).toBe(8 * SEC);
+    act(() => {
+      vi.advanceTimersByTime(3 * SEC);
+    });
+    expect(result.current.msLeft).toBe(5 * SEC);
   });
 
   it("ticks down every second", () => {
@@ -45,7 +54,7 @@ describe("useCountdown", () => {
     act(() => {
       vi.advanceTimersByTime(2 * SEC);
     });
-    expect(result.current).toEqual({ remaining: "Time expired", expired: true, urgent: false });
+    expect(result.current).toEqual({ remaining: "Time expired", expired: true, urgent: false, msLeft: 0 });
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -75,7 +84,7 @@ describe("useCountdown", () => {
     const { result, rerender } = renderHook(({ closesAt }) => useCountdown(closesAt), {
       initialProps: { closesAt: "" },
     });
-    expect(result.current).toEqual({ remaining: "", expired: false, urgent: false });
+    expect(result.current).toEqual({ remaining: "", expired: false, urgent: false, msLeft: null });
     expect(vi.getTimerCount()).toBe(0);
 
     rerender({ closesAt: closesIn(MIN) });

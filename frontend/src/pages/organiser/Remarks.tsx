@@ -187,8 +187,6 @@ export function OrganiserRemarks() {
       navItems={organiserNav}
       organisation="Olympiad Organiser"
       portalLabel="Organiser Portal"
-
-
     >
       <div className={styles.stack}>
         <PageHeader

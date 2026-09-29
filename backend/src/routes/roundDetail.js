@@ -22,8 +22,8 @@ const updateRoundRules = [
   body("notes").optional(),
   body("qualifying_threshold")
     .optional({ values: "null" })
-    .isFloat({ min: 0 })
-    .withMessage("qualifying_threshold must be a non-negative number"),
+    .isFloat({ min: 0, max: 100 })
+    .withMessage("qualifying_threshold must be a percentage from 0 to 100"),
 ];
 
 const setRoundStateRules = [

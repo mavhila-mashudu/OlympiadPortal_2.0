@@ -57,8 +57,6 @@ function CreateRound() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-
-
     >
       <div className={styles.stack}>
         <PageHeader
@@ -198,19 +196,21 @@ function CreateRound() {
 
             <div className={styles.field}>
               <Label htmlFor="qualifying-threshold">
-                Qualifying threshold
+                Qualifying threshold (%)
               </Label>
               <Input
                 id="qualifying-threshold"
                 name="qualifyingThreshold"
+                max="100"
                 min="0"
                 placeholder="e.g. 60"
                 step="any"
                 type="number"
               />
               <p className={styles.hint}>
-                Entrants scoring at least this many points qualify. Leave blank
-                if this round has no threshold.
+                Entrants scoring at least this percentage of the paper’s total
+                marks qualify for the next round. Leave blank if this round has
+                no threshold.
               </p>
             </div>
 

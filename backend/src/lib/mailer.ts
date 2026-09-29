@@ -82,6 +82,11 @@ export async function sendEducatorInviteEmail({ to, olympiadName, inviteCode, re
   return deliver({ to, subject: `Invitation to coordinate ${olympiadName}`, html: `<h2>Educator invitation</h2><p>You have been invited to help manage students for <strong>${olympiadName}</strong>.</p><p>Your registration code is:</p><h3>${inviteCode}</h3>${registrationLink(registrationUrl)}` });
 }
 
+/** A password reset link, which works once and then expires. */
+export async function sendPasswordResetEmail({ to, resetUrl }: { to: string; resetUrl: string }) {
+  return deliver({ to, subject: "Reset your Olympiad Portal password", html: `<h2>Reset your password</h2><p>We received a request to reset the password for your Olympiad Portal account.</p><p><a href="${resetUrl}">Choose a new password</a></p><p>If the button does not work, copy this link into your browser:<br />${resetUrl}</p><p>The link works once and expires after a while. If you didn't ask for a reset, you can ignore this email; your password stays the same.</p>` });
+}
+
 /**
  * Generic round-notification email (round opening/closing reminders, results
  * released). The caller supplies the fully rendered HTML so the EmailJS

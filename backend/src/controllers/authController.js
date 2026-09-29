@@ -1,6 +1,7 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
 const authService = require("../services/authService");
+const passwordResetService = require("../services/passwordResetService");
 const { UnauthorizedError } = require("../errors/AppError");
 
 const register = async (req, res, next) => {
@@ -89,6 +90,20 @@ const deleteAccount = async (req, res, next) => {
   }
 };
 
+// Public: emails a password reset link. The reply is the same whether or not
+// the address has an account.
+const forgotPassword = async (req, res, next) => {
+  try {
+    await passwordResetService.requestPasswordReset(req.body.email);
+    res.json({
+      success: true,
+      data: { message: "If an account exists for that address, a reset link is on its way." },
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getEducatorOlympiads = async (req, res, next) => {
   try {
     const educator = await prisma.educators.findUnique({ where: { user_id: req.user.userId } });
@@ -107,5 +122,6 @@ module.exports = {
   me,
   logout,
   deleteAccount,
+  forgotPassword,
   getEducatorOlympiads,
 };

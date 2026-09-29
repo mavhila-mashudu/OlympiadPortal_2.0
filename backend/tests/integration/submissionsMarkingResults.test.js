@@ -215,7 +215,8 @@ describe("final results", () => {
   it("ranks entrants, qualifies those at the threshold, releases the round and archives the paper", async () => {
     const { round, organiser, school, paper } = await setup({ threshold: "60" });
     await prisma.rounds.update({ where: { id: round.id }, data: { state: "marking" } });
-    const scores = { Low: "40", Top: "95", Borderline: "60" };
+    // The paper is out of 15, and the threshold is 60% of that: 9 marks
+    const scores = { Low: "6", Top: "14", Borderline: "9" };
     for (const [name, points] of Object.entries(scores)) {
       const entrant = await f.createEntrant({ school, full_name: name });
       await prisma.results.create({ data: { round_id: round.id, entrant_id: entrant.id, total_points: points } });

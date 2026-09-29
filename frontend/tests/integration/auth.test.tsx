@@ -417,8 +417,11 @@ describe("signed-in pages", () => {
 });
 
 describe("resetting a forgotten password", () => {
-  it("asks Supabase to email a reset link back to this site", async () => {
+  const resetSent = { message: "If an account exists for that address, a reset link is on its way." };
+
+  it("asks the portal, not Supabase, to email a reset link", async () => {
     const { requests } = mockSupabasePasswordReset();
+    const calls = mockApi("post", "/auth/forgot-password", resetSent);
     const { user } = renderApp("/login");
 
     await user.click(screen.getByRole("link", { name: "Forgot password?" }));
@@ -426,13 +429,24 @@ describe("resetting a forgotten password", () => {
     await user.click(screen.getByRole("button", { name: "Send reset link" }));
 
     expect(await screen.findByText(/a reset link is on its way/i)).toBeInTheDocument();
-    expect(requests).toEqual([
-      { email: "thandi@olympiad.test", redirect_to: "http://localhost:3000/reset-password" },
-    ]);
+    expect(calls.map((call) => call.body)).toEqual([{ email: "thandi@olympiad.test" }]);
+    // Supabase's own sender allows only a few emails an hour for everyone
+    expect(requests).toEqual([]);
+  });
+
+  it("explains when too many resets are asked for", async () => {
+    mockApiError("post", "/auth/forgot-password", 429, "Too many attempts. Please wait a few minutes and try again.");
+    const { user } = renderApp("/forgot-password");
+
+    await user.type(screen.getByLabelText("Email address"), "thandi@olympiad.test");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    expect(await screen.findByText("Too many attempts. Please wait a few minutes and try again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send reset link" })).toBeEnabled();
   });
 
   it("says the same thing for an address without an account", async () => {
-    mockSupabasePasswordReset();
+    mockApi("post", "/auth/forgot-password", resetSent);
     const { user } = renderApp("/forgot-password");
 
     await user.type(screen.getByLabelText("Email address"), "nobody@olympiad.test");

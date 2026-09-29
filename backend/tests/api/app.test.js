@@ -98,6 +98,7 @@ describe("rate limiting", () => {
     ["post", "/auth/register/organiser"],
     ["post", "/auth/register"],
     ["get", "/auth/schools"],
+    ["post", "/auth/forgot-password"],
   ])("limits requests to %s %s per client", async (method, path) => {
     const res = await api()[method](path).send({});
     // The API tests raise the limit (AUTH_RATE_LIMIT_MAX); production uses 100 per 15 minutes

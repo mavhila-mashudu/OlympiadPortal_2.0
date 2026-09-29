@@ -221,8 +221,6 @@ export function EducatorRemarks() {
       navItems={educatorNav}
       organisation="Your School"
       portalLabel="Educator Portal"
-
-
     >
       <div className={styles.stack}>
         <PageHeader

@@ -22,6 +22,14 @@ import styles from "./ExamSitting.module.css";
 import { readStored, writeStored } from "./examStorage";
 import { useCountdown } from "./useCountdown";
 
+// How long before the close the exam is submitted automatically, so the
+// request arrives while the round is still open
+const AUTO_SUBMIT_LEAD_MS = 5000;
+
+// The server's answer when a submission arrives after the round has closed
+const isClosedRefusal = (message: string) =>
+  message.includes("at or after the round deadline") || message.startsWith("Round is not open");
+
 type QuestionType = "mcq" | "true_false" | "short_answer" | "essay";
 
 type Question = {
@@ -70,6 +78,8 @@ function ExamSitting() {
   const [started, setStarted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  // The round closed before the submission reached the server
+  const [timedOut, setTimedOut] = useState(false);
   const [submitResult, setSubmitResult] = useState<{
     status: string;
     total_points: number;
@@ -162,17 +172,22 @@ function ExamSitting() {
     });
   };
 
-  const { remaining, expired, urgent } = useCountdown(
+  const { remaining, expired, urgent, msLeft } = useCountdown(
     examData?.round.closes_at ?? "",
     serverOffset,
   );
 
-  // Auto-submit when time expires
+  // Submit on the learner's behalf a few seconds before the close: sent at the
+  // deadline itself, the request would reach the server late and be refused.
+  // Once only, through the ref so it always runs the current handleSubmit.
+  const autoSubmittedRef = useRef(false);
+  const autoSubmitDue = expired || (msLeft !== null && msLeft <= AUTO_SUBMIT_LEAD_MS);
   useEffect(() => {
-    if (expired && started && !submitted) {
-      handleSubmit();
+    if (autoSubmitDue && started && !submitted && !autoSubmittedRef.current) {
+      autoSubmittedRef.current = true;
+      submitRetryRef.current?.();
     }
-  }, [expired]);
+  }, [autoSubmitDue, started, submitted]);
 
   const startExam = async () => {
     setError(null);
@@ -353,6 +368,11 @@ function ExamSitting() {
         // Network failure — the final submit is queued and
         // retried automatically once the connection returns
         setSubmitQueued(true);
+      } else if (isClosedRefusal(err.message ?? "")) {
+        // Too late to submit. The answers saved before the close are marked
+        // when the round closes, so say that rather than show an error.
+        setSubmitQueued(false);
+        setTimedOut(true);
       } else {
         setError(err.message || "Failed to submit exam");
       }
@@ -380,8 +400,6 @@ function ExamSitting() {
         navItems={studentNav}
         organisation=""
         portalLabel="Student portal"
-
-
       >
         <LoadingIndicator label="Loading your exam" />
       </AppShell>
@@ -396,14 +414,33 @@ function ExamSitting() {
         navItems={studentNav}
         organisation=""
         portalLabel="Student portal"
-
-
       >
         <div className={styles.stack}>
           <ErrorAlert message={error || "This exam is not available to you right now."} />
           <Button to="/student" variant="outline">
             <ArrowLeft /> Back to dashboard
           </Button>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // The round closed before the submission got through
+  if (timedOut) {
+    return (
+      <AppShell activeRole="student" navItems={studentNav} organisation="" portalLabel="Student portal">
+        <div className={styles.stack}>
+          <Card className={styles.submittedCard}>
+            <Clock className={styles.submittedIcon} />
+            <h1>Time’s up</h1>
+            <p>
+              The round has closed. The answers you saved before the close will
+              be marked, and your result will appear once results are released.
+            </p>
+            <Button to="/student" variant="primary">
+              Back to dashboard
+            </Button>
+          </Card>
         </div>
       </AppShell>
     );
@@ -417,8 +454,6 @@ function ExamSitting() {
         navItems={studentNav}
         organisation=""
         portalLabel="Student portal"
-
-
       >
         <div className={styles.stack}>
           <Card className={styles.submittedCard}>
@@ -459,8 +494,6 @@ function ExamSitting() {
       navItems={studentNav}
       organisation=""
       portalLabel="Student portal"
-
-
     >
       <div className={styles.layout}>
         {/* Header with timer */}

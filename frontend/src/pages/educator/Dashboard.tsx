@@ -41,8 +41,6 @@ function EducatorDashboard() {
       navItems={educatorNav}
       organisation={schoolName}
       portalLabel="Educator portal"
-
-
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>

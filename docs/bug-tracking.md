@@ -20,11 +20,11 @@ Every bug fixed in the application code has an automated test that reproduces it
 
 | Priority | Count |
 |---|---|
-| Critical | 7 |
-| High | 21 |
-| Medium | 20 |
+| Critical | 8 |
+| High | 24 |
+| Medium | 23 |
 | Low | 6 |
-| **Total** | **54** (all fixed) |
+| **Total** | **61** (all fixed) |
 
 ---
 
@@ -128,6 +128,25 @@ Reported by a team member: after logging out, the browser's Back button went str
 | BUG-052 | Account deletion | High | User feedback | If Supabase failed to delete the login, the portal still reported the account deleted, and the login kept working. | Supabase's result is checked inside the deletion's transaction, so a failure changes nothing and says so (502). | Fixed |
 | BUG-053 | Account deletion | High | User feedback | A deleted account kept the person's name and email, so the email could never be used to register again, and the personal data stayed. | The account is anonymised ("Deleted user", `deleted-<id>@deleted.invalid`), school memberships end, and a student's login is unlinked from their learner record; results and marks stay. | Fixed |
 | BUG-054 | Account deletion | Medium | User feedback | An organiser could delete their account while their olympiad was running, leaving it with nobody to manage it. | Refused (409) while any of their olympiads has a round without released results. | Fixed |
+
+## Results and qualification
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-055 | Qualification | Critical | User feedback | A round's qualifying threshold was compared with raw points, while organisers set it as a percentage ("e.g. 60"). On a 10-mark paper a 20 or 60 threshold could never be reached, so a student on 80% was marked not qualified and never entered for the next round; only a threshold of 0 ever worked. Of the 21 rounds with a threshold in the shared database, only the one set to 0 had anyone qualify. | The threshold is a percentage (0–100) of the paper's total marks, in results, recalculations after remarks, and the round forms, which now say so. Compared without dividing, so a score exactly on the threshold counts. A one-off repair (`backend/scripts/recalculateQualification.js`, dry run by default) recalculated the released rounds: 3 students in the shared database now qualify, nobody lost qualification, and no next round was still open to entry. | Fixed |
+| BUG-056 | Remarks | High | Code review | With exam variants, a remark reviewer saw the student's multiple-choice answer as option numbers in the student's shuffled order next to the key in the paper's order, so the two didn't correspond and a correct answer could look wrong. | Both are shown as the options' text, with the student's answer mapped back from their own order. | Fixed |
+| BUG-057 | Results | Medium | Code review | Learners with equal scores got different ranks depending on the order the database returned them, and a later remark could swap them. | Equal scores share a rank and the next rank skips ("1, 1, 3"). | Fixed |
+| BUG-058 | Exam sitting | Medium | Code review | When time ran out, the exam was submitted at the deadline itself, so the submission reached the server late and was refused, and the student saw an error at the end of the exam. | The exam is submitted automatically 5 seconds before the close; if it still arrives late, the student is told time is up and that their saved answers will be marked. | Fixed |
+| BUG-061 | Qualification | High | Code review | Approving a remark in a released round without a qualifying threshold withdrew every one of its students from the next round while it was still scheduled: with no threshold nobody counts as qualified, so all of them were treated as no longer qualifying, although an educator had entered them by hand. | As at release, a round without a threshold leaves the next round's entrants alone. | Fixed |
+
+## Password reset and the sidebar
+
+Reported by team members.
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-059 | Password reset | High | User feedback | Asking for a reset link often failed with "email rate limit exceeded". The browser asked Supabase to send the email, and Supabase's built-in sender allows only a few emails an hour for the whole project, so a handful of resets used it up for everyone. | A new `POST /auth/forgot-password` has Supabase make the one-time link without sending anything, and emails it through EmailJS like the portal's other emails. The reply is the same whether or not the address has an account, and at most one email a minute goes to each address. Supabase's sender is kept only as a fallback when EmailJS isn't available. | Fixed |
+| BUG-060 | Navigation | Medium | User feedback | On shorter laptop screens (under about 650 pixels of browser height), the expanded sidebar was taller than the window and couldn't scroll, so "Log out" and "Delete account" at its foot were cut off. The organiser's sidebar, with the olympiad switcher, was the longest. | The sidebar's links scroll when there isn't room, and the header and the account actions always stay in view. Checked down to a 420-pixel-high window in the end-to-end tests. | Fixed |
 
 ---
 

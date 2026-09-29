@@ -83,8 +83,6 @@ const { rounds: list } = await api.get<{ rounds: ArchivedRound[] }>(
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-
-
     >
       <div className={styles.stack}>
         <PageHeader

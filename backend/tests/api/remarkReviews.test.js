@@ -7,14 +7,14 @@ const { as, expectError, expectOk } = require("./helpers/api");
 
 const REASON = "My proof was complete but I only got half marks";
 
-// A released round (qualifying at 8) with an essay out of 10 and two
+// A released round (qualifying at 80%) with an essay out of 10 and two
 // students of the home school: Ayanda on 5, ranked second, and Lerato on 7,
 // ranked first. A later round is open for entry. A second registered school
 // has its own educator, who can review the home school's remarks.
 const setup = async () => {
   const world = await f.createOlympiadWithSchool();
   const { olympiad, school, educator } = world;
-  const round = await f.createRound({ olympiad, state: "results_released", qualifying_threshold: 8, opens_at: f.hoursFromNow(-48), closes_at: f.hoursFromNow(-24) });
+  const round = await f.createRound({ olympiad, state: "results_released", qualifying_threshold: 80, opens_at: f.hoursFromNow(-48), closes_at: f.hoursFromNow(-24) });
   const nextRound = await f.createRound({ olympiad, state: "scheduled", opens_at: f.hoursFromNow(24), closes_at: f.hoursFromNow(26) });
   const { questions: [essay] } = await f.createPaper({ round, questions: [{ type: "essay", max_points: 10 }] });
 
