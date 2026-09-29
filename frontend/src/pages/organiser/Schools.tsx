@@ -87,8 +87,6 @@ export function SchoolsPage() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-
-
     >
       <div className={styles.stack}>
         <PageHeader

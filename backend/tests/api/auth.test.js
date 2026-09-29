@@ -223,6 +223,85 @@ describe("GET /auth/schools", () => {
   });
 });
 
+describe("POST /auth/forgot-password", () => {
+  const SAME_REPLY = { message: "If an account exists for that address, a reset link is on its way." };
+  const EMAILJS = {
+    EMAILJS_SERVICE_ID: "service_1",
+    EMAILJS_TEMPLATE_ID: "template_1",
+    EMAILJS_USER_ID: "user_1",
+    EMAILJS_PRIVATE_KEY: "private_1",
+  };
+  const realFetch = global.fetch;
+
+  beforeEach(() => {
+    require("../../src/services/passwordResetService").resetPasswordResetThrottle();
+  });
+
+  afterEach(() => {
+    global.fetch = realFetch;
+    for (const key of Object.keys(EMAILJS)) process.env[key] = "";
+  });
+
+  describe("with EmailJS set up, as in production", () => {
+    beforeEach(() => {
+      Object.assign(process.env, EMAILJS);
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "OK" });
+    });
+
+    const emailed = () => global.fetch.mock.calls.map(([, init]) => JSON.parse(init.body).template_params);
+
+    it("emails a reset link through EmailJS, so Supabase's email limit doesn't apply", async () => {
+      await f.createOrganiser({ email: "thandi@olympiad.test" });
+
+      expect(expectOk(await api().post("/auth/forgot-password").send({ email: " Thandi@Olympiad.test " }))).toEqual(SAME_REPLY);
+
+      expect(supabase.auth.admin.generateLink).toHaveBeenCalledWith({ type: "recovery", email: "thandi@olympiad.test" });
+      expect(supabase.auth.resetPasswordForEmail).not.toHaveBeenCalled();
+      const [email] = emailed();
+      expect(email).toMatchObject({ to_email: "thandi@olympiad.test", subject: "Reset your Olympiad Portal password" });
+      expect(email.html_content).toContain(
+        "https://olympiad.test/reset-password?token_hash=hashed-thandi%40olympiad.test&type=recovery",
+      );
+    });
+
+    it("gives the same reply for an address without an account, and sends nothing", async () => {
+      expect(expectOk(await api().post("/auth/forgot-password").send({ email: "nobody@olympiad.test" }))).toEqual(SAME_REPLY);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("doesn't send to a deleted account", async () => {
+      const organiser = await f.createOrganiser({ email: "thandi@olympiad.test" });
+      expectOk(await as(organiser).delete("/auth/account"));
+
+      expectOk(await api().post("/auth/forgot-password").send({ email: "thandi@olympiad.test" }));
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("sends one email a minute to the same address, however often the form is sent", async () => {
+      await f.createOrganiser({ email: "thandi@olympiad.test" });
+
+      for (let i = 0; i < 3; i += 1) {
+        expect(expectOk(await api().post("/auth/forgot-password").send({ email: "thandi@olympiad.test" }))).toEqual(SAME_REPLY);
+      }
+      expect(emailed()).toHaveLength(1);
+    });
+  });
+
+  it("uses Supabase's sender when EmailJS isn't set up", async () => {
+    await f.createOrganiser({ email: "thandi@olympiad.test" });
+
+    expectOk(await api().post("/auth/forgot-password").send({ email: "thandi@olympiad.test" }));
+
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("thandi@olympiad.test", {
+      redirectTo: "https://olympiad.test/reset-password",
+    });
+  });
+
+  it("responds 422 for an invalid email", async () => {
+    expectError(await api().post("/auth/forgot-password").send({ email: "not-an-email" }), 422, "Valid email required");
+  });
+});
+
 describe("GET /auth/me", () => {
   it("returns the educator with their school and membership", async () => {
     const { educatorUser, school } = await f.createOlympiadWithSchool();

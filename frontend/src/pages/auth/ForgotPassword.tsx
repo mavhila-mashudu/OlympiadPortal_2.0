@@ -7,11 +7,12 @@ import { ErrorAlert } from "../../components/ui/Feedback";
 import { friendlyErrorMessage } from "../../lib/feedback";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
-import { getSupabaseClient } from "../../lib/supabase";
+import { api } from "../../lib/api";
 import styles from "./Login.module.css";
 
-// Step 1 of a password reset: ask Supabase to email a reset link. The link
-// returns to /reset-password, where the new password is chosen.
+// Step 1 of a password reset: ask the portal to email a reset link. The link
+// returns to /reset-password, where the new password is chosen. The portal
+// sends it, not Supabase, whose own sender allows only a few emails an hour.
 function ForgotPassword() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,12 +53,7 @@ function ForgotPassword() {
                 );
 
                 try {
-                  const supabase = getSupabaseClient();
-                  const { error: resetError } =
-                    await supabase.auth.resetPasswordForEmail(email, {
-                      redirectTo: `${window.location.origin}/reset-password`,
-                    });
-                  if (resetError) throw new Error(resetError.message);
+                  await api.post("/auth/forgot-password", { email });
                   // Shown whether or not the address has an account, so the
                   // form can't be used to find out who is registered
                   setSent(true);

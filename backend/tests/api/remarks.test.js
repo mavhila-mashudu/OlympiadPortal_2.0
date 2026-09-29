@@ -8,13 +8,13 @@ const { as, expectError, expectOk } = require("./helpers/api");
 const MISSING = "00000000-0000-4000-8000-000000000000";
 const REASON = "My proof was complete but I only got half marks";
 
-// A released round (qualifying at 8) with an essay out of 10, and two
+// A released round (qualifying at 80%) with an essay out of 10, and two
 // students: Ayanda on 5, ranked second and not qualified, and Lerato on 7,
 // ranked first and not qualified either. A later round is open for entry.
 const setup = async ({ state = "results_released" } = {}) => {
   const world = await f.createOlympiadWithSchool();
   const { olympiad, school, educator } = world;
-  const round = await f.createRound({ olympiad, state, qualifying_threshold: 8, opens_at: f.hoursFromNow(-48), closes_at: f.hoursFromNow(-24) });
+  const round = await f.createRound({ olympiad, state, qualifying_threshold: 80, opens_at: f.hoursFromNow(-48), closes_at: f.hoursFromNow(-24) });
   const nextRound = await f.createRound({ olympiad, state: "scheduled", opens_at: f.hoursFromNow(24), closes_at: f.hoursFromNow(26) });
   const { questions: [essay] } = await f.createPaper({ round, questions: [{ type: "essay", max_points: 10 }] });
 
@@ -172,6 +172,18 @@ describe("PATCH /rounds/:roundId/remarks/:remarkId", () => {
     expect((await prisma.results.findUnique({ where: { id: lerato.result.id } })).qualified).toBe(false);
     const entered = await prisma.entrant_registrations.findMany({ where: { round_id: nextRound.id } });
     expect(entered.map((r) => r.entrant_id)).toEqual([ayanda.entrant.id]);
+  });
+
+  it("leaves the next round's entrants alone when the round has no qualifying threshold", async () => {
+    const { url, organiserApi, round, nextRound, educator, ayanda, lerato } = await withRequest();
+    await prisma.rounds.update({ where: { id: round.id }, data: { qualifying_threshold: null } });
+    // Without a threshold nobody advances automatically; the educator entered both
+    for (const { entrant } of [ayanda, lerato]) await f.registerEntrant({ entrant, round: nextRound, educator });
+
+    expectOk(await organiserApi.patch(url).send({ status: "approved", decision: "The proof was complete", answer_id: ayanda.answer.id, points_awarded: 9 }));
+
+    const entered = await prisma.entrant_registrations.findMany({ where: { round_id: nextRound.id } });
+    expect(entered.map((r) => r.entrant_id).sort()).toEqual([ayanda.entrant.id, lerato.entrant.id].sort());
   });
 
   it("can only be decided once", async () => {

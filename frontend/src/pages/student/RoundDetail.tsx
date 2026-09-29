@@ -100,8 +100,6 @@ function StudentRoundDetail() {
         navItems={studentNav}
         organisation={profile.organisation}
         portalLabel="Student portal"
-
-
       >
         <div className={styles.stack}>
           <p className={styles.noResult}>Loading round details…</p>
@@ -117,8 +115,6 @@ function StudentRoundDetail() {
         navItems={studentNav}
         organisation={profile.organisation}
         portalLabel="Student portal"
-
-
       >
         <div className={styles.stack}>
           <p className={styles.notFound}>
@@ -162,8 +158,6 @@ function StudentRoundDetail() {
       navItems={studentNav}
       organisation={profile.organisation}
       portalLabel="Student portal"
-
-
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>

@@ -18,7 +18,22 @@
   height: 100%;
   flex-direction: column;
   gap: 1.5rem;
+  min-height: 0;
   padding: 1rem;
+}
+
+/* On a short screen the links scroll; the header and the account actions
+   (Log out, Delete account) always stay in view */
+.sidebarInner > * {
+  flex-shrink: 0;
+}
+
+.sidebarInner > .nav {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: -2px;
+  padding: 2px;
+  overflow-y: auto;
 }
 
 .brand {

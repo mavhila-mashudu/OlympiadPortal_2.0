@@ -68,4 +68,38 @@ const scoreMcq = ({ maxPoints, correctOption, selected, negativePct }) => {
   };
 };
 
-module.exports = { parseOptionList, scoreMcq };
+// A round's qualifying threshold is a percentage of its paper's total marks
+// (0–100), so "60" means 60% whatever the paper is out of. Compared as
+// points × 100 ≥ threshold × total rather than by dividing, so a score of
+// exactly 57% isn't lost to floating-point rounding. With no threshold nobody
+// qualifies; a paper worth no marks can only be passed by a 0% threshold.
+const qualifies = ({ totalPoints, maxPoints, threshold }) => {
+  if (threshold === null || threshold === undefined) return false;
+  const pct = Number(threshold);
+  const max = Number(maxPoints) || 0;
+  if (max <= 0) return pct <= 0;
+  return Number(totalPoints) * 100 >= pct * max - 1e-9;
+};
+
+// The total marks available on a round's paper
+const paperMaxPoints = async (db, roundId) => {
+  const { _sum } = await db.questions.aggregate({
+    where: { papers: { round_id: roundId } },
+    _sum: { max_points: true },
+  });
+  return Number(_sum?.max_points ?? 0);
+};
+
+// Ranks for results sorted by total, highest first. Equal totals share a rank
+// and the next rank skips ("1, 1, 3"), so a tie never depends on the order
+// the database happened to return the rows in.
+const competitionRanks = (results) => {
+  const ranks = [];
+  results.forEach((result, i) => {
+    const tied = i > 0 && Number(result.total_points) === Number(results[i - 1].total_points);
+    ranks.push(tied ? ranks[i - 1] : i + 1);
+  });
+  return ranks;
+};
+
+module.exports = { parseOptionList, scoreMcq, qualifies, paperMaxPoints, competitionRanks };

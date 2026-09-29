@@ -6,7 +6,7 @@ const {
   ForbiddenError,
   BadRequestError,
 } = require("../errors/AppError");
-const { scoreMcq } = require("./markingMath");
+const { scoreMcq, qualifies, paperMaxPoints, competitionRanks } = require("./markingMath");
 const { canonicalizeAnswer } = require("./examVariantService");
 
 // ─────────────────────────────────────────
@@ -399,10 +399,14 @@ const generateResults = async (roundId, userId, role) => {
   if (results.length === 0) {
     throw new BadRequestError("No results to generate — no submissions found");
   }
+  const ranks = competitionRanks(results);
 
+  // A percentage of the paper's total marks (see markingMath.qualifies)
   const threshold = round.qualifying_threshold != null
     ? Number(round.qualifying_threshold)
     : null;
+  const maxPoints = await paperMaxPoints(prisma, roundId);
+  const passes = (result) => qualifies({ totalPoints: result.total_points, maxPoints, threshold });
 
   const now = new Date();
 
@@ -419,9 +423,8 @@ const generateResults = async (roundId, userId, role) => {
   await prisma.$transaction(async (tx) => {
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      const rank = i + 1;
-      const qualified =
-        threshold !== null ? Number(result.total_points) >= threshold : false;
+      const rank = ranks[i];
+      const qualified = passes(result);
 
       await tx.results.update({
         where: { id: result.id },
@@ -431,7 +434,7 @@ const generateResults = async (roundId, userId, role) => {
 
     if (nextRound && threshold !== null) {
       await tx.entrant_registrations.createMany({
-        data: results.filter((r) => Number(r.total_points) >= threshold && registeredBy.has(r.entrant_id))
+        data: results.filter((r) => passes(r) && registeredBy.has(r.entrant_id))
           .map((r) => ({ entrant_id: r.entrant_id, round_id: nextRound.id, registered_by: registeredBy.get(r.entrant_id) })),
         skipDuplicates: true,
       });

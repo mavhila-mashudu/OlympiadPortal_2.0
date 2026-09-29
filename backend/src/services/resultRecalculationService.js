@@ -5,6 +5,8 @@
 // enrolment follows: newly qualified entrants are enrolled, and entrants who
 // no longer qualify are withdrawn while that round is still scheduled and
 // they have not submitted. Runs inside the caller's transaction.
+const { qualifies, paperMaxPoints, competitionRanks } = require("./markingMath");
+
 async function recalculateRoundResults(tx, roundId) {
   const round = await tx.rounds.findUnique({ where: { id: roundId } });
   const submissions = await tx.submissions.findMany({ where: { round_id: roundId }, include: { answers: true } });
@@ -17,13 +19,20 @@ async function recalculateRoundResults(tx, roundId) {
     });
   }
   if (round.state === "results_released") {
+    // The threshold is a percentage of the paper's marks (markingMath.qualifies)
+    const maxPoints = await paperMaxPoints(tx, roundId);
+    const passes = (result) => qualifies({ totalPoints: result.total_points, maxPoints, threshold: round.qualifying_threshold });
     const results = await tx.results.findMany({ where: { round_id: roundId }, orderBy: [{ total_points: "desc" }, { id: "asc" }] });
+    const ranks = competitionRanks(results);
     for (let i = 0; i < results.length; i++) {
       await tx.results.update({ where: { id: results[i].id }, data: {
-        rank: i + 1,
-        qualified: round.qualifying_threshold !== null && Number(results[i].total_points) >= Number(round.qualifying_threshold),
+        rank: ranks[i],
+        qualified: passes(results[i]),
       } });
     }
+    // Without a threshold nobody advances automatically: the next round's
+    // entrants were entered by hand, so they're left alone (as at release)
+    if (round.qualifying_threshold === null || round.qualifying_threshold === undefined) return;
     const nextRound = await tx.rounds.findFirst({
       where: { olympiad_id: round.olympiad_id, opens_at: { gt: round.opens_at } },
       orderBy: { opens_at: "asc" }, select: { id: true, state: true },
@@ -33,7 +42,7 @@ async function recalculateRoundResults(tx, roundId) {
         where: { round_id: roundId }, select: { entrant_id: true, registered_by: true },
       });
       const registrants = new Map(previousRegistrations.map((r) => [r.entrant_id, r.registered_by]));
-      const qualified = new Set(results.filter((r) => round.qualifying_threshold !== null && Number(r.total_points) >= Number(round.qualifying_threshold)).map((r) => r.entrant_id));
+      const qualified = new Set(results.filter(passes).map((r) => r.entrant_id));
       const newlyQualified = [...qualified].filter((id) => registrants.has(id));
       if (newlyQualified.length) await tx.entrant_registrations.createMany({
         data: newlyQualified.map((id) => ({ entrant_id: id, round_id: nextRound.id, registered_by: registrants.get(id) })), skipDuplicates: true,

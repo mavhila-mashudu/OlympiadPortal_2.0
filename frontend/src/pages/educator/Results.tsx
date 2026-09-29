@@ -29,8 +29,6 @@ function Results() {
       navItems={educatorNav}
       organisation=""
       portalLabel="Educator portal"
-
-
     >
       <div className={styles.stack}>
         <PageHeader

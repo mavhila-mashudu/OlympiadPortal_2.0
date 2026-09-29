@@ -116,8 +116,6 @@ function StudentDashboard() {
       navItems={studentNav}
       organisation={profile.organisation}
       portalLabel="Student portal"
-
-
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>

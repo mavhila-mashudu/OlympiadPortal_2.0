@@ -138,8 +138,6 @@ function MarkingQueue() {
         navItems={organiserNav}
         organisation=""
         portalLabel="Organiser portal"
-
-
       >
         <p className={styles.loading}>Loading marking queue...</p>
       </AppShell>
@@ -152,8 +150,6 @@ function MarkingQueue() {
       navItems={organiserNav}
       organisation=""
       portalLabel="Organiser portal"
-
-
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>

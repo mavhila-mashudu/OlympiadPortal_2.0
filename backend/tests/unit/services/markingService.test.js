@@ -19,6 +19,9 @@ beforeEach(() => {
   prisma.entrant_registrations.findMany.mockResolvedValue([]);
   // A submission is claimed before it is marked; it's unclaimed unless a test says otherwise
   prisma.submissions.updateMany.mockResolvedValue({ count: 1 });
+  // Papers are out of 100 marks unless a test says otherwise, so points and
+  // percentages read the same
+  prisma.questions.aggregate.mockResolvedValue({ _sum: { max_points: "100" } });
 });
 
 const organiserRound = (overrides = {}) => ({
@@ -464,6 +467,47 @@ describe("generateResults", () => {
       threshold: 50,
       state: "results_released",
     });
+  });
+
+  // The reported bug: the threshold was compared with raw points, so a 20%
+  // threshold on a 10-mark paper could never be reached
+  it("reads the threshold as a percentage of the paper's total marks", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(organiserRound({ qualifying_threshold: "20" }));
+    prisma.questions.aggregate.mockResolvedValue({ _sum: { max_points: "10" } });
+    prisma.results.findMany.mockResolvedValue([
+      { id: "r-80", total_points: "8" }, // 80%
+      { id: "r-20", total_points: "2" }, // exactly 20%
+      { id: "r-10", total_points: "1" }, // 10%
+    ]);
+
+    await generateResults("round-1", "org-1", "organiser");
+
+    expect(prisma.questions.aggregate).toHaveBeenCalledWith({
+      where: { papers: { round_id: "round-1" } },
+      _sum: { max_points: true },
+    });
+    expect(prisma.results.update.mock.calls.map(([arg]) => [arg.where.id, arg.data.qualified])).toEqual([
+      ["r-80", true],
+      ["r-20", true],
+      ["r-10", false],
+    ]);
+  });
+
+  it("gives tied learners the same rank, and the next learner the rank after them", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(organiserRound({ qualifying_threshold: null }));
+    prisma.results.findMany.mockResolvedValue([
+      { id: "r-a", total_points: "80" },
+      { id: "r-b", total_points: "80" },
+      { id: "r-c", total_points: "50" },
+    ]);
+
+    await generateResults("round-1", "org-1", "organiser");
+
+    expect(prisma.results.update.mock.calls.map(([arg]) => [arg.where.id, arg.data.rank])).toEqual([
+      ["r-a", 1],
+      ["r-b", 1],
+      ["r-c", 3],
+    ]);
   });
 
   it("qualifies nobody when the round has no threshold", async () => {
