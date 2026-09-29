@@ -10,6 +10,7 @@ const { rateLimit } = require("express-rate-limit");
 const createRateLimiter = ({
   windowMs = 15 * 60 * 1000,
   limit = Number(process.env.AUTH_RATE_LIMIT_MAX) || 100,
+  message = "Too many attempts. Please wait a few minutes and try again.",
 } = {}) =>
   rateLimit({
     windowMs,
@@ -17,11 +18,19 @@ const createRateLimiter = ({
     standardHeaders: "draft-8",
     legacyHeaders: false,
     handler: (_req, res, _next, options) => {
-      res.status(options.statusCode).json({
-        success: false,
-        error: "Too many attempts. Please wait a few minutes and try again.",
-      });
+      // Never cached, so a later request isn't answered with this refusal
+      res.set("Cache-Control", "no-store");
+      res.status(options.statusCode).json({ success: false, error: message });
     },
   });
 
-module.exports = { createRateLimiter };
+// The public developer API has no accounts to throttle, so each client IP
+// gets 300 requests per 15 minutes: a page refresh every few seconds, but not
+// a script hammering the database. PUBLIC_RATE_LIMIT_MAX overrides it.
+const createPublicRateLimiter = () =>
+  createRateLimiter({
+    limit: Number(process.env.PUBLIC_RATE_LIMIT_MAX) || 300,
+    message: "Too many requests. The public API allows 300 requests per 15 minutes per client; see the RateLimit headers for when to retry.",
+  });
+
+module.exports = { createRateLimiter, createPublicRateLimiter };

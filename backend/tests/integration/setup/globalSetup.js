@@ -61,6 +61,8 @@ module.exports = async () => {
     DATABASE_POOL_MAX: "1",
     // Tests make many auth requests from one address
     AUTH_RATE_LIMIT_MAX: "100000",
+    // ...and many public API requests
+    PUBLIC_RATE_LIMIT_MAX: "100000",
   });
 
   globalThis.__INTEGRATION_DB__ = { db, server, migrations };

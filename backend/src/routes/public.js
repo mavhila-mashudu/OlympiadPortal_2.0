@@ -12,6 +12,7 @@ const {
   listSchools,
   getSchoolDetail,
   listPapers,
+  downloadPaper,
   getActivity,
   getYearlyStats,
   getCalendar,
@@ -21,7 +22,17 @@ const {
 
 const router = express.Router();
 
-// No auth middleware — all routes are publicly accessible
+// No auth middleware — all routes are publicly accessible.
+//
+// The data is public and the same for everyone, so browsers and CDNs may
+// keep it for a minute and serve a stale copy for five more while fetching a
+// fresh one. Other websites may embed the responses (helmet allows only this
+// site by default).
+router.use((_req, res, next) => {
+  res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+  res.set("Cross-Origin-Resource-Policy", "cross-origin");
+  next();
+});
 
 // Platform-wide stats
 router.get("/stats", getPlatformStats);
@@ -145,6 +156,18 @@ router.get(
   ],
   validate,
   listPapers,
+);
+
+// Download an archived paper or its memo: redirects to a short-lived link to
+// the file, so the URLs in /papers keep working however long they are kept
+router.get(
+  "/papers/:id/download",
+  [
+    param("id").isUUID().withMessage("Valid paper UUID required"),
+    query("type").optional().isIn(["paper", "memo"]).withMessage("Type must be 'paper' or 'memo'"),
+  ],
+  validate,
+  downloadPaper,
 );
 
 module.exports = router;
