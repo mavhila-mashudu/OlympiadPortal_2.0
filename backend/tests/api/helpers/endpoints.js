@@ -37,8 +37,8 @@ const endpoints = [
   { method: "patch", path: "/notifications/:id/read", roles: "any" },
 
   // Marking review and remarks
-  { method: "get", path: "/rounds/:roundId/review-sample", roles: ORGANISER },
-  { method: "patch", path: "/rounds/:roundId/review-sample/:answerId", roles: ORGANISER },
+  { method: "get", path: "/rounds/:roundId/review-sample", roles: STAFF },
+  { method: "patch", path: "/rounds/:roundId/review-sample/:answerId", roles: STAFF },
   { method: "get", path: "/rounds/:roundId/remarks", roles: ORGANISER },
   { method: "post", path: "/rounds/:roundId/remark", roles: STUDENT },
   { method: "get", path: "/rounds/:roundId/my-remark", roles: STUDENT },

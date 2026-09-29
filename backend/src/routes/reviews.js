@@ -12,9 +12,27 @@ async function ownedRound(roundId, organiserId) {
   return round;
 }
 
-router.get("/:roundId/review-sample", requireRole("organiser"), async (req, res, next) => {
+async function assertRoundReviewAccess(roundId, userId, role) {
+  const round = await prisma.rounds.findUnique({ where: { id: roundId }, include: { olympiads: true } });
+  if (!round) throw new NotFoundError("Round not found");
+  if (role === "organiser") {
+    if (round.olympiads.organiser_id !== userId) throw new ForbiddenError("Not your round");
+  } else if (role === "educator") {
+    const educator = await prisma.educators.findUnique({ where: { user_id: userId } });
+    if (!educator) throw new ForbiddenError("Educator profile not found");
+    const registration = await prisma.school_registrations.findFirst({
+      where: { school_id: educator.school_id, olympiad_id: round.olympiads.id },
+    });
+    if (!registration) throw new ForbiddenError("Your school is not registered for this olympiad");
+  } else {
+    throw new ForbiddenError("Insufficient permissions");
+  }
+  return round;
+}
+
+router.get("/:roundId/review-sample", requireRole("organiser", "educator"), async (req, res, next) => {
   try {
-    await ownedRound(req.params.roundId, req.user.userId);
+    await assertRoundReviewAccess(req.params.roundId, req.user.userId, req.user.role);
     const answers = await prisma.answers.findMany({
       where: { submissions: { round_id: req.params.roundId }, marked_by: { not: null }, marked_at: { not: null } },
       take: 200,
@@ -31,9 +49,9 @@ router.get("/:roundId/review-sample", requireRole("organiser"), async (req, res,
     res.json({ success: true, data: { sample } });
   } catch (err) { next(err); }
 });
-router.patch("/:roundId/review-sample/:answerId", requireRole("organiser"), async (req, res, next) => {
+router.patch("/:roundId/review-sample/:answerId", requireRole("organiser", "educator"), async (req, res, next) => {
   try {
-    await ownedRound(req.params.roundId, req.user.userId);
+    await assertRoundReviewAccess(req.params.roundId, req.user.userId, req.user.role);
     const answer = await prisma.answers.findUnique({ where: { id: req.params.answerId }, include: { questions: true, submissions: true } });
     if (!answer || answer.submissions.round_id !== req.params.roundId || !answer.marked_at) throw new NotFoundError("Marked answer not found");
     if (answer.marked_by === req.user.userId) throw new ForbiddenError("A marker cannot moderate their own marking");

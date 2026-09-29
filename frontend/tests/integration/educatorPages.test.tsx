@@ -548,6 +548,7 @@ describe("educator marking queue", () => {
     let queue: any[] = [queueSubmission];
     mockApi("get", "/rounds/round-1/marking-queue", () => ({ submissions: queue }));
     mockApi("get", "/rounds/round-1/submissions", { submissions: [{ id: "sub-1", route: "online" }] });
+    mockApi("get", "/rounds/round-1/review-sample", { sample: [] });
     const marks = mockApi("patch", "/rounds/round-1/answers/:answerId", () => {
       queue = [];
       return { answerId: "ans-1", is_correct: true, points_awarded: 8 };
@@ -567,5 +568,46 @@ describe("educator marking queue", () => {
     await waitFor(() => expect(marks).toHaveLength(1));
     expect(marks[0].body).toEqual({ is_correct: true, points_awarded: 8 });
     expect(await screen.findByRole("heading", { name: "Nothing to mark" })).toBeInTheDocument();
+  });
+
+  it("moderates a sampled answer and saves a review", async () => {
+    let reviews: { id: string }[] = [];
+    mockApi("get", "/rounds/round-1/marking-queue", { submissions: [] });
+    mockApi("get", "/rounds/round-1/submissions", { submissions: [] });
+    mockApi("get", "/rounds/round-1/review-sample", () => ({
+      sample: [
+        {
+          id: "ans-mod-1",
+          answer_value: "A rigorous mathematical induction step",
+          points_awarded: "5",
+          questions: { prompt: "Prove the theorem by induction.", max_points: "10" },
+          submissions: { entrants: { full_name: "Lerato Nkosi" } },
+          marking_reviews: reviews,
+          users: { id: "u-org", email: "organiser@test.com", full_name: "Lead Organiser" },
+        },
+      ],
+    }));
+    const saved = mockApi("patch", "/rounds/round-1/review-sample/:answerId", () => {
+      reviews = [{ id: "rev-1" }];
+      return { message: "Review saved and results recalculated" };
+    });
+
+    const { user } = renderApp("/educator/rounds/round-1/marking");
+
+    expect(await screen.findByText("Lerato Nkosi")).toBeInTheDocument();
+    expect(screen.getByText(/Mark: 5\/10 \| Reviews: 0 \| Marker: Lead Organiser/)).toBeInTheDocument();
+
+    const points = screen.getByLabelText("Reviewed points");
+    await user.clear(points);
+    await user.type(points, "7");
+    await user.type(screen.getByLabelText("Review comment"), "Clear inductive step presented");
+    await user.click(screen.getByRole("button", { name: "Save review" }));
+
+    expect(await screen.findByText("Review saved and results recalculated")).toBeInTheDocument();
+    expect(saved).toHaveLength(1);
+    expect(saved[0]).toMatchObject({
+      path: "/rounds/round-1/review-sample/ans-mod-1",
+      body: { points_awarded: 7, comment: "Clear inductive step presented" },
+    });
   });
 });

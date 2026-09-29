@@ -174,4 +174,93 @@ describe("PATCH /rounds/:roundId/review-sample/:answerId", () => {
     expect(reviews).toHaveLength(1);
     expect(reviews[0].comment).toBe("Excellent proof, giving higher marks.");
   });
+
+  it("allows an educator to moderate an answer marked by an organiser", async () => {
+    const { round, essay, school, educatorUser, organiser, organiserApi } = await setup();
+    const educatorApi = as(educatorUser);
+
+    const entrant = await f.createEntrant({ school, full_name: "Organiser Marked Learner" });
+    const submission = await prisma.submissions.create({
+      data: { round_id: round.id, entrant_id: entrant.id, route: "online", status: "queued_for_marking", idempotency_key: `k-${entrant.id}`, round_close_snapshot: round.closes_at },
+    });
+    const answer = await prisma.answers.create({
+      data: {
+        submission_id: submission.id,
+        question_id: essay.id,
+        answer_value: "My Organiser paper",
+        points_awarded: 5,
+        marked_by: organiser.id,
+        marked_at: new Date(),
+      },
+    });
+
+    // 1. Educator fetches the review sample
+    const { sample } = expectOk(await educatorApi.get(`/rounds/${round.id}/review-sample`));
+    expect(sample.some((a) => a.id === answer.id)).toBe(true);
+
+    // 2. Educator moderates the organiser's mark
+    expectOk(
+      await educatorApi.patch(`/rounds/${round.id}/review-sample/${answer.id}`).send({
+        points_awarded: 8,
+        comment: "Teacher moderation: deserved more partial credit.",
+      }),
+    );
+
+    // 3. Verify points updated
+    const updated = await prisma.answers.findUnique({ where: { id: answer.id } });
+    expect(Number(updated.points_awarded)).toBe(8);
+
+    const [review] = await prisma.marking_reviews.findMany({ where: { answer_id: answer.id } });
+    expect(review.reviewer_id).toBe(educatorUser.id);
+    expect(review.comment).toBe("Teacher moderation: deserved more partial credit.");
+  });
+
+  it("won't let an educator moderate their own marked answer", async () => {
+    const { round, essay, school, educatorUser } = await setup();
+    const educatorApi = as(educatorUser);
+
+    const entrant = await f.createEntrant({ school, full_name: "Self Marked Learner" });
+    const submission = await prisma.submissions.create({
+      data: { round_id: round.id, entrant_id: entrant.id, route: "online", status: "queued_for_marking", idempotency_key: `k-${entrant.id}`, round_close_snapshot: round.closes_at },
+    });
+    const answer = await prisma.answers.create({
+      data: {
+        submission_id: submission.id,
+        question_id: essay.id,
+        answer_value: "Self marked essay",
+        points_awarded: 6,
+        marked_by: educatorUser.id,
+        marked_at: new Date(),
+      },
+    });
+
+    expectError(
+      await educatorApi.patch(`/rounds/${round.id}/review-sample/${answer.id}`).send({
+        points_awarded: 9,
+        comment: "Self review",
+      }),
+      403,
+      "A marker cannot moderate their own marking",
+    );
+  });
+
+  it("blocks an educator whose school is not registered for the olympiad", async () => {
+    const { round, answers } = await setup();
+    const otherEducator = await f.createEducator();
+    const otherEducatorApi = as(otherEducator.user);
+
+    expectError(
+      await otherEducatorApi.get(`/rounds/${round.id}/review-sample`),
+      403,
+      "Your school is not registered for this olympiad",
+    );
+    expectError(
+      await otherEducatorApi.patch(`/rounds/${round.id}/review-sample/${answers[0].id}`).send({
+        points_awarded: 8,
+        comment: "Intruder teacher",
+      }),
+      403,
+      "Your school is not registered for this olympiad",
+    );
+  });
 });
