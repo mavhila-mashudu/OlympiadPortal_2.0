@@ -1,9 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClipboardList, LayoutDashboard, Trophy } from "lucide-react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "../../../../src/components/layout/AppShell";
 import shellStyles from "../../../../src/components/layout/AppShell.module.css";
 import { PageHeader } from "../../../../src/components/layout/PageHeader";
@@ -25,6 +25,17 @@ describe("PageHeader", () => {
 });
 
 describe("AppShell", () => {
+  // The shell polls for notifications and logging out tells the server; no
+  // request may leave the test, so every call is answered here
+  let requests: string[];
+  beforeEach(() => {
+    requests = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      requests.push(`${init?.method ?? "GET"} ${new URL(url).pathname}`);
+      return new Response(JSON.stringify({ success: true, data: { notifications: [] } }));
+    }));
+  });
+
   const navItems = [
     { label: "Dashboard", to: "/organiser", icon: LayoutDashboard },
     { label: "Olympiads", to: "/organiser/olympiads", icon: Trophy },
@@ -128,7 +139,9 @@ describe("AppShell", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Log out" }));
 
-    expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Log in" })).toBeInTheDocument();
+    // The server ended the session before the page was left
+    expect(requests).toContain("POST /auth/logout");
     expect(localStorage.getItem("op_access_token")).toBeNull();
     expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
   });
@@ -137,6 +150,6 @@ describe("AppShell", () => {
     localStorage.setItem("op_access_token", "jwt");
     renderShell("/organiser");
     await userEvent.click(screen.getByRole("button", { name: "Log out" }));
-    expect(localStorage.getItem("op_access_token")).toBeNull();
+    await waitFor(() => expect(localStorage.getItem("op_access_token")).toBeNull());
   });
 });

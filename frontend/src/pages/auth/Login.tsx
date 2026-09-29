@@ -1,14 +1,16 @@
 import { Trophy } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import type { LoginRedirectState } from "../../components/auth/RequireSession";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { ErrorAlert } from "../../components/ui/Feedback";
 import { friendlyErrorMessage } from "../../lib/feedback";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
-import { api, setToken } from "../../lib/api";
+import { api, clearToken, setToken } from "../../lib/api";
 import { dashboardForRole } from "../../lib/auth";
+import { startSession } from "../../lib/session";
 import { getSupabaseClient } from "../../lib/supabase";
 import styles from "./Login.module.css";
 
@@ -18,6 +20,8 @@ type MeResponse = {
 
 function Login() {
   const navigate = useNavigate();
+  // Sent here from a signed-in page: which page, and whether the session ended
+  const redirect = (useLocation().state ?? {}) as LoginRedirectState;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -31,6 +35,11 @@ function Login() {
           <span>Olympiad Portal</span>
         </Link>
 
+        {redirect.sessionEnded && !error && (
+          <p className={styles.notice} role="status">
+            Your session has ended. Please log in again.
+          </p>
+        )}
         {error && <ErrorAlert message={error} onDismiss={() => setError(null)} />}
         <Card className={styles.card}>
           <h1>Log in</h1>
@@ -64,8 +73,12 @@ function Login() {
 
                 setToken(data.session.access_token);
                 const { user } = await api.get<MeResponse>("/auth/me");
-                navigate(dashboardForRole(user.role));
+                startSession(data.session.access_token, user.role);
+                // Back to the page they were on, if it belongs to their role
+                const home = dashboardForRole(user.role);
+                navigate(redirect.from?.startsWith(home) ? redirect.from : home, { replace: true });
               } catch (err) {
+                clearToken();
                 setError(
                   friendlyErrorMessage(
                     err,

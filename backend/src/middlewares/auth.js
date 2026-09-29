@@ -92,6 +92,11 @@ const cachedIdentity = (token) => {
   return identity;
 };
 
+/** Drops the cached identity for one token, e.g. when that session logs out. */
+const forgetCachedToken = (token) => {
+  authCache.delete(tokenKey(token));
+};
+
 /** Drops every cached identity for a user, e.g. once their account is deleted. */
 const forgetCachedUser = (userId) => {
   for (const [key, entry] of authCache) {
@@ -109,6 +114,8 @@ const requireAuth = async (req, _res, next) => {
 
     const token = authHeader.split(" ")[1];
     req.user = { ...(await cachedIdentity(token)) };
+    // Kept for logout, which ends this particular session
+    req.accessToken = token;
 
     next();
   } catch (err) {
@@ -172,5 +179,6 @@ module.exports = {
   requireRole,
   requireSameSchool,
   requireSchoolMembership,
+  forgetCachedToken,
   forgetCachedUser,
 };

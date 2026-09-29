@@ -69,6 +69,16 @@
   line-height: 1.25rem;
 }
 
+/* Why the user was sent back to log in, e.g. their session ended */
+.notice {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--muted);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  padding: 0.65rem 0.85rem;
+}
+
 .form {
   display: grid;
   gap: 1rem;

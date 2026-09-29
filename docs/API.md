@@ -29,7 +29,9 @@ Authorization: Bearer <supabase-access-token>
 
 Tokens are obtained by signing in through Supabase Auth (email + password). The backend verifies each token with Supabase, then loads the matching user row to determine role (`organiser`, `educator`, or `student`).
 
-Missing/invalid token → `401`. Valid token but wrong role → `403`.
+Missing/invalid token → `401`. Valid token but wrong role → `403`. The frontend treats a `401` on a request that carried a token as the end of the session (expired, logged out elsewhere, or account deleted) and returns the user to the login page.
+
+Every response carries `Cache-Control: no-store`, so browsers never keep personal data (names, answers, marks) on disk or show it again after logout.
 
 ### Roles
 
@@ -111,12 +113,22 @@ Current user profile.
 - **Auth:** Bearer token (any role)
 - **Response:** `data.user` with `school_memberships`, `educators`, and `entrants` relations for school context
 
-### `DELETE /auth/account`
+### `POST /auth/logout`
 
-Soft-deletes the authenticated account. Cannot be undone.
+Ends the session the request's token belongs to. Supabase revokes it, so it can't be refreshed or used again, and the server stops accepting the token at once. The frontend calls this before forgetting the token; if Supabase can't be reached the logout still succeeds, and the failure is logged.
 
 - **Auth:** Bearer token (any role)
+- **Response:** `data.message: "Logged out"`
+
+### `DELETE /auth/account`
+
+Deletes the authenticated account. Cannot be undone.
+
+- The Supabase login is deleted, and the account's details are removed: the email becomes `deleted-<id>@deleted.invalid` and the name "Deleted user". The row stays, so the records others rely on (results, marks, reviews, audit history) keep their links, now to an anonymous user. The email is freed, so the person can register again.
+- An educator's school memberships end; a student's learner record (which belongs to the school) is kept but no longer linked to a login.
+- **Auth:** Bearer token (any role)
 - **Response:** `data.message: "Account deleted"`
+- **Errors:** `409` an organiser whose olympiad still has a round without released results (nobody else could manage it); `502` Supabase couldn't delete the login, in which case nothing is changed
 
 ### `GET /auth/educator-olympiads`
 

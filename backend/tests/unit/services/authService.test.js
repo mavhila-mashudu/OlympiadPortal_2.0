@@ -3,7 +3,7 @@ jest.mock("../../../src/config/database", () => ({
   default: require("../helpers/prismaMock").prisma,
 }));
 jest.mock("../../../src/config/supabase", () => ({
-  auth: { admin: { createUser: jest.fn(), deleteUser: jest.fn() } },
+  auth: { admin: { createUser: jest.fn(), deleteUser: jest.fn(), signOut: jest.fn() } },
 }));
 
 const { prisma, resetPrismaMock } = require("../helpers/prismaMock");
@@ -245,14 +245,77 @@ describe("listEducatorOlympiads", () => {
   });
 });
 
+describe("logout", () => {
+  it("has Supabase end this session", async () => {
+    supabase.auth.admin.signOut.mockResolvedValue({ data: null, error: null });
+    await authService.logout("jwt-1");
+    expect(supabase.auth.admin.signOut).toHaveBeenCalledWith("jwt-1", "local");
+  });
+
+  it("logs, rather than fails, when Supabase can't end it", async () => {
+    supabase.auth.admin.signOut.mockResolvedValue({ data: null, error: { message: "network down" } });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    await expect(authService.logout("jwt-1")).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith("[auth] Supabase could not end the session: network down");
+    warn.mockRestore();
+  });
+});
+
 describe("deleteAccount", () => {
-  it("removes the Supabase login and soft-deletes the row", async () => {
+  beforeEach(() => {
+    prisma.users.findUnique.mockResolvedValue({ role: "student" });
+    supabase.auth.admin.deleteUser.mockResolvedValue({ data: {}, error: null });
+  });
+
+  it("removes the Supabase login and the person's details, and ends their school ties", async () => {
     await authService.deleteAccount("user-1");
 
     expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith("user-1");
     expect(prisma.users.update).toHaveBeenCalledWith({
       where: { id: "user-1" },
-      data: { deleted_at: expect.any(Date) },
+      data: {
+        deleted_at: expect.any(Date),
+        email: "deleted-user-1@deleted.invalid",
+        full_name: "Deleted user",
+        auth_provider_id: null,
+      },
     });
+    expect(prisma.school_memberships.updateMany).toHaveBeenCalledWith({ where: { user_id: "user-1" }, data: { status: "removed" } });
+    expect(prisma.entrants.updateMany).toHaveBeenCalledWith({ where: { user_id: "user-1" }, data: { user_id: null } });
+  });
+
+  it("deletes the Supabase login last, inside the transaction, so a failure undoes the rest", async () => {
+    supabase.auth.admin.deleteUser.mockResolvedValue({ data: null, error: { status: 500, message: "Database error" } });
+
+    await expect(authService.deleteAccount("user-1")).rejects.toMatchObject({
+      statusCode: 502,
+      message: "We couldn’t delete your account. Please try again.",
+    });
+    expect(prisma.users.update.mock.invocationCallOrder[0])
+      .toBeLessThan(supabase.auth.admin.deleteUser.mock.invocationCallOrder[0]);
+  });
+
+  it("carries on when the Supabase login is already gone", async () => {
+    supabase.auth.admin.deleteUser.mockResolvedValue({ data: null, error: { status: 404, message: "User not found" } });
+    await expect(authService.deleteAccount("user-1")).resolves.toBeUndefined();
+  });
+
+  it("refuses an organiser whose olympiad is still running", async () => {
+    prisma.users.findUnique.mockResolvedValue({ role: "organiser" });
+    prisma.olympiads.findFirst.mockResolvedValue({ name: "Maths Olympiad" });
+
+    await expect(authService.deleteAccount("user-1")).rejects.toMatchObject({ statusCode: 409 });
+    expect(prisma.olympiads.findFirst).toHaveBeenCalledWith({
+      where: { organiser_id: "user-1", rounds: { some: { state: { not: "results_released" } } } },
+      select: { name: true },
+    });
+    expect(supabase.auth.admin.deleteUser).not.toHaveBeenCalled();
+    expect(prisma.users.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects an account that doesn't exist", async () => {
+    prisma.users.findUnique.mockResolvedValue(null);
+    await expect(authService.deleteAccount("user-1")).rejects.toMatchObject({ statusCode: 404 });
   });
 });

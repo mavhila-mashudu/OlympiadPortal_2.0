@@ -45,6 +45,14 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Responses carry personal data: names, answers, marks. Browsers must not
+// keep them, where the next person on a shared school computer could find
+// them, or serve them again after the user has logged out.
+app.use((_req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
+
 // Health check
 app.get("/health", (_req, res) => {
   res.json({

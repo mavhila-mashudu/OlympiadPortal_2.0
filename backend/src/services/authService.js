@@ -2,11 +2,12 @@
 const prisma = require("../config/database").default;
 const supabase = require("../config/supabase");
 const {
+  AppError,
   ConflictError,
   BadRequestError,
   NotFoundError,
 } = require("../errors/AppError");
-const { forgetCachedUser } = require("../middlewares/auth");
+const { forgetCachedToken, forgetCachedUser } = require("../middlewares/auth");
 
 const SAFE_USER_FIELDS = {
   id: true,
@@ -191,13 +192,63 @@ const listSchools = async () => {
   return schools;
 };
 
+// Ends this session on the server. Supabase revokes it, so it can't be
+// refreshed or used again, and its cached sign-in here is dropped at once,
+// rather than lasting up to the cache's 30 seconds. The browser forgets the
+// token either way, so a Supabase failure is logged, not returned.
+const logout = async (token) => {
+  forgetCachedToken(token);
+  ensureSupabaseConfigured();
+  const { error } = await supabase.auth.admin.signOut(token, "local");
+  if (error) console.warn(`[auth] Supabase could not end the session: ${error.message}`);
+};
+
+// Deleting an account removes the login and the person's details, but keeps
+// the records others rely on (results, marks, reviews, audit history), now
+// attached to an anonymous "Deleted user". The email is freed, so the person
+// can register again.
 const deleteAccount = async (userId) => {
   ensureSupabaseConfigured();
 
-  await supabase.auth.admin.deleteUser(userId);
-  await prisma.users.update({
-    where: { id: userId },
-    data: { deleted_at: new Date() },
+  const user = await prisma.users.findUnique({ where: { id: userId }, select: { role: true } });
+  if (!user) throw new NotFoundError("Account not found");
+
+  // Nobody else can manage an organiser's olympiads, so an organiser can't
+  // leave while one of them is still running
+  if (user.role === "organiser") {
+    const running = await prisma.olympiads.findFirst({
+      where: { organiser_id: userId, rounds: { some: { state: { not: "results_released" } } } },
+      select: { name: true },
+    });
+    if (running) {
+      throw new ConflictError(
+        `You can’t delete your account while “${running.name}” is still running. Release the results of all its rounds first.`,
+      );
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.users.update({
+      where: { id: userId },
+      data: {
+        deleted_at: new Date(),
+        email: `deleted-${userId}@deleted.invalid`,
+        full_name: "Deleted user",
+        auth_provider_id: null,
+      },
+    });
+    // No longer a member of their school, and a learner's record (which
+    // belongs to the school) is no longer tied to a login
+    await tx.school_memberships.updateMany({ where: { user_id: userId }, data: { status: "removed" } });
+    await tx.entrants.updateMany({ where: { user_id: userId }, data: { user_id: null } });
+
+    // Last, so a Supabase failure undoes the changes above rather than
+    // reporting an account deleted whose login still works. Supabase reports
+    // failures in its result instead of throwing.
+    const { error } = await supabase.auth.admin.deleteUser(userId);
+    if (error && error.status !== 404) {
+      throw new AppError("We couldn’t delete your account. Please try again.", 502);
+    }
   });
   forgetCachedUser(userId);
 };
@@ -215,6 +266,7 @@ module.exports = {
   register,
   registerOrganiser,
   listSchools,
+  logout,
   deleteAccount,
   listEducatorOlympiads,
 };

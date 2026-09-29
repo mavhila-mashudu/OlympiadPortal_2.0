@@ -21,10 +21,10 @@ Every bug fixed in the application code has an automated test that reproduces it
 | Priority | Count |
 |---|---|
 | Critical | 7 |
-| High | 18 |
-| Medium | 16 |
+| High | 21 |
+| Medium | 20 |
 | Low | 6 |
-| **Total** | **47** (all fixed) |
+| **Total** | **54** (all fixed) |
 
 ---
 
@@ -114,6 +114,20 @@ Every bug fixed in the application code has an automated test that reproduces it
 |---|---|---|---|---|---|---|
 | BUG-046 | Frontend deployment (Vercel) | High | Deployment | The deployed frontend was built without its settings (API address and Supabase keys), so login and sign-up didn't work: the variables were marked sensitive, so the build step couldn't read them. | Re-added as non-sensitive — they are public by design — and redeployed. | Fixed |
 | BUG-047 | Backend deployment | High | Deployment | The step that tells Render to deploy the new image failed because the stored Render service ID was wrong, and the Docker image failed to build on the Gitea runner because the build had no network access. | Corrected the `RENDER_SERVICE_ID` secret and built the image with `--network=host`. | Fixed |
+
+## Logging out and deleting an account
+
+Reported by a team member: after logging out, the browser's Back button went straight back into the account. Checking both flows found the rest.
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-048 | Sign-in | High | User feedback | Signed-in pages didn't check for a signed-in user, so after logging out the Back button reopened the account's pages, and any role could open another role's pages. | Each role's pages are guarded: without a session the login page replaces them (so Back has nothing to return to), and another role is sent to its own dashboard. | Fixed |
+| BUG-049 | Sign-in | Medium | User feedback | When a session expired (after an hour) or the account was deleted, pages just showed errors. | An expired token, or a 401 from the API, signs the user out and shows "Your session has ended. Please log in again." After logging in they return to the page they were on. | Fixed |
+| BUG-050 | Sign-in | Medium | User feedback | Logging out didn't end the session on the server (the token kept working until it expired), other open tabs stayed signed in, and Supabase's own copy of the session could stay in the browser. | A new `POST /auth/logout` has Supabase revoke the session before the browser forgets it; other tabs follow; Supabase's copy is removed. | Fixed |
+| BUG-051 | Privacy | Medium | User feedback | API responses could be kept in the browser's cache, where the next person on a shared school computer could find them. | Every response is sent with `Cache-Control: no-store`. | Fixed |
+| BUG-052 | Account deletion | High | User feedback | If Supabase failed to delete the login, the portal still reported the account deleted, and the login kept working. | Supabase's result is checked inside the deletion's transaction, so a failure changes nothing and says so (502). | Fixed |
+| BUG-053 | Account deletion | High | User feedback | A deleted account kept the person's name and email, so the email could never be used to register again, and the personal data stayed. | The account is anonymised ("Deleted user", `deleted-<id>@deleted.invalid`), school memberships end, and a student's login is unlinked from their learner record; results and marks stay. | Fixed |
+| BUG-054 | Account deletion | Medium | User feedback | An organiser could delete their account while their olympiad was running, leaving it with nobody to manage it. | Refused (409) while any of their olympiads has a round without released results. | Fixed |
 
 ---
 

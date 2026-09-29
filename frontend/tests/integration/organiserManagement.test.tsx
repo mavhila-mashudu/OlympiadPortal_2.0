@@ -103,9 +103,10 @@ describe("organiser dashboard", () => {
   });
 
   it("shows an error when the olympiad can't be loaded", async () => {
-    mockApiError("get", "/olympiads", 401, "Invalid or expired token");
+    // (A 401 ends the session instead; see auth.test.tsx)
+    mockApiError("get", "/olympiads", 500, "Database unavailable");
     renderApp("/organiser");
-    expect(await screen.findByText("Invalid or expired token")).toBeInTheDocument();
+    expect(await screen.findByText("Database unavailable")).toBeInTheDocument();
   });
 
   it("navigates to create a round", async () => {

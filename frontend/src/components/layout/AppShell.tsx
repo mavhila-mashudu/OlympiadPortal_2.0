@@ -11,7 +11,7 @@ import { QueryClientContext } from "@tanstack/react-query";
 import { useContext, useEffect, useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
-import { logout } from "../../lib/session";
+import { endLocalSession, logout } from "../../lib/session";
 import type { NavItem } from "../../lib/mockData";
 import { Button } from "../ui/Button";
 import { ErrorAlert } from "../ui/Feedback";
@@ -73,14 +73,16 @@ export function AppShell({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Deleting the account removes the login from Supabase and marks the
-  // account deleted, so the session that is open must end with it
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  // Deleting the account removes the login from Supabase, so the server has
+  // already ended the session; this device just forgets it
   const handleDeleteAccount = async () => {
     setDeleting(true);
     setDeleteError(null);
     try {
       await api.delete("/auth/account");
-      logout();
+      await endLocalSession();
       queryClient?.clear();
       navigate("/login", { replace: true });
     } catch (err) {
@@ -89,8 +91,11 @@ export function AppShell({
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  // The server ends the session before the page is left; the login page then
+  // replaces this one, and the pages behind it need a session to show
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    await logout();
     // Drop cached API data so the next user starts clean
     queryClient?.clear();
     navigate("/login", { replace: true });
@@ -147,13 +152,14 @@ export function AppShell({
               </span>
             </div>
             <Button
+              disabled={loggingOut}
               fullWidth
               icon={<LogOut aria-hidden="true" />}
               justify="start"
               onClick={handleLogout}
               variant="outline"
             >
-              Log out
+              {loggingOut ? "Logging out…" : "Log out"}
             </Button>
             <Button
               fullWidth

@@ -6,6 +6,7 @@ const {
   registerOrganiser,
   listSchools,
   me,
+  logout,
   deleteAccount,
   getEducatorOlympiads,
 } = require("../controllers/authController");
@@ -64,6 +65,7 @@ router.post("/register/organiser", publicAuthLimiter, accountRules, validate, re
 router.get("/schools", publicAuthLimiter, listSchools);
 
 router.get("/me", requireAuth, me);
+router.post("/logout", requireAuth, logout);
 router.delete("/account", requireAuth, deleteAccount);
 
 router.get(

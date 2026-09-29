@@ -48,6 +48,7 @@ const endpoints = [
   { method: "post", path: "/auth/register/organiser", roles: "public" },
   { method: "get", path: "/auth/schools", roles: "public" },
   { method: "get", path: "/auth/me", roles: "any" },
+  { method: "post", path: "/auth/logout", roles: "any" },
   { method: "delete", path: "/auth/account", roles: "any" },
   { method: "get", path: "/auth/educator-olympiads", roles: EDUCATOR },
 
