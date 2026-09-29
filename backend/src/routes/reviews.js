@@ -19,7 +19,12 @@ router.get("/:roundId/review-sample", requireRole("organiser"), async (req, res,
       where: { submissions: { round_id: req.params.roundId }, marked_by: { not: null }, marked_at: { not: null } },
       take: 200,
       orderBy: { marked_at: "desc" },
-      include: { questions: { select: { prompt: true, max_points: true } }, submissions: { select: { entrants: { select: { full_name: true } } } }, marking_reviews: { select: { id: true } } },
+      include: {
+        questions: { select: { prompt: true, max_points: true } },
+        submissions: { select: { entrants: { select: { full_name: true } } } },
+        marking_reviews: { select: { id: true } },
+        users: { select: { id: true, email: true, full_name: true, role: true } },
+      },
     });
     // Deterministic ten-percent sample so reviewers see the same set on refresh.
     const sample = answers.filter((_, i) => i % 10 === 0).slice(0, 20);

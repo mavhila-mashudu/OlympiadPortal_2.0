@@ -14,7 +14,16 @@ import { organiserNav } from "../../lib/mockData";
 import { AnswerCard, type QueueAnswer } from "./AnswerCard";
 import styles from "./MarkingQueue.module.css";
 
-type ReviewAnswer = { id: string; answer_value: string | null; points_awarded: string; questions: { prompt: string; max_points: string }; submissions: { entrants: { full_name: string } }; marking_reviews: { id: string }[] };
+type ReviewAnswer = {
+  id: string;
+  answer_value: string | null;
+  points_awarded: string;
+  marked_by?: string | null;
+  users?: { id: string; email: string; full_name?: string | null; role?: string } | null;
+  questions: { prompt: string; max_points: string };
+  submissions: { entrants: { full_name: string } };
+  marking_reviews: { id: string }[];
+};
 type Remark = { id: string; status: string; reason: string; decision: string | null; entrants: { full_name: string; submissions: { answers: { id: string; answer_value: string | null; points_awarded: string; questions: { prompt: string; max_points: string } }[] }[] } };
 
 type QueueSubmission = {
@@ -43,6 +52,7 @@ function MarkingQueue() {
   const [sample, setSample] = useState<ReviewAnswer[]>([]);
   const [remarks, setRemarks] = useState<Remark[]>([]);
   const [action, setAction] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const loadQueue = useCallback(async () => {
     // The queue is what this page is for. The route counts, moderation sample
@@ -55,13 +65,20 @@ function MarkingQueue() {
       api.get<{ submissions: SubmissionSummary[] }>(
         `/rounds/${roundId}/submissions`,
       ),
-      api.get<{ sample: ReviewAnswer[] }>(`/rounds/${roundId}/review-sample`),
+      api.get<{ sample: ReviewAnswer[]; currentUserId?: string }>(
+        `/rounds/${roundId}/review-sample`,
+      ),
       api.get<{ remarks: Remark[] }>(`/rounds/${roundId}/remarks`),
     ]);
 
     if (queue.status === "fulfilled") setSubmissions(queue.value.submissions);
     if (all.status === "fulfilled") setSubmissionSummary(all.value.submissions);
-    if (reviewData.status === "fulfilled") setSample(reviewData.value.sample);
+    if (reviewData.status === "fulfilled") {
+      setSample(reviewData.value.sample);
+      if (reviewData.value.currentUserId) {
+        setCurrentUserId(reviewData.value.currentUserId);
+      }
+    }
     if (remarkData.status === "fulfilled") setRemarks(remarkData.value.remarks);
 
     const failed = [queue, all, reviewData, remarkData].find(
@@ -216,13 +233,73 @@ function MarkingQueue() {
           <h2>Moderation sample</h2>
           <p>Review a stable sample of marked answers. A marker cannot review their own answer.</p>
           {sample.length === 0 && <p>No manually marked answers to review.</p>}
-          {sample.map((answer) => <form key={answer.id} onSubmit={(e) => reviewAnswer(e, answer.id)} style={{ margin: "1rem 0", borderTop: "1px solid #ccc", paddingTop: "1rem" }}>
-            <p><strong>{answer.submissions.entrants.full_name}</strong> - {answer.questions.prompt}</p>
-            <p>Answer: {answer.answer_value || "(blank)"} | Mark: {answer.points_awarded}/{answer.questions.max_points} | Reviews: {answer.marking_reviews.length}</p>
-            <label>Reviewed points <input name="points" type="number" min="0" max={Number(answer.questions.max_points)} step="any" defaultValue={Number(answer.points_awarded)} required /></label>{" "}
-            <label>Review comment <input name="comment" required /></label>{" "}
-            <Button type="submit" disabled={action}>Save review</Button>
-          </form>)}
+          {sample.map((answer) => {
+            const isSelfMarked = Boolean(
+              currentUserId &&
+                (answer.marked_by === currentUserId ||
+                  answer.users?.id === currentUserId)
+            );
+            const markerLabel =
+              answer.users?.full_name ||
+              answer.users?.email ||
+              (isSelfMarked ? "You" : null);
+
+            return (
+              <form
+                key={answer.id}
+                onSubmit={(e) => reviewAnswer(e, answer.id)}
+                style={{
+                  margin: "1rem 0",
+                  borderTop: "1px solid #ccc",
+                  paddingTop: "1rem",
+                }}
+              >
+                <p>
+                  <strong>{answer.submissions.entrants.full_name}</strong> -{" "}
+                  {answer.questions.prompt}
+                </p>
+                <p>
+                  Answer: {answer.answer_value || "(blank)"} | Mark:{" "}
+                  {answer.points_awarded}/{answer.questions.max_points} | Reviews:{" "}
+                  {answer.marking_reviews.length}
+                  {markerLabel ? ` | Marker: ${markerLabel}` : ""}
+                </p>
+                {isSelfMarked ? (
+                  <p
+                    style={{
+                      color: "var(--muted-foreground, #666)",
+                      fontStyle: "italic",
+                      fontSize: "0.875rem",
+                    }}
+                  >
+                    You marked this answer. A marker cannot moderate their own
+                    marking.
+                  </p>
+                ) : (
+                  <>
+                    <label>
+                      Reviewed points{" "}
+                      <input
+                        name="points"
+                        type="number"
+                        min="0"
+                        max={Number(answer.questions.max_points)}
+                        step="any"
+                        defaultValue={Number(answer.points_awarded)}
+                        required
+                      />
+                    </label>{" "}
+                    <label>
+                      Review comment <input name="comment" required />
+                    </label>{" "}
+                    <Button type="submit" disabled={action}>
+                      Save review
+                    </Button>
+                  </>
+                )}
+              </form>
+            );
+          })}
         </Card>
         <Card>
           <h2>Student remark requests</h2>

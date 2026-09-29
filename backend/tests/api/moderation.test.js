@@ -125,4 +125,53 @@ describe("PATCH /rounds/:roundId/review-sample/:answerId", () => {
     const { round, answers, otherOrganiserApi } = await setup();
     expectError(await otherOrganiserApi.patch(`/rounds/${round.id}/review-sample/${answers[0].id}`).send({ points_awarded: 8, comment: "Not mine" }), 403, "Not your round");
   });
+
+  it("moderates an answer marked by an educator and recalculates results", async () => {
+    const { round, essay, school, educatorUser, organiserApi } = await setup();
+    const educatorApi = as(educatorUser);
+
+    const entrant = await f.createEntrant({ school, full_name: "Educator Student" });
+    const submission = await prisma.submissions.create({
+      data: { round_id: round.id, entrant_id: entrant.id, route: "online", status: "queued_for_marking", idempotency_key: `k-${entrant.id}`, round_close_snapshot: round.closes_at },
+    });
+    const answer = await prisma.answers.create({
+      data: {
+        submission_id: submission.id,
+        question_id: essay.id,
+        answer_value: "My solution",
+        points_awarded: null,
+        marked_by: null,
+        marked_at: null,
+      },
+    });
+
+    // 1. Educator marks the answer
+    expectOk(await educatorApi.patch(`/rounds/${round.id}/answers/${answer.id}`).send({
+      is_correct: true,
+      points_awarded: 7,
+    }));
+
+    // 2. Organiser sees the educator-marked answer in the moderation sample
+    const { sample } = expectOk(await organiserApi.get(`/rounds/${round.id}/review-sample`));
+    const sampledAnswer = sample.find((a) => a.id === answer.id);
+    expect(sampledAnswer).toBeDefined();
+    expect(sampledAnswer.marked_by).toBe(educatorUser.id);
+    expect(sampledAnswer.users.id).toBe(educatorUser.id);
+
+    // 3. Organiser moderates the educator's mark
+    expectOk(
+      await organiserApi.patch(`/rounds/${round.id}/review-sample/${answer.id}`).send({
+        points_awarded: 9,
+        comment: "Excellent proof, giving higher marks.",
+      }),
+    );
+
+    // 4. Verify points updated and review recorded
+    const updated = await prisma.answers.findUnique({ where: { id: answer.id } });
+    expect(Number(updated.points_awarded)).toBe(9);
+
+    const reviews = await prisma.marking_reviews.findMany({ where: { answer_id: answer.id } });
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0].comment).toBe("Excellent proof, giving higher marks.");
+  });
 });
