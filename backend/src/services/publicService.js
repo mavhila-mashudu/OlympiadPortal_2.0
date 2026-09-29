@@ -1,6 +1,10 @@
 // @ts-nocheck
 const prisma = require("../config/database").default;
-const { NotFoundError, BadRequestError } = require("../errors/AppError");
+const supabase = require("../config/supabase");
+const { AppError, NotFoundError, BadRequestError } = require("../errors/AppError");
+
+// Where uploaded papers and memos are stored (as in paperService)
+const PAPERS_BUCKET = "papers";
 
 // ──────────────────────────────────────────
 // 1. Platform-wide stats
@@ -511,7 +515,9 @@ const getSchoolDetail = async (schoolId) => {
 
   const overallAverageScore = Number((avgResult[0]?.avg_score || 0).toFixed(2));
 
-  // Per-olympiad breakdown: student count + average score (only from released rounds)
+  // Per-olympiad breakdown: student count + average score (only from released
+  // rounds). Only this school's results are joined, so other schools' scores
+  // don't enter its average.
   const perOlympiadStats = await prisma.$queryRawUnsafe(`
     SELECT
       o.id AS olympiad_id,
@@ -520,8 +526,8 @@ const getSchoolDetail = async (schoolId) => {
     FROM school_registrations sr
     JOIN olympiads o ON o.id = sr.olympiad_id
     LEFT JOIN rounds r ON r.olympiad_id = o.id AND r.state = 'results_released'
-    LEFT JOIN results res ON res.round_id = r.id
-    LEFT JOIN entrants e ON e.id = res.entrant_id AND e.school_id = $1::uuid
+    LEFT JOIN (results res JOIN entrants e ON e.id = res.entrant_id AND e.school_id = $1::uuid)
+      ON res.round_id = r.id
     WHERE sr.school_id = $1::uuid AND sr.status = 'approved'
     GROUP BY o.id
   `, schoolId);
@@ -562,7 +568,7 @@ const getSchoolDetail = async (schoolId) => {
 // 9. Past paper archive (public)
 //    Only papers from released rounds with a file_url
 // ──────────────────────────────────────────
-const listPapers = async ({ olympiad, year, page = 1, limit = 20 }) => {
+const listPapers = async ({ olympiad, year, page = 1, limit = 20, baseUrl = "" }) => {
   const where = {
     file_url: { not: null },
     rounds: { state: "results_released" },
@@ -612,8 +618,10 @@ const listPapers = async ({ olympiad, year, page = 1, limit = 20 }) => {
     olympiadName: p.rounds.olympiads.name,
     roundName: p.rounds.name,
     year: new Date(p.rounds.opens_at).getFullYear(),
-    fileUrl: p.file_url,
-    memoFileUrl: p.memo_file_url || null,
+    // The files are in private storage; these links lead to them through
+    // GET /public/papers/:id/download
+    fileUrl: `${baseUrl}/papers/${p.id}/download`,
+    memoFileUrl: p.memo_file_url ? `${baseUrl}/papers/${p.id}/download?type=memo` : null,
   }));
 
   return {
@@ -625,6 +633,22 @@ const listPapers = async ({ olympiad, year, page = 1, limit = 20 }) => {
       totalPages: Math.ceil(total / take),
     },
   };
+};
+
+// A one-minute link to an archived paper or memo. Only papers of rounds whose
+// results are out are public, as in the list above.
+const getPaperDownloadUrl = async (paperId, type = "paper") => {
+  const paper = await prisma.papers.findFirst({
+    where: { id: paperId, rounds: { state: "results_released" } },
+    select: { file_url: true, memo_file_url: true },
+  });
+  const path = type === "memo" ? paper?.memo_file_url : paper?.file_url;
+  if (!path) throw new NotFoundError(type === "memo" ? "Memo not found" : "Paper not found");
+  if (!supabase) throw new AppError("File storage is not configured on this server", 503);
+
+  const { data, error } = await supabase.storage.from(PAPERS_BUCKET).createSignedUrl(path, 60);
+  if (error) throw new AppError("The file couldn't be fetched. Please try again.", 502);
+  return data.signedUrl;
 };
 
 // ──────────────────────────────────────────
@@ -862,6 +886,7 @@ module.exports = {
   listSchools,
   getSchoolDetail,
   listPapers,
+  getPaperDownloadUrl,
   getActivity,
   getYearlyStats,
   getCalendar,

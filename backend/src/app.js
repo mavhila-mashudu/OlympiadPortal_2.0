@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const errorHandler = require("./middlewares/errorHandler");
 const { ForbiddenError } = require("./errors/AppError");
+const { createPublicRateLimiter } = require("./middlewares/rateLimit");
 require("./config/env");
 require("dotenv").config();
 
@@ -28,18 +29,24 @@ const allowedOrigins = new Set(
     ],
 );
 
+const isPublicApi = (path) => path === "/public" || path.startsWith("/public/");
+
+// The public developer API is read-only data anyone may use, so any website
+// may call it from the browser. It takes no cookies or tokens, so "*" is safe.
+const publicCors = cors({ origin: "*", methods: ["GET", "HEAD", "OPTIONS"], maxAge: 86_400 });
+// Everything else serves signed-in users, from our own frontend only.
+const appCors = cors({
+  origin(origin, callback) {
+    // API clients such as Postman do not send Origin; browser clients must
+    // match a known application origin.
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(new ForbiddenError("Origin is not allowed by CORS"));
+  },
+  credentials: true,
+});
+
 app.use(helmet());
-app.use(
-  cors({
-    origin(origin, callback) {
-      // API clients such as Postman do not send Origin; browser clients must
-      // match a known application origin.
-      if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-      return callback(new ForbiddenError("Origin is not allowed by CORS"));
-    },
-    credentials: true,
-  }),
-);
+app.use((req, res, next) => (isPublicApi(req.path) ? publicCors : appCors)(req, res, next));
 
 // Body parsing
 app.use(express.json());
@@ -47,7 +54,8 @@ app.use(express.urlencoded({ extended: true }));
 
 // Responses carry personal data: names, answers, marks. Browsers must not
 // keep them, where the next person on a shared school computer could find
-// them, or serve them again after the user has logged out.
+// them, or serve them again after the user has logged out. (The public API,
+// which holds no personal data, allows caching instead: see routes/public.js.)
 app.use((_req, res, next) => {
   res.set("Cache-Control", "no-store");
   next();
@@ -68,8 +76,9 @@ app.get("/", (_req, res) => {
 });
 
 // ── Routes ──────────────────────────────────────────────
-// Public API — no authentication required
-app.use("/public", require("./routes/public"));
+// Public developer API: no authentication, open to any website, and rate
+// limited per client IP since there is no account to throttle
+app.use("/public", createPublicRateLimiter(), require("./routes/public"));
 
 app.use("/auth", require("./routes/auth"));
 app.use("/invites", require("./routes/invites"));

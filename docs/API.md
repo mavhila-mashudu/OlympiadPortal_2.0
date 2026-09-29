@@ -2,7 +2,8 @@
 
 The backend is a hand-written Express (Node.js) REST API backed by PostgreSQL (Prisma ORM) and Supabase Auth/Storage.
 
-- **Base URL (local dev):** `http://localhost:3000`
+- **Base URL:** `https://olympiad-portal-api.azurewebsites.net` (local dev: `http://localhost:3000`)
+- **Public developer API:** open to any website without an account; see [Public Developer API](#public-developer-api)
 - **Content type:** `application/json` (except paper uploads, which use `multipart/form-data`)
 
 ## Conventions
@@ -31,7 +32,7 @@ Tokens are obtained by signing in through Supabase Auth (email + password). The 
 
 Missing/invalid token → `401`. Valid token but wrong role → `403`. The frontend treats a `401` on a request that carried a token as the end of the session (expired, logged out elsewhere, or account deleted) and returns the user to the login page.
 
-Every response carries `Cache-Control: no-store`, so browsers never keep personal data (names, answers, marks) on disk or show it again after logout.
+Every response carries `Cache-Control: no-store`, so browsers never keep personal data (names, answers, marks) on disk or show it again after logout. The exception is the [public developer API](#public-developer-api), which holds no personal data and may be cached for a minute.
 
 ### Roles
 
@@ -56,6 +57,235 @@ Liveness probe. No auth.
 ### `GET /`
 
 API welcome message. No auth.
+
+---
+
+## Public Developer API
+
+Read-only data about olympiads, rounds, schools, results and past papers,
+for anyone to build on: school websites, widgets, dashboards and other apps.
+No account or token is needed.
+
+- **Base URL:** `https://olympiad-portal-api.azurewebsites.net/public`
+  (locally, `http://localhost:3000/public`)
+- **Methods:** `GET` only. Responses use the [usual envelope](#response-envelope).
+- **From the browser:** any website may call it. Responses carry
+  `Access-Control-Allow-Origin: *`, and no cookies or credentials are used.
+  The rest of the API only accepts the portal's own site.
+- **Caching:** responses carry `Cache-Control: public, max-age=60, stale-while-revalidate=300`,
+  so a browser or CDN can reuse one for a minute and briefly serve it stale while
+  it refreshes. There is no need to call more often than once a minute.
+- **Rate limit:** 300 requests per 15 minutes per client IP. Every response
+  says where you stand in the standard `RateLimit` and `RateLimit-Policy`
+  headers, e.g. `RateLimit: "300-in-15min"; r=297; t=812` (297 requests
+  left, window resets in 812 seconds). Over the limit you get `429`; wait
+  `t` seconds.
+
+### Privacy
+
+The public API only returns aggregated data (totals, averages, medians,
+score distributions and school rankings) and papers whose round's results
+are released. It never returns a learner's name, email, id or own result,
+an answer, or anyone's contact details. The one person named is an
+olympiad's organiser (`organiserName`).
+
+A school's figures for a round are an average over its learners. When a
+school entered only one learner, that average is that learner's score.
+
+### Example
+
+```bash
+curl https://olympiad-portal-api.azurewebsites.net/public/olympiads?limit=5
+```
+
+```js
+// From any web page
+const res = await fetch("https://olympiad-portal-api.azurewebsites.net/public/schools/top?limit=10");
+const { success, data, error } = await res.json();
+if (!success) throw new Error(error);
+data.forEach((school) => console.log(school.rank, school.schoolName, school.averageScore));
+```
+
+### Endpoints
+
+| Endpoint | Returns |
+|---|---|
+| `GET /public/stats` | Platform totals |
+| `GET /public/stats/yearly` | Totals for each year |
+| `GET /public/activity` | Recently closed rounds, upcoming rounds and recently released results |
+| `GET /public/calendar` | Rounds running within a date range |
+| `GET /public/search` | Olympiads, schools and rounds matching a name |
+| `GET /public/olympiads` | Olympiads, with search, year filter, sorting and pages |
+| `GET /public/olympiads/:id` | One olympiad and its rounds |
+| `GET /public/olympiads/:olympiadId/rounds/:roundId/results` | A released round's result statistics |
+| `GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school` | The same, for each school |
+| `GET /public/olympiads/:id/leaderboard` | Schools ranked by average score in an olympiad |
+| `GET /public/schools/top` | Schools ranked by average score across every olympiad |
+| `GET /public/schools` | Schools, with search and pages |
+| `GET /public/schools/:id` | One school's participation and averages |
+| `GET /public/papers` | Past papers of released rounds, with download links |
+| `GET /public/papers/:id/download` | Downloads a past paper or its memo |
+
+Lists that page take `page` (from 1) and `limit`, and return a `pagination`
+object: `{ page, limit, total, totalPages }`. Ids are UUIDs; a malformed one
+gets `422`. Dates are ISO 8601 in UTC.
+
+#### `GET /public/stats`
+
+```json
+{ "totalOlympiads": 4, "totalRounds": 11, "totalSchools": 23, "totalStudents": 612, "totalSubmissions": 1480 }
+```
+
+`totalStudents` counts learner records; `totalSubmissions` counts exams handed in, online or on paper.
+
+#### `GET /public/stats/yearly`
+
+One entry per year in which rounds opened, newest first:
+`[{ year, totalOlympiads, totalRounds, totalStudents, totalSchools, totalSubmissions }]`.
+
+#### `GET /public/activity`
+
+Up to five of each, over the last 30 days or the upcoming ones:
+`{ recentlyCompletedRounds, upcomingRounds, recentResultsReleased }`. Each
+round is `{ id, name, olympiadId, olympiadName, opensAt, closesAt, resultsReleaseAt, state }`.
+
+#### `GET /public/calendar`
+
+| Query | Rules |
+|---|---|
+| `from` | optional ISO 8601 date; default the start of this month |
+| `to` | optional ISO 8601 date; default the end of this month |
+
+Rounds that are open at any time between `from` and `to`, earliest first, in the round shape above.
+
+#### `GET /public/search`
+
+`q` — text to look for in names, ignoring case. Returns up to ten of each:
+`{ olympiads: [{ id, name, createdAt, roundCount }], schools: [{ id, name, studentCount }], rounds: [{ id, name, olympiadId, olympiadName, state, opensAt, closesAt }] }`.
+An empty `q` returns empty lists.
+
+#### `GET /public/olympiads`
+
+| Query | Rules |
+|---|---|
+| `search` | optional; part of the name, ignoring case |
+| `year` | optional; olympiads with a round opening that year (2000–2100) |
+| `sort` | optional; `created_at` (newest first, the default) or `name` |
+| `page`, `limit` | optional; `limit` 1–100, default 20 |
+
+```json
+{
+  "olympiads": [
+    { "id": "…", "name": "Maths Olympiad", "createdAt": "2026-08-01T09:00:00.000Z",
+      "roundCount": 2, "schoolCount": 2, "studentCount": 3, "year": 2026 }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+}
+```
+
+#### `GET /public/olympiads/:id`
+
+`{ id, name, timezone, createdAt, organiserName, schoolCount, studentCount, rounds }`,
+where each round is `{ id, name, state, opensAt, closesAt, resultsReleasedAt, participantCount, submissionCount }`.
+`404` if there is no such olympiad.
+
+#### `GET /public/olympiads/:olympiadId/rounds/:roundId/results`
+
+Only for a round whose results are released (`400` otherwise; `404` if the
+round doesn't exist or belongs to another olympiad). Scores are marks out of
+`maxPossibleScore`; `qualifyingThreshold` is a percentage of it.
+
+```json
+{
+  "roundName": "Round 1", "olympiadName": "Maths Olympiad",
+  "totalParticipants": 3, "totalSubmissions": 3, "maxPossibleScore": 10,
+  "averageScore": 5.67, "medianScore": 6, "highestScore": 8, "lowestScore": 3,
+  "qualifyingThreshold": 60, "qualifiedCount": 2,
+  "gradeDistribution": { "90-100": 0, "80-89": 1, "70-79": 0, "60-69": 1, "50-59": 0, "40-49": 0, "30-39": 1, "0-29": 0 }
+}
+```
+
+`gradeDistribution` counts learners by percentage band.
+
+#### `GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school`
+
+`{ roundName, olympiadName, schools }`, best average first, where each school is
+`{ schoolId, schoolName, participantCount, averageScore, qualifiedCount, gradeDistribution }`.
+Same conditions as above.
+
+#### `GET /public/olympiads/:id/leaderboard`
+
+Schools ranked by their average over all of the olympiad's released rounds:
+`{ olympiadName, schools: [{ rank, schoolName, averageScore, totalParticipants, qualifiedCount }] }`.
+Empty before any results are out.
+
+#### `GET /public/schools/top`
+
+| Query | Rules |
+|---|---|
+| `year` | optional; only rounds that opened that year |
+| `limit` | optional; 1–50, default 10 |
+
+`[{ rank, schoolId, schoolName, averageScore, totalResults, totalStudents, totalOlympiads }]`, from released results only.
+
+#### `GET /public/schools`
+
+`search`, `page` and `limit` (1–100, default 20). Schools by name:
+`{ schools: [{ id, name, olympiadCount, studentCount }], pagination }`.
+
+#### `GET /public/schools/:id`
+
+```json
+{
+  "id": "…", "name": "Parktown High",
+  "olympiads": [{ "id": "…", "name": "Maths Olympiad", "year": 2026, "studentCount": 2, "averageScore": 7 }],
+  "stats": { "totalStudents": 2, "totalRoundsParticipated": 1, "overallAverageScore": 7 }
+}
+```
+
+Averages are over the school's own learners in released rounds. `404` if there is no such school.
+
+#### `GET /public/papers`
+
+| Query | Rules |
+|---|---|
+| `olympiad` | optional olympiad id |
+| `year` | optional; rounds that opened that year |
+| `page`, `limit` | optional; `limit` 1–100, default 20 |
+
+Papers of rounds whose results are released, newest first:
+
+```json
+{
+  "papers": [
+    { "id": "…", "title": "Maths Round 1 paper", "olympiadId": "…", "olympiadName": "Maths Olympiad",
+      "roundName": "Round 1", "year": 2026,
+      "fileUrl": "https://olympiad-portal-api.azurewebsites.net/public/papers/…/download",
+      "memoFileUrl": "https://olympiad-portal-api.azurewebsites.net/public/papers/…/download?type=memo" }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+}
+```
+
+`memoFileUrl` is `null` when no memo was uploaded. The links don't expire, so they can be stored or put on a page.
+
+#### `GET /public/papers/:id/download`
+
+`type` — `paper` (the default) or `memo`. Redirects (`302`) to a link to the
+PDF that works for one minute, so follow the redirect straight away rather
+than storing where it leads. `404` for a paper whose round's results aren't
+released, or a memo that was never uploaded; `502` if the file store can't be
+reached.
+
+### Errors
+
+| Status | When |
+|---|---|
+| `400` | A round's results aren't released yet |
+| `404` | No such olympiad, round, school or paper, or an unknown `/public` path |
+| `422` | A malformed id or query parameter; `error` says which |
+| `429` | Over the rate limit; see the `RateLimit` header for when to retry |
+| `502` | The paper store couldn't be reached |
 
 ---
 
@@ -614,4 +844,6 @@ Finalize the submission. Auto-marks MCQ/true-false (partial credit, negative mar
 | `403` | Authenticated but wrong role, or not the owner of the resource |
 | `404` | Resource not found (or not owned by caller) |
 | `409` | Conflict — e.g. email already registered, duplicate record |
+| `422` | A field or query parameter failed validation (message explains which) |
+| `429` | Too many requests from this client; see the `RateLimit` header |
 | `500` | Unexpected server error |

@@ -80,8 +80,21 @@ const getSchoolDetail = async (req, res, next) => {
 const listPapers = async (req, res, next) => {
   try {
     const { olympiad, year, page, limit } = req.query;
-    const result = await publicService.listPapers({ olympiad, year, page, limit });
+    // Download links are absolute, so other sites can use them as they are
+    const baseUrl = `${req.protocol}://${req.get("host")}${req.baseUrl}`;
+    const result = await publicService.listPapers({ olympiad, year, page, limit, baseUrl });
     res.json({ success: true, data: result });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const downloadPaper = async (req, res, next) => {
+  try {
+    const url = await publicService.getPaperDownloadUrl(req.params.id, req.query.type || "paper");
+    // The link expires in a minute, so the redirect itself must not be kept
+    res.set("Cache-Control", "no-store");
+    res.redirect(302, url);
   } catch (err) {
     next(err);
   }
@@ -145,6 +158,7 @@ module.exports = {
   listSchools,
   getSchoolDetail,
   listPapers,
+  downloadPaper,
   getActivity,
   getYearlyStats,
   getCalendar,

@@ -31,6 +31,7 @@ const endpoints = [
   { method: "get", path: "/public/schools", roles: "public" },
   { method: "get", path: "/public/schools/:id", roles: "public" },
   { method: "get", path: "/public/papers", roles: "public" },
+  { method: "get", path: "/public/papers/:id/download", roles: "public" },
 
   // Portal notifications
   { method: "get", path: "/notifications", roles: "any" },

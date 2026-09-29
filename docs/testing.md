@@ -102,7 +102,7 @@ Covered: login and sign-up, password reset, account deletion, organiser dashboar
 
 **Why:** the frontend depends on the API behaving exactly as documented, and these rules protect exam papers, answer keys, marks and learner data.
 
-**Complete coverage is enforced.** All 66 endpoints are listed in `backend/tests/api/helpers/endpoints.js` with the roles allowed to call each. From that list the tests automatically check:
+**Complete coverage is enforced.** All 110 endpoints are listed in `backend/tests/api/helpers/endpoints.js` with the roles allowed to call each. From that list the tests automatically check:
 
 1. the list matches the route files — a new endpoint that isn't listed fails the run;
 2. every protected endpoint returns **401** without a token;
@@ -110,6 +110,8 @@ Covered: login and sign-up, password reset, account deletion, organiser dashboar
 4. public endpoints work without a token.
 
 Each area then covers the normal case, ownership (users from another olympiad or school are refused), validation (**422** with a clear message) and edge cases (a round that isn't open, a duplicate submission, a file over the size limit).
+
+**Public developer API.** `backend/tests/api/public.test.js` checks what other websites rely on (any origin may call `/public` from the browser while the rest of the API still refuses it, responses may be cached for a minute, and each client's rate limit is reported in the standard headers), every public endpoint's data against a known set of olympiads, schools and results, validation and 404s, paper downloads, and that no response anywhere in `/public` contains a learner's name, email, id or own result.
 
 **Peak load (A1).** `backend/tests/api/peakLoad.test.js` piles many things onto the same instant and then checks the outcome exactly, not just that nothing failed:
 
@@ -150,7 +152,7 @@ The test database is PGlite, a single Postgres session behind a socket server, s
 | Competition | A student sits the exam online and submits → the organiser closes the round and releases results → the student sees their score |
 | Educator | Register a learner and invite a student · a student accepts and gets the olympiad |
 
-**Deliberately left to the faster suites:** every validation message, permission checks for all 66 endpoints, offline exam behaviour, and page-by-page detail.
+**Deliberately left to the faster suites:** every validation message, permission checks for all 110 endpoints, offline exam behaviour, and page-by-page detail.
 
 ---
 

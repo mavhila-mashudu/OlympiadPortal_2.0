@@ -1,12 +1,12 @@
 const express = require("express");
 const request = require("supertest");
-const { createRateLimiter } = require("../../../src/middlewares/rateLimit");
+const { createRateLimiter, createPublicRateLimiter } = require("../../../src/middlewares/rateLimit");
 
 // A minimal app with the limiter in front of one route
-const appWith = (options) => {
+const appWith = (options, limiter = createRateLimiter(options)) => {
   const app = express();
   app.set("trust proxy", 1);
-  app.get("/limited", createRateLimiter(options), (_req, res) => res.json({ success: true }));
+  app.get("/limited", limiter, (_req, res) => res.json({ success: true }));
   return app;
 };
 
@@ -26,6 +26,8 @@ describe("createRateLimiter", () => {
 
     expect(blocked.status).toBe(429);
     expect(blocked.body).toEqual({ success: false, error: "Too many attempts. Please wait a few minutes and try again." });
+    // A refusal must never be cached and served in place of a later answer
+    expect(blocked.headers["cache-control"]).toBe("no-store");
   });
 
   it("tells clients their limit through the standard RateLimit headers", async () => {
@@ -49,5 +51,43 @@ describe("createRateLimiter", () => {
 
     process.env.AUTH_RATE_LIMIT_MAX = "7";
     expect((await request(appWith()).get("/limited")).headers.ratelimit).toMatch(/^"7-in-15min"; r=6;/);
+  });
+});
+
+describe("createPublicRateLimiter", () => {
+  const originalMax = process.env.PUBLIC_RATE_LIMIT_MAX;
+  afterEach(() => {
+    if (originalMax === undefined) delete process.env.PUBLIC_RATE_LIMIT_MAX;
+    else process.env.PUBLIC_RATE_LIMIT_MAX = originalMax;
+  });
+
+  it("defaults to 300 requests per 15 minutes, overridable with PUBLIC_RATE_LIMIT_MAX", async () => {
+    delete process.env.PUBLIC_RATE_LIMIT_MAX;
+    expect((await request(appWith({}, createPublicRateLimiter())).get("/limited")).headers.ratelimit).toMatch(/^"300-in-15min"; r=299;/);
+
+    process.env.PUBLIC_RATE_LIMIT_MAX = "2";
+    const app = appWith({}, createPublicRateLimiter());
+    await request(app).get("/limited");
+    await request(app).get("/limited");
+    const blocked = await request(app).get("/limited");
+
+    expect(blocked.status).toBe(429);
+    expect(blocked.body.error).toMatch(/^Too many requests\. The public API allows 300 requests per 15 minutes/);
+  });
+
+  it("is separate from the sign-up limit", async () => {
+    const authMax = process.env.AUTH_RATE_LIMIT_MAX;
+    process.env.PUBLIC_RATE_LIMIT_MAX = "1";
+    process.env.AUTH_RATE_LIMIT_MAX = "5";
+    const app = express();
+    app.set("trust proxy", 1);
+    app.get("/public", createPublicRateLimiter(), (_req, res) => res.json({ success: true }));
+    app.get("/auth", createRateLimiter(), (_req, res) => res.json({ success: true }));
+
+    expect((await request(app).get("/public")).status).toBe(200);
+    expect((await request(app).get("/public")).status).toBe(429);
+    expect((await request(app).get("/auth")).status).toBe(200);
+    if (authMax === undefined) delete process.env.AUTH_RATE_LIMIT_MAX;
+    else process.env.AUTH_RATE_LIMIT_MAX = authMax;
   });
 });

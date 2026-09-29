@@ -21,10 +21,10 @@ Every bug fixed in the application code has an automated test that reproduces it
 | Priority | Count |
 |---|---|
 | Critical | 8 |
-| High | 24 |
-| Medium | 23 |
+| High | 25 |
+| Medium | 24 |
 | Low | 6 |
-| **Total** | **61** (all fixed) |
+| **Total** | **63** (all fixed) |
 
 ---
 
@@ -147,6 +147,15 @@ Reported by team members.
 |---|---|---|---|---|---|---|
 | BUG-059 | Password reset | High | User feedback | Asking for a reset link often failed with "email rate limit exceeded". The browser asked Supabase to send the email, and Supabase's built-in sender allows only a few emails an hour for the whole project, so a handful of resets used it up for everyone. | A new `POST /auth/forgot-password` has Supabase make the one-time link without sending anything, and emails it through EmailJS like the portal's other emails. The reply is the same whether or not the address has an account, and at most one email a minute goes to each address. Supabase's sender is kept only as a fallback when EmailJS isn't available. | Fixed |
 | BUG-060 | Navigation | Medium | User feedback | On shorter laptop screens (under about 650 pixels of browser height), the expanded sidebar was taller than the window and couldn't scroll, so "Log out" and "Delete account" at its foot were cut off. The organiser's sidebar, with the olympiad switcher, was the longest. | The sidebar's links scroll when there isn't room, and the header and the account actions always stay in view. Checked down to a 420-pixel-high window in the end-to-end tests. | Fixed |
+
+## Public developer API
+
+Found while making the `/public` endpoints usable by other websites and apps.
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-062 | Public API | High | API tests | The public past-paper list gave each paper's storage path (e.g. `maths/round-1/paper.pdf`) as its download link. The files are in private storage, so nobody outside the portal could open a single paper. | New `GET /public/papers/:id/download` redirects to a one-minute link to the file; the list now gives absolute links to it, which don't expire. Only papers of rounds with released results are served. | Fixed |
+| BUG-063 | Public API | Medium | API tests | On a school's public profile, each olympiad's average score was the average of every school's learners, not that school's, because other schools' results were joined in before filtering by school. | Only the school's own results are joined into its averages. | Fixed |
 
 ---
 
