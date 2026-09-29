@@ -57,8 +57,8 @@ function CreateRound() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-      userInitials="NO"
-      userName="Admin user"
+
+
     >
       <div className={styles.stack}>
         <PageHeader

@@ -7,7 +7,7 @@ import { Card } from "../../components/ui/Card";
 import { Input } from "../../components/ui/Input";
 import { Select } from "../../components/ui/Select";
 import { api } from "../../lib/api";
-import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
+import { getCurrentOlympiad, useSelectedOlympiadId, type Olympiad } from "../../lib/olympiad";
 import { DEFAULT_TIMEZONE, formatDateTimeInZone } from "../../lib/time";
 import { organiserNav } from "../../lib/mockData";
 import styles from "./Notifications.module.css";
@@ -83,6 +83,9 @@ function Notifications() {
     setRounds(data.rounds || []);
   }
 
+  // The olympiad chosen in the sidebar; switching reloads the page's data
+  const selectedOlympiadId = useSelectedOlympiadId();
+
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -100,7 +103,7 @@ function Notifications() {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [selectedOlympiadId]);
 
   async function createRule(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -175,7 +178,7 @@ function Notifications() {
   }
 
   return (
-    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
+    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console">
       <div className={styles.stack}>
         <PageHeader
           title="Send announcement"

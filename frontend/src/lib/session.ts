@@ -1,5 +1,7 @@
 import { api, clearToken, getToken, setToken } from "./api";
 import type { UserRole } from "./auth";
+import { clearCurrentUser } from "./currentUser";
+import { SELECTED_OLYMPIAD_KEY, clearCurrentOlympiadCache } from "./olympiad";
 import { clearStudentProfile } from "./student";
 import { getSupabaseClient } from "./supabase";
 
@@ -73,7 +75,11 @@ export function readSession(): SessionState {
 export async function endLocalSession() {
   clearToken();
   localStorage.removeItem(ROLE_KEY);
+  // Which olympiad this organiser was working on is theirs alone
+  localStorage.removeItem(SELECTED_OLYMPIAD_KEY);
   clearStudentProfile();
+  clearCurrentUser();
+  clearCurrentOlympiadCache();
   try {
     await withTimeout(getSupabaseClient().auth.signOut({ scope: "local" }), 3000);
   } catch {

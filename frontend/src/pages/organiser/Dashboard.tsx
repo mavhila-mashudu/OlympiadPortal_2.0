@@ -20,7 +20,7 @@ import {
   DEFAULT_TIMEZONE,
   formatDateTimeInZone,
 } from "../../lib/time";
-import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
+import { getCurrentOlympiad, useSelectedOlympiadId, type Olympiad } from "../../lib/olympiad";
 import { toBadgeStatus, type RoundState } from "./roundStatus";
 import styles from "./Dashboard.module.css";
 
@@ -52,12 +52,16 @@ function OrganiserDashboard() {
     setRounds(roundList || []);
   }
 
+  // The olympiad chosen in the sidebar; switching reloads the page's data
+  const selectedOlympiadId = useSelectedOlympiadId();
+
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
       setError(null);
+      setRounds([]);
       try {
         const current = await getCurrentOlympiad();
         if (!cancelled) {
@@ -85,7 +89,7 @@ function OrganiserDashboard() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedOlympiadId]);
 
   useEffect(() => {
     if (!olympiad?.id) return;
@@ -187,8 +191,8 @@ function OrganiserDashboard() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-      userInitials="NO"
-      userName="Admin user"
+
+
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>
