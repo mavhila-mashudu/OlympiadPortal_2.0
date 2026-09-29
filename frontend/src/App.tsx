@@ -16,6 +16,7 @@ const Entrants = lazyPage(() => import("./pages/educator/Entrants"));
 const ExamBuilder = lazyPage(() => import("./pages/educator/ExamBuilder"));
 const EducatorRemarks = lazyPage(() => import("./pages/educator/Remarks"));
 const EducatorRoundDetail = lazyPage(() => import("./pages/educator/RoundDetail"));
+const EducatorMarkingQueue = lazyPage(() => import("./pages/educator/MarkingQueue"));
 const Results = lazyPage(() => import("./pages/educator/Results"));
 const Archive = lazyPage(() => import("./pages/organiser/Archive"));
 const CreateRound = lazyPage(() => import("./pages/organiser/CreateRound"));
@@ -54,6 +55,7 @@ function App() {
             <Route path="/educator/remarks" element={<EducatorRemarks />} />
             <Route path="/educator/entrants" element={<Entrants />} />
             <Route path="/educator/rounds/:id" element={<EducatorRoundDetail />} />
+            <Route path="/educator/rounds/:id/marking" element={<EducatorMarkingQueue />} />
             <Route path="/educator/rounds/:id/exam" element={<ExamBuilder />} />
           </Route>
           <Route element={<RequireSession role="organiser" />}>

@@ -148,7 +148,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | A17 | Log every automatic action                  | Done        | Automatic round actions are written to an append-only audit table                                            |
 | A18 | Replay round event history                  | Done        | The organiser's Replay page shows a round's events and deadline rulings in order                              |
 | I6  | Marker awards partial credit                | Done        |                                                                                                               |
-| I7  | Moderator reviews marking consistency       | In Progress | Built and tested, but unusable in the app: only the organiser marks, and a marker can't moderate their own marking |
+| I7  | Moderator reviews marking consistency       | Done        | Educators mark school submissions via marking queue; round organiser moderates 10% sample and recalculates standings |
 
 ### Deliverables
 
@@ -200,6 +200,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | 28 September 2026 | After PRs #53, #57 and #58: A4, A12–A14, A17 and A18 done; P4 now uses EmailJS, which still needs configuring in production |
 | 28 September 2026 | A8 done: question difficulty from marked answers; the question bank lists each question once and can't put it on a paper twice; EmailJS configured in production |
 | 29 September 2026 | A6 and A7 (exam variants, merged 28 September) counted in the totals; P2, P4 and P5 done: all Platform stories complete |
-| 29 September 2026 | A1 done (peak-load tests and the fixes they led to) and A16 done (the shared archive, tested and documented); only I7 remains |
+| 29 September 2026 | A1 done (peak-load tests and the fixes they led to) and A16 done (the shared archive, tested and documented) |
+| 29 September 2026 | I7 done: added educator marking queue UI and flow so educators mark their school's submissions and the round organiser moderates the 10% sample without conflict of interest |
 
 This is a living document, reviewed at every Friday retrospective.
