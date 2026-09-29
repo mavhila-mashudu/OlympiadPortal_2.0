@@ -13,7 +13,7 @@ const {
 } = require("../errors/AppError");
 const { parseOptionList, scoreMcq } = require("../services/markingMath");
 const { getAssignment, optionOrderFor, canonicalizeAnswer } = require("../services/examVariantService");
-const { deadlineDecision, recordDeadlineDecision, recordRoundEvent } = require("../services/roundAuditService");
+const { deadlineDecision, wasOpenAt, recordDeadlineDecision, recordRoundEvent } = require("../services/roundAuditService");
 
 // Auth at router level; role per route. Role guards must NOT be applied
 // with router.use — other routers are also mounted on /rounds in app.js,
@@ -169,9 +169,16 @@ const getExam = async (req, res, next) => {
 // ─────────────────────────────────────────
 const startExam = async (req, res, next) => {
   try {
+    const receivedAt = new Date();
     const entrant = resolveEntrant(req);
     const round = await assertCanSit(req.params.roundId, entrant);
     const paper = round.papers[0];
+
+    // The lifecycle job closes a round up to a tick after its deadline; a
+    // sitting started in that gap could never be submitted
+    if (!deadlineDecision(receivedAt, round.closes_at).accepted) {
+      throw new BadRequestError("The round has closed");
+    }
 
     if (!paper || paper.questions.length === 0) {
       throw new BadRequestError("No questions available for this exam");
@@ -293,6 +300,7 @@ const startExam = async (req, res, next) => {
 // ─────────────────────────────────────────
 const saveAnswer = async (req, res, next) => {
   try {
+    const receivedAt = new Date();
     const entrant = resolveEntrant(req);
     const { answer_value } = req.body;
     const questionId = req.params.qid;
@@ -305,12 +313,18 @@ const saveAnswer = async (req, res, next) => {
         route: "online",
         status: "received",
       },
+      include: { rounds: { select: { state: true, closes_at: true, closed_at: true } } },
     });
 
     if (!submission) {
       throw new BadRequestError(
         "No active submission found — start the exam first",
       );
+    }
+
+    // An answer can change until the deadline, the same rule as submitting
+    if (!deadlineDecision(receivedAt, submission.rounds.closes_at).accepted || !wasOpenAt(receivedAt, submission.rounds)) {
+      throw new BadRequestError("The round has closed; answers can no longer be changed");
     }
 
     // Find the answer row for this question
@@ -325,8 +339,14 @@ const saveAnswer = async (req, res, next) => {
       throw new NotFoundError("Answer row not found for this question");
     }
 
-    // Update the answer value (no marking yet)
+    // Update the answer value (no marking yet). The sitting is held while
+    // saving: marking claims it first, so it either waits and then marks this
+    // answer, or has already marked the sitting and this save is refused.
     const updated = await prisma.$transaction(async (tx) => {
+      const held = await tx.$queryRaw`SELECT "id" FROM "submissions" WHERE "id" = ${submission.id}::uuid AND "status" = 'received' FOR UPDATE`;
+      if (held.length === 0) {
+        throw new BadRequestError("This exam has already been submitted");
+      }
       const saved = await tx.answers.update({
         where: { id: answer.id }, data: { answer_value: answer_value ?? null },
       });
@@ -373,22 +393,8 @@ const submitExam = async (req, res, next) => {
         route: "online",
       },
       include: {
-        rounds: { select: { state: true } },
+        rounds: { select: { state: true, closes_at: true, closed_at: true } },
         exam_assignments: { select: { option_orders: true } },
-        answers: {
-          include: {
-            questions: {
-              select: {
-                id: true,
-                type: true,
-                correct_option: true,
-                correct_answer: true,
-                negative_pct: true,
-                max_points: true,
-              },
-            },
-          },
-        },
       },
     });
 
@@ -400,19 +406,21 @@ const submitExam = async (req, res, next) => {
       throw new BadRequestError("This exam has already been submitted");
     }
 
-    // Auto-mark choice questions (MCQ + True/False) and
-    // short answers inline
+    // Judged against the round's deadline as it stands (an extension counts),
+    // and against the moment the round actually closed: a close that happened
+    // while this request was being handled doesn't turn it away
     const now = receivedAt;
-    const closesAt = submission.round_close_snapshot;
-    const decision = deadlineDecision(now, closesAt);
-    if (submission.rounds?.state !== undefined && submission.rounds.state !== "open") {
+    const round = submission.rounds;
+    const decision = deadlineDecision(now, round.closes_at);
+    const wasOpen = wasOpenAt(now, round);
+    if (!wasOpen) {
       decision.accepted = false;
-      decision.explanation = `Round was "${submission.rounds.state}" when the submission arrived.`;
+      decision.explanation = `Round was "${round.state}" when the submission arrived.`;
     }
     if (!decision.accepted) {
       await recordDeadlineDecision(req.params.roundId, entrant.id, "online", decision);
-      if (submission.rounds?.state !== undefined && submission.rounds.state !== "open") {
-        throw new BadRequestError(`Round is not open (state: ${submission.rounds.state})`);
+      if (!wasOpen) {
+        throw new BadRequestError(`Round is not open (state: ${round.state})`);
       }
       throw new BadRequestError("Submission received at or after the round deadline");
     }
@@ -421,7 +429,33 @@ const submitExam = async (req, res, next) => {
     let allAutoMarked = true;
 
     await prisma.$transaction(async (tx) => {
-      for (const answer of submission.answers) {
+      // Claim the sitting first. A double click, or the close-time marking
+      // reaching it at the same moment, finds it already claimed; the answers
+      // are read after the claim, so every save that got in first is marked.
+      const claimed = await tx.submissions.updateMany({
+        where: { id: submission.id, status: "received" },
+        data: { status: "automarked" },
+      });
+      if (claimed.count === 0) {
+        throw new BadRequestError("This exam has already been submitted");
+      }
+      const answers = await tx.answers.findMany({
+        where: { submission_id: submission.id },
+        include: {
+          questions: {
+            select: {
+              id: true,
+              type: true,
+              correct_option: true,
+              correct_answer: true,
+              negative_pct: true,
+              max_points: true,
+            },
+          },
+        },
+      });
+
+      for (const answer of answers) {
         const q = answer.questions;
 
         if ((q.type === "mcq" || q.type === "true_false") && q.correct_option) {
@@ -475,7 +509,8 @@ const submitExam = async (req, res, next) => {
         }
       }
 
-      // Update submission status and record the accepted boundary ruling.
+      // Settle the status (the claim set "automarked") and record the
+      // accepted boundary ruling.
       const status = allAutoMarked ? "automarked" : "queued_for_marking";
       await tx.submissions.update({
         where: { id: submission.id },

@@ -148,6 +148,11 @@ export async function startAll() {
     SMTP_HOST: "smtp.invalid",
     SMTP_USER: "",
     SMTP_PASS: "",
+    // Blank, so a developer's real EmailJS keys in backend/.env are never used
+    EMAILJS_SERVICE_ID: "",
+    EMAILJS_TEMPLATE_ID: "",
+    EMAILJS_USER_ID: "",
+    EMAILJS_PRIVATE_KEY: "",
     AUTH_RATE_LIMIT_MAX: "100000",
   }, "backend");
 

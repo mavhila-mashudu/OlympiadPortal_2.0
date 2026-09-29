@@ -58,8 +58,8 @@ function EducatorRoundDetail() {
         navItems={educatorNav}
         organisation=""
         portalLabel="Educator portal"
-        userInitials=""
-        userName=""
+
+
       >
         <p className={styles.loading}>Loading round details…</p>
       </AppShell>
@@ -73,8 +73,8 @@ function EducatorRoundDetail() {
         navItems={educatorNav}
         organisation=""
         portalLabel="Educator portal"
-        userInitials=""
-        userName=""
+
+
       >
         <div className={styles.stack}>
           <p className={styles.error}>
@@ -154,8 +154,8 @@ function EducatorRoundDetail() {
       navItems={educatorNav}
       organisation={round.school.name}
       portalLabel="Educator portal"
-      userInitials=""
-      userName=""
+
+
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>

@@ -26,16 +26,25 @@ test.describe("signing in", () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("logging out ends the session", async ({ page }) => {
+  test("logging out ends the session, and Back doesn't bring the account back", async ({ page }) => {
     await signIn(page, USERS.organiser, "/organiser");
+    await page.getByRole("link", { name: "Paper archive" }).click();
+    await expect(page).toHaveURL(/\/organiser\/archive$/);
 
     await page.getByRole("button", { name: "Log out" }).click();
-
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
-    // Going back to a signed-in page no longer shows another user's data
-    await page.goto("/organiser");
-    await expect(page.getByText(/Invalid or expired token|No token provided/)).toBeVisible();
+
+    // The browser's Back button lands on the login page, not the account
+    await page.goBack();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Organiser dashboard" })).toBeHidden();
+
+    // Typing a signed-in page's address does the same
+    await page.goto("/organiser/schools");
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("button", { name: "Log out" })).toBeHidden();
   });
 });
 

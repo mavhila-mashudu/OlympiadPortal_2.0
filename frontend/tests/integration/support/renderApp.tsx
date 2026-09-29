@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import App from "../../../src/App";
 import { preloadAllPages } from "../../../src/lib/lazyPage";
 import { clearCurrentOlympiadCache } from "../../../src/lib/olympiad";
@@ -14,11 +14,16 @@ await preloadAllPages();
 // oxlint-disable-next-line react/only-export-components
 function CurrentPath() {
   const location = useLocation();
+  const navigate = useNavigate();
   return (
-    <output data-testid="current-path" hidden>
-      {location.pathname}
-      {location.search}
-    </output>
+    <>
+      <output data-testid="current-path" hidden>
+        {location.pathname}
+        {location.search}
+      </output>
+      {/* Stands in for the browser's Back button */}
+      <button type="button" hidden data-testid="history-back" onClick={() => navigate(-1)} />
+    </>
   );
 }
 
@@ -27,6 +32,12 @@ function CurrentPath() {
 export function renderApp(path: string) {
   // A fresh page load starts with nothing cached
   clearCurrentOlympiadCache();
+  // A signed-in test user has the role of the page being opened, unless the
+  // test chose one (signed-in pages check both token and role)
+  const area = path.split(/[/?]/)[1];
+  if (localStorage.getItem("op_access_token") && !localStorage.getItem("op_role") && ["organiser", "educator", "student"].includes(area)) {
+    localStorage.setItem("op_role", area);
+  }
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   });
@@ -40,5 +51,6 @@ export function renderApp(path: string) {
     </QueryClientProvider>,
   );
   const currentPath = () => screen.getByTestId("current-path").textContent;
-  return { user, queryClient, currentPath, ...view };
+  const goBack = () => fireEvent.click(screen.getByTestId("history-back"));
+  return { user, queryClient, currentPath, goBack, ...view };
 }

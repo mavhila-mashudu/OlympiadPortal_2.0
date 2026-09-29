@@ -108,6 +108,27 @@ Covered: login and sign-up, password reset, account deletion, organiser dashboar
 
 Each area then covers the normal case, ownership (users from another olympiad or school are refused), validation (**422** with a clear message) and edge cases (a round that isn't open, a duplicate submission, a file over the size limit).
 
+**Peak load (A1).** `backend/tests/api/peakLoad.test.js` piles many things onto the same instant and then checks the outcome exactly, not just that nothing failed:
+
+| Scenario | What must hold |
+|---|---|
+| 40 rounds due to open or close at the same moment, with three lifecycle ticks running at once | Every round opens or closes exactly once, with one audit event each |
+| 45 learners around a round's close: some well before, some in its last 150 ms while two ticks close the round, some just after | Every deadline ruling matches the moment its request arrived; answers changed before the close count and those after don't; every sitting is marked once, with marks that match the answers stored, and every learner has one result that adds up |
+| Ten learners double-clicking Submit | Each submission counts once; the second click is told it's already submitted |
+| A sitting saved after the close-time marking had run | The next tick marks it, so none is left unmarked |
+| Three email passes running at once | Each educator gets the notice once |
+
+Run against the code from before these fixes, three of the five scenarios fail. What was fixed:
+
+- A sitting is **claimed before it is marked**, in the same transaction, by the submit, the close-time marking and the next tick alike, so exactly one of them marks it, using the answers saved before the claim.
+- An autosave **holds the sitting** while it writes and is refused after the deadline, so no answer changes after it has been marked.
+- A round records **when it actually closed** (`closed_at`), so a submission that arrived in time counts even if the round closed while the request was being handled.
+- Every tick **picks up sittings left unmarked** in rounds that have closed.
+- Each email is **claimed before it is sent** and released if it fails, and a lifecycle tick that comes due while the previous one is still running is skipped.
+- Transactions **wait up to 15 s for a database connection** (Prisma's default is 2 s), so a burst at the close queues instead of failing.
+
+The test database is PGlite, a single Postgres session behind a socket server, so the integration and API suites use one pooled connection (`DATABASE_POOL_MAX=1`, as the end-to-end tests already did). Requests made at the same moment then queue for it, as they do for a busy pool, instead of interleaving inside one session. This proves the rules are applied correctly under concurrency; it is not a measure of throughput, which would need a separate full Postgres.
+
 ### 2.5 End-to-end tests
 
 **What:** a real browser completing real tasks against the real frontend, the real backend and a real database.

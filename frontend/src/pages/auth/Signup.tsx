@@ -7,8 +7,9 @@ import { ErrorAlert } from "../../components/ui/Feedback";
 import { friendlyErrorMessage } from "../../lib/feedback";
 import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
-import { api, setToken } from "../../lib/api";
+import { api, clearToken, setToken } from "../../lib/api";
 import { dashboardForRole } from "../../lib/auth";
+import { startSession } from "../../lib/session";
 import { getSupabaseClient } from "../../lib/supabase";
 import styles from "./Signup.module.css";
 
@@ -120,8 +121,10 @@ function Signup() {
 
                 setToken(data.session.access_token);
                 const { user } = await api.get<MeResponse>("/auth/me");
-                navigate(dashboardForRole(user.role));
+                startSession(data.session.access_token, user.role);
+                navigate(dashboardForRole(user.role), { replace: true });
               } catch (err) {
+                clearToken();
                 setError(friendlyErrorMessage(err, "We couldn’t create your account. Please try again."));
               } finally {
                 setLoading(false);

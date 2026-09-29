@@ -51,7 +51,7 @@ const METHODS = [
   "groupBy",
 ];
 
-const prisma = { $transaction: jest.fn() };
+const prisma = { $transaction: jest.fn(), $queryRaw: jest.fn() };
 for (const model of MODELS) {
   prisma[model] = {};
   for (const method of METHODS) prisma[model][method] = jest.fn();
@@ -68,6 +68,9 @@ const resetPrismaMock = () => {
   prisma.$transaction.mockImplementation(async (arg) =>
     typeof arg === "function" ? arg(prisma) : Promise.all(arg),
   );
+  // Raw row locks (SELECT … FOR UPDATE) find their row unless a test says not
+  prisma.$queryRaw.mockReset();
+  prisma.$queryRaw.mockResolvedValue([{ id: "locked" }]);
 };
 
 resetPrismaMock();

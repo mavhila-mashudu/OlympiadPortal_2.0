@@ -24,6 +24,18 @@ function deadlineDecision(now, closesAt) {
   };
 }
 
+// Whether the round was open when a request arrived. A round the lifecycle job
+// closed while the request was still being handled was open at arrival: under
+// peak load many requests arrive in the last second, and the close must not
+// turn away the ones that arrived before it. closed_at is null for rounds
+// closed before it was recorded, which keeps the stricter rule for them.
+function wasOpenAt(receivedAt, round) {
+  if (round.state === "open") return true;
+  return ["closed", "marking"].includes(round.state)
+    && round.closed_at != null
+    && receivedAt.getTime() < new Date(round.closed_at).getTime();
+}
+
 async function recordDeadlineDecision(roundId, entrantId, route, decision, db = prisma) {
   return db.submission_deadline_decisions.create({
     data: { round_id: roundId, entrant_id: entrantId, route, ...decision },
@@ -49,4 +61,4 @@ async function replayRound(roundId, organiserId) {
   return { round, timeline };
 }
 
-module.exports = { recordRoundEvent, deadlineDecision, recordDeadlineDecision, replayRound };
+module.exports = { recordRoundEvent, deadlineDecision, wasOpenAt, recordDeadlineDecision, replayRound };

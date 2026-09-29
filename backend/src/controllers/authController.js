@@ -71,6 +71,15 @@ const me = async (req, res, next) => {
   }
 };
 
+const logout = async (req, res, next) => {
+  try {
+    await authService.logout(req.accessToken);
+    res.json({ success: true, data: { message: "Logged out" } });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const deleteAccount = async (req, res, next) => {
   try {
     await authService.deleteAccount(req.user.userId);
@@ -96,6 +105,7 @@ module.exports = {
   registerOrganiser,
   listSchools,
   me,
+  logout,
   deleteAccount,
   getEducatorOlympiads,
 };

@@ -53,7 +53,7 @@ export default function EditOlympiad() {
     }
   }
 
-  return <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
+  return <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console">
     <div className={styles.stack}>
       <PageHeader title={olympiad ? `Edit olympiad: ${olympiad.name}` : "Edit olympiad"} description="Update the olympiad name and timezone." actions={<Button to="/organiser/olympiads" variant="outline">Back to olympiads</Button>} />
       <Card className={styles.formCard}>

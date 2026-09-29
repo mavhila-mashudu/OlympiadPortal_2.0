@@ -89,7 +89,7 @@ export default function RoundPapers() {
   const current = round?.papers[0];
   const timeZone = round?.olympiads?.timezone ?? DEFAULT_TIMEZONE;
   return (
-    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
+    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console">
       <div className={styles.stack}>
         <PageHeader title={round ? `Edit round: ${round.name}` : "Edit round"} description="Change the schedule, instructions, paper and memo before the round opens." actions={<Button to="/organiser" variant="outline">Back to rounds</Button>} />
         <Card className={styles.formCard}>

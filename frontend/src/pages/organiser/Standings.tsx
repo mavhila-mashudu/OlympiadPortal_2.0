@@ -5,7 +5,7 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Card } from "../../components/ui/Card";
 import { Select } from "../../components/ui/Select";
 import { api } from "../../lib/api";
-import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
+import { getCurrentOlympiad, useSelectedOlympiadId, type Olympiad } from "../../lib/olympiad";
 import { organiserNav } from "../../lib/mockData";
 import styles from "./Standings.module.css";
 
@@ -43,11 +43,17 @@ function Standings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // The olympiad chosen in the sidebar; switching reloads the page's data
+  const selectedOlympiadId = useSelectedOlympiadId();
+
   useEffect(() => {
     async function load() {
       try {
         const current = await getCurrentOlympiad();
         setOlympiad(current);
+        setStandings(null);
+        setRounds([]);
+        setRoundId("");
         if (!current?.id) return;
         const data = await api.get<{ rounds: Round[] }>(`/olympiads/${current.id}/rounds`);
         const released = (data.rounds || []).filter((round) => round.state === "results_released");
@@ -60,7 +66,7 @@ function Standings() {
       }
     }
     load();
-  }, []);
+  }, [selectedOlympiadId]);
 
   useEffect(() => {
     if (!roundId) {
@@ -76,7 +82,7 @@ function Standings() {
   }, [roundId]);
 
   return (
-    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
+    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console">
       <div className={styles.stack}>
         <PageHeader title="Standings" description={olympiad ? `Compare released results for ${olympiad.name}.` : "Compare released round results."} />
         {error && <Card className={styles.error}>{error}</Card>}

@@ -104,33 +104,46 @@ const isAutoMarkable = (q) =>
   ((q.type === "mcq" || q.type === "true_false") && q.correct_option) ||
   (q.type === "short_answer" && q.correct_answer);
 
+// A sitting is claimed before it is marked: only a submission still
+// "received" is marked, and the claim and the marking are one transaction.
+// Under peak load the close-time marking, the student's own submit and the
+// next tick can all reach the same sitting at once; exactly one marks it,
+// and the answers it marks are the ones saved before the claim.
 const autoMarkSubmission = async (submissionId) => {
-  const submission = await prisma.submissions.findUnique({
-    where: { id: submissionId },
-    include: {
-      exam_assignments: { select: { option_orders: true } },
-      answers: {
-        include: {
-          questions: {
-            select: {
-              id: true,
-              type: true,
-              correct_option: true,
-              correct_answer: true,
-              negative_pct: true,
-              max_points: true,
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    const claimed = await tx.submissions.updateMany({
+      where: { id: submissionId, status: "received" },
+      data: { status: "automarked" },
+    });
+    if (claimed.count === 0) {
+      const exists = await tx.submissions.findUnique({ where: { id: submissionId }, select: { id: true } });
+      if (!exists) throw new NotFoundError("Submission not found");
+      return { submissionId, status: "already_marked" };
+    }
+
+    const submission = await tx.submissions.findUnique({
+      where: { id: submissionId },
+      include: {
+        exam_assignments: { select: { option_orders: true } },
+        answers: {
+          include: {
+            questions: {
+              select: {
+                id: true,
+                type: true,
+                correct_option: true,
+                correct_answer: true,
+                negative_pct: true,
+                max_points: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!submission) throw new NotFoundError("Submission not found");
-
-  const now = new Date();
-
-  await prisma.$transaction(async (tx) => {
     for (const answer of submission.answers) {
       const q = answer.questions;
 
@@ -180,18 +193,19 @@ const autoMarkSubmission = async (submissionId) => {
     // Recalculate totals + results
     await recalcSubmissionResults(tx, submission);
 
-    // Update submission status
+    // The claim set "automarked"; anything a person must mark queues instead
     const hasManual = submission.answers.some(
       (a) => a.questions && !isAutoMarkable(a.questions),
     );
+    if (hasManual) {
+      await tx.submissions.update({
+        where: { id: submissionId },
+        data: { status: "queued_for_marking" },
+      });
+    }
 
-    await tx.submissions.update({
-      where: { id: submissionId },
-      data: { status: hasManual ? "queued_for_marking" : "automarked" },
-    });
+    return { submissionId, status: "processed" };
   });
-
-  return { submissionId, status: "processed" };
 };
 
 // ─────────────────────────────────────────

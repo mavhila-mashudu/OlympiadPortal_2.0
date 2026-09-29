@@ -380,8 +380,8 @@ function ExamSitting() {
         navItems={studentNav}
         organisation=""
         portalLabel="Student portal"
-        userInitials=""
-        userName=""
+
+
       >
         <LoadingIndicator label="Loading your exam" />
       </AppShell>
@@ -396,8 +396,8 @@ function ExamSitting() {
         navItems={studentNav}
         organisation=""
         portalLabel="Student portal"
-        userInitials=""
-        userName=""
+
+
       >
         <div className={styles.stack}>
           <ErrorAlert message={error || "This exam is not available to you right now."} />
@@ -417,8 +417,8 @@ function ExamSitting() {
         navItems={studentNav}
         organisation=""
         portalLabel="Student portal"
-        userInitials=""
-        userName=""
+
+
       >
         <div className={styles.stack}>
           <Card className={styles.submittedCard}>
@@ -459,8 +459,8 @@ function ExamSitting() {
       navItems={studentNav}
       organisation=""
       portalLabel="Student portal"
-      userInitials=""
-      userName=""
+
+
     >
       <div className={styles.layout}>
         {/* Header with timer */}

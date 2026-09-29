@@ -2,7 +2,7 @@
 const crypto = require("crypto");
 const prisma = require("../config/database").default;
 const { scoreMcq } = require("./markingMath");
-const { deadlineDecision, recordDeadlineDecision, recordRoundEvent } = require("./roundAuditService");
+const { deadlineDecision, wasOpenAt, recordDeadlineDecision, recordRoundEvent } = require("./roundAuditService");
 const {
   NotFoundError,
   ForbiddenError,
@@ -80,14 +80,17 @@ const createSubmission = async (roundId, educatorUserId, body) => {
     throw new ForbiddenError("Entrant is not registered for this round");
   }
 
+  // A close that happened while this request was being handled doesn't turn
+  // away results that arrived before it
   const decision = deadlineDecision(receivedAt, round.closes_at);
-  if (round.state !== "open") {
+  const wasOpen = wasOpenAt(receivedAt, round);
+  if (!wasOpen) {
     decision.accepted = false;
     decision.explanation = `Round was "${round.state}" when the submission arrived.`;
   }
   if (!decision.accepted) {
     await recordDeadlineDecision(roundId, entrant_id, route, decision);
-    if (round.state !== "open") throw new BadRequestError(`Submissions are not accepted — round is "${round.state}"`);
+    if (!wasOpen) throw new BadRequestError(`Submissions are not accepted — round is "${round.state}"`);
     throw new BadRequestError("Submission received at or after the round deadline");
   }
 

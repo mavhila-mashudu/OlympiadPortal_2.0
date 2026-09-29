@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { RequireSession } from "./components/auth/RequireSession";
 import { AppErrorBoundary } from "./components/ui/AppErrorBoundary";
 import { GlobalLoadingOverlay, LoadingIndicator } from "./components/ui/Feedback";
 import { lazyPage } from "./lib/lazyPage";
@@ -46,31 +47,37 @@ function App() {
           <Route path="/register" element={<Signup />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/educator" element={<EducatorDashboard />} />
-          <Route path="/educator/results" element={<Results />} />
-          <Route path="/educator/remarks" element={<EducatorRemarks />} />
-          <Route path="/educator/entrants" element={<Entrants />} />
-          <Route path="/educator/rounds/:id" element={<EducatorRoundDetail />} />
-          <Route path="/educator/rounds/:id/exam" element={<ExamBuilder />} />
-          <Route path="/organiser" element={<OrganiserDashboard />} />
-          <Route path="/organiser/olympiads" element={<Olympiads />} />
-          <Route path="/organiser/olympiads/:id/edit" element={<EditOlympiad />} />
-          <Route path="/organiser/rounds/new" element={<CreateRound />} />
-          <Route path="/organiser/rounds/:id/edit" element={<RoundPapers />} />
-          <Route path="/organiser/rounds/:id/papers" element={<RoundPapers />} />
-          <Route path="/organiser/rounds/:id/replay" element={<RoundReplay />} />
-          <Route path="/organiser/archive" element={<Archive />} />
-          <Route path="/organiser/schools" element={<Schools />} />
-          <Route path="/organiser/standings" element={<Standings />} />
-          <Route path="/organiser/notifications" element={<Notifications />} />
-          <Route path="/organiser/remarks" element={<OrganiserRemarks />} />
-          <Route path="/organiser/rounds/:id/review" element={<ExamReview />} />
-          <Route path="/organiser/rounds/:id/marking" element={<MarkingQueue />} />
-
-          <Route path="/student" element={<StudentDashboard />} />
-          <Route path="/student/results" element={<StudentResults />} />
-          <Route path="/student/rounds/:id" element={<StudentRoundDetail />} />
-          <Route path="/student/rounds/:id/exam" element={<ExamSitting />} />
+          {/* Each role's pages need a signed-in user of that role */}
+          <Route element={<RequireSession role="educator" />}>
+            <Route path="/educator" element={<EducatorDashboard />} />
+            <Route path="/educator/results" element={<Results />} />
+            <Route path="/educator/remarks" element={<EducatorRemarks />} />
+            <Route path="/educator/entrants" element={<Entrants />} />
+            <Route path="/educator/rounds/:id" element={<EducatorRoundDetail />} />
+            <Route path="/educator/rounds/:id/exam" element={<ExamBuilder />} />
+          </Route>
+          <Route element={<RequireSession role="organiser" />}>
+            <Route path="/organiser" element={<OrganiserDashboard />} />
+            <Route path="/organiser/olympiads" element={<Olympiads />} />
+            <Route path="/organiser/olympiads/:id/edit" element={<EditOlympiad />} />
+            <Route path="/organiser/rounds/new" element={<CreateRound />} />
+            <Route path="/organiser/rounds/:id/edit" element={<RoundPapers />} />
+            <Route path="/organiser/rounds/:id/papers" element={<RoundPapers />} />
+            <Route path="/organiser/rounds/:id/replay" element={<RoundReplay />} />
+            <Route path="/organiser/archive" element={<Archive />} />
+            <Route path="/organiser/schools" element={<Schools />} />
+            <Route path="/organiser/standings" element={<Standings />} />
+            <Route path="/organiser/notifications" element={<Notifications />} />
+            <Route path="/organiser/remarks" element={<OrganiserRemarks />} />
+            <Route path="/organiser/rounds/:id/review" element={<ExamReview />} />
+            <Route path="/organiser/rounds/:id/marking" element={<MarkingQueue />} />
+          </Route>
+          <Route element={<RequireSession role="student" />}>
+            <Route path="/student" element={<StudentDashboard />} />
+            <Route path="/student/results" element={<StudentResults />} />
+            <Route path="/student/rounds/:id" element={<StudentRoundDetail />} />
+            <Route path="/student/rounds/:id/exam" element={<ExamSitting />} />
+          </Route>
         </Routes>
       </Suspense>
     </AppErrorBoundary>

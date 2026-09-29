@@ -178,8 +178,9 @@ describe("online exam sitting", () => {
     const { round, req } = await setupSitting();
     await run(startExam, req());
 
-    // The round closed after the student started (their snapshot is the old close time)
-    await prisma.submissions.updateMany({ data: { round_close_snapshot: f.hoursFromNow(-0.01) } });
+    // The round's deadline passed after the student started (the lifecycle job
+    // hasn't closed it yet); the deadline as it stands now decides
+    await prisma.rounds.update({ where: { id: round.id }, data: { closes_at: f.hoursFromNow(-0.01) } });
     const { next } = await run(submitExam, req());
 
     expect(errorOf(next)).toMatchObject({ statusCode: 400 });

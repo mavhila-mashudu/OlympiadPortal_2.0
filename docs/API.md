@@ -29,7 +29,9 @@ Authorization: Bearer <supabase-access-token>
 
 Tokens are obtained by signing in through Supabase Auth (email + password). The backend verifies each token with Supabase, then loads the matching user row to determine role (`organiser`, `educator`, or `student`).
 
-Missing/invalid token → `401`. Valid token but wrong role → `403`.
+Missing/invalid token → `401`. Valid token but wrong role → `403`. The frontend treats a `401` on a request that carried a token as the end of the session (expired, logged out elsewhere, or account deleted) and returns the user to the login page.
+
+Every response carries `Cache-Control: no-store`, so browsers never keep personal data (names, answers, marks) on disk or show it again after logout.
 
 ### Roles
 
@@ -111,12 +113,22 @@ Current user profile.
 - **Auth:** Bearer token (any role)
 - **Response:** `data.user` with `school_memberships`, `educators`, and `entrants` relations for school context
 
-### `DELETE /auth/account`
+### `POST /auth/logout`
 
-Soft-deletes the authenticated account. Cannot be undone.
+Ends the session the request's token belongs to. Supabase revokes it, so it can't be refreshed or used again, and the server stops accepting the token at once. The frontend calls this before forgetting the token; if Supabase can't be reached the logout still succeeds, and the failure is logged.
 
 - **Auth:** Bearer token (any role)
+- **Response:** `data.message: "Logged out"`
+
+### `DELETE /auth/account`
+
+Deletes the authenticated account. Cannot be undone.
+
+- The Supabase login is deleted, and the account's details are removed: the email becomes `deleted-<id>@deleted.invalid` and the name "Deleted user". The row stays, so the records others rely on (results, marks, reviews, audit history) keep their links, now to an anonymous user. The email is freed, so the person can register again.
+- An educator's school memberships end; a student's learner record (which belongs to the school) is kept but no longer linked to a login.
+- **Auth:** Bearer token (any role)
 - **Response:** `data.message: "Account deleted"`
+- **Errors:** `409` an organiser whose olympiad still has a round without released results (nobody else could manage it); `502` Supabase couldn't delete the login, in which case nothing is changed
 
 ### `GET /auth/educator-olympiads`
 
@@ -244,9 +256,16 @@ Delete an olympiad. Fails with `400` if the olympiad has any rounds — delete t
 
 Schools taking part in the olympiad, plus the educators who have been invited and have not accepted yet. Each row carries a `status` of `accepted` (participating), `pending` (invited) or `declined`; a pending row is keyed by the invitation rather than the school.
 
+### `GET /olympiads/archive`
+
+Organiser-only. One archive of past papers shared by all of the organiser's olympiads: every round whose results have been released and whose paper has been archived, most recently closed first. The organiser's Archive page uses this.
+
+- **Response:** `data.rounds` — each round with its `papers` (`file_url`, `memo_file_url`, `is_archived`, …) and `olympiads` (`{ id, name, timezone }`), so rounds from different olympiads can be told apart and their times shown in each olympiad's timezone.
+- Download a file with `GET /papers/:id/download`.
+
 ### `GET /olympiads/:olympiadId/archive`
 
-Closed rounds with downloadable paper/memo files.
+The same list, for a single olympiad. Closed rounds with downloadable paper/memo files.
 
 ---
 
@@ -546,6 +565,7 @@ Round info plus the question list **stripped of all correct answers** (`correct_
 
 Create the submission and empty answer rows for every question. Idempotent — if an in-progress submission exists it is returned for resume; if already submitted → `400`.
 
+- Once the round's deadline has passed → `400` "The round has closed", even in the moments before the lifecycle job marks the round closed.
 - **Response `201`:** `data.submission` — `{ id, status, answers }`
 
 ### `PATCH /rounds/:roundId/exam/answers/:qid`
@@ -553,11 +573,14 @@ Create the submission and empty answer rows for every question. Idempotent — i
 Auto-save a single answer as the student types.
 
 - **Body:** `answer_value` (string, optional — omit to clear)
+- An answer can change until the deadline (same rule as submitting). After it, or in a round the organiser closed early → `400` "The round has closed; answers can no longer be changed". If the attempt was marked while the save waited → `400` "This exam has already been submitted".
 
 ### `POST /rounds/:roundId/exam/submit`
 
-Finalize the submission. Auto-marks MCQ/true-false (partial credit, negative marking) and short answers (case-insensitive match) inline; essays are left for the organiser's marking queue. Sets submission status to `automarked` or `queued_for_marking`, upserts the entrant's result row, and flags `is_late` if submitted after the round's close.
+Finalize the submission. Auto-marks MCQ/true-false (partial credit, negative marking) and short answers (case-insensitive match) inline; essays are left for the organiser's marking queue. Sets submission status to `automarked` or `queued_for_marking` and upserts the entrant's result row.
 
+- **The deadline:** the request's arrival time is compared with the round's closing time as it stands (so an extension counts), and the closing instant is exclusive. A submission that arrived before the close still counts if the round closed while it was being handled. Every ruling, accepted or not, is recorded (see the round replay).
+- **Once only:** the attempt is claimed before it is marked, so a double click, or the close-time marking reaching it at the same moment, marks it once; the other request gets `400` "This exam has already been submitted".
 - **Response:** `data` — `{ message, status, total_points, is_late }`
 
 ---

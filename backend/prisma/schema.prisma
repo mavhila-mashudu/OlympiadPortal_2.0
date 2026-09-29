@@ -181,6 +181,9 @@ model rounds {
   notes                 String?
   opens_at              DateTime                @db.Timestamptz(6)
   closes_at             DateTime                @db.Timestamptz(6)
+  // When the round actually closed (the lifecycle job or an organiser), so a
+  // submission that arrived before that moment still counts
+  closed_at             DateTime?               @db.Timestamptz(6)
   results_release_at    DateTime?               @db.Timestamptz(6)
   state                 round_state             @default(scheduled)
   exam_status           exam_status             @default(draft)
