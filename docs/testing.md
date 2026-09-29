@@ -36,13 +36,16 @@ Most tests sit at the lower levels, because they are fast and point straight at 
 | Frontend integration | `frontend/tests/integration` | Vitest + React Testing Library + MSW |
 | End-to-end | `frontend/e2e` | Playwright |
 
-Coverage of the backend and frontend source:
+Coverage of the backend and frontend source, measured on 29 September 2026 (see [Running the tests](#3-running-the-tests) to measure it yourself):
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| Backend unit | 99.4% | 97.5% | 99.6% | 99.5% |
-| Backend API | 94.6% | 82.5% | 97.4% | 95.5% |
-| Frontend unit | 99.2% | 98.6% | 99.3% | 99.1% |
+| Backend unit | 88.8% | 79.2% | 87.5% | 90.0% |
+| Backend API | 80.9% | 65.3% | 77.5% | 82.8% |
+| Backend integration | 67.3% | 53.0% | 64.9% | 70.4% |
+| Frontend unit and integration (all source files) | 77.4% | 68.9% | 76.2% | 78.4% |
+
+The least covered frontend files are the newest pages, which have no tests yet: the organiser's Remarks, Standings, Round replay and Edit olympiad pages, and the educator's Remarks page.
 
 No suite needs a database, a `.env` file or an internet connection. Everything runs after `npm install` (plus one browser download for the end-to-end tests).
 
@@ -175,6 +178,7 @@ npm run test:integration   # integration tests
 npm test                   # both
 npm run test:watch         # unit tests, re-running on save
 npm run test:coverage      # unit coverage report
+npm run test:coverage:all  # unit and integration coverage of every source file
 npm run typecheck:tests    # type-check the test code
 npm run lint               # lint
 ```
