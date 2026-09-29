@@ -21,6 +21,11 @@ const adapter = new PrismaPg({
 // so query logging is opt-in (PRISMA_LOG_QUERIES=true) even in development.
 const prisma = new PrismaClient({
   adapter,
+  // Prisma gives up on a transaction that waits over 2s for a connection. In
+  // the burst when a round closes, submissions queue for the pool, and that
+  // limit would turn a busy moment into failed submissions; they wait longer
+  // instead. A transaction may also run for longer once it has one.
+  transactionOptions: { maxWait: 15_000, timeout: 20_000 },
   log:
     process.env.PRISMA_LOG_QUERIES === "true"
       ? ["query", "info", "warn", "error"]

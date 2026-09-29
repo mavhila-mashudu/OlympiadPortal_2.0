@@ -1,8 +1,8 @@
 # Project Roadmap — Olympiad Portal
 
 > **Team:** Prompt Engineers
-> **Version:** 1.2
-> **Last updated:** 28 September 2026
+> **Version:** 1.3
+> **Last updated:** 29 September 2026
 
 ---
 
@@ -21,15 +21,15 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
       |           || Sitting   || Features  ||           |
 ```
 
-### Status at a glance (28 September 2026)
+### Status at a glance (29 September 2026)
 
 | Sprint                   | Done   | In Progress | Planned |
 | ------------------------ | ------ | ----------- | ------- |
 | Sprint 1 — Foundation    | 18     | 0           | 0       |
 | Sprint 2 — Core Features | 17     | 0           | 0       |
-| Sprint 3 — Advanced      | 15     | 1           | 4       |
-| Sprint 4 — Polish and QA | 1      | 3           | 0       |
-| **Total (59 stories)**   | **51** | **4**       | **4**   |
+| Sprint 3 — Advanced      | 19     | 1           | 0       |
+| Sprint 4 — Polish and QA | 4      | 0           | 0       |
+| **Total (59 stories)**   | **58** | **1**       | **0**   |
 
 ---
 
@@ -129,7 +129,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 
 | ID  | Story                                       | Status      | Notes                                                                                                         |
 | --- | ------------------------------------------- | ----------- | ------------------------------------------------------------------------------------------------------------- |
-| A1  | Handle round open/close under peak load     | Planned     | No load testing yet                                                                                           |
+| A1  | Handle round open/close under peak load     | Done        | A peak-load suite checks exact outcomes at the closing instant; the races it found are fixed                 |
 | A2  | Authoritative clock per olympiad timezone   | Done        | Round times are entered and shown in the olympiad's own timezone |
 | A3  | Count submission exactly once (idempotency) | Done        |                                                                                                               |
 | A4  | Consistent deadline boundary handling       | Done        | The closing instant is exclusive on both routes; every ruling is recorded with its reason                     |
@@ -144,7 +144,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | A13 | Route appeals to reviewer                   | Done        | Assigned by hand or evenly by workload, never to an educator from the learner's school                       |
 | A14 | Appeal outcome updates standings            | Done        | A revised mark re-ranks the round and updates qualification and next-round entry                             |
 | A15 | Multiple concurrent olympiads               | Done        | Each olympiad has its own schedule and timezone |
-| A16 | Shared paper archive                        | Planned     | The archive is per olympiad                                                                                   |
+| A16 | Shared paper archive                        | Done        | One archive of released papers across all of an organiser's olympiads, plus a public one across every olympiad |
 | A17 | Log every automatic action                  | Done        | Automatic round actions are written to an append-only audit table                                            |
 | A18 | Replay round event history                  | Done        | The organiser's Replay page shows a round's events and deadline rulings in order                              |
 | I6  | Marker awards partial credit                | Done        |                                                                                                               |
@@ -173,10 +173,10 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 
 | ID  | Story                                | Status      | Notes                                                                        |
 | --- | ------------------------------------ | ----------- | ---------------------------------------------------------------------------- |
-| P2  | Responsive, accessible on any device | In Progress | Responsive throughout; no accessibility audit yet                            |
+| P2  | Responsive, accessible on any device | Done        | Responsive and accessible, confirmed by the team; no formal WCAG AA audit    |
 | P3  | Hand-written, documented API         | Done        |                                                                              |
-| P4  | External service integration         | In Progress | Notices are emailed through EmailJS; configured in production, not yet seen live |
-| P5  | Public documentation site            | In Progress | Documentation is in `docs/` in the repository, not a published site         |
+| P4  | External service integration         | Done        | Notices are emailed through EmailJS, working on the live site                |
+| P5  | Public documentation site            | Done        | https://2846849.github.io/Olympiad-portal-documentation/                     |
 
 ### Deliverables
 
@@ -199,5 +199,7 @@ Week  1    2    3    4    5    6    7    8    9   10   11   12
 | 27 September 2026 | A2 and A15 done: round times follow each olympiad's own timezone |
 | 28 September 2026 | After PRs #53, #57 and #58: A4, A12–A14, A17 and A18 done; P4 now uses EmailJS, which still needs configuring in production |
 | 28 September 2026 | A8 done: question difficulty from marked answers; the question bank lists each question once and can't put it on a paper twice; EmailJS configured in production |
+| 29 September 2026 | A6 and A7 (exam variants, merged 28 September) counted in the totals; P2, P4 and P5 done: all Platform stories complete |
+| 29 September 2026 | A1 done (peak-load tests and the fixes they led to) and A16 done (the shared archive, tested and documented); only I7 remains |
 
 This is a living document, reviewed at every Friday retrospective.

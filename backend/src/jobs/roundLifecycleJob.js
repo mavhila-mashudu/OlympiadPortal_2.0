@@ -7,6 +7,26 @@ const { deliverDueNotifications } = require("../services/notificationDeliverySer
 const INTERVAL_MS = parseInt(process.env.LIFECYCLE_INTERVAL_MS) || 30_000;
 
 let timer = null;
+// A tick can outlast the interval under peak load (many rounds closing,
+// large rounds to mark, emails to send), so a tick that comes due while the
+// previous one is still running is skipped rather than run alongside it
+let running = false;
+
+const tick = async () => {
+  if (running) {
+    console.warn("[lifecycle] previous tick still running; skipping this one");
+    return;
+  }
+  running = true;
+  try {
+    await runLifecycleTick();
+    await deliverDueNotifications();
+  } catch (err) {
+    console.error("[lifecycle] tick failed:", err.message);
+  } finally {
+    running = false;
+  }
+};
 
 // ─────────────────────────────────────────
 // START THE JOB
@@ -21,14 +41,7 @@ const start = () => {
     `[lifecycle] round lifecycle job started (checking every ${INTERVAL_MS / 1000}s)`,
   );
 
-  timer = setInterval(async () => {
-    try {
-      await runLifecycleTick();
-      await deliverDueNotifications();
-    } catch (err) {
-      console.error("[lifecycle] tick failed:", err.message);
-    }
-  }, INTERVAL_MS);
+  timer = setInterval(tick, INTERVAL_MS);
 
   // Don't let this timer keep the process alive on its own
   // during graceful shutdown.

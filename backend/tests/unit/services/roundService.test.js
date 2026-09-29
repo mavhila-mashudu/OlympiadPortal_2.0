@@ -288,7 +288,9 @@ describe("setRoundState", () => {
       expect(prisma.rounds.update).not.toHaveBeenCalled();
     } else {
       await expect(setRoundState("round-1", "org-1", to)).resolves.toEqual({ id: "round-1", state: to });
-      expect(prisma.rounds.update).toHaveBeenCalledWith({ where: { id: "round-1" }, data: { state: to } });
+      // A close records when it happened, so submissions that arrived before it count
+      const data = to === "closed" ? { state: to, closed_at: expect.any(Date) } : { state: to };
+      expect(prisma.rounds.update).toHaveBeenCalledWith({ where: { id: "round-1" }, data });
     }
   });
 

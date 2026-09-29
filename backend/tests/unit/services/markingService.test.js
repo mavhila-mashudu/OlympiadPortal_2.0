@@ -17,6 +17,8 @@ beforeEach(() => {
   resetPrismaMock();
   prisma.rounds.findFirst.mockResolvedValue(null);
   prisma.entrant_registrations.findMany.mockResolvedValue([]);
+  // A submission is claimed before it is marked; it's unclaimed unless a test says otherwise
+  prisma.submissions.updateMany.mockResolvedValue({ count: 1 });
 });
 
 const organiserRound = (overrides = {}) => ({
@@ -97,8 +99,23 @@ describe("autoMarkSubmission", () => {
   });
 
   it("throws when the submission doesn't exist", async () => {
+    prisma.submissions.updateMany.mockResolvedValue({ count: 0 });
     prisma.submissions.findUnique.mockResolvedValue(null);
     await expect(autoMarkSubmission("missing")).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("claims the submission first, and leaves one already claimed by another marker alone", async () => {
+    // The student's own submit (or another tick) got there first
+    prisma.submissions.updateMany.mockResolvedValue({ count: 0 });
+    prisma.submissions.findUnique.mockResolvedValue({ id: "sub-1" });
+
+    await expect(autoMarkSubmission("sub-1")).resolves.toEqual({ submissionId: "sub-1", status: "already_marked" });
+    expect(prisma.submissions.updateMany).toHaveBeenCalledWith({
+      where: { id: "sub-1", status: "received" },
+      data: { status: "automarked" },
+    });
+    expect(prisma.answers.update).not.toHaveBeenCalled();
+    expect(prisma.results.upsert).not.toHaveBeenCalled();
   });
 
   it("marks MCQ, True/False and short answers, and leaves essays alone", async () => {
@@ -177,10 +194,12 @@ describe("autoMarkSubmission", () => {
       submissionId: "sub-1",
       status: "processed",
     });
-    expect(prisma.submissions.update).toHaveBeenCalledWith({
-      where: { id: "sub-1" },
+    // The claim already set it; nothing a person must mark means no change
+    expect(prisma.submissions.updateMany).toHaveBeenCalledWith({
+      where: { id: "sub-1", status: "received" },
       data: { status: "automarked" },
     });
+    expect(prisma.submissions.update).not.toHaveBeenCalled();
   });
 
   it("queues the submission for manual marking when it contains an essay", async () => {
@@ -213,9 +232,11 @@ describe("autoMarkSubmission", () => {
 describe("autoMarkRoundInternal", () => {
   it("marks every received submission and reports per-submission failures", async () => {
     prisma.submissions.findMany.mockResolvedValue([{ id: "sub-ok" }, { id: "sub-missing" }]);
-    prisma.submissions.findUnique
-      .mockResolvedValueOnce({ id: "sub-ok", round_id: "r", entrant_id: "e", answers: [] })
-      .mockResolvedValueOnce(null);
+    // Several are marked at once, so the mocks answer by id rather than in order
+    prisma.submissions.updateMany.mockImplementation(async ({ where }) => ({ count: where.id === "sub-ok" ? 1 : 0 }));
+    prisma.submissions.findUnique.mockImplementation(async ({ where }) =>
+      where.id === "sub-ok" ? { id: "sub-ok", round_id: "r", entrant_id: "e", answers: [] } : null,
+    );
     prisma.answers.findMany.mockResolvedValue([]);
 
     const result = await autoMarkRoundInternal("round-1");

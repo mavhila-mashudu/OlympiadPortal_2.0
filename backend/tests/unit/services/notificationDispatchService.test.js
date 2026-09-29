@@ -44,42 +44,55 @@ beforeEach(() => {
     { users: { email: "b@school.test", deleted_at: null } },
   ]);
   prisma.sent_notifications.findMany.mockResolvedValue([]);
-  prisma.sent_notifications.createMany.mockResolvedValue({ count: 0 });
+  // Each email's claim succeeds unless a test says another dispatch holds it
+  prisma.sent_notifications.createMany.mockResolvedValue({ count: 1 });
+  prisma.sent_notifications.deleteMany.mockResolvedValue({ count: 1 });
   jest.spyOn(console, "warn").mockImplementation(() => {});
   jest.spyOn(console, "error").mockImplementation(() => {});
 });
 
+const recordFor = (recipient) => ({ dedup_key: "default:round_opens", round_id: "round-1", recipient });
+
 describe("processDueNotifications", () => {
-  it("records every email EmailJS delivered", async () => {
+  it("claims each email before sending it, and keeps the claim once delivered", async () => {
     await expect(processDueNotifications(NOW)).resolves.toEqual({ due: 1, sent: 2, failed: 0 });
 
-    expect(prisma.sent_notifications.createMany).toHaveBeenCalledWith({
-      data: [
-        { dedup_key: "default:round_opens", round_id: "round-1", recipient: "a@school.test" },
-        { dedup_key: "default:round_opens", round_id: "round-1", recipient: "b@school.test" },
-      ],
-      skipDuplicates: true,
-    });
+    expect(prisma.sent_notifications.createMany.mock.calls).toEqual([
+      [{ data: [recordFor("a@school.test")], skipDuplicates: true }],
+      [{ data: [recordFor("b@school.test")], skipDuplicates: true }],
+    ]);
+    // The claim for an email comes before its send
+    expect(prisma.sent_notifications.createMany.mock.invocationCallOrder[0])
+      .toBeLessThan(sendNotificationEmail.mock.invocationCallOrder[0]);
+    expect(prisma.sent_notifications.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("leaves an undelivered email unrecorded so a later tick retries it", async () => {
+  it("skips an email another dispatch running at the same time has already claimed", async () => {
+    prisma.sent_notifications.createMany
+      .mockResolvedValueOnce({ count: 0 })
+      .mockResolvedValueOnce({ count: 1 });
+
+    await expect(processDueNotifications(NOW)).resolves.toEqual({ due: 1, sent: 1, failed: 0 });
+    expect(sendNotificationEmail).toHaveBeenCalledTimes(1);
+    expect(sendNotificationEmail).toHaveBeenCalledWith(expect.objectContaining({ to: "b@school.test" }));
+  });
+
+  it("releases the claim on an undelivered email so a later tick retries it", async () => {
     sendNotificationEmail
       .mockResolvedValueOnce({ delivered: false })
       .mockResolvedValueOnce({ delivered: true });
 
     await expect(processDueNotifications(NOW)).resolves.toEqual({ due: 1, sent: 1, failed: 1 });
 
-    expect(prisma.sent_notifications.createMany).toHaveBeenCalledWith({
-      data: [{ dedup_key: "default:round_opens", round_id: "round-1", recipient: "b@school.test" }],
-      skipDuplicates: true,
-    });
+    expect(prisma.sent_notifications.deleteMany).toHaveBeenCalledTimes(1);
+    expect(prisma.sent_notifications.deleteMany).toHaveBeenCalledWith({ where: recordFor("a@school.test") });
   });
 
-  it("counts a send that throws as undelivered", async () => {
+  it("counts a send that throws as undelivered and releases its claim", async () => {
     sendNotificationEmail.mockRejectedValue(new Error("network down"));
 
     await expect(processDueNotifications(NOW)).resolves.toEqual({ due: 1, sent: 0, failed: 2 });
-    expect(prisma.sent_notifications.createMany).not.toHaveBeenCalled();
+    expect(prisma.sent_notifications.deleteMany).toHaveBeenCalledTimes(2);
   });
 
   it("does not resend to recipients already notified", async () => {

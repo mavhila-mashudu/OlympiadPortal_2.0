@@ -224,7 +224,8 @@ const setRoundState = async (roundId, organiserId, state) => {
 
   const updated = await prisma.rounds.update({
     where: { id: roundId },
-    data: { state },
+    // A close records its moment, so submissions that arrived before it count
+    data: { state, ...(state === "closed" ? { closed_at: new Date() } : {}) },
   });
 
   // Closing a round kicks off auto-marking,
