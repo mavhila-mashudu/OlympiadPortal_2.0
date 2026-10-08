@@ -89,7 +89,7 @@ export default function RoundPapers() {
   const current = round?.papers[0];
   const timeZone = round?.olympiads?.timezone ?? DEFAULT_TIMEZONE;
   return (
-    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
+    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console">
       <div className={styles.stack}>
         <PageHeader title={round ? `Edit round: ${round.name}` : "Edit round"} description="Change the schedule, instructions, paper and memo before the round opens." actions={<Button to="/organiser" variant="outline">Back to rounds</Button>} />
         <Card className={styles.formCard}>
@@ -97,7 +97,7 @@ export default function RoundPapers() {
           {round && round.state !== "scheduled" && <p>This round has already opened. Its details and files can no longer be changed.</p>}
           {round?.state === "scheduled" && <form key={`${round.name}-${round.opens_at}-${round.closes_at}-${round.notes}-${round.qualifying_threshold}`} className={styles.form} onSubmit={save}>
             <div className={styles.field}><Label htmlFor="edit-round-name">Round name</Label><Input id="edit-round-name" name="name" defaultValue={round.name} required /></div>
-            <div className={styles.field}><Label htmlFor="edit-round-threshold">Qualifying threshold</Label><Input id="edit-round-threshold" name="threshold" type="number" min="0" step="any" defaultValue={round.qualifying_threshold ?? ""} /></div>
+            <div className={styles.field}><Label htmlFor="edit-round-threshold">Qualifying threshold (%)</Label><Input id="edit-round-threshold" name="threshold" type="number" min="0" max="100" step="any" defaultValue={round.qualifying_threshold ?? ""} /></div>
             <div className={styles.field}><Label htmlFor="edit-round-notes">Instructions for educators</Label><Textarea id="edit-round-notes" name="notes" rows={3} defaultValue={round.notes ?? ""} /></div>
             <div className={styles.dateGrid}>
               <div className={styles.field}><Label htmlFor="edit-round-opens">Opens at ({timeZoneLabel(timeZone)})</Label><Input id="edit-round-opens" name="opensAt" type="datetime-local" defaultValue={isoToZonedInput(round.opens_at, timeZone)} required /></div>

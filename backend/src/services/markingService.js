@@ -6,7 +6,7 @@ const {
   ForbiddenError,
   BadRequestError,
 } = require("../errors/AppError");
-const { scoreMcq } = require("./markingMath");
+const { scoreMcq, qualifies, paperMaxPoints, competitionRanks } = require("./markingMath");
 const { canonicalizeAnswer } = require("./examVariantService");
 
 // ─────────────────────────────────────────
@@ -104,33 +104,46 @@ const isAutoMarkable = (q) =>
   ((q.type === "mcq" || q.type === "true_false") && q.correct_option) ||
   (q.type === "short_answer" && q.correct_answer);
 
+// A sitting is claimed before it is marked: only a submission still
+// "received" is marked, and the claim and the marking are one transaction.
+// Under peak load the close-time marking, the student's own submit and the
+// next tick can all reach the same sitting at once; exactly one marks it,
+// and the answers it marks are the ones saved before the claim.
 const autoMarkSubmission = async (submissionId) => {
-  const submission = await prisma.submissions.findUnique({
-    where: { id: submissionId },
-    include: {
-      exam_assignments: { select: { option_orders: true } },
-      answers: {
-        include: {
-          questions: {
-            select: {
-              id: true,
-              type: true,
-              correct_option: true,
-              correct_answer: true,
-              negative_pct: true,
-              max_points: true,
+  const now = new Date();
+
+  return prisma.$transaction(async (tx) => {
+    const claimed = await tx.submissions.updateMany({
+      where: { id: submissionId, status: "received" },
+      data: { status: "automarked" },
+    });
+    if (claimed.count === 0) {
+      const exists = await tx.submissions.findUnique({ where: { id: submissionId }, select: { id: true } });
+      if (!exists) throw new NotFoundError("Submission not found");
+      return { submissionId, status: "already_marked" };
+    }
+
+    const submission = await tx.submissions.findUnique({
+      where: { id: submissionId },
+      include: {
+        exam_assignments: { select: { option_orders: true } },
+        answers: {
+          include: {
+            questions: {
+              select: {
+                id: true,
+                type: true,
+                correct_option: true,
+                correct_answer: true,
+                negative_pct: true,
+                max_points: true,
+              },
             },
           },
         },
       },
-    },
-  });
+    });
 
-  if (!submission) throw new NotFoundError("Submission not found");
-
-  const now = new Date();
-
-  await prisma.$transaction(async (tx) => {
     for (const answer of submission.answers) {
       const q = answer.questions;
 
@@ -180,18 +193,19 @@ const autoMarkSubmission = async (submissionId) => {
     // Recalculate totals + results
     await recalcSubmissionResults(tx, submission);
 
-    // Update submission status
+    // The claim set "automarked"; anything a person must mark queues instead
     const hasManual = submission.answers.some(
       (a) => a.questions && !isAutoMarkable(a.questions),
     );
+    if (hasManual) {
+      await tx.submissions.update({
+        where: { id: submissionId },
+        data: { status: "queued_for_marking" },
+      });
+    }
 
-    await tx.submissions.update({
-      where: { id: submissionId },
-      data: { status: hasManual ? "queued_for_marking" : "automarked" },
-    });
+    return { submissionId, status: "processed" };
   });
-
-  return { submissionId, status: "processed" };
 };
 
 // ─────────────────────────────────────────
@@ -385,10 +399,14 @@ const generateResults = async (roundId, userId, role) => {
   if (results.length === 0) {
     throw new BadRequestError("No results to generate — no submissions found");
   }
+  const ranks = competitionRanks(results);
 
+  // A percentage of the paper's total marks (see markingMath.qualifies)
   const threshold = round.qualifying_threshold != null
     ? Number(round.qualifying_threshold)
     : null;
+  const maxPoints = await paperMaxPoints(prisma, roundId);
+  const passes = (result) => qualifies({ totalPoints: result.total_points, maxPoints, threshold });
 
   const now = new Date();
 
@@ -405,9 +423,8 @@ const generateResults = async (roundId, userId, role) => {
   await prisma.$transaction(async (tx) => {
     for (let i = 0; i < results.length; i++) {
       const result = results[i];
-      const rank = i + 1;
-      const qualified =
-        threshold !== null ? Number(result.total_points) >= threshold : false;
+      const rank = ranks[i];
+      const qualified = passes(result);
 
       await tx.results.update({
         where: { id: result.id },
@@ -417,7 +434,7 @@ const generateResults = async (roundId, userId, role) => {
 
     if (nextRound && threshold !== null) {
       await tx.entrant_registrations.createMany({
-        data: results.filter((r) => Number(r.total_points) >= threshold && registeredBy.has(r.entrant_id))
+        data: results.filter((r) => passes(r) && registeredBy.has(r.entrant_id))
           .map((r) => ({ entrant_id: r.entrant_id, round_id: nextRound.id, registered_by: registeredBy.get(r.entrant_id) })),
         skipDuplicates: true,
       });

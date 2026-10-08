@@ -253,8 +253,9 @@ describe("student results", () => {
   });
 
   it("shows why results couldn't be loaded", async () => {
-    mockApiError("get", "/rounds/my-results", 401, "Invalid or expired token");
+    // (A 401 ends the session instead; see auth.test.tsx)
+    mockApiError("get", "/rounds/my-results", 500, "Database unavailable");
     renderApp("/student/results");
-    expect(await screen.findByText("Invalid or expired token")).toBeInTheDocument();
+    expect(await screen.findByText("Database unavailable")).toBeInTheDocument();
   });
 });

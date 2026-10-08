@@ -126,6 +126,20 @@ describe("each kind of invitation", () => {
   });
 });
 
+describe("the password reset email", () => {
+  it("sends the one-time reset link", async () => {
+    const mailer = loadMailer(configured);
+    const resetUrl = "https://olympiad.test/reset-password?token_hash=abc&type=recovery";
+
+    await expect(mailer.sendPasswordResetEmail({ to: "thandi@olympiad.test", resetUrl })).resolves.toEqual({ delivered: true });
+
+    const { template_params: params } = sentEmail();
+    expect(params.to_email).toBe("thandi@olympiad.test");
+    expect(params.subject).toBe("Reset your Olympiad Portal password");
+    expect(params.html_content).toContain(`<a href="${resetUrl}">Choose a new password</a>`);
+  });
+});
+
 describe("when EmailJS can't be used", () => {
   it.each(EMAILJS_KEYS)("reports the invitation as undelivered when %s is missing", async (missing) => {
     const env = { ...configured };

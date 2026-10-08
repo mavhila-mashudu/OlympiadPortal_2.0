@@ -12,7 +12,7 @@ if (!process.env.SUPABASE_SERVICE_ROLE_KEY && !process.env.SUPABASE_SERVICE_KEY)
   missing.push("SUPABASE_SERVICE_ROLE_KEY or SUPABASE_SERVICE_KEY");
 }
 
-if (missing.length > 0) {
+if (process.env.NODE_ENV !== "test" && missing.length > 0) {
   console.error("Missing required environment variables:");
   missing.forEach((key) => console.error(`   - ${key}`));
   process.exit(1);

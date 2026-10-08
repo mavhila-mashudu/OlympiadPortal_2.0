@@ -133,8 +133,6 @@ function ExamBuilder() {
         navItems={educatorNav}
         organisation=""
         portalLabel="Educator portal"
-        userInitials=""
-        userName=""
       >
         <p className={styles.loading}>Loading...</p>
       </AppShell>
@@ -147,8 +145,6 @@ function ExamBuilder() {
       navItems={educatorNav}
       organisation=""
       portalLabel="Educator portal"
-      userInitials=""
-      userName=""
     >
       <div
         className={showPaper && paperUrl ? styles.builderLayout : styles.stack}

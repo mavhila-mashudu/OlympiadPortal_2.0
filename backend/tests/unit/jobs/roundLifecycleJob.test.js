@@ -52,6 +52,27 @@ describe("roundLifecycleJob", () => {
     expect(current.runLifecycleTick).toHaveBeenCalledTimes(3);
   });
 
+  it("skips a tick while the previous one is still running, then carries on", async () => {
+    current = loadJob();
+    const consoleWarn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    let finish;
+    current.runLifecycleTick
+      .mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }))
+      .mockResolvedValue({});
+
+    current.job.start();
+    await jest.advanceTimersByTimeAsync(30_000);
+    // The first tick is still running when the next two come due
+    await jest.advanceTimersByTimeAsync(60_000);
+    expect(current.runLifecycleTick).toHaveBeenCalledTimes(1);
+    expect(consoleWarn).toHaveBeenCalledWith("[lifecycle] previous tick still running; skipping this one");
+
+    finish({});
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(current.runLifecycleTick).toHaveBeenCalledTimes(2);
+    consoleWarn.mockRestore();
+  });
+
   it("uses LIFECYCLE_INTERVAL_MS when set", async () => {
     current = loadJob("5000");
     current.runLifecycleTick.mockResolvedValue({});

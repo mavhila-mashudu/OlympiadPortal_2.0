@@ -16,13 +16,30 @@ const endpoints = [
   { method: "get", path: "/health", roles: "public" },
   { method: "get", path: "/", roles: "public" },
 
+  // Public API (no auth)
+  { method: "get", path: "/public/stats", roles: "public" },
+  { method: "get", path: "/public/stats/yearly", roles: "public" },
+  { method: "get", path: "/public/activity", roles: "public" },
+  { method: "get", path: "/public/calendar", roles: "public" },
+  { method: "get", path: "/public/search", roles: "public" },
+  { method: "get", path: "/public/olympiads", roles: "public" },
+  { method: "get", path: "/public/olympiads/:id", roles: "public" },
+  { method: "get", path: "/public/olympiads/:olympiadId/rounds/:roundId/results", roles: "public" },
+  { method: "get", path: "/public/olympiads/:olympiadId/rounds/:roundId/results/by-school", roles: "public" },
+  { method: "get", path: "/public/olympiads/:id/leaderboard", roles: "public" },
+  { method: "get", path: "/public/schools/top", roles: "public" },
+  { method: "get", path: "/public/schools", roles: "public" },
+  { method: "get", path: "/public/schools/:id", roles: "public" },
+  { method: "get", path: "/public/papers", roles: "public" },
+  { method: "get", path: "/public/papers/:id/download", roles: "public" },
+
   // Portal notifications
   { method: "get", path: "/notifications", roles: "any" },
   { method: "patch", path: "/notifications/:id/read", roles: "any" },
 
   // Marking review and remarks
-  { method: "get", path: "/rounds/:roundId/review-sample", roles: ORGANISER },
-  { method: "patch", path: "/rounds/:roundId/review-sample/:answerId", roles: ORGANISER },
+  { method: "get", path: "/rounds/:roundId/review-sample", roles: STAFF },
+  { method: "patch", path: "/rounds/:roundId/review-sample/:answerId", roles: STAFF },
   { method: "get", path: "/rounds/:roundId/remarks", roles: ORGANISER },
   { method: "post", path: "/rounds/:roundId/remark", roles: STUDENT },
   { method: "get", path: "/rounds/:roundId/my-remark", roles: STUDENT },
@@ -31,7 +48,9 @@ const endpoints = [
   { method: "post", path: "/auth/register", roles: "public" },
   { method: "post", path: "/auth/register/organiser", roles: "public" },
   { method: "get", path: "/auth/schools", roles: "public" },
+  { method: "post", path: "/auth/forgot-password", roles: "public" },
   { method: "get", path: "/auth/me", roles: "any" },
+  { method: "post", path: "/auth/logout", roles: "any" },
   { method: "delete", path: "/auth/account", roles: "any" },
   { method: "get", path: "/auth/educator-olympiads", roles: EDUCATOR },
 
@@ -133,6 +152,7 @@ const endpoints = [
 
 // Where each route file is mounted (see src/app.js and src/routes/olympiads.js)
 const mounts = {
+  "public.js": "/public",
   "portalNotifications.js": "/notifications",
   "reviews.js": "/rounds",
   "auth.js": "/auth",

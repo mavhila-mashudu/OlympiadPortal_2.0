@@ -47,9 +47,22 @@ module.exports = async () => {
     SMTP_SECURE: "false",
     SMTP_USER: "",
     SMTP_PASS: "",
+    // Blank, so a developer's real EmailJS keys in backend/.env are never
+    // used: tests must not send real email
+    EMAILJS_SERVICE_ID: "",
+    EMAILJS_TEMPLATE_ID: "",
+    EMAILJS_USER_ID: "",
+    EMAILJS_PRIVATE_KEY: "",
     LIFECYCLE_INTERVAL_MS: "3600000",
+    // PGlite is a single Postgres session: statements from connections used
+    // at the same time would interleave inside it. One pooled connection
+    // queues them instead, as the end-to-end tests already do, so tests that
+    // run requests at the same moment behave as they would on a real server.
+    DATABASE_POOL_MAX: "1",
     // Tests make many auth requests from one address
     AUTH_RATE_LIMIT_MAX: "100000",
+    // ...and many public API requests
+    PUBLIC_RATE_LIMIT_MAX: "100000",
   });
 
   globalThis.__INTEGRATION_DB__ = { db, server, migrations };

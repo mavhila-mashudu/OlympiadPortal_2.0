@@ -117,7 +117,8 @@ describe("olympiad rounds", () => {
       [{ name: "" }, "Round name is required"],
       [{ opens_at: "tomorrow" }, "opens_at must be a valid date"],
       [{ closes_at: undefined }, "closes_at must be a valid date"],
-      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a non-negative number"],
+      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a percentage from 0 to 100"],
+      [{ qualifying_threshold: 120 }, "qualifying_threshold must be a percentage from 0 to 100"],
     ])("responds 422 for %o", async (overrides, message) => {
       const organiser = await f.createOrganiser();
       const olympiad = await f.createOlympiad({ organiser });
@@ -230,6 +231,57 @@ describe("GET /olympiads/:olympiadId/archive", () => {
   it("responds 403 for another organiser's olympiad", async () => {
     const olympiad = await f.createOlympiad();
     expectError(await as(await f.createOrganiser()).get(`/olympiads/${olympiad.id}/archive`), 403, "Not your olympiad");
+  });
+});
+
+// A16: one archive of past papers shared by all of the organiser's olympiads
+describe("GET /olympiads/archive", () => {
+  const released = async (olympiad, name, closesIn) => {
+    const round = await f.createRound({ olympiad, name, state: "results_released", opens_at: f.hoursFromNow(closesIn - 2), closes_at: f.hoursFromNow(closesIn) });
+    await f.createPaper({ round, file_url: `rounds/${name}.pdf`, memo_file_url: `rounds/${name}-memo.pdf`, is_archived: true });
+    return round;
+  };
+
+  it("lists archived papers from every one of the organiser's olympiads, most recently closed first", async () => {
+    const organiser = await f.createOrganiser();
+    const maths = await f.createOlympiad({ organiser, name: "Maths Olympiad" });
+    const science = await f.createOlympiad({ organiser, name: "Science Olympiad", timezone: "UTC" });
+    const mathsHeats = await released(maths, "Maths heats", -100);
+    const scienceFinal = await released(science, "Science final", -10);
+    const mathsFinal = await released(maths, "Maths final", -50);
+
+    const { rounds } = expectOk(await as(organiser).get("/olympiads/archive"));
+
+    expect(rounds.map((r) => r.id)).toEqual([scienceFinal.id, mathsFinal.id, mathsHeats.id]);
+    // Each round says which olympiad it belongs to, with that olympiad's timezone
+    expect(rounds[0].olympiads).toEqual({ id: science.id, name: "Science Olympiad", timezone: "UTC" });
+    expect(rounds[0].papers).toEqual([
+      expect.objectContaining({ file_url: "rounds/Science final.pdf", memo_file_url: "rounds/Science final-memo.pdf", is_archived: true }),
+    ]);
+  });
+
+  it("leaves out other organisers' papers and rounds whose papers aren't archived yet", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser });
+    const archived = await released(olympiad, "Archived", -10);
+    // Results released but the paper not archived, and a round still being marked
+    const unarchived = await f.createRound({ olympiad, state: "results_released" });
+    await f.createPaper({ round: unarchived, is_archived: false });
+    await f.createPaper({ round: await f.createRound({ olympiad, state: "marking" }), is_archived: false });
+    // Another organiser's archived paper
+    await released(await f.createOlympiad(), "Someone else's", -5);
+
+    const { rounds } = expectOk(await as(organiser).get("/olympiads/archive"));
+
+    expect(rounds.map((r) => r.id)).toEqual([archived.id]);
+  });
+
+  it("is empty for an organiser with nothing archived, and for organisers only", async () => {
+    const organiser = await f.createOrganiser();
+    expect(expectOk(await as(organiser).get("/olympiads/archive"))).toEqual({ rounds: [] });
+
+    const { educatorUser } = await f.createOlympiadWithSchool();
+    expectError(await as(educatorUser).get("/olympiads/archive"), 403, "Insufficient permissions");
   });
 });
 
@@ -384,8 +436,9 @@ describe("a single round", () => {
     it.each([
       [{ name: "" }, "Round name can't be empty"],
       [{ opens_at: "not a date" }, "opens_at must be a valid date"],
-      [{ qualifying_threshold: "high" }, "qualifying_threshold must be a non-negative number"],
-      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a non-negative number"],
+      [{ qualifying_threshold: "high" }, "qualifying_threshold must be a percentage from 0 to 100"],
+      [{ qualifying_threshold: -1 }, "qualifying_threshold must be a percentage from 0 to 100"],
+      [{ qualifying_threshold: 100.5 }, "qualifying_threshold must be a percentage from 0 to 100"],
     ])("responds 422 for %o", async (body, message) => {
       const { round, client } = await owned();
       expectError(await client.patch(`/rounds/${round.id}`).send(body), 422, message);

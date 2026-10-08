@@ -220,9 +220,19 @@ describe("GET /:roundId/exam", () => {
 
 describe("POST /:roundId/exam/start", () => {
   beforeEach(() => {
+    // Half an hour before the round's 10:00 deadline
+    jest.useFakeTimers().setSystemTime(new Date("2026-06-01T09:30:00Z"));
     prisma.rounds.findUnique.mockResolvedValue(sittableRound());
     prisma.entrant_registrations.findFirst.mockResolvedValue({ id: "reg" });
     seedVariant();
+  });
+  afterEach(() => jest.useRealTimers());
+
+  it("refuses to start once the deadline has passed, though the round hasn't been closed yet", async () => {
+    // The lifecycle job closes a round up to a tick after its deadline
+    jest.setSystemTime(new Date("2026-06-01T10:00:00Z"));
+    expectError((await run(startExam, studentReq())).next, 400, "The round has closed");
+    expect(prisma.submissions.create).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -355,6 +365,14 @@ describe("POST /:roundId/exam/start", () => {
 
 describe("PATCH /:roundId/exam/answers/:qid", () => {
   const saveReq = (body) => studentReq({ params: { roundId: "round-1", qid: "q1" }, body });
+  // An attempt in progress in a round that closes at 10:00
+  const inProgress = (round = {}) => ({
+    id: "sub-1",
+    rounds: { state: "open", closes_at: new Date("2026-06-01T10:00:00Z"), closed_at: null, ...round },
+  });
+
+  beforeEach(() => jest.useFakeTimers().setSystemTime(new Date("2026-06-01T09:30:00Z")));
+  afterEach(() => jest.useRealTimers());
 
   it("rejects a user with no entrant profile", async () => {
     const { next } = await run(
@@ -372,19 +390,44 @@ describe("PATCH /:roundId/exam/answers/:qid", () => {
     expectError(next, 400, "No active submission found — start the exam first");
     expect(prisma.submissions.findFirst).toHaveBeenCalledWith({
       where: { round_id: "round-1", entrant_id: "ent-1", route: "online", status: "received" },
+      include: { rounds: { select: { state: true, closes_at: true, closed_at: true } } },
     });
   });
 
   it("rejects a question that isn't part of the attempt", async () => {
-    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-1" });
+    prisma.submissions.findFirst.mockResolvedValue(inProgress());
     prisma.answers.findFirst.mockResolvedValue(null);
 
     expectError((await run(saveAnswer, saveReq({ answer_value: "0" }))).next, 404, "Answer row not found for this question");
     expect(prisma.answers.findFirst).toHaveBeenCalledWith({ where: { submission_id: "sub-1", question_id: "q1" } });
   });
 
+  it("refuses to change an answer once the deadline has passed", async () => {
+    jest.setSystemTime(new Date("2026-06-01T10:00:00Z"));
+    prisma.submissions.findFirst.mockResolvedValue(inProgress());
+
+    expectError((await run(saveAnswer, saveReq({ answer_value: "0" }))).next, 400, "The round has closed; answers can no longer be changed");
+    expect(prisma.answers.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses to change an answer in a round the organiser closed early", async () => {
+    prisma.submissions.findFirst.mockResolvedValue(inProgress({ state: "closed", closed_at: new Date("2026-06-01T09:15:00Z") }));
+
+    expectError((await run(saveAnswer, saveReq({ answer_value: "0" }))).next, 400, "The round has closed; answers can no longer be changed");
+  });
+
+  it("refuses the save when the attempt was marked while it waited", async () => {
+    // The row lock finds the attempt no longer in progress
+    prisma.submissions.findFirst.mockResolvedValue(inProgress());
+    prisma.answers.findFirst.mockResolvedValue({ id: "ans-1" });
+    prisma.$queryRaw.mockResolvedValue([]);
+
+    expectError((await run(saveAnswer, saveReq({ answer_value: "0" }))).next, 400, "This exam has already been submitted");
+    expect(prisma.answers.update).not.toHaveBeenCalled();
+  });
+
   it("saves the answer without marking it", async () => {
-    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-1" });
+    prisma.submissions.findFirst.mockResolvedValue(inProgress());
     prisma.answers.findFirst.mockResolvedValue({ id: "ans-1" });
     prisma.answers.update.mockResolvedValue({ id: "ans-1", question_id: "q1", answer_value: "0,2", is_correct: null });
 
@@ -398,7 +441,7 @@ describe("PATCH /:roundId/exam/answers/:qid", () => {
   });
 
   it("clears the answer when no value is sent", async () => {
-    prisma.submissions.findFirst.mockResolvedValue({ id: "sub-1" });
+    prisma.submissions.findFirst.mockResolvedValue(inProgress());
     prisma.answers.findFirst.mockResolvedValue({ id: "ans-1" });
     prisma.answers.update.mockResolvedValue({ id: "ans-1", question_id: "q1", answer_value: null });
 
@@ -408,18 +451,66 @@ describe("PATCH /:roundId/exam/answers/:qid", () => {
 });
 
 describe("POST /:roundId/exam/submit", () => {
-  const attempt = (answers, overrides = {}) => ({
-    id: "sub-1",
-    status: "received",
-    round_close_snapshot: new Date("2026-06-01T10:00:00Z"),
-    answers,
-    ...overrides,
-  });
+  // An attempt in a round that closes at 10:00. The handler reads the answers
+  // after claiming the attempt, so they are served from answers.findMany.
+  const attempt = (answers, overrides = {}) => {
+    prisma.answers.findMany.mockResolvedValue(answers);
+    return {
+      id: "sub-1",
+      status: "received",
+      rounds: { state: "open", closes_at: new Date("2026-06-01T10:00:00Z"), closed_at: null },
+      ...overrides,
+    };
+  };
   const ans = (id, q, answer_value) => ({ id, answer_value, questions: q });
   const shortQ = { id: "q4", type: "short_answer", correct_answer: " Pretoria ", max_points: "3" };
 
-  beforeEach(() => jest.useFakeTimers().setSystemTime(new Date("2026-06-01T09:30:00Z")));
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-06-01T09:30:00Z"));
+    // The attempt is still unclaimed unless a test says otherwise
+    prisma.submissions.updateMany.mockResolvedValue({ count: 1 });
+  });
   afterEach(() => jest.useRealTimers());
+
+  it("claims the attempt before marking it, so a double click marks it once", async () => {
+    // The second request passed the first check, but the first had claimed it
+    prisma.submissions.findFirst.mockResolvedValue(attempt([ans("a2", questions[1], "1")]));
+    prisma.submissions.updateMany.mockResolvedValue({ count: 0 });
+
+    expectError((await run(submitExam, studentReq())).next, 400, "This exam has already been submitted");
+    expect(prisma.submissions.updateMany).toHaveBeenCalledWith({
+      where: { id: "sub-1", status: "received" },
+      data: { status: "automarked" },
+    });
+    expect(prisma.answers.update).not.toHaveBeenCalled();
+    expect(prisma.results.upsert).not.toHaveBeenCalled();
+  });
+
+  it("accepts an attempt that arrived before a close that happened while it was being handled", async () => {
+    // Arrived 09:59:59.9; the lifecycle job closed the round at 10:00:00.1
+    jest.setSystemTime(new Date("2026-06-01T09:59:59.900Z"));
+    prisma.submissions.findFirst.mockResolvedValue(
+      attempt([ans("a2", questions[1], "1")], {
+        rounds: { state: "closed", closes_at: new Date("2026-06-01T10:00:00Z"), closed_at: new Date("2026-06-01T10:00:00.100Z") },
+      }),
+    );
+
+    const { res } = await run(submitExam, studentReq());
+    expect(res.json.mock.calls[0][0].data).toMatchObject({ message: "Exam submitted successfully", total_points: 1 });
+  });
+
+  it("refuses an attempt in a round the organiser closed before it arrived", async () => {
+    prisma.submissions.findFirst.mockResolvedValue(
+      attempt([ans("a2", questions[1], "1")], {
+        rounds: { state: "closed", closes_at: new Date("2026-06-01T10:00:00Z"), closed_at: new Date("2026-06-01T09:15:00Z") },
+      }),
+    );
+
+    expectError((await run(submitExam, studentReq())).next, 400, "Round is not open (state: closed)");
+    expect(prisma.submission_deadline_decisions.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ accepted: false, explanation: 'Round was "closed" when the submission arrived.' }),
+    });
+  });
 
   it("rejects a user with no entrant profile", async () => {
     const { next } = await run(submitExam, mockReq({ user: { ...student, entrant: null }, params: { roundId: "round-1" } }));
@@ -546,7 +637,7 @@ describe("POST /:roundId/exam/submit", () => {
   });
 
   it("rejects an attempt without a recorded closing time", async () => {
-    prisma.submissions.findFirst.mockResolvedValue(attempt([], { round_close_snapshot: null }));
+    prisma.submissions.findFirst.mockResolvedValue(attempt([], { rounds: { state: "open", closes_at: null, closed_at: null } }));
     expect((await run(submitExam, studentReq())).next).toHaveBeenCalledWith(expect.any(Error));
   });
 });

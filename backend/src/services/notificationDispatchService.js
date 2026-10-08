@@ -24,10 +24,11 @@ const { sendNotificationEmail, isMailerConfigured } = require("../lib/mailer");
 //      when no organiser rule exists.  An enabled rule aimed at registered
 //      educators replaces the built-in notice for its trigger.
 //
-// Every delivered email is recorded in sent_notifications keyed by
-// (dedup_key, round, recipient), so a notification is never sent twice —
-// not across ticks, restarts or retries. An email EmailJS did not accept
-// is not recorded, so later ticks retry it for as long as it is still due.
+// Every email is claimed in sent_notifications, keyed by (dedup_key, round,
+// recipient), before it is sent, so a notification is never sent twice — not
+// across ticks, restarts, retries or dispatches running at the same time. An
+// email EmailJS did not accept has its claim released, so later ticks retry
+// it for as long as it is still due.
 // ─────────────────────────────────────────
 
 // Event notifications stop being due once the event is older than this,
@@ -337,7 +338,6 @@ const processDueNotifications = async (now = new Date()) => {
 
   let sent = 0;
   let failed = 0;
-  const logRows = [];
 
   for (const candidate of dueCandidates) {
     const { round } = candidate;
@@ -358,38 +358,34 @@ const processDueNotifications = async (now = new Date()) => {
     });
 
     for (const to of pending) {
+      const record = { dedup_key: candidate.dedupKey, round_id: round.id, recipient: to };
+      // Claim the email before sending it. Another dispatch running at the
+      // same time (a slow tick overlapping the next, or a second app
+      // instance) finds it claimed and skips it, so nobody is emailed twice.
+      const claim = await prisma.sent_notifications.createMany({ data: [record], skipDuplicates: true });
+      if (claim.count === 0) continue;
+
+      let delivered = false;
       try {
-        const { delivered } = await sendNotificationEmail({
+        ({ delivered } = await sendNotificationEmail({
           to,
           subject: email.subject,
           html: email.html,
-        });
-        // The mailer has already logged why; leaving it unrecorded retries it
-        if (!delivered) {
-          failed += 1;
-          continue;
-        }
-        sent += 1;
-        logRows.push({
-          dedup_key: candidate.dedupKey,
-          round_id: round.id,
-          recipient: to,
-        });
-        sentSet.add(`${candidate.dedupKey}|${round.id}|${to}`);
+        }));
       } catch (err) {
-        failed += 1;
         console.error(
           `[notifications] failed to notify ${to} about round "${round.name}": ${err.message}`,
         );
       }
+      if (delivered) {
+        sent += 1;
+        continue;
+      }
+      // Not sent (the mailer logged why): release the claim so a later tick
+      // tries again
+      failed += 1;
+      await prisma.sent_notifications.deleteMany({ where: record });
     }
-  }
-
-  if (logRows.length > 0) {
-    await prisma.sent_notifications.createMany({
-      data: logRows,
-      skipDuplicates: true,
-    });
   }
 
   return { due: dueCandidates.length, sent, failed };

@@ -2,7 +2,8 @@
 
 The backend is a hand-written Express (Node.js) REST API backed by PostgreSQL (Prisma ORM) and Supabase Auth/Storage.
 
-- **Base URL (local dev):** `http://localhost:3000`
+- **Base URL:** `https://olympiad-portal-api.azurewebsites.net` (local dev: `http://localhost:3000`)
+- **Public developer API:** open to any website without an account; see [Public Developer API](#public-developer-api)
 - **Content type:** `application/json` (except paper uploads, which use `multipart/form-data`)
 
 ## Conventions
@@ -29,7 +30,9 @@ Authorization: Bearer <supabase-access-token>
 
 Tokens are obtained by signing in through Supabase Auth (email + password). The backend verifies each token with Supabase, then loads the matching user row to determine role (`organiser`, `educator`, or `student`).
 
-Missing/invalid token → `401`. Valid token but wrong role → `403`.
+Missing/invalid token → `401`. Valid token but wrong role → `403`. The frontend treats a `401` on a request that carried a token as the end of the session (expired, logged out elsewhere, or account deleted) and returns the user to the login page.
+
+Every response carries `Cache-Control: no-store`, so browsers never keep personal data (names, answers, marks) on disk or show it again after logout. The exception is the [public developer API](#public-developer-api), which holds no personal data and may be cached for a minute.
 
 ### Roles
 
@@ -54,6 +57,235 @@ Liveness probe. No auth.
 ### `GET /`
 
 API welcome message. No auth.
+
+---
+
+## Public Developer API
+
+Read-only data about olympiads, rounds, schools, results and past papers,
+for anyone to build on: school websites, widgets, dashboards and other apps.
+No account or token is needed.
+
+- **Base URL:** `https://olympiad-portal-api.azurewebsites.net/public`
+  (locally, `http://localhost:3000/public`)
+- **Methods:** `GET` only. Responses use the [usual envelope](#response-envelope).
+- **From the browser:** any website may call it. Responses carry
+  `Access-Control-Allow-Origin: *`, and no cookies or credentials are used.
+  The rest of the API only accepts the portal's own site.
+- **Caching:** responses carry `Cache-Control: public, max-age=60, stale-while-revalidate=300`,
+  so a browser or CDN can reuse one for a minute and briefly serve it stale while
+  it refreshes. There is no need to call more often than once a minute.
+- **Rate limit:** 300 requests per 15 minutes per client IP. Every response
+  says where you stand in the standard `RateLimit` and `RateLimit-Policy`
+  headers, e.g. `RateLimit: "300-in-15min"; r=297; t=812` (297 requests
+  left, window resets in 812 seconds). Over the limit you get `429`; wait
+  `t` seconds.
+
+### Privacy
+
+The public API only returns aggregated data (totals, averages, medians,
+score distributions and school rankings) and papers whose round's results
+are released. It never returns a learner's name, email, id or own result,
+an answer, or anyone's contact details. The one person named is an
+olympiad's organiser (`organiserName`).
+
+A school's figures for a round are an average over its learners. When a
+school entered only one learner, that average is that learner's score.
+
+### Example
+
+```bash
+curl https://olympiad-portal-api.azurewebsites.net/public/olympiads?limit=5
+```
+
+```js
+// From any web page
+const res = await fetch("https://olympiad-portal-api.azurewebsites.net/public/schools/top?limit=10");
+const { success, data, error } = await res.json();
+if (!success) throw new Error(error);
+data.forEach((school) => console.log(school.rank, school.schoolName, school.averageScore));
+```
+
+### Endpoints
+
+| Endpoint | Returns |
+|---|---|
+| `GET /public/stats` | Platform totals |
+| `GET /public/stats/yearly` | Totals for each year |
+| `GET /public/activity` | Recently closed rounds, upcoming rounds and recently released results |
+| `GET /public/calendar` | Rounds running within a date range |
+| `GET /public/search` | Olympiads, schools and rounds matching a name |
+| `GET /public/olympiads` | Olympiads, with search, year filter, sorting and pages |
+| `GET /public/olympiads/:id` | One olympiad and its rounds |
+| `GET /public/olympiads/:olympiadId/rounds/:roundId/results` | A released round's result statistics |
+| `GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school` | The same, for each school |
+| `GET /public/olympiads/:id/leaderboard` | Schools ranked by average score in an olympiad |
+| `GET /public/schools/top` | Schools ranked by average score across every olympiad |
+| `GET /public/schools` | Schools, with search and pages |
+| `GET /public/schools/:id` | One school's participation and averages |
+| `GET /public/papers` | Past papers of released rounds, with download links |
+| `GET /public/papers/:id/download` | Downloads a past paper or its memo |
+
+Lists that page take `page` (from 1) and `limit`, and return a `pagination`
+object: `{ page, limit, total, totalPages }`. Ids are UUIDs; a malformed one
+gets `422`. Dates are ISO 8601 in UTC.
+
+#### `GET /public/stats`
+
+```json
+{ "totalOlympiads": 4, "totalRounds": 11, "totalSchools": 23, "totalStudents": 612, "totalSubmissions": 1480 }
+```
+
+`totalStudents` counts learner records; `totalSubmissions` counts exams handed in, online or on paper.
+
+#### `GET /public/stats/yearly`
+
+One entry per year in which rounds opened, newest first:
+`[{ year, totalOlympiads, totalRounds, totalStudents, totalSchools, totalSubmissions }]`.
+
+#### `GET /public/activity`
+
+Up to five of each, over the last 30 days or the upcoming ones:
+`{ recentlyCompletedRounds, upcomingRounds, recentResultsReleased }`. Each
+round is `{ id, name, olympiadId, olympiadName, opensAt, closesAt, resultsReleaseAt, state }`.
+
+#### `GET /public/calendar`
+
+| Query | Rules |
+|---|---|
+| `from` | optional ISO 8601 date; default the start of this month |
+| `to` | optional ISO 8601 date; default the end of this month |
+
+Rounds that are open at any time between `from` and `to`, earliest first, in the round shape above.
+
+#### `GET /public/search`
+
+`q` — text to look for in names, ignoring case. Returns up to ten of each:
+`{ olympiads: [{ id, name, createdAt, roundCount }], schools: [{ id, name, studentCount }], rounds: [{ id, name, olympiadId, olympiadName, state, opensAt, closesAt }] }`.
+An empty `q` returns empty lists.
+
+#### `GET /public/olympiads`
+
+| Query | Rules |
+|---|---|
+| `search` | optional; part of the name, ignoring case |
+| `year` | optional; olympiads with a round opening that year (2000–2100) |
+| `sort` | optional; `created_at` (newest first, the default) or `name` |
+| `page`, `limit` | optional; `limit` 1–100, default 20 |
+
+```json
+{
+  "olympiads": [
+    { "id": "…", "name": "Maths Olympiad", "createdAt": "2026-08-01T09:00:00.000Z",
+      "roundCount": 2, "schoolCount": 2, "studentCount": 3, "year": 2026 }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+}
+```
+
+#### `GET /public/olympiads/:id`
+
+`{ id, name, timezone, createdAt, organiserName, schoolCount, studentCount, rounds }`,
+where each round is `{ id, name, state, opensAt, closesAt, resultsReleasedAt, participantCount, submissionCount }`.
+`404` if there is no such olympiad.
+
+#### `GET /public/olympiads/:olympiadId/rounds/:roundId/results`
+
+Only for a round whose results are released (`400` otherwise; `404` if the
+round doesn't exist or belongs to another olympiad). Scores are marks out of
+`maxPossibleScore`; `qualifyingThreshold` is a percentage of it.
+
+```json
+{
+  "roundName": "Round 1", "olympiadName": "Maths Olympiad",
+  "totalParticipants": 3, "totalSubmissions": 3, "maxPossibleScore": 10,
+  "averageScore": 5.67, "medianScore": 6, "highestScore": 8, "lowestScore": 3,
+  "qualifyingThreshold": 60, "qualifiedCount": 2,
+  "gradeDistribution": { "90-100": 0, "80-89": 1, "70-79": 0, "60-69": 1, "50-59": 0, "40-49": 0, "30-39": 1, "0-29": 0 }
+}
+```
+
+`gradeDistribution` counts learners by percentage band.
+
+#### `GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school`
+
+`{ roundName, olympiadName, schools }`, best average first, where each school is
+`{ schoolId, schoolName, participantCount, averageScore, qualifiedCount, gradeDistribution }`.
+Same conditions as above.
+
+#### `GET /public/olympiads/:id/leaderboard`
+
+Schools ranked by their average over all of the olympiad's released rounds:
+`{ olympiadName, schools: [{ rank, schoolName, averageScore, totalParticipants, qualifiedCount }] }`.
+Empty before any results are out.
+
+#### `GET /public/schools/top`
+
+| Query | Rules |
+|---|---|
+| `year` | optional; only rounds that opened that year |
+| `limit` | optional; 1–50, default 10 |
+
+`[{ rank, schoolId, schoolName, averageScore, totalResults, totalStudents, totalOlympiads }]`, from released results only.
+
+#### `GET /public/schools`
+
+`search`, `page` and `limit` (1–100, default 20). Schools by name:
+`{ schools: [{ id, name, olympiadCount, studentCount }], pagination }`.
+
+#### `GET /public/schools/:id`
+
+```json
+{
+  "id": "…", "name": "Parktown High",
+  "olympiads": [{ "id": "…", "name": "Maths Olympiad", "year": 2026, "studentCount": 2, "averageScore": 7 }],
+  "stats": { "totalStudents": 2, "totalRoundsParticipated": 1, "overallAverageScore": 7 }
+}
+```
+
+Averages are over the school's own learners in released rounds. `404` if there is no such school.
+
+#### `GET /public/papers`
+
+| Query | Rules |
+|---|---|
+| `olympiad` | optional olympiad id |
+| `year` | optional; rounds that opened that year |
+| `page`, `limit` | optional; `limit` 1–100, default 20 |
+
+Papers of rounds whose results are released, newest first:
+
+```json
+{
+  "papers": [
+    { "id": "…", "title": "Maths Round 1 paper", "olympiadId": "…", "olympiadName": "Maths Olympiad",
+      "roundName": "Round 1", "year": 2026,
+      "fileUrl": "https://olympiad-portal-api.azurewebsites.net/public/papers/…/download",
+      "memoFileUrl": "https://olympiad-portal-api.azurewebsites.net/public/papers/…/download?type=memo" }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+}
+```
+
+`memoFileUrl` is `null` when no memo was uploaded. The links don't expire, so they can be stored or put on a page.
+
+#### `GET /public/papers/:id/download`
+
+`type` — `paper` (the default) or `memo`. Redirects (`302`) to a link to the
+PDF that works for one minute, so follow the redirect straight away rather
+than storing where it leads. `404` for a paper whose round's results aren't
+released, or a memo that was never uploaded; `502` if the file store can't be
+reached.
+
+### Errors
+
+| Status | When |
+|---|---|
+| `400` | A round's results aren't released yet |
+| `404` | No such olympiad, round, school or paper, or an unknown `/public` path |
+| `422` | A malformed id or query parameter; `error` says which |
+| `429` | Over the rate limit; see the `RateLimit` header for when to retry |
+| `502` | The paper store couldn't be reached |
 
 ---
 
@@ -104,6 +336,23 @@ signup form needs it before anyone has an account.
 
 - **Response:** `data.schools`
 
+### `POST /auth/forgot-password`
+
+Emails a password reset link. Supabase makes the one-time link without sending
+anything, and the portal emails it through EmailJS, because Supabase's own
+sender allows only a few emails an hour for the whole project. The link opens
+`/reset-password?token_hash=…&type=recovery`, where the browser exchanges the
+token with Supabase and sets the new password. If EmailJS isn't configured, or
+can't deliver, Supabase's sender is used instead.
+
+- **Auth:** none (rate limited per client IP, like the other public auth endpoints)
+- **Body:** `email` (required, valid email)
+- **Response:** `data.message` — always "If an account exists for that address,
+  a reset link is on its way.", so the endpoint can't be used to find out who
+  has an account. Nothing is sent to an unknown or deleted account, and at most
+  one email a minute goes to the same address.
+- **Errors:** `422` invalid email; `429` too many requests
+
 ### `GET /auth/me`
 
 Current user profile.
@@ -111,12 +360,22 @@ Current user profile.
 - **Auth:** Bearer token (any role)
 - **Response:** `data.user` with `school_memberships`, `educators`, and `entrants` relations for school context
 
-### `DELETE /auth/account`
+### `POST /auth/logout`
 
-Soft-deletes the authenticated account. Cannot be undone.
+Ends the session the request's token belongs to. Supabase revokes it, so it can't be refreshed or used again, and the server stops accepting the token at once. The frontend calls this before forgetting the token; if Supabase can't be reached the logout still succeeds, and the failure is logged.
 
 - **Auth:** Bearer token (any role)
+- **Response:** `data.message: "Logged out"`
+
+### `DELETE /auth/account`
+
+Deletes the authenticated account. Cannot be undone.
+
+- The Supabase login is deleted, and the account's details are removed: the email becomes `deleted-<id>@deleted.invalid` and the name "Deleted user". The row stays, so the records others rely on (results, marks, reviews, audit history) keep their links, now to an anonymous user. The email is freed, so the person can register again.
+- An educator's school memberships end; a student's learner record (which belongs to the school) is kept but no longer linked to a login.
+- **Auth:** Bearer token (any role)
 - **Response:** `data.message: "Account deleted"`
+- **Errors:** `409` an organiser whose olympiad still has a round without released results (nobody else could manage it); `502` Supabase couldn't delete the login, in which case nothing is changed
 
 ### `GET /auth/educator-olympiads`
 
@@ -244,9 +503,16 @@ Delete an olympiad. Fails with `400` if the olympiad has any rounds — delete t
 
 Schools taking part in the olympiad, plus the educators who have been invited and have not accepted yet. Each row carries a `status` of `accepted` (participating), `pending` (invited) or `declined`; a pending row is keyed by the invitation rather than the school.
 
+### `GET /olympiads/archive`
+
+Organiser-only. One archive of past papers shared by all of the organiser's olympiads: every round whose results have been released and whose paper has been archived, most recently closed first. The organiser's Archive page uses this.
+
+- **Response:** `data.rounds` — each round with its `papers` (`file_url`, `memo_file_url`, `is_archived`, …) and `olympiads` (`{ id, name, timezone }`), so rounds from different olympiads can be told apart and their times shown in each olympiad's timezone.
+- Download a file with `GET /papers/:id/download`.
+
 ### `GET /olympiads/:olympiadId/archive`
 
-Closed rounds with downloadable paper/memo files.
+The same list, for a single olympiad. Closed rounds with downloadable paper/memo files.
 
 ---
 
@@ -265,7 +531,7 @@ Closed rounds with downloadable paper/memo files.
 | `notes` | string | optional |
 | `opens_at` | ISO 8601 date | required |
 | `closes_at` | ISO 8601 date | required |
-| `qualifying_threshold` | number ≥ 0 | optional |
+| `qualifying_threshold` | number 0–100 | optional; a **percentage** of the paper's total marks (e.g. `60` = 60%) |
 
 - **Response `201`:** `data.round`; optional `data.warnings` (array of strings) when `opens_at` or `closes_at` falls on a SA public holiday — e.g. `"2026-12-16 falls on a public holiday: Day of Reconciliation"`. The round is still created; warnings are advisory only.
 
@@ -502,6 +768,9 @@ Answers still awaiting manual marking (essays), grouped by submission, with the 
 
 Generate final results with ranks and qualification status. Requires all answers to be marked first.
 
+- **Ranks:** highest total first; equal totals share a rank and the next rank skips ("1, 1, 3").
+- **Qualification:** an entrant qualifies when their total is at least `qualifying_threshold` percent of the paper's total marks (the sum of its questions' `max_points`). Qualifiers are entered for the olympiad's next round. With no threshold, nobody qualifies.
+
 ### `PATCH /rounds/:roundId/answers/:id`
 
 Manually mark a single answer.
@@ -546,6 +815,7 @@ Round info plus the question list **stripped of all correct answers** (`correct_
 
 Create the submission and empty answer rows for every question. Idempotent — if an in-progress submission exists it is returned for resume; if already submitted → `400`.
 
+- Once the round's deadline has passed → `400` "The round has closed", even in the moments before the lifecycle job marks the round closed.
 - **Response `201`:** `data.submission` — `{ id, status, answers }`
 
 ### `PATCH /rounds/:roundId/exam/answers/:qid`
@@ -553,11 +823,14 @@ Create the submission and empty answer rows for every question. Idempotent — i
 Auto-save a single answer as the student types.
 
 - **Body:** `answer_value` (string, optional — omit to clear)
+- An answer can change until the deadline (same rule as submitting). After it, or in a round the organiser closed early → `400` "The round has closed; answers can no longer be changed". If the attempt was marked while the save waited → `400` "This exam has already been submitted".
 
 ### `POST /rounds/:roundId/exam/submit`
 
-Finalize the submission. Auto-marks MCQ/true-false (partial credit, negative marking) and short answers (case-insensitive match) inline; essays are left for the organiser's marking queue. Sets submission status to `automarked` or `queued_for_marking`, upserts the entrant's result row, and flags `is_late` if submitted after the round's close.
+Finalize the submission. Auto-marks MCQ/true-false (partial credit, negative marking) and short answers (case-insensitive match) inline; essays are left for the organiser's marking queue. Sets submission status to `automarked` or `queued_for_marking` and upserts the entrant's result row.
 
+- **The deadline:** the request's arrival time is compared with the round's closing time as it stands (so an extension counts), and the closing instant is exclusive. A submission that arrived before the close still counts if the round closed while it was being handled. Every ruling, accepted or not, is recorded (see the round replay).
+- **Once only:** the attempt is claimed before it is marked, so a double click, or the close-time marking reaching it at the same moment, marks it once; the other request gets `400` "This exam has already been submitted".
 - **Response:** `data` — `{ message, status, total_points, is_late }`
 
 ---
@@ -571,4 +844,6 @@ Finalize the submission. Auto-marks MCQ/true-false (partial credit, negative mar
 | `403` | Authenticated but wrong role, or not the owner of the resource |
 | `404` | Resource not found (or not owned by caller) |
 | `409` | Conflict — e.g. email already registered, duplicate record |
+| `422` | A field or query parameter failed validation (message explains which) |
+| `429` | Too many requests from this client; see the `RateLimit` header |
 | `500` | Unexpected server error |

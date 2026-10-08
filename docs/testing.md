@@ -36,13 +36,16 @@ Most tests sit at the lower levels, because they are fast and point straight at 
 | Frontend integration | `frontend/tests/integration` | Vitest + React Testing Library + MSW |
 | End-to-end | `frontend/e2e` | Playwright |
 
-Coverage of the backend and frontend source:
+Coverage of the backend and frontend source, measured on 29 September 2026 (see [Running the tests](#3-running-the-tests) to measure it yourself):
 
 | Suite | Statements | Branches | Functions | Lines |
 |---|---|---|---|---|
-| Backend unit | 99.4% | 97.5% | 99.6% | 99.5% |
-| Backend API | 94.6% | 82.5% | 97.4% | 95.5% |
-| Frontend unit | 99.2% | 98.6% | 99.3% | 99.1% |
+| Backend unit | 88.8% | 79.2% | 87.5% | 90.0% |
+| Backend API | 80.9% | 65.3% | 77.5% | 82.8% |
+| Backend integration | 67.3% | 53.0% | 64.9% | 70.4% |
+| Frontend unit and integration (all source files) | 77.4% | 68.9% | 76.2% | 78.4% |
+
+The least covered frontend files are the newest pages, which have no tests yet: the organiser's Remarks, Standings, Round replay and Edit olympiad pages, and the educator's Remarks page.
 
 No suite needs a database, a `.env` file or an internet connection. Everything runs after `npm install` (plus one browser download for the end-to-end tests).
 
@@ -99,7 +102,7 @@ Covered: login and sign-up, password reset, account deletion, organiser dashboar
 
 **Why:** the frontend depends on the API behaving exactly as documented, and these rules protect exam papers, answer keys, marks and learner data.
 
-**Complete coverage is enforced.** All 66 endpoints are listed in `backend/tests/api/helpers/endpoints.js` with the roles allowed to call each. From that list the tests automatically check:
+**Complete coverage is enforced.** All 110 endpoints are listed in `backend/tests/api/helpers/endpoints.js` with the roles allowed to call each. From that list the tests automatically check:
 
 1. the list matches the route files — a new endpoint that isn't listed fails the run;
 2. every protected endpoint returns **401** without a token;
@@ -107,6 +110,29 @@ Covered: login and sign-up, password reset, account deletion, organiser dashboar
 4. public endpoints work without a token.
 
 Each area then covers the normal case, ownership (users from another olympiad or school are refused), validation (**422** with a clear message) and edge cases (a round that isn't open, a duplicate submission, a file over the size limit).
+
+**Public developer API.** `backend/tests/api/public.test.js` checks what other websites rely on (any origin may call `/public` from the browser while the rest of the API still refuses it, responses may be cached for a minute, and each client's rate limit is reported in the standard headers), every public endpoint's data against a known set of olympiads, schools and results, validation and 404s, paper downloads, and that no response anywhere in `/public` contains a learner's name, email, id or own result.
+
+**Peak load (A1).** `backend/tests/api/peakLoad.test.js` piles many things onto the same instant and then checks the outcome exactly, not just that nothing failed:
+
+| Scenario | What must hold |
+|---|---|
+| 40 rounds due to open or close at the same moment, with three lifecycle ticks running at once | Every round opens or closes exactly once, with one audit event each |
+| 45 learners around a round's close: some well before, some in its last 150 ms while two ticks close the round, some just after | Every deadline ruling matches the moment its request arrived; answers changed before the close count and those after don't; every sitting is marked once, with marks that match the answers stored, and every learner has one result that adds up |
+| Ten learners double-clicking Submit | Each submission counts once; the second click is told it's already submitted |
+| A sitting saved after the close-time marking had run | The next tick marks it, so none is left unmarked |
+| Three email passes running at once | Each educator gets the notice once |
+
+Run against the code from before these fixes, three of the five scenarios fail. What was fixed:
+
+- A sitting is **claimed before it is marked**, in the same transaction, by the submit, the close-time marking and the next tick alike, so exactly one of them marks it, using the answers saved before the claim.
+- An autosave **holds the sitting** while it writes and is refused after the deadline, so no answer changes after it has been marked.
+- A round records **when it actually closed** (`closed_at`), so a submission that arrived in time counts even if the round closed while the request was being handled.
+- Every tick **picks up sittings left unmarked** in rounds that have closed.
+- Each email is **claimed before it is sent** and released if it fails, and a lifecycle tick that comes due while the previous one is still running is skipped.
+- Transactions **wait up to 15 s for a database connection** (Prisma's default is 2 s), so a burst at the close queues instead of failing.
+
+The test database is PGlite, a single Postgres session behind a socket server, so the integration and API suites use one pooled connection (`DATABASE_POOL_MAX=1`, as the end-to-end tests already did). Requests made at the same moment then queue for it, as they do for a busy pool, instead of interleaving inside one session. This proves the rules are applied correctly under concurrency; it is not a measure of throughput, which would need a separate full Postgres.
 
 ### 2.5 End-to-end tests
 
@@ -126,7 +152,7 @@ Each area then covers the normal case, ownership (users from another olympiad or
 | Competition | A student sits the exam online and submits → the organiser closes the round and releases results → the student sees their score |
 | Educator | Register a learner and invite a student · a student accepts and gets the olympiad |
 
-**Deliberately left to the faster suites:** every validation message, permission checks for all 66 endpoints, offline exam behaviour, and page-by-page detail.
+**Deliberately left to the faster suites:** every validation message, permission checks for all 110 endpoints, offline exam behaviour, and page-by-page detail.
 
 ---
 
@@ -154,6 +180,7 @@ npm run test:integration   # integration tests
 npm test                   # both
 npm run test:watch         # unit tests, re-running on save
 npm run test:coverage      # unit coverage report
+npm run test:coverage:all  # unit and integration coverage of every source file
 npm run typecheck:tests    # type-check the test code
 npm run lint               # lint
 ```

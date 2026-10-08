@@ -6,6 +6,8 @@ export function useCountdown(closesAt: string, offsetMs = 0) {
   const [remaining, setRemaining] = useState("");
   const [expired, setExpired] = useState(false);
   const [urgent, setUrgent] = useState(false);
+  // Milliseconds to the close, or null before the close time is known
+  const [msLeft, setMsLeft] = useState<number | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(
     undefined,
   );
@@ -18,6 +20,7 @@ export function useCountdown(closesAt: string, offsetMs = 0) {
       setRemaining("");
       setExpired(false);
       setUrgent(false);
+      setMsLeft(null);
       return;
     }
 
@@ -26,6 +29,7 @@ export function useCountdown(closesAt: string, offsetMs = 0) {
       // local clock can't extend or shorten the exam
       const now = Date.now() + offsetMs;
       const diff = closes - now;
+      setMsLeft(Math.max(0, diff));
 
       if (diff <= 0) {
         setRemaining("Time expired");
@@ -53,5 +57,5 @@ export function useCountdown(closesAt: string, offsetMs = 0) {
     };
   }, [closesAt, offsetMs]);
 
-  return { remaining, expired, urgent };
+  return { remaining, expired, urgent, msLeft };
 }

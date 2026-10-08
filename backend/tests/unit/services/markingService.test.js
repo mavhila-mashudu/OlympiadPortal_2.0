@@ -17,6 +17,11 @@ beforeEach(() => {
   resetPrismaMock();
   prisma.rounds.findFirst.mockResolvedValue(null);
   prisma.entrant_registrations.findMany.mockResolvedValue([]);
+  // A submission is claimed before it is marked; it's unclaimed unless a test says otherwise
+  prisma.submissions.updateMany.mockResolvedValue({ count: 1 });
+  // Papers are out of 100 marks unless a test says otherwise, so points and
+  // percentages read the same
+  prisma.questions.aggregate.mockResolvedValue({ _sum: { max_points: "100" } });
 });
 
 const organiserRound = (overrides = {}) => ({
@@ -97,8 +102,23 @@ describe("autoMarkSubmission", () => {
   });
 
   it("throws when the submission doesn't exist", async () => {
+    prisma.submissions.updateMany.mockResolvedValue({ count: 0 });
     prisma.submissions.findUnique.mockResolvedValue(null);
     await expect(autoMarkSubmission("missing")).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it("claims the submission first, and leaves one already claimed by another marker alone", async () => {
+    // The student's own submit (or another tick) got there first
+    prisma.submissions.updateMany.mockResolvedValue({ count: 0 });
+    prisma.submissions.findUnique.mockResolvedValue({ id: "sub-1" });
+
+    await expect(autoMarkSubmission("sub-1")).resolves.toEqual({ submissionId: "sub-1", status: "already_marked" });
+    expect(prisma.submissions.updateMany).toHaveBeenCalledWith({
+      where: { id: "sub-1", status: "received" },
+      data: { status: "automarked" },
+    });
+    expect(prisma.answers.update).not.toHaveBeenCalled();
+    expect(prisma.results.upsert).not.toHaveBeenCalled();
   });
 
   it("marks MCQ, True/False and short answers, and leaves essays alone", async () => {
@@ -177,10 +197,12 @@ describe("autoMarkSubmission", () => {
       submissionId: "sub-1",
       status: "processed",
     });
-    expect(prisma.submissions.update).toHaveBeenCalledWith({
-      where: { id: "sub-1" },
+    // The claim already set it; nothing a person must mark means no change
+    expect(prisma.submissions.updateMany).toHaveBeenCalledWith({
+      where: { id: "sub-1", status: "received" },
       data: { status: "automarked" },
     });
+    expect(prisma.submissions.update).not.toHaveBeenCalled();
   });
 
   it("queues the submission for manual marking when it contains an essay", async () => {
@@ -213,9 +235,11 @@ describe("autoMarkSubmission", () => {
 describe("autoMarkRoundInternal", () => {
   it("marks every received submission and reports per-submission failures", async () => {
     prisma.submissions.findMany.mockResolvedValue([{ id: "sub-ok" }, { id: "sub-missing" }]);
-    prisma.submissions.findUnique
-      .mockResolvedValueOnce({ id: "sub-ok", round_id: "r", entrant_id: "e", answers: [] })
-      .mockResolvedValueOnce(null);
+    // Several are marked at once, so the mocks answer by id rather than in order
+    prisma.submissions.updateMany.mockImplementation(async ({ where }) => ({ count: where.id === "sub-ok" ? 1 : 0 }));
+    prisma.submissions.findUnique.mockImplementation(async ({ where }) =>
+      where.id === "sub-ok" ? { id: "sub-ok", round_id: "r", entrant_id: "e", answers: [] } : null,
+    );
     prisma.answers.findMany.mockResolvedValue([]);
 
     const result = await autoMarkRoundInternal("round-1");
@@ -443,6 +467,47 @@ describe("generateResults", () => {
       threshold: 50,
       state: "results_released",
     });
+  });
+
+  // The reported bug: the threshold was compared with raw points, so a 20%
+  // threshold on a 10-mark paper could never be reached
+  it("reads the threshold as a percentage of the paper's total marks", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(organiserRound({ qualifying_threshold: "20" }));
+    prisma.questions.aggregate.mockResolvedValue({ _sum: { max_points: "10" } });
+    prisma.results.findMany.mockResolvedValue([
+      { id: "r-80", total_points: "8" }, // 80%
+      { id: "r-20", total_points: "2" }, // exactly 20%
+      { id: "r-10", total_points: "1" }, // 10%
+    ]);
+
+    await generateResults("round-1", "org-1", "organiser");
+
+    expect(prisma.questions.aggregate).toHaveBeenCalledWith({
+      where: { papers: { round_id: "round-1" } },
+      _sum: { max_points: true },
+    });
+    expect(prisma.results.update.mock.calls.map(([arg]) => [arg.where.id, arg.data.qualified])).toEqual([
+      ["r-80", true],
+      ["r-20", true],
+      ["r-10", false],
+    ]);
+  });
+
+  it("gives tied learners the same rank, and the next learner the rank after them", async () => {
+    prisma.rounds.findUnique.mockResolvedValue(organiserRound({ qualifying_threshold: null }));
+    prisma.results.findMany.mockResolvedValue([
+      { id: "r-a", total_points: "80" },
+      { id: "r-b", total_points: "80" },
+      { id: "r-c", total_points: "50" },
+    ]);
+
+    await generateResults("round-1", "org-1", "organiser");
+
+    expect(prisma.results.update.mock.calls.map(([arg]) => [arg.where.id, arg.data.rank])).toEqual([
+      ["r-a", 1],
+      ["r-b", 1],
+      ["r-c", 3],
+    ]);
   });
 
   it("qualifies nobody when the round has no threshold", async () => {

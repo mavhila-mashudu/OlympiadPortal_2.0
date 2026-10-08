@@ -11,6 +11,42 @@ describe("organiser dashboard", () => {
     fx.organiserRound({ id: "r-done", name: "Round 0", state: "results_released", exam_status: "live", _count: { submissions: 6, entrant_registrations: 6 } }),
   ];
 
+  describe("with more than one olympiad", () => {
+    const twoOlympiads = () => {
+      mockApi("get", "/olympiads", { olympiads: [fx.olympiad({ id: "oly-2", name: "Science Olympiad" }), fx.olympiad()] });
+      mockApi("get", "/olympiads/oly-2/rounds", { rounds: [fx.organiserRound({ id: "r-sci", name: "Science heats" })] });
+      mockApi("get", "/olympiads/oly-1/rounds", { rounds: [fx.organiserRound({ id: "r-maths", name: "Maths heats" })] });
+    };
+
+    it("shows the olympiad chosen in the sidebar, and switches when another is chosen", async () => {
+      twoOlympiads();
+      const { user } = renderApp("/organiser");
+      expect(await screen.findByText("Science heats")).toBeInTheDocument();
+
+      await user.selectOptions(screen.getByLabelText("Current olympiad"), "oly-1");
+
+      expect(await screen.findByText("Maths heats")).toBeInTheDocument();
+      expect(screen.queryByText("Science heats")).not.toBeInTheDocument();
+    });
+
+    it("remembers the choice on this device", async () => {
+      twoOlympiads();
+      localStorage.setItem("op_current_olympiad", "oly-1");
+      renderApp("/organiser");
+
+      expect(await screen.findByText("Maths heats")).toBeInTheDocument();
+      expect(screen.getByLabelText("Current olympiad")).toHaveValue("oly-1");
+    });
+
+    it("falls back to the newest when the remembered one no longer exists", async () => {
+      twoOlympiads();
+      localStorage.setItem("op_current_olympiad", "oly-deleted");
+      renderApp("/organiser");
+
+      expect(await screen.findByText("Science heats")).toBeInTheDocument();
+    });
+  });
+
   it("summarises the olympiad and lists its rounds with the right actions", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad({ _count: { rounds: 3, school_registrations: 4 } })] });
     mockApi("get", "/olympiads/oly-1/rounds", { rounds: rounds() });
@@ -103,9 +139,10 @@ describe("organiser dashboard", () => {
   });
 
   it("shows an error when the olympiad can't be loaded", async () => {
-    mockApiError("get", "/olympiads", 401, "Invalid or expired token");
+    // (A 401 ends the session instead; see auth.test.tsx)
+    mockApiError("get", "/olympiads", 500, "Database unavailable");
     renderApp("/organiser");
-    expect(await screen.findByText("Invalid or expired token")).toBeInTheDocument();
+    expect(await screen.findByText("Database unavailable")).toBeInTheDocument();
   });
 
   it("navigates to create a round", async () => {
@@ -136,7 +173,8 @@ describe("olympiads page", () => {
     );
     const { user } = renderApp("/organiser/olympiads");
 
-    const first = (await screen.findByText("Maths Olympiad 2026")).closest("tr")!;
+    // (the sidebar's switcher lists the olympiads too, so look in the page)
+    const first = (await within(screen.getByRole("main")).findByText("Maths Olympiad 2026")).closest("tr")!;
     expect(within(first).getAllByRole("cell").map((c) => c.textContent)).toEqual([
       expect.stringContaining("Maths Olympiad 2026"),
       "oly-1",
@@ -148,10 +186,18 @@ describe("olympiads page", () => {
     await user.type(screen.getByPlaceholderText("e.g. 2026 National Competition"), "Science Olympiad");
     await user.click(screen.getByRole("button", { name: "Create" }));
 
-    expect(await screen.findByText("Science Olympiad")).toBeInTheDocument();
+    expect(await within(screen.getByRole("main")).findByText("Science Olympiad")).toBeInTheDocument();
     // South African time unless the organiser picks another zone
     expect(created[0].body).toEqual({ name: "Science Olympiad", timezone: "Africa/Johannesburg" });
     expect(screen.getByPlaceholderText("e.g. 2026 National Competition")).toHaveValue("");
+
+    // The new olympiad becomes the one being worked on, and the sidebar can
+    // switch back to the earlier one
+    const switcher = screen.getByLabelText("Current olympiad");
+    await waitFor(() => expect(switcher).toHaveValue("oly-2"));
+    await user.selectOptions(switcher, "oly-1");
+    expect(switcher).toHaveValue("oly-1");
+    expect(localStorage.getItem("op_current_olympiad")).toBe("oly-1");
   });
 
   it("creates an olympiad in the timezone the organiser picks", async () => {
@@ -197,7 +243,7 @@ describe("olympiads page", () => {
     const invites = mockApi("post", "/invites", { invite: { id: "inv-1" } }, { status: 201 });
     const { user } = renderApp("/organiser/olympiads");
 
-    const science = (await screen.findByText("Science Olympiad")).closest("tr")!;
+    const science = (await within(screen.getByRole("main")).findByText("Science Olympiad")).closest("tr")!;
     await user.click(within(science).getByRole("button", { name: "Invite Educator" }));
 
     expect(screen.getByLabelText("Olympiad")).toHaveValue("oly-2");
@@ -298,10 +344,11 @@ describe("creating a round", () => {
   });
 
   const fillRoundForm = async (user: ReturnType<typeof renderApp>["user"]) => {
-    await screen.findByRole("option", { name: "Maths Olympiad 2026" });
+    // (the sidebar's switcher lists the olympiads too, so look in the form)
+    await within(screen.getByRole("main")).findByRole("option", { name: "Maths Olympiad 2026" });
     await user.selectOptions(screen.getByLabelText(/^Olympiad/), "oly-1");
     await user.type(screen.getByLabelText(/^Round name/), "Round 3 — Provincial");
-    await user.type(screen.getByLabelText("Qualifying threshold"), "62.5");
+    await user.type(screen.getByLabelText("Qualifying threshold (%)"), "62.5");
     await user.type(screen.getByLabelText("Instructions for educators"), "Calculators allowed");
     fireEvent.change(screen.getByLabelText(/^Opens at/), { target: { value: localInput } });
     fireEvent.change(screen.getByLabelText(/^Closes at/), { target: { value: localClose } });
@@ -351,7 +398,7 @@ describe("creating a round", () => {
     const { user, currentPath } = renderApp("/organiser/rounds/new");
 
     await fillRoundForm(user);
-    await user.clear(screen.getByLabelText("Qualifying threshold"));
+    await user.clear(screen.getByLabelText("Qualifying threshold (%)"));
     await user.click(screen.getByRole("button", { name: "Create round" }));
 
     await waitFor(() => expect(currentPath()).toBe("/organiser"));

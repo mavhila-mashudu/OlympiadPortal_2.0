@@ -3,6 +3,7 @@ import {
   AlertCircle,
   Archive,
   CheckCircle2,
+  ClipboardCheck,
   ClipboardList,
   Download,
   FileText,
@@ -58,8 +59,6 @@ function EducatorRoundDetail() {
         navItems={educatorNav}
         organisation=""
         portalLabel="Educator portal"
-        userInitials=""
-        userName=""
       >
         <p className={styles.loading}>Loading round details…</p>
       </AppShell>
@@ -73,8 +72,6 @@ function EducatorRoundDetail() {
         navItems={educatorNav}
         organisation=""
         portalLabel="Educator portal"
-        userInitials=""
-        userName=""
       >
         <div className={styles.stack}>
           <p className={styles.error}>
@@ -154,8 +151,6 @@ function EducatorRoundDetail() {
       navItems={educatorNav}
       organisation={round.school.name}
       portalLabel="Educator portal"
-      userInitials=""
-      userName=""
     >
       <div className={styles.stack}>
         <header className={styles.pageHeader}>
@@ -167,9 +162,18 @@ function EducatorRoundDetail() {
             </p>
           </div>
           <div className={styles.pageActions}>
+            {(round.state === "marking" || round.state === "closed") && (
+              <Button
+                to={`/educator/rounds/${round.id}/marking`}
+                variant="primary"
+                icon={<ClipboardCheck aria-hidden="true" />}
+              >
+                Mark submissions
+              </Button>
+            )}
             <Button
               to={`/educator/rounds/${round.id}/exam`}
-              variant="primary"
+              variant={round.state === "marking" || round.state === "closed" ? "outline" : "primary"}
               icon={<Pencil aria-hidden="true" />}
             >
               Build exam

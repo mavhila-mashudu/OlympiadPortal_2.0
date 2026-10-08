@@ -213,8 +213,6 @@ function ExamReview() {
         navItems={organiserNav}
         organisation=""
         portalLabel="Organiser portal"
-        userInitials=""
-        userName=""
       >
         <p className={styles.loading}>Loading...</p>
       </AppShell>
@@ -227,8 +225,6 @@ function ExamReview() {
       navItems={organiserNav}
       organisation=""
       portalLabel="Organiser portal"
-      userInitials=""
-      userName=""
     >
       <div className={showMemo && memoUrl ? styles.reviewLayout : styles.stack}>
         <div className={styles.stack}>

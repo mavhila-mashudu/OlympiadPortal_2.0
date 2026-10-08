@@ -12,7 +12,8 @@ const bucket = { upload: jest.fn(), createSignedUrl: jest.fn() };
 const supabase = {
   auth: {
     getUser: jest.fn(),
-    admin: { createUser: jest.fn(), deleteUser: jest.fn() },
+    resetPasswordForEmail: jest.fn(),
+    admin: { createUser: jest.fn(), deleteUser: jest.fn(), signOut: jest.fn(), generateLink: jest.fn() },
   },
   storage: { from: jest.fn(() => bucket), bucket },
 };
@@ -23,6 +24,11 @@ const resetExternalMocks = () => {
     .mockReset()
     .mockImplementation(async ({ email }) => ({ data: { user: { id: crypto.randomUUID(), email } }, error: null }));
   supabase.auth.admin.deleteUser.mockReset().mockResolvedValue({ data: {}, error: null });
+  supabase.auth.admin.signOut.mockReset().mockResolvedValue({ data: null, error: null });
+  supabase.auth.resetPasswordForEmail.mockReset().mockResolvedValue({ data: {}, error: null });
+  supabase.auth.admin.generateLink
+    .mockReset()
+    .mockImplementation(async ({ email }) => ({ data: { properties: { hashed_token: `hashed-${email}` } }, error: null }));
   supabase.storage.from.mockClear();
   bucket.upload.mockReset().mockResolvedValue({ data: {}, error: null });
   bucket.createSignedUrl

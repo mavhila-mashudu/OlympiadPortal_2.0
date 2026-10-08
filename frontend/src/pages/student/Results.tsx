@@ -92,8 +92,6 @@ function StudentResults() {
       navItems={studentNav}
       organisation={profile.organisation}
       portalLabel="Student portal"
-      userInitials={profile.userInitials}
-      userName={profile.userName}
     >
       <div className={styles.stack}>
         <PageHeader

@@ -15,6 +15,10 @@ const backgroundDefaults = [
   http.get(`${API_URL}/invites/mine`, () =>
     HttpResponse.json({ success: true, data: { invites: [] } }),
   ),
+  // The sidebar shows the signed-in person's name
+  http.get(`${API_URL}/auth/me`, () =>
+    HttpResponse.json({ success: true, data: { user: { id: "test-user", full_name: "Sam Tester", email: "sam@olympiad.test", role: "organiser" } } }),
+  ),
 ];
 
 // Shared MSW server. Tests register the endpoints they need with server.use().

@@ -9,7 +9,7 @@ import { Input } from "../../components/ui/Input";
 import { Label } from "../../components/ui/Label";
 import { Select } from "../../components/ui/Select";
 import { api } from "../../lib/api";
-import { clearCurrentOlympiadCache } from "../../lib/olympiad";
+import { clearCurrentOlympiadCache, selectOlympiad } from "../../lib/olympiad";
 import { DEFAULT_TIMEZONE, TIMEZONE_OPTIONS, formatDateInZone } from "../../lib/time";
 import { organiserNav } from "../../lib/mockData";
 import { InviteEducatorDialog, InviteEducatorForm } from "./InviteEducatorForm";
@@ -76,8 +76,10 @@ export default function Olympiads() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.post("/olympiads", { name, timezone });
+      const { olympiad } = await api.post<{ olympiad: { id: string } }>("/olympiads", { name, timezone });
       clearCurrentOlympiadCache();
+      // Work carries on in the new olympiad; the sidebar switches back
+      selectOlympiad(olympiad.id);
       setName("");
       setTimezone(DEFAULT_TIMEZONE);
       await loadOlympiads();
@@ -105,8 +107,6 @@ export default function Olympiads() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-      userInitials="NO"
-      userName="Admin user"
     >
       <div className={styles.stack}>
         <PageHeader

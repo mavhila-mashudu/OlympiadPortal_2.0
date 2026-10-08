@@ -1,4 +1,5 @@
 // @ts-nocheck
+const crypto = require("node:crypto");
 const prisma = require("../config/database").default;
 const { autoMarkRoundInternal } = require("./markingService");
 const { recordRoundEvent } = require("./roundAuditService");
@@ -52,7 +53,7 @@ const runLifecycleTick = async () => {
     for (const r of toClose) {
       const didClose = await prisma.$transaction(async (tx) => {
         const updated = await tx.rounds.updateMany({
-          where: { id: r.id, state: "open", closes_at: { lte: now } }, data: { state: "closed" },
+          where: { id: r.id, state: "open", closes_at: { lte: now } }, data: { state: "closed", closed_at: now },
         });
         if (updated.count) await recordRoundEvent(r.id, "round_closed", "lifecycle", `close:${r.id}`, { from: "open", to: "closed" }, tx, now);
         return Boolean(updated.count);
@@ -82,6 +83,27 @@ const runLifecycleTick = async () => {
           `[lifecycle] auto-marking failed for round "${r.name}" (${r.id}): ${err.message}`,
         );
       }
+    }
+  }
+
+  // ── sittings left unmarked after a close ───────────
+  // A sitting started a moment before the close can be saved after the
+  // close-time marking read the round, and a marking failure leaves sittings
+  // behind too. Every tick picks these up, so none stays unmarked.
+  const leftover = await prisma.rounds.findMany({
+    where: { state: { in: ["closed", "marking"] }, submissions: { some: { status: "received" } } },
+    select: { id: true, name: true },
+  });
+  for (const r of leftover) {
+    try {
+      const result = await autoMarkRoundInternal(r.id);
+      const marked = result.processed.filter((p) => p?.status === "processed").map((p) => p.submissionId).sort();
+      if (marked.length === 0) continue;
+      const key = crypto.createHash("sha1").update(marked.join(",")).digest("hex").slice(0, 16);
+      await recordRoundEvent(r.id, "late_sittings_automarked", "lifecycle", `mark-late:${r.id}:${key}`, { submissions: marked.length });
+      console.log(`[lifecycle] auto-marked ${marked.length} late sitting(s) for round "${r.name}"`);
+    } catch (err) {
+      console.error(`[lifecycle] marking late sittings failed for round "${r.name}" (${r.id}): ${err.message}`);
     }
   }
 

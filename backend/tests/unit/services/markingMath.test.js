@@ -1,4 +1,61 @@
-const { parseOptionList, scoreMcq } = require("../../../src/services/markingMath");
+const { parseOptionList, scoreMcq, qualifies, paperMaxPoints, competitionRanks } = require("../../../src/services/markingMath");
+
+describe("qualifies", () => {
+  it("reads the threshold as a percentage of the paper's total marks", () => {
+    // The reported case: 80% against a 20% threshold on a 10-mark paper
+    expect(qualifies({ totalPoints: 8, maxPoints: 10, threshold: 20 })).toBe(true);
+    expect(qualifies({ totalPoints: 12, maxPoints: 13, threshold: 80 })).toBe(true);
+    expect(qualifies({ totalPoints: 4, maxPoints: 5, threshold: 80 })).toBe(true);
+    expect(qualifies({ totalPoints: 3, maxPoints: 5, threshold: 80 })).toBe(false);
+  });
+
+  it("counts a score exactly on the threshold, without rounding it away", () => {
+    // 57/100 as a division is 56.99999…%; compared by multiplying it's 57%
+    expect(qualifies({ totalPoints: 57, maxPoints: 100, threshold: 57 })).toBe(true);
+    expect(qualifies({ totalPoints: 3, maxPoints: 5, threshold: 60 })).toBe(true);
+    expect(qualifies({ totalPoints: 62.5, maxPoints: 100, threshold: "62.5" })).toBe(true);
+    expect(qualifies({ totalPoints: "62.49", maxPoints: "100", threshold: "62.5" })).toBe(false);
+  });
+
+  it("qualifies nobody without a threshold, and everybody at 0%", () => {
+    expect(qualifies({ totalPoints: 10, maxPoints: 10, threshold: null })).toBe(false);
+    expect(qualifies({ totalPoints: 10, maxPoints: 10, threshold: undefined })).toBe(false);
+    expect(qualifies({ totalPoints: 0, maxPoints: 10, threshold: 0 })).toBe(true);
+  });
+
+  it("lets a paper worth no marks be passed only by a 0% threshold", () => {
+    expect(qualifies({ totalPoints: 0, maxPoints: 0, threshold: 0 })).toBe(true);
+    expect(qualifies({ totalPoints: 0, maxPoints: 0, threshold: 50 })).toBe(false);
+  });
+});
+
+describe("competitionRanks", () => {
+  it("gives equal totals the same rank and skips the next", () => {
+    const totals = ["90", "85", "85", "70", "70", "70", "10"].map((total_points) => ({ total_points }));
+    expect(competitionRanks(totals)).toEqual([1, 2, 2, 4, 4, 4, 7]);
+  });
+
+  it("treats a Decimal string and a number of the same value as equal", () => {
+    expect(competitionRanks([{ total_points: "8" }, { total_points: 8 }, { total_points: "7.5" }])).toEqual([1, 1, 3]);
+  });
+
+  it("ranks an empty list as empty", () => {
+    expect(competitionRanks([])).toEqual([]);
+  });
+});
+
+describe("paperMaxPoints", () => {
+  it("adds up the marks of every question on the round's paper", async () => {
+    const db = { questions: { aggregate: jest.fn().mockResolvedValue({ _sum: { max_points: "13" } }) } };
+    await expect(paperMaxPoints(db, "round-1")).resolves.toBe(13);
+    expect(db.questions.aggregate).toHaveBeenCalledWith({ where: { papers: { round_id: "round-1" } }, _sum: { max_points: true } });
+  });
+
+  it("is 0 for a round with no questions", async () => {
+    const db = { questions: { aggregate: jest.fn().mockResolvedValue({ _sum: { max_points: null } }) } };
+    await expect(paperMaxPoints(db, "round-1")).resolves.toBe(0);
+  });
+});
 
 describe("parseOptionList", () => {
   it("splits a comma-separated list and trims each entry", () => {

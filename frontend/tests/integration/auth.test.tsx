@@ -257,6 +257,7 @@ describe("logging out", () => {
 
   it("clears the session so the next student on this computer starts fresh", async () => {
     mockLandingPages();
+    mockApi("post", "/auth/logout", { message: "Logged out" });
     mockSupabaseSignIn({ userId: "student-user", accessToken: "jwt-ayanda" });
     const signOuts = mockSupabaseSignOut();
     const students = [fx.me("student"), fx.me("student", { id: "student-2", full_name: "Lerato Nkosi" })];
@@ -291,19 +292,136 @@ describe("logging out", () => {
   it("returns to the login page when there is no Supabase session to end", async () => {
     mockApi("get", "/olympiads", { olympiads: [fx.olympiad()] });
     mockApi("get", "/olympiads/oly-1/rounds", { rounds: [] });
+    mockApi("post", "/auth/logout", { message: "Logged out" });
     localStorage.setItem("op_access_token", "jwt");
     const { user, currentPath } = renderApp("/organiser");
 
     await user.click(await screen.findByRole("button", { name: "Log out" }));
 
-    expect(currentPath()).toBe("/login");
+    await waitFor(() => expect(currentPath()).toBe("/login"));
     expect(localStorage.getItem("op_access_token")).toBeNull();
+    expect(localStorage.getItem("op_role")).toBeNull();
+  });
+
+  it("ends the session on the server with the token being logged out", async () => {
+    mockLandingPages();
+    const logouts = mockApi("post", "/auth/logout", { message: "Logged out" });
+    localStorage.setItem("op_access_token", "jwt-thandi");
+    const { user, currentPath } = renderApp("/organiser");
+
+    await user.click(await screen.findByRole("button", { name: "Log out" }));
+
+    await waitFor(() => expect(currentPath()).toBe("/login"));
+    expect(logouts).toHaveLength(1);
+    expect(logouts[0].headers.get("Authorization")).toBe("Bearer jwt-thandi");
+  });
+
+  it("still logs out when the server can't be reached", async () => {
+    mockLandingPages();
+    mockNetworkFailure("post", "/auth/logout");
+    localStorage.setItem("op_access_token", "jwt");
+    const { user, currentPath } = renderApp("/organiser");
+
+    await user.click(await screen.findByRole("button", { name: "Log out" }));
+
+    await waitFor(() => expect(currentPath()).toBe("/login"));
+    expect(localStorage.getItem("op_access_token")).toBeNull();
+  });
+
+  it("shows the login page, not the account, when Back is pressed after logging out", async () => {
+    mockLandingPages();
+    mockApi("get", "/olympiads/archive", { rounds: [] });
+    mockApi("post", "/auth/logout", { message: "Logged out" });
+    localStorage.setItem("op_access_token", "jwt");
+    const { user, currentPath, goBack } = renderApp("/organiser");
+    await screen.findByRole("heading", { name: "Organiser dashboard" });
+    await user.click(screen.getByRole("link", { name: "Paper archive" }));
+    await waitFor(() => expect(currentPath()).toBe("/organiser/archive"));
+
+    await user.click(screen.getByRole("button", { name: "Log out" }));
+    await screen.findByRole("heading", { name: "Log in" });
+    goBack();
+
+    await waitFor(() => expect(currentPath()).toBe("/login"));
+    expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Organiser dashboard" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Log out" })).not.toBeInTheDocument();
+  });
+});
+
+describe("signed-in pages", () => {
+  // A JWT whose "exp" claim is the given moment
+  const jwtExpiringAt = (date: Date) =>
+    `header.${btoa(JSON.stringify({ exp: Math.floor(date.getTime() / 1000) })).replace(/=+$/, "")}.signature`;
+
+  it("send a visitor who isn't signed in to the login page, and back after they log in", async () => {
+    mockApi("get", "/olympiads/archive", { rounds: [] });
+    mockSupabaseSignIn({ userId: "organiser-user", accessToken: "jwt-thandi" });
+    mockApi("get", "/auth/me", fx.me("organiser"));
+    const { user, currentPath } = renderApp("/organiser/archive");
+
+    expect(await screen.findByRole("heading", { name: "Log in" })).toBeInTheDocument();
+    expect(currentPath()).toBe("/login");
+    // Not signed in before, so nothing "ended"
+    expect(screen.queryByText("Your session has ended. Please log in again.")).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Email address"), "thandi@olympiad.test");
+    await user.type(screen.getByLabelText("Password"), "Secret123");
+    await user.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => expect(currentPath()).toBe("/organiser/archive"));
+    expect(localStorage.getItem("op_role")).toBe("organiser");
+  });
+
+  it("send a user to their own dashboard from another role's pages", async () => {
+    mockLandingPages();
+    localStorage.setItem("op_access_token", "jwt");
+    localStorage.setItem("op_role", "student");
+    const { currentPath } = renderApp("/organiser/schools");
+
+    await waitFor(() => expect(currentPath()).toBe("/student"));
+  });
+
+  it("end an expired session and say so", async () => {
+    localStorage.setItem("op_access_token", jwtExpiringAt(new Date(Date.now() - 60_000)));
+    const { currentPath } = renderApp("/organiser");
+
+    expect(await screen.findByText("Your session has ended. Please log in again.")).toBeInTheDocument();
+    expect(currentPath()).toBe("/login");
+    await waitFor(() => expect(localStorage.getItem("op_access_token")).toBeNull());
+  });
+
+  it("end the session when the server says it's no longer valid", async () => {
+    mockApiError("get", "/olympiads", 401, "Invalid or expired token");
+    mockApiError("get", "/notifications", 401, "Invalid or expired token");
+    localStorage.setItem("op_access_token", "jwt");
+    const { currentPath } = renderApp("/organiser");
+
+    expect(await screen.findByText("Your session has ended. Please log in again.")).toBeInTheDocument();
+    expect(currentPath()).toBe("/login");
+    await waitFor(() => expect(localStorage.getItem("op_access_token")).toBeNull());
+  });
+
+  it("follow a logout in another tab", async () => {
+    mockLandingPages();
+    localStorage.setItem("op_access_token", "jwt");
+    const { currentPath } = renderApp("/organiser");
+    await screen.findByRole("heading", { name: "Organiser dashboard" });
+
+    // The other tab removed the token from the storage this tab shares
+    localStorage.removeItem("op_access_token");
+    window.dispatchEvent(new StorageEvent("storage", { key: "op_access_token", oldValue: "test-token", newValue: null }));
+
+    await waitFor(() => expect(currentPath()).toBe("/login"));
   });
 });
 
 describe("resetting a forgotten password", () => {
-  it("asks Supabase to email a reset link back to this site", async () => {
+  const resetSent = { message: "If an account exists for that address, a reset link is on its way." };
+
+  it("asks the portal, not Supabase, to email a reset link", async () => {
     const { requests } = mockSupabasePasswordReset();
+    const calls = mockApi("post", "/auth/forgot-password", resetSent);
     const { user } = renderApp("/login");
 
     await user.click(screen.getByRole("link", { name: "Forgot password?" }));
@@ -311,13 +429,24 @@ describe("resetting a forgotten password", () => {
     await user.click(screen.getByRole("button", { name: "Send reset link" }));
 
     expect(await screen.findByText(/a reset link is on its way/i)).toBeInTheDocument();
-    expect(requests).toEqual([
-      { email: "thandi@olympiad.test", redirect_to: "http://localhost:3000/reset-password" },
-    ]);
+    expect(calls.map((call) => call.body)).toEqual([{ email: "thandi@olympiad.test" }]);
+    // Supabase's own sender allows only a few emails an hour for everyone
+    expect(requests).toEqual([]);
+  });
+
+  it("explains when too many resets are asked for", async () => {
+    mockApiError("post", "/auth/forgot-password", 429, "Too many attempts. Please wait a few minutes and try again.");
+    const { user } = renderApp("/forgot-password");
+
+    await user.type(screen.getByLabelText("Email address"), "thandi@olympiad.test");
+    await user.click(screen.getByRole("button", { name: "Send reset link" }));
+
+    expect(await screen.findByText("Too many attempts. Please wait a few minutes and try again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send reset link" })).toBeEnabled();
   });
 
   it("says the same thing for an address without an account", async () => {
-    mockSupabasePasswordReset();
+    mockApi("post", "/auth/forgot-password", resetSent);
     const { user } = renderApp("/forgot-password");
 
     await user.type(screen.getByLabelText("Email address"), "nobody@olympiad.test");

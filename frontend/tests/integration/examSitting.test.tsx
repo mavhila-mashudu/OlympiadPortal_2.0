@@ -244,6 +244,33 @@ describe("sitting an exam online", () => {
     expect(submits).toHaveLength(1);
   });
 
+  it("submits a few seconds before the close, so the submission arrives in time", async () => {
+    const closesAt = new Date(Date.now() + 6500);
+    const { submits } = mockExam({ closesAt: closesAt.toISOString(), submission: startedSubmission({ "q-mcq": "2" }) });
+    // When the submission reaches the server
+    const submittedAt: number[] = [];
+    mockApi("post", "/rounds/round-1/exam/submit", () => {
+      submittedAt.push(Date.now());
+      return { message: "Exam submitted successfully", status: "queued_for_marking", total_points: 3, is_late: false };
+    });
+    renderApp(PATH);
+
+    expect(await screen.findByRole("heading", { name: "Exam submitted" }, { timeout: 6000 })).toBeInTheDocument();
+    expect(submittedAt).toHaveLength(1);
+    expect(submittedAt[0]).toBeLessThan(closesAt.getTime());
+    expect(submits).toHaveLength(0); // the handler above answered instead
+  });
+
+  it("says time's up, not an error, when the round closed before the submission arrived", async () => {
+    mockExam({ closesAt: new Date(Date.now() + 1500).toISOString(), submission: startedSubmission({ "q-mcq": "2" }) });
+    mockApiError("post", "/rounds/round-1/exam/submit", 400, "Submission received at or after the round deadline");
+    renderApp(PATH);
+
+    expect(await screen.findByRole("heading", { name: "Time’s up" }, { timeout: 4000 })).toBeInTheDocument();
+    expect(screen.getByText(/The answers you saved before the close will be marked/)).toBeInTheDocument();
+    expect(screen.queryByText("Submission received at or after the round deadline")).not.toBeInTheDocument();
+  });
+
   it("won't start once the time has expired", async () => {
     const { starts } = mockExam({ closesAt: fx.inHours(-0.1) });
     renderApp(PATH);

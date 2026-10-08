@@ -135,17 +135,29 @@
   each question once and can’t put it on a paper twice (the old defect #2).
 </div>
 
+<div class="note">
+  <strong>Update, 29 September 2026</strong>
+  All five Platform stories are now complete. Notification emails are confirmed working on the live site (P4),
+  the documentation is published at
+  <a href="https://2846849.github.io/Olympiad-portal-documentation/">2846849.github.io/Olympiad-portal-documentation</a>
+  (P5), and the team has confirmed the portal is responsive and accessible (P2). Exam variants (A6, A7) were
+  merged on 28 September. Later the same day A1 and A16 were completed. For A1, a peak-load test suite found
+  five ways the closing moment could go wrong under load, and all are fixed (see <code>docs/testing.md</code>,
+  section 2.4). A16 turned out to be built already (PR #57) and now has tests and documentation. Only
+  moderation (I7) remains.
+</div>
+
 <h2>Summary</h2>
 
 <div class="stats">
-  <div class="stat done"><div class="n">53</div><div class="l">Fully complete</div></div>
-  <div class="stat part"><div class="n">4</div><div class="l">Partially complete</div></div>
-  <div class="stat todo"><div class="n">2</div><div class="l">Not implemented</div></div>
-  <div class="stat"><div class="n">90%</div><div class="l">Of all stories done</div></div>
+  <div class="stat done"><div class="n">58</div><div class="l">Fully complete</div></div>
+  <div class="stat part"><div class="n">1</div><div class="l">Partially complete</div></div>
+  <div class="stat todo"><div class="n">0</div><div class="l">Not implemented</div></div>
+  <div class="stat"><div class="n">98%</div><div class="l">Of all stories done</div></div>
 </div>
 
-<div class="bar" role="img" aria-label="53 complete, 4 partial, 2 not implemented">
-  <i class="d" style="width:89.8%"></i><i class="p" style="width:6.8%"></i><i class="t" style="width:3.4%"></i>
+<div class="bar" role="img" aria-label="58 complete, 1 partial, 0 not implemented">
+  <i class="d" style="width:98.3%"></i><i class="p" style="width:1.7%"></i>
 </div>
 
 <div class="scroll">
@@ -155,8 +167,8 @@
   <tbody>
     <tr><td><strong>Basic (B)</strong></td><td>17</td><td>0</td><td>0</td><td>17</td></tr>
     <tr><td><strong>Intermediate (I)</strong></td><td>18</td><td>1</td><td>0</td><td>19</td></tr>
-    <tr><td><strong>Advanced (A)</strong></td><td>16</td><td>0</td><td>2</td><td>18</td></tr>
-    <tr><td><strong>Platform (P)</strong></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
+    <tr><td><strong>Advanced (A)</strong></td><td>18</td><td>0</td><td>0</td><td>18</td></tr>
+    <tr><td><strong>Platform (P)</strong></td><td>5</td><td>0</td><td>0</td><td>5</td></tr>
   </tbody>
 </table>
 </div>
@@ -167,20 +179,19 @@
   <caption>Completion by role</caption>
   <thead><tr><th>Role</th><th>Complete</th><th>Partial</th><th>Not started</th><th>Total</th></tr></thead>
   <tbody>
-    <tr><td><span class="role">Organiser</span></td><td>16</td><td>0</td><td>1</td><td>17</td></tr>
+    <tr><td><span class="role">Organiser</span></td><td>17</td><td>0</td><td>0</td><td>17</td></tr>
     <tr><td><span class="role">Educator</span></td><td>12</td><td>0</td><td>0</td><td>12</td></tr>
     <tr><td><span class="role">Student</span></td><td>8</td><td>0</td><td>0</td><td>8</td></tr>
-    <tr><td><span class="role">System</span></td><td>13</td><td>0</td><td>1</td><td>14</td></tr>
+    <tr><td><span class="role">System</span></td><td>14</td><td>0</td><td>0</td><td>14</td></tr>
     <tr><td><span class="role">Marker</span></td><td>2</td><td>1</td><td>0</td><td>3</td></tr>
-    <tr><td><span class="role">Platform</span></td><td>2</td><td>3</td><td>0</td><td>5</td></tr>
+    <tr><td><span class="role">Platform</span></td><td>5</td><td>0</td><td>0</td><td>5</td></tr>
   </tbody>
 </table>
 </div>
 
 <p><strong>The whole Basic tier is done.</strong> The Intermediate tier is done apart from moderation (I7), which
-works but can’t yet be used in the app. The Advanced tier is
-16 of 18 complete. What is left there is load testing (A1) and one archive across
-olympiads (A16).</p>
+works but can’t yet be used in the app. <strong>The whole Advanced tier is done</strong>, and so are
+<strong>all five Platform stories</strong>.</p>
 
 <h2>Fully complete</h2>
 <p class="sub">Implemented, reachable through the UI, and covered by tests.</p>
@@ -243,6 +254,7 @@ olympiads (A16).</p>
 <table>
   <thead><tr><th>ID</th><th>Role</th><th>Story</th><th>Evidence in the code</th></tr></thead>
   <tbody>
+    <tr><td class="id">A1</td><td><span class="role">System</span></td><td>Correct under peak load</td><td>A peak-load suite (<code>peakLoad.test.js</code>) checks exact outcomes when many things land at once: 40 rounds opening and closing with three ticks running, 45 learners around a round’s close, double-clicked submits, sittings left behind, and overlapping email passes. It found five problems, all fixed: sittings are claimed before marking, autosaves hold the sitting and stop at the deadline, rounds record when they closed (<code>closed_at</code>), every tick picks up unmarked sittings, and emails are claimed before sending, with ticks no longer overlapping. Transactions also wait longer for a connection in a burst. This proves correctness, not throughput</td></tr>
     <tr><td class="id">A2</td><td><span class="role">System</span></td><td>One authoritative clock</td><td>The server clock decides every deadline (<code>server_time</code>, <code>round_close_snapshot</code>), and since 27 September every round time is entered and shown in the olympiad’s own timezone, labelled (e.g. “14:00 SAST”), so “on time” reads the same for every school whatever its devices are set to. Holidays are checked on the olympiad’s calendar</td></tr>
     <tr><td class="id">A4</td><td><span class="role">Organiser</span></td><td>Defensible deadline boundary</td><td>One written rule, applied by both routes: the closing instant is exclusive, so a submission received at or after it is late. Every ruling is stored in <code>submission_deadline_decisions</code> with the times compared and the rule quoted, and shows in the round replay (<code>roundAuditService.deadlineDecision</code>)</td></tr>
     <tr><td class="id">A3</td><td><span class="role">System</span></td><td>Count a submission exactly once</td><td>Deterministic <code>idempotency_key</code> from round+entrant+route, with a unique index and a pre-check</td></tr>
@@ -257,10 +269,14 @@ olympiads (A16).</p>
     <tr><td class="id">A13</td><td><span class="role">Marker</span></td><td>Route appeals to a reviewer</td><td>The organiser’s Remarks page assigns requests to an educator by hand or spreads them evenly by workload, never to the learner’s own school; the reviewer sees them on their own Remarks page (<code>organiserRemarkService</code>)</td></tr>
     <tr><td class="id">A14</td><td><span class="role">System</span></td><td>Appeal outcome updates standings</td><td>A revised mark, from the organiser or an assigned educator, recalculates every rank, qualification and next-round entry in the same transaction (<code>resultRecalculationService</code>). Standings read those results, so they follow automatically</td></tr>
     <tr><td class="id">A15</td><td><span class="role">Organiser</span></td><td>Several olympiads at once</td><td>An organiser runs many olympiads, each with its own rounds, schedule and timezone (chosen when it is created); round times, holiday checks and notification messages all use that timezone</td></tr>
+    <tr><td class="id">A16</td><td><span class="role">Organiser</span></td><td>One archive across olympiads</td><td>The organiser’s Archive page lists released papers and memos from all their olympiads in one place (<code>GET /olympiads/archive</code>, added in PR #57), each labelled with its olympiad and shown in that olympiad’s timezone. A public archive across every olympiad is at <code>GET /public/papers</code> (PR #64). API tests cover the shared archive</td></tr>
     <tr><td class="id">A17</td><td><span class="role">Organiser</span></td><td>Log every automatic action</td><td>Round openings and closings, auto-marking, result release, archiving, qualifier advancement and in-app notification deliveries are written to <code>round_events</code>, an append-only table keyed so a retried job never logs twice</td></tr>
     <tr><td class="id">A18</td><td><span class="role">Organiser</span></td><td>Replay a round</td><td>The round’s Replay page shows its events and deadline rulings as one timeline, in order (<code>RoundReplay.tsx</code>, <code>GET /rounds/:id/replay</code>)</td></tr>
     <tr><td class="id">P1</td><td><span class="role">Platform</span></td><td>Sign up, sign in, reset, delete</td><td>Supabase Auth; reset-password flow; soft-delete on <code>DELETE /auth/account</code></td></tr>
+    <tr><td class="id">P2</td><td><span class="role">Platform</span></td><td>Responsive and accessible</td><td>Responsive layouts throughout, semantic roles, labelled form controls and keyboard-reachable dialogs; confirmed by the team on 29 September 2026. No formal WCAG AA audit is on record</td></tr>
     <tr><td class="id">P3</td><td><span class="role">Platform</span></td><td>Hand-written, documented API</td><td>73 endpoints, all hand-written; <code>docs/API.md</code>; an endpoint-inventory test fails if a route is added without being documented and access-tested</td></tr>
+    <tr><td class="id">P4</td><td><span class="role">Platform</span></td><td>Integrate an external service</td><td>Supabase provides auth, Postgres and file storage, and Azure hosts both tiers. Round reminders, open/close notices and results notices are emailed to educators through EmailJS, each recorded so it is sent once; confirmed working on the live site on 29 September 2026</td></tr>
+    <tr><td class="id">P5</td><td><span class="role">Platform</span></td><td>Public documentation site</td><td>Published at <a href="https://2846849.github.io/Olympiad-portal-documentation/">2846849.github.io/Olympiad-portal-documentation</a> and linked from the README; the site answered on 29 September 2026</td></tr>
   </tbody>
 </table>
 </div>
@@ -275,15 +291,6 @@ olympiads (A16).</p>
     <tr><td class="id">I7</td><td><span class="role">Marker</span></td><td>Moderator reviews marking</td>
       <td><strong>Exists:</strong> the organiser sees a stable sample of hand-marked answers on the marking page and can revise a mark, which is recorded and recalculates results. A marker may not moderate their own marking. 9 API tests in <code>moderation.test.js</code>.
       <strong>Missing:</strong> it can’t be used in the app. Only the organiser’s marking queue marks answers (educators may mark through the API, but have no screen for it), and the organiser is also the only moderator, so every review is refused as moderating their own marking.</td></tr>
-    <tr><td class="id">P2</td><td><span class="role">Platform</span></td><td>Responsive and accessible</td>
-      <td><strong>Exists:</strong> responsive CSS throughout, semantic roles, labelled form controls, keyboard-reachable dialogs.
-      <strong>Missing:</strong> no accessibility audit has been run; WCAG AA is claimed nowhere and verified nowhere.</td></tr>
-    <tr><td class="id">P4</td><td><span class="role">Platform</span></td><td>Integrate an external service</td>
-      <td><strong>Exists:</strong> Supabase provides auth, Postgres and file storage; Azure hosts both tiers. Since PR #58, round reminders, open/close notices and results notices are emailed to educators through EmailJS, the notification service the story names, and each email is recorded so it is sent once.
-      <strong>Missing:</strong> it hasn’t yet been seen working on the live site. The EmailJS settings were added to the App Service on 28 September and a test email with them was delivered; the next round to open will confirm it.</td></tr>
-    <tr><td class="id">P5</td><td><span class="role">Platform</span></td><td>Public documentation site</td>
-      <td><strong>Exists:</strong> ten substantial documents under <code>docs/</code>.
-      <strong>Missing:</strong> they are Markdown in the repository, not a published site — an evaluator still needs repository access.</td></tr>
   </tbody>
 </table>
 </div>
@@ -291,16 +298,7 @@ olympiads (A16).</p>
 <h2>Not implemented</h2>
 
 
-<div class="scroll">
-<table>
-  <thead><tr><th>ID</th><th>Role</th><th>Story</th><th>Status</th><th>Note</th></tr></thead>
-  <tbody>
-    <tr><td class="id">A1</td><td><span class="role">System</span></td><td>Correct under peak load</td><td><span class="tag t-todo">Not started</span></td><td>No load testing exists. The lifecycle tick is idempotent, which helps, but this is unproven.</td></tr>
-
-    <tr><td class="id">A16</td><td><span class="role">Organiser</span></td><td>One archive across olympiads</td><td><span class="tag t-todo">Not started</span></td><td>The archive endpoint is <code>/olympiads/:id/archive</code> — scoped per olympiad, which is the opposite of what the story asks.</td></tr>
-  </tbody>
-</table>
-</div>
+<p>None. Every story has at least been started.</p>
 
 <h2>Defects and risks found</h2>
 <p class="sub"><code>docs/bug-tracking.md</code> records 47 bugs, every one marked <em>Fixed</em> — no open
@@ -552,7 +550,9 @@ merges. Each code fix has tests.</p>
   again on 28 September 2026 after PRs #53, #57 and #58.
   A6 and A7 (exam variants) were re-checked on 28 September 2026: the code, the migrations and every
   test tier (unit, integration, API, end-to-end) were verified, and the stale tests they had broken
-  were repaired.
+  were repaired. The Platform stories were updated on 29 September 2026 from the team’s confirmation
+  (P2, P4) and a check that the documentation site answers (P5). A1 and A16 were verified against the
+  code and test output on 29 September 2026.
 </footer>
 
 </div>

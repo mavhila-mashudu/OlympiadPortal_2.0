@@ -25,6 +25,34 @@ const lastCall = () => {
   return { url, options, headers: options.headers as Headers };
 };
 
+describe("an ended session", () => {
+  it("is reported when the API answers 401 to a request that carried a token", async () => {
+    const { api, setToken, setSessionEndedHandler } = await loadApi();
+    const ended = vi.fn();
+    setSessionEndedHandler(ended);
+    fetchMock.mockResolvedValue(jsonResponse({ success: false, error: "Invalid or expired token" }, { ok: false, status: 401 }));
+
+    setToken("jwt-123");
+    await expect(api.get("/olympiads")).rejects.toThrow("Invalid or expired token");
+    expect(ended).toHaveBeenCalledTimes(1);
+  });
+
+  it("isn't reported for a request without a token, or for other errors", async () => {
+    const { api, setToken, setSessionEndedHandler } = await loadApi();
+    const ended = vi.fn();
+    setSessionEndedHandler(ended);
+
+    fetchMock.mockResolvedValue(jsonResponse({ success: false, error: "No token provided" }, { ok: false, status: 401 }));
+    await expect(api.get("/olympiads")).rejects.toThrow();
+
+    setToken("jwt-123");
+    fetchMock.mockResolvedValue(jsonResponse({ success: false, error: "Insufficient permissions" }, { ok: false, status: 403 }));
+    await expect(api.get("/olympiads")).rejects.toThrow();
+
+    expect(ended).not.toHaveBeenCalled();
+  });
+});
+
 describe("token storage", () => {
   it("saves, reads and clears the access token in localStorage", async () => {
     const { getToken, setToken, clearToken } = await loadApi();

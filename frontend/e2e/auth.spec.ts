@@ -26,16 +26,25 @@ test.describe("signing in", () => {
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("logging out ends the session", async ({ page }) => {
+  test("logging out ends the session, and Back doesn't bring the account back", async ({ page }) => {
     await signIn(page, USERS.organiser, "/organiser");
+    await page.getByRole("link", { name: "Paper archive" }).click();
+    await expect(page).toHaveURL(/\/organiser\/archive$/);
 
     await page.getByRole("button", { name: "Log out" }).click();
-
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
-    // Going back to a signed-in page no longer shows another user's data
-    await page.goto("/organiser");
-    await expect(page.getByText(/Invalid or expired token|No token provided/)).toBeVisible();
+
+    // The browser's Back button lands on the login page, not the account
+    await page.goBack();
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("heading", { name: "Log in" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Organiser dashboard" })).toBeHidden();
+
+    // Typing a signed-in page's address does the same
+    await page.goto("/organiser/schools");
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(page.getByRole("button", { name: "Log out" })).toBeHidden();
   });
 });
 
@@ -136,4 +145,13 @@ test("an account is deleted and can no longer sign in", async ({ page }) => {
   await page.getByLabel("Password", { exact: true }).fill(USERS.disposable.password);
   await page.getByRole("button", { name: "Log in" }).click();
   await expect(page.getByText("Invalid login credentials")).toBeVisible();
+});
+
+test("Log out and Delete account stay in view on a short laptop screen", async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 420 });
+  await signIn(page, USERS.organiser, "/organiser");
+
+  // The organiser's sidebar is the longest; its links scroll instead
+  await expect(page.getByRole("button", { name: "Log out" })).toBeInViewport();
+  await expect(page.getByRole("button", { name: "Delete account" })).toBeInViewport();
 });

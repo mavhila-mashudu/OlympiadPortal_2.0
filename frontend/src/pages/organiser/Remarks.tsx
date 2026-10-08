@@ -187,8 +187,6 @@ export function OrganiserRemarks() {
       navItems={organiserNav}
       organisation="Olympiad Organiser"
       portalLabel="Organiser Portal"
-      userInitials="OR"
-      userName="Organiser"
     >
       <div className={styles.stack}>
         <PageHeader

@@ -16,6 +16,17 @@ export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+export const TOKEN_STORAGE_KEY = TOKEN_KEY;
+
+// Told when the API answers 401 to a request that carried a token: the
+// session has expired, been revoked, or its account was deleted. The page
+// guard registers it while a signed-in page is open, and signs the user out.
+let sessionEndedHandler: (() => void) | null = null;
+
+export function setSessionEndedHandler(handler: (() => void) | null) {
+  sessionEndedHandler = handler;
+}
+
 type ApiEnvelope<T> =
   | { success: true; data: T }
   | { success: false; error: string };
@@ -59,6 +70,7 @@ async function request<T>(
         json && "error" in json && json.error
           ? json.error
           : `Request failed (${res.status})`;
+      if (res.status === 401 && token) sessionEndedHandler?.();
       throw new Error(message);
     }
 

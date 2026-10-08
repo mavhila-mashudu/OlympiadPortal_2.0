@@ -1033,6 +1033,30 @@ describe("getRemarkSubmissionAnswers", () => {
     });
   });
 
+  // With exam variants a student's choice answer is stored in the order they
+  // saw the options; the reviewer must compare it with the key in the same terms
+  it("shows a choice answer and its key as option text, undoing the student's shuffled order", async () => {
+    prisma.remark_requests.findUnique.mockResolvedValue({
+      id: "rem-1",
+      reviewer_id: "u",
+      results: { round_id: "round-1", entrant_id: "ent-1", total_points: 0, entrants: { full_name: "Ayanda" }, rounds: { name: "Round 1" } },
+    });
+    const question = { id: "q-1", prompt: "Which are prime?", type: "mcq", options: ["2", "4", "5"], correct_option: "0,2", correct_answer: null, max_points: 4 };
+    prisma.submissions.findFirst.mockResolvedValue({
+      id: "sub-1",
+      // Shown to this student as ["5", "2", "4"]
+      exam_assignments: { option_orders: { "q-1": [2, 0, 1] } },
+      answers: [
+        // Picked the 1st and 2nd options shown: "5" and "2"
+        { id: "ans-1", question_id: "q-1", answer_value: "0,1", points_awarded: 4, is_correct: true, marked_at: null, questions: question },
+      ],
+    });
+
+    const { answers: [answer] } = await svc.getRemarkSubmissionAnswers("rem-1", "u");
+
+    expect(answer).toMatchObject({ studentAnswer: "5, 2", correctAnswer: "2, 5" });
+  });
+
   it("returns question-by-question submission answers", async () => {
     prisma.remark_requests.findUnique.mockResolvedValue({
       id: "rem-1",

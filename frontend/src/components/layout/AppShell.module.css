@@ -18,15 +18,36 @@
   height: 100%;
   flex-direction: column;
   gap: 1.5rem;
+  min-height: 0;
   padding: 1rem;
+}
+
+/* On a short screen the links scroll; the header and the account actions
+   (Log out, Delete account) always stay in view */
+.sidebarInner > * {
+  flex-shrink: 0;
+}
+
+.sidebarInner > .nav {
+  flex: 0 1 auto;
+  min-height: 0;
+  margin: -2px;
+  padding: 2px;
+  overflow-y: auto;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 0.625rem;
+  border: 0;
   border-radius: calc(var(--radius) - 2px);
   padding: 0 0.25rem;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
 .brand:focus-visible,
@@ -78,6 +99,35 @@
   line-height: 1rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* The organiser's olympiad switcher */
+.switcher {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0 0.25rem;
+}
+
+.switcher span {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.switcher select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.4rem 0.5rem;
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+
+.switcher select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .roleLabel {
@@ -206,18 +256,75 @@
   }
 }
 
+/* Small screens: the sidebar opens over the page from the menu button */
+.mobileOpen {
+  z-index: 50;
+  display: block;
+  box-shadow: 0 0 2rem rgb(0 0 0 / 0.2);
+}
+
+.mobileBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: 0;
+  background: rgb(0 0 0 / 0.4);
+}
+
 @media (min-width: 48rem) {
   .sidebar {
     display: block;
+    transition: width 180ms ease;
   }
 
-  .mobileHeader {
+  .mobileHeader,
+  .mobileBackdrop {
     display: none;
   }
 
   .contentFrame {
     min-height: 100vh;
     padding-left: 16rem;
+    transition: padding-left 180ms ease;
+  }
+
+  /* Collapsed to icons: labels are hidden from sight but still read out
+     (.label); parts with nothing to say as an icon are removed (.expandedOnly) */
+  .collapsed .sidebar {
+    width: 4.5rem;
+  }
+
+  .collapsed .sidebarInner {
+    padding-inline: 0.75rem;
+  }
+
+  .collapsed .contentFrame {
+    padding-left: 4.5rem;
+  }
+
+  .collapsed .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  .collapsed .expandedOnly {
+    display: none;
+  }
+
+  .collapsed .navItem,
+  .collapsed .accountButton {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .collapsed .brand,
+  .collapsed .accountIdentity {
+    justify-content: center;
+    padding: 0;
   }
 }
 

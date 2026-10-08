@@ -20,11 +20,11 @@ Every bug fixed in the application code has an automated test that reproduces it
 
 | Priority | Count |
 |---|---|
-| Critical | 7 |
-| High | 18 |
-| Medium | 16 |
+| Critical | 8 |
+| High | 25 |
+| Medium | 24 |
 | Low | 6 |
-| **Total** | **47** (all fixed) |
+| **Total** | **63** (all fixed) |
 
 ---
 
@@ -114,6 +114,48 @@ Every bug fixed in the application code has an automated test that reproduces it
 |---|---|---|---|---|---|---|
 | BUG-046 | Frontend deployment (Vercel) | High | Deployment | The deployed frontend was built without its settings (API address and Supabase keys), so login and sign-up didn't work: the variables were marked sensitive, so the build step couldn't read them. | Re-added as non-sensitive — they are public by design — and redeployed. | Fixed |
 | BUG-047 | Backend deployment | High | Deployment | The step that tells Render to deploy the new image failed because the stored Render service ID was wrong, and the Docker image failed to build on the Gitea runner because the build had no network access. | Corrected the `RENDER_SERVICE_ID` secret and built the image with `--network=host`. | Fixed |
+
+## Logging out and deleting an account
+
+Reported by a team member: after logging out, the browser's Back button went straight back into the account. Checking both flows found the rest.
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-048 | Sign-in | High | User feedback | Signed-in pages didn't check for a signed-in user, so after logging out the Back button reopened the account's pages, and any role could open another role's pages. | Each role's pages are guarded: without a session the login page replaces them (so Back has nothing to return to), and another role is sent to its own dashboard. | Fixed |
+| BUG-049 | Sign-in | Medium | User feedback | When a session expired (after an hour) or the account was deleted, pages just showed errors. | An expired token, or a 401 from the API, signs the user out and shows "Your session has ended. Please log in again." After logging in they return to the page they were on. | Fixed |
+| BUG-050 | Sign-in | Medium | User feedback | Logging out didn't end the session on the server (the token kept working until it expired), other open tabs stayed signed in, and Supabase's own copy of the session could stay in the browser. | A new `POST /auth/logout` has Supabase revoke the session before the browser forgets it; other tabs follow; Supabase's copy is removed. | Fixed |
+| BUG-051 | Privacy | Medium | User feedback | API responses could be kept in the browser's cache, where the next person on a shared school computer could find them. | Every response is sent with `Cache-Control: no-store`. | Fixed |
+| BUG-052 | Account deletion | High | User feedback | If Supabase failed to delete the login, the portal still reported the account deleted, and the login kept working. | Supabase's result is checked inside the deletion's transaction, so a failure changes nothing and says so (502). | Fixed |
+| BUG-053 | Account deletion | High | User feedback | A deleted account kept the person's name and email, so the email could never be used to register again, and the personal data stayed. | The account is anonymised ("Deleted user", `deleted-<id>@deleted.invalid`), school memberships end, and a student's login is unlinked from their learner record; results and marks stay. | Fixed |
+| BUG-054 | Account deletion | Medium | User feedback | An organiser could delete their account while their olympiad was running, leaving it with nobody to manage it. | Refused (409) while any of their olympiads has a round without released results. | Fixed |
+
+## Results and qualification
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-055 | Qualification | Critical | User feedback | A round's qualifying threshold was compared with raw points, while organisers set it as a percentage ("e.g. 60"). On a 10-mark paper a 20 or 60 threshold could never be reached, so a student on 80% was marked not qualified and never entered for the next round; only a threshold of 0 ever worked. Of the 21 rounds with a threshold in the shared database, only the one set to 0 had anyone qualify. | The threshold is a percentage (0–100) of the paper's total marks, in results, recalculations after remarks, and the round forms, which now say so. Compared without dividing, so a score exactly on the threshold counts. A one-off repair (`backend/scripts/recalculateQualification.js`, dry run by default) recalculated the released rounds: 3 students in the shared database now qualify, nobody lost qualification, and no next round was still open to entry. | Fixed |
+| BUG-056 | Remarks | High | Code review | With exam variants, a remark reviewer saw the student's multiple-choice answer as option numbers in the student's shuffled order next to the key in the paper's order, so the two didn't correspond and a correct answer could look wrong. | Both are shown as the options' text, with the student's answer mapped back from their own order. | Fixed |
+| BUG-057 | Results | Medium | Code review | Learners with equal scores got different ranks depending on the order the database returned them, and a later remark could swap them. | Equal scores share a rank and the next rank skips ("1, 1, 3"). | Fixed |
+| BUG-058 | Exam sitting | Medium | Code review | When time ran out, the exam was submitted at the deadline itself, so the submission reached the server late and was refused, and the student saw an error at the end of the exam. | The exam is submitted automatically 5 seconds before the close; if it still arrives late, the student is told time is up and that their saved answers will be marked. | Fixed |
+| BUG-061 | Qualification | High | Code review | Approving a remark in a released round without a qualifying threshold withdrew every one of its students from the next round while it was still scheduled: with no threshold nobody counts as qualified, so all of them were treated as no longer qualifying, although an educator had entered them by hand. | As at release, a round without a threshold leaves the next round's entrants alone. | Fixed |
+
+## Password reset and the sidebar
+
+Reported by team members.
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-059 | Password reset | High | User feedback | Asking for a reset link often failed with "email rate limit exceeded". The browser asked Supabase to send the email, and Supabase's built-in sender allows only a few emails an hour for the whole project, so a handful of resets used it up for everyone. | A new `POST /auth/forgot-password` has Supabase make the one-time link without sending anything, and emails it through EmailJS like the portal's other emails. The reply is the same whether or not the address has an account, and at most one email a minute goes to each address. Supabase's sender is kept only as a fallback when EmailJS isn't available. | Fixed |
+| BUG-060 | Navigation | Medium | User feedback | On shorter laptop screens (under about 650 pixels of browser height), the expanded sidebar was taller than the window and couldn't scroll, so "Log out" and "Delete account" at its foot were cut off. The organiser's sidebar, with the olympiad switcher, was the longest. | The sidebar's links scroll when there isn't room, and the header and the account actions always stay in view. Checked down to a 420-pixel-high window in the end-to-end tests. | Fixed |
+
+## Public developer API
+
+Found while making the `/public` endpoints usable by other websites and apps.
+
+| ID | Area | Priority | Found by | Bug | Fix | Status |
+|---|---|---|---|---|---|---|
+| BUG-062 | Public API | High | API tests | The public past-paper list gave each paper's storage path (e.g. `maths/round-1/paper.pdf`) as its download link. The files are in private storage, so nobody outside the portal could open a single paper. | New `GET /public/papers/:id/download` redirects to a one-minute link to the file; the list now gives absolute links to it, which don't expire. Only papers of rounds with released results are served. | Fixed |
+| BUG-063 | Public API | Medium | API tests | On a school's public profile, each olympiad's average score was the average of every school's learners, not that school's, because other schools' results were joined in before filtering by school. | Only the school's own results are joined into its averages. | Fixed |
 
 ---
 

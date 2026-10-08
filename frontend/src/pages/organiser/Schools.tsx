@@ -8,7 +8,7 @@ import { ErrorAlert } from "../../components/ui/Feedback";
 import { api } from "../../lib/api";
 import { organiserNav } from "../../lib/mockData";
 import { friendlyErrorMessage } from "../../lib/feedback";
-import { getCurrentOlympiad, type Olympiad } from "../../lib/olympiad";
+import { getCurrentOlympiad, useSelectedOlympiadId, type Olympiad } from "../../lib/olympiad";
 import { InviteEducatorDialog, InviteEducatorForm } from "./InviteEducatorForm";
 import styles from "./Schools.module.css";
 
@@ -50,6 +50,9 @@ export function SchoolsPage() {
     setSchools(data.schools || []);
   }
 
+  // The olympiad chosen in the sidebar; switching reloads the page's data
+  const selectedOlympiadId = useSelectedOlympiadId();
+
   useEffect(() => {
     let cancelled = false;
 
@@ -76,7 +79,7 @@ export function SchoolsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedOlympiadId]);
 
   return (
     <AppShell
@@ -84,8 +87,6 @@ export function SchoolsPage() {
       navItems={organiserNav}
       organisation="National Olympiad Office"
       portalLabel="Organiser console"
-      userInitials="NO"
-      userName="Admin user"
     >
       <div className={styles.stack}>
         <PageHeader

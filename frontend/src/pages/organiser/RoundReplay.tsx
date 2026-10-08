@@ -34,7 +34,7 @@ export default function RoundReplay() {
     return () => { active = false; };
   }, [id]);
   return (
-    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console" userInitials="NO" userName="Admin user">
+    <AppShell activeRole="organiser" navItems={organiserNav} organisation="National Olympiad Office" portalLabel="Organiser console">
       <div className={styles.stack}>
         <PageHeader title={`Round replay${replay ? `: ${replay.round.name}` : ""}`} description="Recorded portal actions and deadline decisions in time order." actions={<Button to="/organiser" variant="outline">Back to rounds</Button>} />
         {error && <ErrorAlert message={error} />}

@@ -223,6 +223,85 @@ describe("GET /auth/schools", () => {
   });
 });
 
+describe("POST /auth/forgot-password", () => {
+  const SAME_REPLY = { message: "If an account exists for that address, a reset link is on its way." };
+  const EMAILJS = {
+    EMAILJS_SERVICE_ID: "service_1",
+    EMAILJS_TEMPLATE_ID: "template_1",
+    EMAILJS_USER_ID: "user_1",
+    EMAILJS_PRIVATE_KEY: "private_1",
+  };
+  const realFetch = global.fetch;
+
+  beforeEach(() => {
+    require("../../src/services/passwordResetService").resetPasswordResetThrottle();
+  });
+
+  afterEach(() => {
+    global.fetch = realFetch;
+    for (const key of Object.keys(EMAILJS)) process.env[key] = "";
+  });
+
+  describe("with EmailJS set up, as in production", () => {
+    beforeEach(() => {
+      Object.assign(process.env, EMAILJS);
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: async () => "OK" });
+    });
+
+    const emailed = () => global.fetch.mock.calls.map(([, init]) => JSON.parse(init.body).template_params);
+
+    it("emails a reset link through EmailJS, so Supabase's email limit doesn't apply", async () => {
+      await f.createOrganiser({ email: "thandi@olympiad.test" });
+
+      expect(expectOk(await api().post("/auth/forgot-password").send({ email: " Thandi@Olympiad.test " }))).toEqual(SAME_REPLY);
+
+      expect(supabase.auth.admin.generateLink).toHaveBeenCalledWith({ type: "recovery", email: "thandi@olympiad.test" });
+      expect(supabase.auth.resetPasswordForEmail).not.toHaveBeenCalled();
+      const [email] = emailed();
+      expect(email).toMatchObject({ to_email: "thandi@olympiad.test", subject: "Reset your Olympiad Portal password" });
+      expect(email.html_content).toContain(
+        "https://olympiad.test/reset-password?token_hash=hashed-thandi%40olympiad.test&type=recovery",
+      );
+    });
+
+    it("gives the same reply for an address without an account, and sends nothing", async () => {
+      expect(expectOk(await api().post("/auth/forgot-password").send({ email: "nobody@olympiad.test" }))).toEqual(SAME_REPLY);
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("doesn't send to a deleted account", async () => {
+      const organiser = await f.createOrganiser({ email: "thandi@olympiad.test" });
+      expectOk(await as(organiser).delete("/auth/account"));
+
+      expectOk(await api().post("/auth/forgot-password").send({ email: "thandi@olympiad.test" }));
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it("sends one email a minute to the same address, however often the form is sent", async () => {
+      await f.createOrganiser({ email: "thandi@olympiad.test" });
+
+      for (let i = 0; i < 3; i += 1) {
+        expect(expectOk(await api().post("/auth/forgot-password").send({ email: "thandi@olympiad.test" }))).toEqual(SAME_REPLY);
+      }
+      expect(emailed()).toHaveLength(1);
+    });
+  });
+
+  it("uses Supabase's sender when EmailJS isn't set up", async () => {
+    await f.createOrganiser({ email: "thandi@olympiad.test" });
+
+    expectOk(await api().post("/auth/forgot-password").send({ email: "thandi@olympiad.test" }));
+
+    expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith("thandi@olympiad.test", {
+      redirectTo: "https://olympiad.test/reset-password",
+    });
+  });
+
+  it("responds 422 for an invalid email", async () => {
+    expectError(await api().post("/auth/forgot-password").send({ email: "not-an-email" }), 422, "Valid email required");
+  });
+});
+
 describe("GET /auth/me", () => {
   it("returns the educator with their school and membership", async () => {
     const { educatorUser, school } = await f.createOlympiadWithSchool();
@@ -258,15 +337,116 @@ describe("GET /auth/educator-olympiads", () => {
   });
 });
 
-describe("DELETE /auth/account", () => {
-  it("removes the Supabase login and soft-deletes the row", async () => {
+describe("POST /auth/logout", () => {
+  it("ends the session in Supabase and stops the token working at once", async () => {
     const organiser = await f.createOrganiser();
+    const organiserApi = as(organiser);
+
+    expectOk(await organiserApi.post("/auth/logout"));
+
+    // The token the request carried is the one revoked
+    expect(supabase.auth.admin.signOut).toHaveBeenCalledWith(expect.any(String), "local");
+    const [token] = supabase.auth.admin.signOut.mock.calls[0];
+    expect(token.length).toBeGreaterThan(0);
+  });
+
+  it("still logs out when Supabase can't end the session", async () => {
+    const organiser = await f.createOrganiser();
+    supabase.auth.admin.signOut.mockResolvedValue({ data: null, error: { message: "network down" } });
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+
+    expectOk(await as(organiser).post("/auth/logout"));
+    expect(warn).toHaveBeenCalledWith("[auth] Supabase could not end the session: network down");
+    warn.mockRestore();
+  });
+
+  it("tells the browser not to keep responses", async () => {
+    const res = await as(await f.createOrganiser()).get("/auth/me");
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+});
+
+describe("DELETE /auth/account", () => {
+  it("removes the Supabase login and the person's details, keeping the account row", async () => {
+    const organiser = await f.createOrganiser({ email: "thandi@olympiad.test", full_name: "Thandi Mokoena" });
 
     expectOk(await as(organiser).delete("/auth/account"));
 
     expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith(organiser.id);
     expect(await prisma.users.findUnique({ where: { id: organiser.id } })).toMatchObject({
       deleted_at: expect.any(Date),
+      email: `deleted-${organiser.id}@deleted.invalid`,
+      full_name: "Deleted user",
     });
+  });
+
+  it("frees the email, so the person can register again", async () => {
+    const organiser = await f.createOrganiser({ email: "thandi@olympiad.test" });
+    expectOk(await as(organiser).delete("/auth/account"));
+
+    const res = await api().post("/auth/register").send({ full_name: "Thandi Mokoena", email: "thandi@olympiad.test", password: PASSWORD, role: "organiser" });
+    expect(res.status).toBe(201);
+  });
+
+  it("unlinks a student's login from their learner record, which stays with the school", async () => {
+    const { school } = await f.createOlympiadWithSchool();
+    const { user, entrant } = await f.createStudent({ school });
+
+    expectOk(await as(user).delete("/auth/account"));
+
+    expect(await prisma.entrants.findUnique({ where: { id: entrant.id } })).toMatchObject({ user_id: null, school_id: school.id });
+  });
+
+  it("ends an educator's school membership", async () => {
+    const { educatorUser } = await f.createOlympiadWithSchool();
+
+    expectOk(await as(educatorUser).delete("/auth/account"));
+
+    const memberships = await prisma.school_memberships.findMany({ where: { user_id: educatorUser.id } });
+    expect(memberships.map((m) => m.status)).toEqual(["removed"]);
+  });
+
+  it("refuses an organiser whose olympiad is still running, and changes nothing", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser, name: "Maths Olympiad" });
+    await f.createRound({ olympiad, state: "results_released" });
+    await f.createRound({ olympiad, state: "open" });
+
+    expectError(
+      await as(organiser).delete("/auth/account"),
+      409,
+      "You can’t delete your account while “Maths Olympiad” is still running. Release the results of all its rounds first.",
+    );
+    expect(supabase.auth.admin.deleteUser).not.toHaveBeenCalled();
+    expect((await prisma.users.findUnique({ where: { id: organiser.id } })).deleted_at).toBeNull();
+  });
+
+  it("lets an organiser go once every round of their olympiads has released results", async () => {
+    const organiser = await f.createOrganiser();
+    const olympiad = await f.createOlympiad({ organiser });
+    await f.createRound({ olympiad, state: "results_released" });
+
+    expectOk(await as(organiser).delete("/auth/account"));
+    // The finished olympiad stays, for the archive and standings
+    expect(await prisma.olympiads.findUnique({ where: { id: olympiad.id } })).not.toBeNull();
+  });
+
+  it("keeps the account as it was when Supabase can't delete the login", async () => {
+    const organiser = await f.createOrganiser({ email: "thandi@olympiad.test" });
+    supabase.auth.admin.deleteUser.mockResolvedValue({ data: null, error: { status: 500, message: "Database error" } });
+
+    expectError(await as(organiser).delete("/auth/account"), 502, "We couldn’t delete your account. Please try again.");
+    expect(await prisma.users.findUnique({ where: { id: organiser.id } })).toMatchObject({
+      deleted_at: null,
+      email: "thandi@olympiad.test",
+    });
+  });
+
+  it("stops the account's token working afterwards", async () => {
+    const organiser = await f.createOrganiser();
+    const organiserApi = as(organiser);
+    expectOk(await organiserApi.delete("/auth/account"));
+
+    expectError(await organiserApi.get("/auth/me"), 401, "Account not found or deleted");
   });
 });

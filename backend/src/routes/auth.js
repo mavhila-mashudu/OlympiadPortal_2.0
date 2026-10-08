@@ -6,15 +6,17 @@ const {
   registerOrganiser,
   listSchools,
   me,
+  logout,
   deleteAccount,
+  forgotPassword,
   getEducatorOlympiads,
 } = require("../controllers/authController");
 const { requireAuth, requireRole, requireSchoolMembership } = require("../middlewares/auth");
 const validate = require("../middlewares/validate");
 const { createRateLimiter } = require("../middlewares/rateLimit");
 
-// Shared by every public endpoint that creates an account or reads the
-// school list that the signup form offers
+// Shared by every public endpoint that creates an account, reads the school
+// list that the signup form offers, or sends a password reset email
 const publicAuthLimiter = createRateLimiter();
 
 const router = express.Router();
@@ -62,8 +64,16 @@ router.post("/register", publicAuthLimiter, registerRules, validate, register);
 // Kept so existing organiser sign-up links and clients keep working
 router.post("/register/organiser", publicAuthLimiter, accountRules, validate, registerOrganiser);
 router.get("/schools", publicAuthLimiter, listSchools);
+router.post(
+  "/forgot-password",
+  publicAuthLimiter,
+  body("email").trim().isEmail().withMessage("Valid email required").toLowerCase(),
+  validate,
+  forgotPassword,
+);
 
 router.get("/me", requireAuth, me);
+router.post("/logout", requireAuth, logout);
 router.delete("/account", requireAuth, deleteAccount);
 
 router.get(

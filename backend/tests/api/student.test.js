@@ -349,7 +349,8 @@ describe("sitting an exam online", () => {
     it("rejects a late submission and stores the ruling", async () => {
       const { round, studentApi } = await setup();
       expectOk(await studentApi.post(`${exam(round)}/start`), 201);
-      await prisma.submissions.updateMany({ data: { round_close_snapshot: f.hoursFromNow(-0.01) } });
+      // The deadline passes before the lifecycle job has closed the round
+      await prisma.rounds.update({ where: { id: round.id }, data: { closes_at: f.hoursFromNow(-0.01) } });
 
       expectError(await studentApi.post(`${exam(round)}/submit`), 400, "Submission received at or after the round deadline");
       expect(await prisma.submission_deadline_decisions.count({ where: { round_id: round.id, accepted: false } })).toBe(1);
