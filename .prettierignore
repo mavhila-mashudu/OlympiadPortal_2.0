@@ -1,0 +1,12 @@
+**/node_modules/
+**/.agents/
+**/.claude/
+**/.windsurf/
+**/dist/
+**/build/
+**/coverage/
+backend/generated/
+backend/prisma/migrations/
+**/package-lock.json
+**/pnpm-lock.yaml
+**/yarn.lock

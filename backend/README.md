@@ -77,24 +77,24 @@ Expected response:
 
 ```json
 {
-  "status": "ok",
-  "timestamp": "2026-...",
-  "environment": "development"
+    "status": "ok",
+    "timestamp": "2026-...",
+    "environment": "development"
 }
 ```
 
 ## Environment Variables
 
-| Variable               | Description                     | Where to find it                       |
-| ---------------------- | ------------------------------- | -------------------------------------- |
-| `NODE_ENV`             | Environment name                | Set to `development` locally           |
-| `PORT`                 | Server port                     | Set to `3000` locally                  |
-| `FRONTEND_URL`         | Frontend URL for CORS           | `http://localhost:5173` locally        |
-| `DATABASE_URL`         | Supabase pooled connection      | Supabase → Connect → ORMs → Prisma     |
-| `DIRECT_URL`           | Supabase direct connection      | Supabase → Connect → ORMs → Prisma     |
-| `SUPABASE_URL`         | Supabase project URL            | Supabase → Settings → API              |
-| `SUPABASE_ANON_KEY`    | Supabase public key             | Supabase → Settings → API              |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key       | Supabase → Settings → API              |
+| Variable               | Description                | Where to find it                   |
+| ---------------------- | -------------------------- | ---------------------------------- |
+| `NODE_ENV`             | Environment name           | Set to `development` locally       |
+| `PORT`                 | Server port                | Set to `3000` locally              |
+| `FRONTEND_URL`         | Frontend URL for CORS      | `http://localhost:5173` locally    |
+| `DATABASE_URL`         | Supabase pooled connection | Supabase → Connect → ORMs → Prisma |
+| `DIRECT_URL`           | Supabase direct connection | Supabase → Connect → ORMs → Prisma |
+| `SUPABASE_URL`         | Supabase project URL       | Supabase → Settings → API          |
+| `SUPABASE_ANON_KEY`    | Supabase public key        | Supabase → Settings → API          |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key  | Supabase → Settings → API          |
 
 ## Project Structure
 
@@ -133,15 +133,15 @@ Invitations are delivered in the app, not by email, and go only to people who
 already have an account. Accepting one registers an educator's school for the
 olympiad, or enters a student into its rounds.
 
-| Method | Endpoint                 | Description                   | Auth Required       |
-| ------ | ------------------------ | ----------------------------- | ------------------- |
-| GET    | `/invites/mine`          | Invitations addressed to me   | Yes                 |
-| POST   | `/invites/:id/accept`    | Accept an invitation          | Yes (the invitee)   |
-| POST   | `/invites/:id/reject`    | Decline an invitation         | Yes (the invitee)   |
-| POST   | `/invites`               | Invite someone to an olympiad | Organiser, educator |
-| DELETE | `/invites/:id`           | Withdraw an invitation I sent | Organiser, educator |
-| GET    | `/invites/sent`          | Invitations I have sent       | Organiser, educator |
-| GET    | `/invites/candidates`    | Who I may still invite        | Organiser, educator |
+| Method | Endpoint              | Description                   | Auth Required       |
+| ------ | --------------------- | ----------------------------- | ------------------- |
+| GET    | `/invites/mine`       | Invitations addressed to me   | Yes                 |
+| POST   | `/invites/:id/accept` | Accept an invitation          | Yes (the invitee)   |
+| POST   | `/invites/:id/reject` | Decline an invitation         | Yes (the invitee)   |
+| POST   | `/invites`            | Invite someone to an olympiad | Organiser, educator |
+| DELETE | `/invites/:id`        | Withdraw an invitation I sent | Organiser, educator |
+| GET    | `/invites/sent`       | Invitations I have sent       | Organiser, educator |
+| GET    | `/invites/candidates` | Who I may still invite        | Organiser, educator |
 
 > Full API documentation is available on our documentation site.
 
@@ -173,14 +173,14 @@ See `CONTRIBUTING.md` for our Git workflow and branching strategy.
 
 ## Team
 
-| Name       | Role             |
-| ---------  | ---------------- |
-| Phumudzo   | Backend Lead     |
-| Andile     | Frontend Lead    |
-| Engedzani  | Database / Auth  |
-| Kedibone   | Frontend         |
-| Mashudu    | Testing / DevOps |
-| Nhlakanipho| Tools
+| Name        | Role             |
+| ----------- | ---------------- |
+| Phumudzo    | Backend Lead     |
+| Andile      | Frontend Lead    |
+| Engedzani   | Database / Auth  |
+| Kedibone    | Frontend         |
+| Mashudu     | Testing / DevOps |
+| Nhlakanipho | Tools            |
 
 ## License
 

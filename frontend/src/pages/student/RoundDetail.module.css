@@ -1,315 +1,314 @@
 .stack {
-  display: grid;
-  gap: 1.5rem;
+    display: grid;
+    gap: 1.5rem;
 }
 
 .pageHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
 }
 
 .pageHeader h1 {
-  color: var(--foreground);
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 2rem;
+    color: var(--foreground);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 2rem;
 }
 
 .pageHeader p {
-  margin-top: 0.25rem;
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    margin-top: 0.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .pageActions {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .statusRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.75rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .sectionCard {
-  overflow: hidden;
+    overflow: hidden;
 }
 
 .sectionHeader {
-  border-bottom: 1px solid var(--border);
-  padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1rem;
 }
 
 .sectionHeader h2 {
-  color: var(--card-foreground);
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.25rem;
+    color: var(--card-foreground);
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.25rem;
 }
 
 .paperBody {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 1rem;
 }
 
 .paperFile {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.625rem;
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.625rem;
 }
 
 .paperFile svg {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  color: var(--muted-foreground);
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--muted-foreground);
 }
 
 .paperFileName {
-  min-width: 0;
+    min-width: 0;
 }
 
 .paperFileName span {
-  display: block;
-  overflow: hidden;
-  color: var(--foreground);
-  font-size: 0.875rem;
-  font-weight: 500;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    display: block;
+    overflow: hidden;
+    color: var(--foreground);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .paperFileName small {
-  display: block;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  line-height: 1rem;
+    display: block;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1rem;
 }
 
 .paperActions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .resultBody {
-  display: grid;
-  gap: 1rem;
-  padding: 1rem;
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
 }
 
 .resultGrid {
-  display: grid;
-  gap: 1rem;
+    display: grid;
+    gap: 1rem;
 }
 
 .resultGrid dt {
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .resultGrid dd {
-  color: var(--card-foreground);
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 2rem;
-  font-variant-numeric: tabular-nums;
+    color: var(--card-foreground);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 2rem;
+    font-variant-numeric: tabular-nums;
 }
 
 .certificateBanner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border: 1px solid color-mix(in oklab, var(--status-open) 30%, transparent);
-  border-radius: calc(var(--radius) - 2px);
-  padding: 1rem;
-  background: color-mix(in oklab, var(--status-open) 10%, transparent);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border: 1px solid color-mix(in oklab, var(--status-open) 30%, transparent);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 1rem;
+    background: color-mix(in oklab, var(--status-open) 10%, transparent);
 }
 
 .certificateBanner span {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  color: var(--foreground);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .certificateBanner svg {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  color: var(--status-open);
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--status-open);
 }
 
 .downloadError {
-  padding: 0 1rem 1rem;
-  color: var(--destructive, #b91c1c);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    padding: 0 1rem 1rem;
+    color: var(--destructive, #b91c1c);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .noResult {
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .notFound {
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .remarkBox {
-  display: grid;
-  gap: 0.75rem;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 2px);
-  padding: 1rem;
-  background: color-mix(in oklab, var(--muted) 16%, transparent);
+    display: grid;
+    gap: 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 1rem;
+    background: color-mix(in oklab, var(--muted) 16%, transparent);
 }
 
 .remarkHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
 }
 
 .remarkHeader h3 {
-  color: var(--foreground);
-  font-size: 1rem;
-  font-weight: 600;
+    color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 600;
 }
 
 .remarkBadge {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 9999px;
-  border: 1px solid var(--border);
-  padding: 0.2rem 0.625rem;
-  font-size: 0.75rem;
-  font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
 }
 
 .pending {
-  background: color-mix(in oklab, var(--status-upcoming) 12%, transparent);
-  color: var(--status-upcoming);
+    background: color-mix(in oklab, var(--status-upcoming) 12%, transparent);
+    color: var(--status-upcoming);
 }
 
 .reviewed {
-  background: color-mix(in oklab, var(--primary) 12%, transparent);
-  color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+    color: var(--primary);
 }
 
 .remarkInput {
-  width: 100%;
-  min-height: 5.5rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: transparent;
-  color: var(--foreground);
-  padding: 0.75rem 0.875rem;
-  resize: vertical;
+    width: 100%;
+    min-height: 5.5rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: transparent;
+    color: var(--foreground);
+    padding: 0.75rem 0.875rem;
+    resize: vertical;
 }
 
 .remarkInput:focus {
-  outline: 2px solid color-mix(in oklab, var(--primary) 30%, transparent);
-  outline-offset: 2px;
+    outline: 2px solid color-mix(in oklab, var(--primary) 30%, transparent);
+    outline-offset: 2px;
 }
 
 .remarkError,
 .remarkSuccess,
 .remarkStatusText {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .remarkError {
-  color: var(--destructive, #b91c1c);
+    color: var(--destructive, #b91c1c);
 }
 
 .remarkSuccess {
-  color: var(--primary);
+    color: var(--primary);
 }
 
 .remarkStatusText {
-  color: var(--muted-foreground);
+    color: var(--muted-foreground);
 }
 
 .remarkStatusContainer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
 }
 
 .originalReasonBox {
-  background: color-mix(in oklab, var(--muted) 25%, transparent);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.75rem 1rem;
+    background: color-mix(in oklab, var(--muted) 25%, transparent);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
 }
 
 .reasonBoxTitle,
 .feedbackTitle {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--muted-foreground);
-  margin-bottom: 0.25rem;
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-foreground);
+    margin-bottom: 0.25rem;
 }
 
 .reasonBoxText,
 .feedbackText {
-  font-size: 0.875rem;
-  line-height: 1.4;
-  color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.4;
+    color: var(--foreground);
 }
 
 .reviewFeedbackBox {
-  background: color-mix(in oklab, var(--primary) 8%, transparent);
-  border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);
-  border-radius: var(--radius);
-  padding: 0.875rem 1rem;
+    background: color-mix(in oklab, var(--primary) 8%, transparent);
+    border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
 }
 
 .reviewFeedbackBox .feedbackTitle {
-  color: var(--primary);
+    color: var(--primary);
 }
 
 .remarkActions {
-  display: flex;
-  justify-content: flex-start;
+    display: flex;
+    justify-content: flex-start;
 }
 
-
 @media (min-width: 40rem) {
-  .pageHeader {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
+    .pageHeader {
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: space-between;
+    }
 
-  .resultGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+    .resultGrid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
 }

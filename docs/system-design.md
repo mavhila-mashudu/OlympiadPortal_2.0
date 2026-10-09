@@ -204,7 +204,7 @@ The composite unique constraint on (round_id, entrant_id, route) plus a unique i
 | Passwords        | Min 8 chars, uppercase letter, number required                     |
 | JWT              | Managed by Supabase Auth; access tokens expire after 1 hour        |
 | HTTP headers     | Helmet sets CSP, HSTS, X-Content-Type-Options, X-Frame-Options     |
-| CORS             | Restricted to one origin in production: the Azure Storage site      |
+| CORS             | Restricted to one origin in production: the Azure Storage site     |
 | Input validation | express-validator on all routes with sanitisation                  |
 | SQL injection    | Prevented by Prisma parameterised queries                          |
 | File upload      | Multer with size limits; PDF only for papers/memos                 |

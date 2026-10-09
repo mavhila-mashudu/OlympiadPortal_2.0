@@ -5,13 +5,15 @@
 // A test that cares about the warnings can override it:
 //   const { checkDatesForHolidays } = require("../../src/services/holidayService");
 //   checkDatesForHolidays.mockResolvedValueOnce(["..."]);
-jest.mock("../../../src/services/holidayService", () => ({
-  checkDatesForHolidays: jest.fn().mockResolvedValue([]),
+jest.mock('../../../src/services/holidayService', () => ({
+    checkDatesForHolidays: jest.fn().mockResolvedValue([]),
 }));
 
-const { checkDatesForHolidays } = require("../../../src/services/holidayService");
+const {
+    checkDatesForHolidays,
+} = require('../../../src/services/holidayService');
 
 beforeEach(() => {
-  checkDatesForHolidays.mockClear();
-  checkDatesForHolidays.mockResolvedValue([]);
+    checkDatesForHolidays.mockClear();
+    checkDatesForHolidays.mockResolvedValue([]);
 });

@@ -42,7 +42,7 @@ Same stories and IDs as the tier-based backlog, regrouped by who the story is fo
 
 ### Registration & access
 
-- **[B]** B3 — Register my school's educators, so they can act on the school's behalf. *(school)*
+- **[B]** B3 — Register my school's educators, so they can act on the school's behalf. _(school)_
 - **[B]** B4 — Register the entrants I'm putting forward for a round, so their results can be tracked.
 - **[B]** B17 — Have a single place to find papers, submit results, and collect results, so I don't need separate tools or a shared folder.
 
@@ -53,13 +53,13 @@ Same stories and IDs as the tier-based backlog, regrouped by who the story is fo
 - **[B]** B11 — Download the current round's paper and any released past papers, so I can administer the test at my school.
 - **[B]** B12 — Upload my school's results within the round's open window, so they count toward my entrants' scores.
 - **[B]** B13 — Get a receipt confirming exactly what the portal accepted, so I have proof of submission if there's ever a dispute.
-- **[B]** B15 — See my entrants' scores once the round closes (not before), so results are released fairly to everyone at once. *(school)*
+- **[B]** B15 — See my entrants' scores once the round closes (not before), so results are released fairly to everyone at once. _(school)_
 
 ### Ongoing engagement
 
 - **[I]** I11 — Be reminded before a round opens and before it closes, so I don't miss the window.
-- **[I]** I13 — Be notified when results are out, so I don't have to keep checking. *(school)*
-- **[I]** I19 — Have a dashboard of all my entrants and their results, so I can see how my school is doing at a glance. *(school)*
+- **[I]** I13 — Be notified when results are out, so I don't have to keep checking. _(school)_
+- **[I]** I19 — Have a dashboard of all my entrants and their results, so I can see how my school is doing at a glance. _(school)_
 
 ---
 
@@ -71,7 +71,7 @@ Same stories and IDs as the tier-based backlog, regrouped by who the story is fo
 - **[I]** I2 — See a visible timer while sitting a paper, so I know how much time I have left.
 - **[I]** I3 — Have my answers saved as I give them (not only on final submit), so I don't lose work.
 - **[I]** I4 — Resume a sitting exactly where I left off if I lose connection, so a dropped connection doesn't cost me the attempt.
-  - *Note: needs a server-side authoritative timer, not a client-side countdown, or a refresh could unfairly "reset" time.*
+    - _Note: needs a server-side authoritative timer, not a client-side countdown, or a refresh could unfairly "reset" time._
 
 ### Access & results
 
@@ -127,12 +127,12 @@ Same stories and IDs as the tier-based backlog, regrouped by who the story is fo
 
 ## Quick role → domain-owner mapping (from the pipeline doc)
 
-| Role section | Primarily built by |
-|---|---|
-| Organiser | Person B (Organiser Console) + Person A (lifecycle rules underneath) |
-| Educator | Person C (Educator Portal) |
-| Student | Person E (Online Sitting) |
-| System — lifecycle & integrity | Person A |
-| System — progression, automation, marking | Person D + Person F |
-| Marker/Moderator/Reviewer | Person D |
-| Platform | Person F (docs, CI/CD, integration) + Person B (auth) |
+| Role section                              | Primarily built by                                                   |
+| ----------------------------------------- | -------------------------------------------------------------------- |
+| Organiser                                 | Person B (Organiser Console) + Person A (lifecycle rules underneath) |
+| Educator                                  | Person C (Educator Portal)                                           |
+| Student                                   | Person E (Online Sitting)                                            |
+| System — lifecycle & integrity            | Person A                                                             |
+| System — progression, automation, marking | Person D + Person F                                                  |
+| Marker/Moderator/Reviewer                 | Person D                                                             |
+| Platform                                  | Person F (docs, CI/CD, integration) + Person B (auth)                |
