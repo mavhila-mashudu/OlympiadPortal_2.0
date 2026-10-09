@@ -31,8 +31,12 @@ describe("logging in", () => {
     await user.click(screen.getByRole("button", { name: "Log in" }));
   };
 
-  it("redirects the home page to the login page", () => {
-    const { currentPath } = renderApp("/");
+  it("shows the public landing page with working login and signup navigation", async () => {
+    const { user, currentPath } = renderApp("/");
+    expect(currentPath()).toBe("/");
+    expect(screen.getByRole("heading", { name: /A place for bright minds/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Join the portal" })).toHaveAttribute("href", "/signup");
+    await user.click(screen.getByRole("link", { name: "Log in" }));
     expect(currentPath()).toBe("/login");
     expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
   });
