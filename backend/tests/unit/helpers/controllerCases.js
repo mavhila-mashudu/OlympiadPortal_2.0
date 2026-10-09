@@ -1,4 +1,4 @@
-const { run } = require("./http");
+const { run } = require('./http');
 
 // Controllers are thin: pull values off the request, call one service
 // function, wrap the result in the { success, data } envelope. Each case
@@ -16,32 +16,43 @@ const { run } = require("./http");
 //   result: { ... },                   // optional service return value
 // }
 const describeControllerCases = (controller, cases) => {
-  describe.each(cases)("$handler", ({ handler, service, method, req, args, status, json, result = { from: method } }) => {
+    describe.each(cases)(
+        '$handler',
+        ({
+            handler,
+            service,
+            method,
+            req,
+            args,
+            status,
+            json,
+            result = { from: method },
+        }) => {
+            beforeEach(() => service[method].mockReset());
 
-    beforeEach(() => service[method].mockReset());
+            it(`calls ${method} with the request's values and responds`, async () => {
+                service[method].mockResolvedValue(result);
 
-    it(`calls ${method} with the request's values and responds`, async () => {
-      service[method].mockResolvedValue(result);
+                const { res, next } = await run(controller[handler], req);
 
-      const { res, next } = await run(controller[handler], req);
+                expect(service[method]).toHaveBeenCalledWith(...args);
+                if (status) expect(res.status).toHaveBeenCalledWith(status);
+                else expect(res.status).not.toHaveBeenCalled();
+                expect(res.json).toHaveBeenCalledWith(json(result));
+                expect(next).not.toHaveBeenCalled();
+            });
 
-      expect(service[method]).toHaveBeenCalledWith(...args);
-      if (status) expect(res.status).toHaveBeenCalledWith(status);
-      else expect(res.status).not.toHaveBeenCalled();
-      expect(res.json).toHaveBeenCalledWith(json(result));
-      expect(next).not.toHaveBeenCalled();
-    });
+            it('passes a service error to the error handler', async () => {
+                const err = new Error('service failed');
+                service[method].mockRejectedValue(err);
 
-    it("passes a service error to the error handler", async () => {
-      const err = new Error("service failed");
-      service[method].mockRejectedValue(err);
+                const { res, next } = await run(controller[handler], req);
 
-      const { res, next } = await run(controller[handler], req);
-
-      expect(next).toHaveBeenCalledWith(err);
-      expect(res.json).not.toHaveBeenCalled();
-    });
-  });
+                expect(next).toHaveBeenCalledWith(err);
+                expect(res.json).not.toHaveBeenCalled();
+            });
+        }
+    );
 };
 
 module.exports = { describeControllerCases };

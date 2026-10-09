@@ -1,6 +1,8 @@
 // @ts-nocheck
-const { runLifecycleTick } = require("../services/lifecycleService");
-const { deliverDueNotifications } = require("../services/notificationDeliveryService");
+const { runLifecycleTick } = require('../services/lifecycleService');
+const {
+    deliverDueNotifications,
+} = require('../services/notificationDeliveryService');
 
 // How often to check for rounds that need to change state.
 // Overridable via env var; defaults to every 30 seconds.
@@ -13,19 +15,21 @@ let timer = null;
 let running = false;
 
 const tick = async () => {
-  if (running) {
-    console.warn("[lifecycle] previous tick still running; skipping this one");
-    return;
-  }
-  running = true;
-  try {
-    await runLifecycleTick();
-    await deliverDueNotifications();
-  } catch (err) {
-    console.error("[lifecycle] tick failed:", err.message);
-  } finally {
-    running = false;
-  }
+    if (running) {
+        console.warn(
+            '[lifecycle] previous tick still running; skipping this one'
+        );
+        return;
+    }
+    running = true;
+    try {
+        await runLifecycleTick();
+        await deliverDueNotifications();
+    } catch (err) {
+        console.error('[lifecycle] tick failed:', err.message);
+    } finally {
+        running = false;
+    }
 };
 
 // ─────────────────────────────────────────
@@ -35,17 +39,17 @@ const tick = async () => {
 // (e.g. a dropped DB connection) shouldn't kill the loop.
 // ─────────────────────────────────────────
 const start = () => {
-  if (timer) return; // already running — don't double-start
+    if (timer) return; // already running — don't double-start
 
-  console.log(
-    `[lifecycle] round lifecycle job started (checking every ${INTERVAL_MS / 1000}s)`,
-  );
+    console.log(
+        `[lifecycle] round lifecycle job started (checking every ${INTERVAL_MS / 1000}s)`
+    );
 
-  timer = setInterval(tick, INTERVAL_MS);
+    timer = setInterval(tick, INTERVAL_MS);
 
-  // Don't let this timer keep the process alive on its own
-  // during graceful shutdown.
-  timer.unref?.();
+    // Don't let this timer keep the process alive on its own
+    // during graceful shutdown.
+    timer.unref?.();
 };
 
 // ─────────────────────────────────────────
@@ -53,10 +57,10 @@ const start = () => {
 // Useful for tests, or a clean shutdown.
 // ─────────────────────────────────────────
 const stop = () => {
-  if (timer) {
-    clearInterval(timer);
-    timer = null;
-  }
+    if (timer) {
+        clearInterval(timer);
+        timer = null;
+    }
 };
 
 module.exports = { start, stop };

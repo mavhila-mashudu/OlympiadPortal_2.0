@@ -1,375 +1,527 @@
-import { useCallback, useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  ClipboardCheck,
-  FileCheck2,
-  Trophy,
-} from "lucide-react";
-import { useParams } from "react-router-dom";
-import { AppShell } from "../../components/layout/AppShell";
-import { api } from "../../lib/api";
-import { Button } from "../../components/ui/Button";
-import { Card } from "../../components/ui/Card";
-import { organiserNav } from "../../lib/mockData";
-import { AnswerCard, type QueueAnswer } from "./AnswerCard";
-import styles from "./MarkingQueue.module.css";
+import { useCallback, useEffect, useState } from 'react';
+import { ArrowLeft, ClipboardCheck, FileCheck2, Trophy } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { AppShell } from '../../components/layout/AppShell';
+import { api } from '../../lib/api';
+import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { organiserNav } from '../../lib/mockData';
+import { AnswerCard, type QueueAnswer } from './AnswerCard';
+import styles from './MarkingQueue.module.css';
 
 type ReviewAnswer = {
-  id: string;
-  answer_value: string | null;
-  points_awarded: string;
-  marked_by?: string | null;
-  users?: { id: string; email: string; full_name?: string | null; role?: string } | null;
-  questions: { prompt: string; max_points: string };
-  submissions: { entrants: { full_name: string } };
-  marking_reviews: { id: string }[];
+    id: string;
+    answer_value: string | null;
+    points_awarded: string;
+    marked_by?: string | null;
+    users?: {
+        id: string;
+        email: string;
+        full_name?: string | null;
+        role?: string;
+    } | null;
+    questions: { prompt: string; max_points: string };
+    submissions: { entrants: { full_name: string } };
+    marking_reviews: { id: string }[];
 };
-type Remark = { id: string; status: string; reason: string; decision: string | null; entrants: { full_name: string; submissions: { answers: { id: string; answer_value: string | null; points_awarded: string; questions: { prompt: string; max_points: string } }[] }[] } };
+type Remark = {
+    id: string;
+    status: string;
+    reason: string;
+    decision: string | null;
+    entrants: {
+        full_name: string;
+        submissions: {
+            answers: {
+                id: string;
+                answer_value: string | null;
+                points_awarded: string;
+                questions: { prompt: string; max_points: string };
+            }[];
+        }[];
+    };
+};
 
 type QueueSubmission = {
-  id: string;
-  received_at: string;
-  is_late?: boolean;
-  entrants: { id: string; full_name: string; grade: string | null };
-  answers: QueueAnswer[];
+    id: string;
+    received_at: string;
+    is_late?: boolean;
+    entrants: { id: string; full_name: string; grade: string | null };
+    answers: QueueAnswer[];
 };
 
 type SubmissionSummary = {
-  id: string;
-  route: "online" | "offline";
-  is_late?: boolean;
+    id: string;
+    route: 'online' | 'offline';
+    is_late?: boolean;
 };
 
 function MarkingQueue() {
-  const { id: roundId } = useParams<{ id: string }>();
+    const { id: roundId } = useParams<{ id: string }>();
 
-  const [submissions, setSubmissions] = useState<QueueSubmission[]>([]);
-  const [submissionSummary, setSubmissionSummary] = useState<SubmissionSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
-  const [sample, setSample] = useState<ReviewAnswer[]>([]);
-  const [remarks, setRemarks] = useState<Remark[]>([]);
-  const [action, setAction] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [submissions, setSubmissions] = useState<QueueSubmission[]>([]);
+    const [submissionSummary, setSubmissionSummary] = useState<
+        SubmissionSummary[]
+    >([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [generating, setGenerating] = useState(false);
+    const [generated, setGenerated] = useState(false);
+    const [sample, setSample] = useState<ReviewAnswer[]>([]);
+    const [remarks, setRemarks] = useState<Remark[]>([]);
+    const [action, setAction] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-  const loadQueue = useCallback(async () => {
-    // The queue is what this page is for. The route counts, moderation sample
-    // and remark requests are extras: if one of them fails, show why, but
-    // still let the organiser mark.
-    const [queue, all, reviewData, remarkData] = await Promise.allSettled([
-      api.get<{ submissions: QueueSubmission[] }>(
-        `/rounds/${roundId}/marking-queue`,
-      ),
-      api.get<{ submissions: SubmissionSummary[] }>(
-        `/rounds/${roundId}/submissions`,
-      ),
-      api.get<{ sample: ReviewAnswer[]; currentUserId?: string }>(
-        `/rounds/${roundId}/review-sample`,
-      ),
-      api.get<{ remarks: Remark[] }>(`/rounds/${roundId}/remarks`),
-    ]);
+    const loadQueue = useCallback(async () => {
+        // The queue is what this page is for. The route counts, moderation sample
+        // and remark requests are extras: if one of them fails, show why, but
+        // still let the organiser mark.
+        const [queue, all, reviewData, remarkData] = await Promise.allSettled([
+            api.get<{ submissions: QueueSubmission[] }>(
+                `/rounds/${roundId}/marking-queue`
+            ),
+            api.get<{ submissions: SubmissionSummary[] }>(
+                `/rounds/${roundId}/submissions`
+            ),
+            api.get<{ sample: ReviewAnswer[]; currentUserId?: string }>(
+                `/rounds/${roundId}/review-sample`
+            ),
+            api.get<{ remarks: Remark[] }>(`/rounds/${roundId}/remarks`),
+        ]);
 
-    if (queue.status === "fulfilled") setSubmissions(queue.value.submissions);
-    if (all.status === "fulfilled") setSubmissionSummary(all.value.submissions);
-    if (reviewData.status === "fulfilled") {
-      setSample(reviewData.value.sample);
-      if (reviewData.value.currentUserId) {
-        setCurrentUserId(reviewData.value.currentUserId);
-      }
+        if (queue.status === 'fulfilled')
+            setSubmissions(queue.value.submissions);
+        if (all.status === 'fulfilled')
+            setSubmissionSummary(all.value.submissions);
+        if (reviewData.status === 'fulfilled') {
+            setSample(reviewData.value.sample);
+            if (reviewData.value.currentUserId) {
+                setCurrentUserId(reviewData.value.currentUserId);
+            }
+        }
+        if (remarkData.status === 'fulfilled')
+            setRemarks(remarkData.value.remarks);
+
+        const failed = [queue, all, reviewData, remarkData].find(
+            (result): result is PromiseRejectedResult =>
+                result.status === 'rejected'
+        );
+        setError(
+            failed
+                ? failed.reason instanceof Error
+                    ? failed.reason.message
+                    : 'Failed to load marking queue'
+                : null
+        );
+    }, [roundId]);
+
+    useEffect(() => {
+        loadQueue().finally(() => setLoading(false));
+    }, [loadQueue]);
+
+    const handleMarked = () => {
+        loadQueue();
+    };
+
+    const handleGenerateResults = async () => {
+        setGenerating(true);
+        setError(null);
+        try {
+            await api.post(`/rounds/${roundId}/results`);
+            setGenerated(true);
+        } catch (err: any) {
+            setError(err.message || 'Failed to generate results');
+        } finally {
+            setGenerating(false);
+        }
+    };
+
+    async function reviewAnswer(
+        event: React.FormEvent<HTMLFormElement>,
+        answerId: string
+    ) {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        setAction(true);
+        setError(null);
+        try {
+            await api.patch(`/rounds/${roundId}/review-sample/${answerId}`, {
+                points_awarded: Number(form.get('points')),
+                comment: String(form.get('comment')),
+            });
+            await loadQueue();
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Review failed');
+        } finally {
+            setAction(false);
+        }
     }
-    if (remarkData.status === "fulfilled") setRemarks(remarkData.value.remarks);
 
-    const failed = [queue, all, reviewData, remarkData].find(
-      (result): result is PromiseRejectedResult => result.status === "rejected",
-    );
-    setError(
-      failed
-        ? failed.reason instanceof Error
-          ? failed.reason.message
-          : "Failed to load marking queue"
-        : null,
-    );
-  }, [roundId]);
-
-  useEffect(() => {
-    loadQueue().finally(() => setLoading(false));
-  }, [loadQueue]);
-
-  const handleMarked = () => {
-    loadQueue();
-  };
-
-  const handleGenerateResults = async () => {
-    setGenerating(true);
-    setError(null);
-    try {
-      await api.post(`/rounds/${roundId}/results`);
-      setGenerated(true);
-    } catch (err: any) {
-      setError(err.message || "Failed to generate results");
-    } finally {
-      setGenerating(false);
+    async function decideRemark(
+        event: React.FormEvent<HTMLFormElement>,
+        id: string
+    ) {
+        event.preventDefault();
+        const form = new FormData(event.currentTarget);
+        setAction(true);
+        setError(null);
+        try {
+            await api.patch(`/rounds/${roundId}/remarks/${id}`, {
+                status: String(form.get('status')),
+                decision: String(form.get('decision')),
+                answer_id: String(form.get('answer_id')),
+                points_awarded: Number(form.get('points')),
+            });
+            await loadQueue();
+        } catch (err) {
+            setError(
+                err instanceof Error ? err.message : 'Remark decision failed'
+            );
+        } finally {
+            setAction(false);
+        }
     }
-  };
 
-  async function reviewAnswer(event: React.FormEvent<HTMLFormElement>, answerId: string) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setAction(true); setError(null);
-    try {
-      await api.patch(`/rounds/${roundId}/review-sample/${answerId}`, {
-        points_awarded: Number(form.get("points")), comment: String(form.get("comment")),
-      });
-      await loadQueue();
-    } catch (err) { setError(err instanceof Error ? err.message : "Review failed"); }
-    finally { setAction(false); }
-  }
+    const totalPending = submissions.reduce(
+        (sum, s) => sum + s.answers.length,
+        0
+    );
+    const onlineCount = submissionSummary.filter(
+        (submission) => submission.route === 'online'
+    ).length;
+    const offlineCount = submissionSummary.filter(
+        (submission) => submission.route === 'offline'
+    ).length;
 
-  async function decideRemark(event: React.FormEvent<HTMLFormElement>, id: string) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setAction(true); setError(null);
-    try {
-      await api.patch(`/rounds/${roundId}/remarks/${id}`, {
-        status: String(form.get("status")), decision: String(form.get("decision")),
-        answer_id: String(form.get("answer_id")), points_awarded: Number(form.get("points")),
-      });
-      await loadQueue();
-    } catch (err) { setError(err instanceof Error ? err.message : "Remark decision failed"); }
-    finally { setAction(false); }
-  }
+    if (loading) {
+        return (
+            <AppShell
+                activeRole="organiser"
+                navItems={organiserNav}
+                organisation=""
+                portalLabel="Organiser portal"
+            >
+                <p className={styles.loading}>Loading marking queue...</p>
+            </AppShell>
+        );
+    }
 
-  const totalPending = submissions.reduce(
-    (sum, s) => sum + s.answers.length,
-    0,
-  );
-  const onlineCount = submissionSummary.filter((submission) => submission.route === "online").length;
-  const offlineCount = submissionSummary.filter((submission) => submission.route === "offline").length;
-
-  if (loading) {
     return (
-      <AppShell
-        activeRole="organiser"
-        navItems={organiserNav}
-        organisation=""
-        portalLabel="Organiser portal"
-      >
-        <p className={styles.loading}>Loading marking queue...</p>
-      </AppShell>
-    );
-  }
+        <AppShell
+            activeRole="organiser"
+            navItems={organiserNav}
+            organisation=""
+            portalLabel="Organiser portal"
+        >
+            <div className={styles.stack}>
+                <header className={styles.pageHeader}>
+                    <div>
+                        <h1>Marking queue</h1>
+                        <p>
+                            Essay answers that need human marking. Auto-marked
+                            questions (multiple choice, short answer) are
+                            already scored.
+                        </p>
+                    </div>
+                    <div className={styles.pageActions}>
+                        <Button variant="outline" to="/organiser">
+                            <ArrowLeft /> Dashboard
+                        </Button>
+                    </div>
+                </header>
 
-  return (
-    <AppShell
-      activeRole="organiser"
-      navItems={organiserNav}
-      organisation=""
-      portalLabel="Organiser portal"
-    >
-      <div className={styles.stack}>
-        <header className={styles.pageHeader}>
-          <div>
-            <h1>Marking queue</h1>
-            <p>
-              Essay answers that need human marking. Auto-marked questions
-              (multiple choice, short answer) are already scored.
-            </p>
-          </div>
-          <div className={styles.pageActions}>
-            <Button variant="outline" to="/organiser">
-              <ArrowLeft /> Dashboard
-            </Button>
-          </div>
-        </header>
+                {error && <div className={styles.errorBanner}>{error}</div>}
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
+                <Card className={styles.routeSummary}>
+                    <div>
+                        <h2>One paper, two sitting routes</h2>
+                        <p>
+                            Online and paper submissions use this round&apos;s
+                            official paper and are marked together.
+                        </p>
+                    </div>
+                    <div className={styles.routeCounts}>
+                        <span>
+                            <strong>{onlineCount}</strong> online
+                        </span>
+                        <span>
+                            <strong>{offlineCount}</strong> paper
+                        </span>
+                        <span>
+                            <strong>
+                                {
+                                    submissionSummary.filter(
+                                        (submission) => submission.is_late
+                                    ).length
+                                }
+                            </strong>{' '}
+                            late
+                        </span>
+                    </div>
+                </Card>
 
-        <Card className={styles.routeSummary}>
-          <div>
-            <h2>One paper, two sitting routes</h2>
-            <p>Online and paper submissions use this round&apos;s official paper and are marked together.</p>
-          </div>
-          <div className={styles.routeCounts}>
-            <span><strong>{onlineCount}</strong> online</span>
-            <span><strong>{offlineCount}</strong> paper</span>
-            <span><strong>{submissionSummary.filter((submission) => submission.is_late).length}</strong> late</span>
-          </div>
-        </Card>
-
-        {submissions.length === 0 && (
-          <Card className={styles.emptyCard}>
-            {generated ? (
-              <>
-                <Trophy className={styles.emptyIcon} />
-                <h2>Results released</h2>
-                <p>
-                  All answers are marked and final results with ranks have been
-                  generated for this round.
-                </p>
-              </>
-            ) : (
-              <>
-                <FileCheck2 className={styles.emptyIcon} />
-                <h2>Nothing to mark</h2>
-                <p>
-                  All answers for this round have been marked. You can generate
-                  the final results now.
-                </p>
-                <Button
-                  onClick={handleGenerateResults}
-                  disabled={generating}
-                  icon={<Trophy aria-hidden="true" />}
-                >
-                  {generating ? "Generating..." : "Generate results"}
-                </Button>
-              </>
-            )}
-          </Card>
-        )}
-
-        <Card>
-          <h2>Moderation sample</h2>
-          <p>Review a stable sample of marked answers. A marker cannot review their own answer.</p>
-          {sample.length === 0 && <p>No manually marked answers to review.</p>}
-          {sample.map((answer) => {
-            const isSelfMarked = Boolean(
-              currentUserId &&
-                (answer.marked_by === currentUserId ||
-                  answer.users?.id === currentUserId)
-            );
-            const markerLabel =
-              answer.users?.full_name ||
-              answer.users?.email ||
-              (isSelfMarked ? "You" : null);
-
-            return (
-              <form
-                key={answer.id}
-                onSubmit={(e) => reviewAnswer(e, answer.id)}
-                style={{
-                  margin: "1rem 0",
-                  borderTop: "1px solid #ccc",
-                  paddingTop: "1rem",
-                }}
-              >
-                <p>
-                  <strong>{answer.submissions.entrants.full_name}</strong> -{" "}
-                  {answer.questions.prompt}
-                </p>
-                <p>
-                  Answer: {answer.answer_value || "(blank)"} | Mark:{" "}
-                  {answer.points_awarded}/{answer.questions.max_points} | Reviews:{" "}
-                  {answer.marking_reviews.length}
-                  {markerLabel ? ` | Marker: ${markerLabel}` : ""}
-                </p>
-                {isSelfMarked ? (
-                  <p
-                    style={{
-                      color: "var(--muted-foreground, #666)",
-                      fontStyle: "italic",
-                      fontSize: "0.875rem",
-                    }}
-                  >
-                    You marked this answer. A marker cannot moderate their own
-                    marking.
-                  </p>
-                ) : (
-                  <>
-                    <label>
-                      Reviewed points{" "}
-                      <input
-                        name="points"
-                        type="number"
-                        min="0"
-                        max={Number(answer.questions.max_points)}
-                        step="any"
-                        defaultValue={Number(answer.points_awarded)}
-                        required
-                      />
-                    </label>{" "}
-                    <label>
-                      Review comment <input name="comment" required />
-                    </label>{" "}
-                    <Button type="submit" disabled={action}>
-                      Save review
-                    </Button>
-                  </>
+                {submissions.length === 0 && (
+                    <Card className={styles.emptyCard}>
+                        {generated ? (
+                            <>
+                                <Trophy className={styles.emptyIcon} />
+                                <h2>Results released</h2>
+                                <p>
+                                    All answers are marked and final results
+                                    with ranks have been generated for this
+                                    round.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <FileCheck2 className={styles.emptyIcon} />
+                                <h2>Nothing to mark</h2>
+                                <p>
+                                    All answers for this round have been marked.
+                                    You can generate the final results now.
+                                </p>
+                                <Button
+                                    onClick={handleGenerateResults}
+                                    disabled={generating}
+                                    icon={<Trophy aria-hidden="true" />}
+                                >
+                                    {generating
+                                        ? 'Generating...'
+                                        : 'Generate results'}
+                                </Button>
+                            </>
+                        )}
+                    </Card>
                 )}
-              </form>
-            );
-          })}
-        </Card>
-        <Card>
-          <h2>Student remark requests</h2>
-          {remarks.length === 0 && <p>No remark requests yet.</p>}
-          {remarks.map((remark) => <form key={remark.id} onSubmit={(e) => decideRemark(e, remark.id)} style={{ margin: "1rem 0", borderTop: "1px solid #ccc", paddingTop: "1rem" }}>
-            <p><strong>{remark.entrants.full_name}</strong> - {remark.status}: {remark.reason}</p>
-            {remark.status === "pending" && <>
-              <label>Decision <select name="status"><option value="rejected">Reject</option><option value="approved">Approve revised mark</option></select></label>{" "}
-              <label>Answer <select name="answer_id"><option value="">Select an answer if approving</option>{remark.entrants.submissions.flatMap((sub) => sub.answers).map((answer) => <option key={answer.id} value={answer.id}>{answer.questions.prompt.slice(0, 70)} (currently {answer.points_awarded}/{answer.questions.max_points})</option>)}</select></label>{" "}
-              <label>Revised points <input name="points" type="number" min="0" step="any" /></label>{" "}
-              <label>Explanation <input name="decision" required minLength={5} /></label>{" "}
-              <Button type="submit" disabled={action}>Record decision</Button>
-            </>}
-            {remark.decision && <p>Decision: {remark.decision}</p>}
-          </form>)}
-        </Card>
-        {submissions.length > 0 && (
-          <>
-            <div className={styles.queueSummary}>
-              <ClipboardCheck className={styles.summaryIcon} />
-              <span>
-                <strong>{totalPending}</strong> answer
-                {totalPending !== 1 ? "s" : ""} awaiting marking across{" "}
-                <strong>{submissions.length}</strong> submission
-                {submissions.length !== 1 ? "s" : ""}
-              </span>
-            </div>
 
-            {submissions.map((sub) => (
-              <Card
-                key={sub.id}
-                className={styles.submissionCard}
-                padded={false}
-              >
-                <div className={styles.submissionHeader}>
-                  <h2>{sub.entrants.full_name}</h2>
-                  {sub.is_late && (
-                    <span
-                      className={styles.lateTag}
-                      title="Submitted after the round's closing time"
-                    >
-                      Late
-                    </span>
-                  )}
-                  {sub.entrants.grade && (
-                    <span className={styles.gradeTag}>
-                      Grade {sub.entrants.grade}
-                    </span>
-                  )}
-                  <span className={styles.answerCount}>
-                    {sub.answers.length} to mark
-                  </span>
-                </div>
-                <div className={styles.submissionBody}>
-                  {sub.answers.map((answer) => (
-                    <AnswerCard
-                      key={answer.id}
-                      answer={answer}
-                      roundId={roundId ?? ""}
-                      onMarked={handleMarked}
-                    />
-                  ))}
-                </div>
-              </Card>
-            ))}
-          </>
-        )}
-      </div>
-    </AppShell>
-  );
+                <Card>
+                    <h2>Moderation sample</h2>
+                    <p>
+                        Review a stable sample of marked answers. A marker
+                        cannot review their own answer.
+                    </p>
+                    {sample.length === 0 && (
+                        <p>No manually marked answers to review.</p>
+                    )}
+                    {sample.map((answer) => {
+                        const isSelfMarked = Boolean(
+                            currentUserId &&
+                            (answer.marked_by === currentUserId ||
+                                answer.users?.id === currentUserId)
+                        );
+                        const markerLabel =
+                            answer.users?.full_name ||
+                            answer.users?.email ||
+                            (isSelfMarked ? 'You' : null);
+
+                        return (
+                            <form
+                                key={answer.id}
+                                onSubmit={(e) => reviewAnswer(e, answer.id)}
+                                style={{
+                                    margin: '1rem 0',
+                                    borderTop: '1px solid #ccc',
+                                    paddingTop: '1rem',
+                                }}
+                            >
+                                <p>
+                                    <strong>
+                                        {answer.submissions.entrants.full_name}
+                                    </strong>{' '}
+                                    - {answer.questions.prompt}
+                                </p>
+                                <p>
+                                    Answer: {answer.answer_value || '(blank)'} |
+                                    Mark: {answer.points_awarded}/
+                                    {answer.questions.max_points} | Reviews:{' '}
+                                    {answer.marking_reviews.length}
+                                    {markerLabel
+                                        ? ` | Marker: ${markerLabel}`
+                                        : ''}
+                                </p>
+                                {isSelfMarked ? (
+                                    <p
+                                        style={{
+                                            color: 'var(--muted-foreground, #666)',
+                                            fontStyle: 'italic',
+                                            fontSize: '0.875rem',
+                                        }}
+                                    >
+                                        You marked this answer. A marker cannot
+                                        moderate their own marking.
+                                    </p>
+                                ) : (
+                                    <>
+                                        <label>
+                                            Reviewed points{' '}
+                                            <input
+                                                name="points"
+                                                type="number"
+                                                min="0"
+                                                max={Number(
+                                                    answer.questions.max_points
+                                                )}
+                                                step="any"
+                                                defaultValue={Number(
+                                                    answer.points_awarded
+                                                )}
+                                                required
+                                            />
+                                        </label>{' '}
+                                        <label>
+                                            Review comment{' '}
+                                            <input name="comment" required />
+                                        </label>{' '}
+                                        <Button type="submit" disabled={action}>
+                                            Save review
+                                        </Button>
+                                    </>
+                                )}
+                            </form>
+                        );
+                    })}
+                </Card>
+                <Card>
+                    <h2>Student remark requests</h2>
+                    {remarks.length === 0 && <p>No remark requests yet.</p>}
+                    {remarks.map((remark) => (
+                        <form
+                            key={remark.id}
+                            onSubmit={(e) => decideRemark(e, remark.id)}
+                            style={{
+                                margin: '1rem 0',
+                                borderTop: '1px solid #ccc',
+                                paddingTop: '1rem',
+                            }}
+                        >
+                            <p>
+                                <strong>{remark.entrants.full_name}</strong> -{' '}
+                                {remark.status}: {remark.reason}
+                            </p>
+                            {remark.status === 'pending' && (
+                                <>
+                                    <label>
+                                        Decision{' '}
+                                        <select name="status">
+                                            <option value="rejected">
+                                                Reject
+                                            </option>
+                                            <option value="approved">
+                                                Approve revised mark
+                                            </option>
+                                        </select>
+                                    </label>{' '}
+                                    <label>
+                                        Answer{' '}
+                                        <select name="answer_id">
+                                            <option value="">
+                                                Select an answer if approving
+                                            </option>
+                                            {remark.entrants.submissions
+                                                .flatMap((sub) => sub.answers)
+                                                .map((answer) => (
+                                                    <option
+                                                        key={answer.id}
+                                                        value={answer.id}
+                                                    >
+                                                        {answer.questions.prompt.slice(
+                                                            0,
+                                                            70
+                                                        )}{' '}
+                                                        (currently{' '}
+                                                        {answer.points_awarded}/
+                                                        {
+                                                            answer.questions
+                                                                .max_points
+                                                        }
+                                                        )
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </label>{' '}
+                                    <label>
+                                        Revised points{' '}
+                                        <input
+                                            name="points"
+                                            type="number"
+                                            min="0"
+                                            step="any"
+                                        />
+                                    </label>{' '}
+                                    <label>
+                                        Explanation{' '}
+                                        <input
+                                            name="decision"
+                                            required
+                                            minLength={5}
+                                        />
+                                    </label>{' '}
+                                    <Button type="submit" disabled={action}>
+                                        Record decision
+                                    </Button>
+                                </>
+                            )}
+                            {remark.decision && (
+                                <p>Decision: {remark.decision}</p>
+                            )}
+                        </form>
+                    ))}
+                </Card>
+                {submissions.length > 0 && (
+                    <>
+                        <div className={styles.queueSummary}>
+                            <ClipboardCheck className={styles.summaryIcon} />
+                            <span>
+                                <strong>{totalPending}</strong> answer
+                                {totalPending !== 1 ? 's' : ''} awaiting marking
+                                across <strong>{submissions.length}</strong>{' '}
+                                submission
+                                {submissions.length !== 1 ? 's' : ''}
+                            </span>
+                        </div>
+
+                        {submissions.map((sub) => (
+                            <Card
+                                key={sub.id}
+                                className={styles.submissionCard}
+                                padded={false}
+                            >
+                                <div className={styles.submissionHeader}>
+                                    <h2>{sub.entrants.full_name}</h2>
+                                    {sub.is_late && (
+                                        <span
+                                            className={styles.lateTag}
+                                            title="Submitted after the round's closing time"
+                                        >
+                                            Late
+                                        </span>
+                                    )}
+                                    {sub.entrants.grade && (
+                                        <span className={styles.gradeTag}>
+                                            Grade {sub.entrants.grade}
+                                        </span>
+                                    )}
+                                    <span className={styles.answerCount}>
+                                        {sub.answers.length} to mark
+                                    </span>
+                                </div>
+                                <div className={styles.submissionBody}>
+                                    {sub.answers.map((answer) => (
+                                        <AnswerCard
+                                            key={answer.id}
+                                            answer={answer}
+                                            roundId={roundId ?? ''}
+                                            onMarked={handleMarked}
+                                        />
+                                    ))}
+                                </div>
+                            </Card>
+                        ))}
+                    </>
+                )}
+            </div>
+        </AppShell>
+    );
 }
 
 export default MarkingQueue;

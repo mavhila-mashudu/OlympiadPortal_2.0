@@ -1,13 +1,13 @@
 // @ts-nocheck
-const prisma = require("../config/database").default;
-const { assertOwnsOlympiad } = require("./olympiadService");
-const { autoMarkRoundInternal } = require("./markingService");
-const { checkDatesForHolidays } = require("./holidayService");
+const prisma = require('../config/database').default;
+const { assertOwnsOlympiad } = require('./olympiadService');
+const { autoMarkRoundInternal } = require('./markingService');
+const { checkDatesForHolidays } = require('./holidayService');
 const {
-  NotFoundError,
-  ForbiddenError,
-  BadRequestError,
-} = require("../errors/AppError");
+    NotFoundError,
+    ForbiddenError,
+    BadRequestError,
+} = require('../errors/AppError');
 
 // ─────────────────────────────────────────
 // CREATE ROUND
@@ -16,78 +16,94 @@ const {
 // later moves it to open/closed on its own.
 // ─────────────────────────────────────────
 const createRound = async ({
-  olympiadId,
-  organiserId,
-  name,
-  notes,
-  opensAt,
-  closesAt,
-  qualifyingThreshold,
+    olympiadId,
+    organiserId,
+    name,
+    notes,
+    opensAt,
+    closesAt,
+    qualifyingThreshold,
 }) => {
-  const olympiad = await assertOwnsOlympiad(olympiadId, organiserId);
+    const olympiad = await assertOwnsOlympiad(olympiadId, organiserId);
 
-  const opens = new Date(opensAt);
-  const closes = new Date(closesAt);
+    const opens = new Date(opensAt);
+    const closes = new Date(closesAt);
 
-  if (Number.isNaN(opens.getTime()) || Number.isNaN(closes.getTime())) {
-    throw new BadRequestError("opens_at and closes_at must be valid dates");
-  }
-  if (closes <= opens) {
-    throw new BadRequestError("closes_at must be after opens_at");
-  }
+    if (Number.isNaN(opens.getTime()) || Number.isNaN(closes.getTime())) {
+        throw new BadRequestError('opens_at and closes_at must be valid dates');
+    }
+    if (closes <= opens) {
+        throw new BadRequestError('closes_at must be after opens_at');
+    }
 
-  const warnings = await checkDatesForHolidays([opens, closes], olympiad.timezone);
+    const warnings = await checkDatesForHolidays(
+        [opens, closes],
+        olympiad.timezone
+    );
 
-  const round = await prisma.rounds.create({
-    data: {
-      olympiad_id: olympiadId,
-      name,
-      notes,
-      opens_at: opens,
-      closes_at: closes,
-      qualifying_threshold:
-        qualifyingThreshold === undefined || qualifyingThreshold === ""
-          ? null
-          : qualifyingThreshold,
-    },
-  });
-
-  // If this is the next round created after results were released, carry
-  // qualified entrants forward now as well.
-  const previous = await prisma.rounds.findFirst({
-    where: { olympiad_id: olympiadId, opens_at: { lt: opens } },
-    orderBy: { opens_at: "desc" },
-    select: { id: true, state: true },
-  });
-  if (previous?.state === "results_released") {
-    const qualified = await prisma.results.findMany({ where: { round_id: previous.id, qualified: true }, select: { entrant_id: true } });
-    const registrations = await prisma.entrant_registrations.findMany({
-      where: { round_id: previous.id, entrant_id: { in: qualified.map((r) => r.entrant_id) } },
-      select: { entrant_id: true, registered_by: true },
+    const round = await prisma.rounds.create({
+        data: {
+            olympiad_id: olympiadId,
+            name,
+            notes,
+            opens_at: opens,
+            closes_at: closes,
+            qualifying_threshold:
+                qualifyingThreshold === undefined || qualifyingThreshold === ''
+                    ? null
+                    : qualifyingThreshold,
+        },
     });
-    if (registrations.length) await prisma.entrant_registrations.createMany({
-      data: registrations.map((r) => ({ entrant_id: r.entrant_id, registered_by: r.registered_by, round_id: round.id })),
-      skipDuplicates: true,
+
+    // If this is the next round created after results were released, carry
+    // qualified entrants forward now as well.
+    const previous = await prisma.rounds.findFirst({
+        where: { olympiad_id: olympiadId, opens_at: { lt: opens } },
+        orderBy: { opens_at: 'desc' },
+        select: { id: true, state: true },
     });
-  }
-  return { round, warnings };
+    if (previous?.state === 'results_released') {
+        const qualified = await prisma.results.findMany({
+            where: { round_id: previous.id, qualified: true },
+            select: { entrant_id: true },
+        });
+        const registrations = await prisma.entrant_registrations.findMany({
+            where: {
+                round_id: previous.id,
+                entrant_id: { in: qualified.map((r) => r.entrant_id) },
+            },
+            select: { entrant_id: true, registered_by: true },
+        });
+        if (registrations.length)
+            await prisma.entrant_registrations.createMany({
+                data: registrations.map((r) => ({
+                    entrant_id: r.entrant_id,
+                    registered_by: r.registered_by,
+                    round_id: round.id,
+                })),
+                skipDuplicates: true,
+            });
+    }
+    return { round, warnings };
 };
 
 // ─────────────────────────────────────────
 // LIST ROUNDS FOR AN OLYMPIAD
 // ─────────────────────────────────────────
 const listRounds = async (olympiadId, organiserId) => {
-  await assertOwnsOlympiad(olympiadId, organiserId);
+    await assertOwnsOlympiad(olympiadId, organiserId);
 
-  const rounds = await prisma.rounds.findMany({
-    where: { olympiad_id: olympiadId },
-    orderBy: { opens_at: "asc" },
-    include: {
-      _count: { select: { submissions: true, entrant_registrations: true } },
-    },
-  });
+    const rounds = await prisma.rounds.findMany({
+        where: { olympiad_id: olympiadId },
+        orderBy: { opens_at: 'asc' },
+        include: {
+            _count: {
+                select: { submissions: true, entrant_registrations: true },
+            },
+        },
+    });
 
-  return rounds;
+    return rounds;
 };
 
 // ─────────────────────────────────────────
@@ -95,21 +111,23 @@ const listRounds = async (olympiadId, organiserId) => {
 // Ownership is checked via the round's parent olympiad
 // ─────────────────────────────────────────
 const getRound = async (roundId, organiserId) => {
-  const round = await prisma.rounds.findUnique({
-    where: { id: roundId },
-    include: {
-      olympiads: true,
-      papers: true,
-      _count: { select: { submissions: true, entrant_registrations: true } },
-    },
-  });
+    const round = await prisma.rounds.findUnique({
+        where: { id: roundId },
+        include: {
+            olympiads: true,
+            papers: true,
+            _count: {
+                select: { submissions: true, entrant_registrations: true },
+            },
+        },
+    });
 
-  if (!round) throw new NotFoundError("Round not found");
-  if (round.olympiads.organiser_id !== organiserId) {
-    throw new ForbiddenError("Not your round");
-  }
+    if (!round) throw new NotFoundError('Round not found');
+    if (round.olympiads.organiser_id !== organiserId) {
+        throw new ForbiddenError('Not your round');
+    }
 
-  return round;
+    return round;
 };
 
 // ─────────────────────────────────────────
@@ -119,50 +137,56 @@ const getRound = async (roundId, organiserId) => {
 // schools that are already relying on it.
 // ─────────────────────────────────────────
 const updateRound = async (
-  roundId,
-  organiserId,
-  { name, opensAt, closesAt, qualifyingThreshold, notes },
+    roundId,
+    organiserId,
+    { name, opensAt, closesAt, qualifyingThreshold, notes }
 ) => {
-  const round = await getRound(roundId, organiserId);
+    const round = await getRound(roundId, organiserId);
 
-  if (round.state !== "scheduled") {
-    throw new BadRequestError(
-      "Only a round that hasn't opened yet can be edited",
+    if (round.state !== 'scheduled') {
+        throw new BadRequestError(
+            "Only a round that hasn't opened yet can be edited"
+        );
+    }
+
+    const data = {};
+    if (name !== undefined) data.name = name;
+    if (notes !== undefined) data.notes = notes;
+    if (qualifyingThreshold !== undefined) {
+        data.qualifying_threshold =
+            qualifyingThreshold === '' || qualifyingThreshold === null
+                ? null
+                : qualifyingThreshold;
+    }
+
+    const opens = opensAt !== undefined ? new Date(opensAt) : round.opens_at;
+    const closes =
+        closesAt !== undefined ? new Date(closesAt) : round.closes_at;
+
+    if (opensAt !== undefined || closesAt !== undefined) {
+        if (Number.isNaN(opens.getTime()) || Number.isNaN(closes.getTime())) {
+            throw new BadRequestError(
+                'opens_at and closes_at must be valid dates'
+            );
+        }
+        if (closes <= opens) {
+            throw new BadRequestError('closes_at must be after opens_at');
+        }
+        data.opens_at = opens;
+        data.closes_at = closes;
+    }
+
+    const warnings = await checkDatesForHolidays(
+        [opens, closes],
+        round.olympiads?.timezone
     );
-  }
 
-  const data = {};
-  if (name !== undefined) data.name = name;
-  if (notes !== undefined) data.notes = notes;
-  if (qualifyingThreshold !== undefined) {
-    data.qualifying_threshold =
-      qualifyingThreshold === "" || qualifyingThreshold === null
-        ? null
-        : qualifyingThreshold;
-  }
+    const updated = await prisma.rounds.update({
+        where: { id: roundId },
+        data,
+    });
 
-  const opens = opensAt !== undefined ? new Date(opensAt) : round.opens_at;
-  const closes = closesAt !== undefined ? new Date(closesAt) : round.closes_at;
-
-  if (opensAt !== undefined || closesAt !== undefined) {
-    if (Number.isNaN(opens.getTime()) || Number.isNaN(closes.getTime())) {
-      throw new BadRequestError("opens_at and closes_at must be valid dates");
-    }
-    if (closes <= opens) {
-      throw new BadRequestError("closes_at must be after opens_at");
-    }
-    data.opens_at = opens;
-    data.closes_at = closes;
-  }
-
-  const warnings = await checkDatesForHolidays([opens, closes], round.olympiads?.timezone);
-
-  const updated = await prisma.rounds.update({
-    where: { id: roundId },
-    data,
-  });
-
-  return { round: updated, warnings };
+    return { round: updated, warnings };
 };
 
 // ─────────────────────────────────────────
@@ -171,22 +195,24 @@ const updateRound = async (
 // seen it, removing it silently would be unfair
 // ─────────────────────────────────────────
 const deleteRound = async (roundId, organiserId) => {
-  const round = await getRound(roundId, organiserId);
+    const round = await getRound(roundId, organiserId);
 
-  if (round.state !== "scheduled") {
-    throw new BadRequestError(
-      "Only a round that hasn't opened yet can be deleted",
-    );
-  }
+    if (round.state !== 'scheduled') {
+        throw new BadRequestError(
+            "Only a round that hasn't opened yet can be deleted"
+        );
+    }
 
-  // Papers and entrant registrations reference the round with ON DELETE
-  // RESTRICT, so remove them first (a paper's questions cascade with it).
-  // A scheduled round can't have submissions or results yet.
-  await prisma.$transaction([
-    prisma.entrant_registrations.deleteMany({ where: { round_id: roundId } }),
-    prisma.papers.deleteMany({ where: { round_id: roundId } }),
-    prisma.rounds.delete({ where: { id: roundId } }),
-  ]);
+    // Papers and entrant registrations reference the round with ON DELETE
+    // RESTRICT, so remove them first (a paper's questions cascade with it).
+    // A scheduled round can't have submissions or results yet.
+    await prisma.$transaction([
+        prisma.entrant_registrations.deleteMany({
+            where: { round_id: roundId },
+        }),
+        prisma.papers.deleteMany({ where: { round_id: roundId } }),
+        prisma.rounds.delete({ where: { id: roundId } }),
+    ]);
 };
 
 // ─────────────────────────────────────────
@@ -197,62 +223,70 @@ const deleteRound = async (roundId, organiserId) => {
 // lifecycle job would.
 // ─────────────────────────────────────────
 const setRoundState = async (roundId, organiserId, state) => {
-  const round = await getRound(roundId, organiserId);
+    const round = await getRound(roundId, organiserId);
 
-  const allowed = {
-    scheduled: ["open"],
-    open: ["closed"],
-    closed: ["marking"],
-    marking: ["results_released"],
-    results_released: [],
-  };
+    const allowed = {
+        scheduled: ['open'],
+        open: ['closed'],
+        closed: ['marking'],
+        marking: ['results_released'],
+        results_released: [],
+    };
 
-  if (!allowed[round.state].includes(state)) {
-    throw new BadRequestError(
-      `Cannot transition from "${round.state}" to "${state}"`,
-    );
-  }
-
-  if (state === "results_released") {
-    // Delegates to generateResults, which records results_release_at —
-    // the notification dispatcher uses it to send "results are out"
-    // notices.
-    const { generateResults } = require("./markingService");
-    await generateResults(roundId, organiserId, "organiser");
-    return getRound(roundId, organiserId);
-  }
-
-  const updated = await prisma.rounds.update({
-    where: { id: roundId },
-    // A close records its moment, so submissions that arrived before it count
-    data: { state, ...(state === "closed" ? { closed_at: new Date() } : {}) },
-  });
-
-  // Closing a round kicks off auto-marking,
-  // matching the lifecycle job's behaviour.
-  if (state === "closed") {
-    try {
-      const result = await autoMarkRoundInternal(roundId);
-      await require("./roundAuditService").recordRoundEvent(roundId, "round_automarked", "manual_close", `mark:${roundId}`,
-        { submissions: result.total });
-      console.log(
-        `[round] auto-marked ${result.total} submission(s) for round "${round.name}"`,
-      );
-    } catch (err) {
-      console.error(
-        `[round] auto-marking failed for round "${round.name}" (${roundId}): ${err.message}`,
-      );
+    if (!allowed[round.state].includes(state)) {
+        throw new BadRequestError(
+            `Cannot transition from "${round.state}" to "${state}"`
+        );
     }
-  }
 
-  return updated;
+    if (state === 'results_released') {
+        // Delegates to generateResults, which records results_release_at —
+        // the notification dispatcher uses it to send "results are out"
+        // notices.
+        const { generateResults } = require('./markingService');
+        await generateResults(roundId, organiserId, 'organiser');
+        return getRound(roundId, organiserId);
+    }
+
+    const updated = await prisma.rounds.update({
+        where: { id: roundId },
+        // A close records its moment, so submissions that arrived before it count
+        data: {
+            state,
+            ...(state === 'closed' ? { closed_at: new Date() } : {}),
+        },
+    });
+
+    // Closing a round kicks off auto-marking,
+    // matching the lifecycle job's behaviour.
+    if (state === 'closed') {
+        try {
+            const result = await autoMarkRoundInternal(roundId);
+            await require('./roundAuditService').recordRoundEvent(
+                roundId,
+                'round_automarked',
+                'manual_close',
+                `mark:${roundId}`,
+                { submissions: result.total }
+            );
+            console.log(
+                `[round] auto-marked ${result.total} submission(s) for round "${round.name}"`
+            );
+        } catch (err) {
+            console.error(
+                `[round] auto-marking failed for round "${round.name}" (${roundId}): ${err.message}`
+            );
+        }
+    }
+
+    return updated;
 };
 
 module.exports = {
-  createRound,
-  listRounds,
-  getRound,
-  updateRound,
-  deleteRound,
-  setRoundState,
+    createRound,
+    listRounds,
+    getRound,
+    updateRound,
+    deleteRound,
+    setRoundState,
 };

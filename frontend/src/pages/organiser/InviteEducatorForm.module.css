@@ -1,81 +1,81 @@
 .heading {
-  margin-top: 0;
-  font-size: 1.125rem;
-  font-weight: 600;
+    margin-top: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
 }
 
 .subtitle {
-  margin: 0.25rem 0 1.25rem;
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    margin: 0.25rem 0 1.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .field {
-  display: grid;
-  gap: 0.375rem;
-  margin-bottom: 1rem;
+    display: grid;
+    gap: 0.375rem;
+    margin-bottom: 1rem;
 }
 
 .field label {
-  font-size: 0.8125rem;
-  font-weight: 500;
+    font-size: 0.8125rem;
+    font-weight: 500;
 }
 
 .control {
-  width: 100%;
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 2px);
-  padding: 0.5rem 0.625rem;
-  color: var(--foreground);
-  background: var(--background);
-  font: inherit;
-  font-size: 0.875rem;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 0.5rem 0.625rem;
+    color: var(--foreground);
+    background: var(--background);
+    font: inherit;
+    font-size: 0.875rem;
 }
 
 .control:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--ring);
+    outline: none;
+    box-shadow: 0 0 0 2px var(--ring);
 }
 
 .hint {
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  line-height: 1rem;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1rem;
 }
 
 .error {
-  margin-bottom: 1rem;
-  color: var(--destructive, #b91c1c);
-  font-size: 0.8125rem;
+    margin-bottom: 1rem;
+    color: var(--destructive, #b91c1c);
+    font-size: 0.8125rem;
 }
 
 .actions {
-  display: flex;
-  gap: 0.5rem;
-  justify-content: flex-end;
-  margin-top: 1.25rem;
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1.25rem;
 }
 
 .overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1500;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgb(15 23 42 / 0.45);
-  backdrop-filter: blur(4px);
+    position: fixed;
+    inset: 0;
+    z-index: 1500;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    background: rgb(15 23 42 / 0.45);
+    backdrop-filter: blur(4px);
 }
 
 .dialog {
-  width: min(100%, 34rem);
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  border-radius: var(--radius);
-  box-shadow: 0 20px 50px rgb(15 23 42 / 0.28);
+    width: min(100%, 34rem);
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    border-radius: var(--radius);
+    box-shadow: 0 20px 50px rgb(15 23 42 / 0.28);
 }
 
 .dialog > section {
-  padding: 1.5rem;
+    padding: 1.5rem;
 }

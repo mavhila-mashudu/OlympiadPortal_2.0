@@ -1,262 +1,262 @@
 .stack {
-  display: grid;
-  gap: 1.5rem;
+    display: grid;
+    gap: 1.5rem;
 }
 
 /* --- Create form --- */
 
 .createCard {
-  padding: 1.25rem;
+    padding: 1.25rem;
 }
 
 .createForm {
-  display: grid;
-  gap: 1rem;
+    display: grid;
+    gap: 1rem;
 }
 
 .sectionTitle {
-  color: var(--card-foreground);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5rem;
+    color: var(--card-foreground);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5rem;
 }
 
 .createGrid {
-  display: grid;
-  gap: 1rem;
-  align-items: end;
+    display: grid;
+    gap: 1rem;
+    align-items: end;
 }
 
 .field {
-  display: grid;
-  gap: 0.5rem;
-  min-width: 0;
+    display: grid;
+    gap: 0.5rem;
+    min-width: 0;
 }
 
 .createButton {
-  min-width: 6rem;
+    min-width: 6rem;
 }
 
 .required {
-  color: var(--destructive, #ef4444);
+    color: var(--destructive, #ef4444);
 }
 
 .hint {
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  line-height: 1rem;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    line-height: 1rem;
 }
 
 @media (min-width: 48rem) {
-  .createGrid {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
-  }
+    .createGrid {
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+    }
 }
 
 /* --- Olympiads table --- */
 
 .tableCard {
-  overflow: hidden;
+    overflow: hidden;
 }
 
 .tableHeader {
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
 }
 
 .tableHeader h2 {
-  color: var(--card-foreground);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.5rem;
+    color: var(--card-foreground);
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5rem;
 }
 
 .tableScroller {
-  width: 100%;
-  overflow-x: auto;
+    width: 100%;
+    overflow-x: auto;
 }
 
 .olympiadsTable {
-  width: 100%;
-  min-width: 56rem;
-  border-collapse: collapse;
-  text-align: left;
-  font-size: 0.875rem;
+    width: 100%;
+    min-width: 56rem;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 0.875rem;
 }
 
 .olympiadsTable > thead th {
-  padding: 0.75rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  background: var(--muted);
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .olympiadsTable > tbody > tr > td {
-  padding: 0.875rem 1.25rem;
-  border-bottom: 1px solid var(--border);
-  color: var(--foreground);
-  vertical-align: middle;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--foreground);
+    vertical-align: middle;
 }
 
 .olympiadsTable > tbody > tr:last-child > td {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .olympiadsTable > tbody > tr:not(.expandedRow):hover {
-  background: color-mix(in oklab, var(--accent) 50%, transparent);
+    background: color-mix(in oklab, var(--accent) 50%, transparent);
 }
 
 .olympiadsTable .numeric {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 .olympiadsTable .actionColumn {
-  text-align: right;
+    text-align: right;
 }
 
 .idCell {
-  max-width: 14rem;
-  overflow: hidden;
-  color: var(--muted-foreground);
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.75rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+    max-width: 14rem;
+    overflow: hidden;
+    color: var(--muted-foreground);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .expandButton {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--foreground);
-  font: inherit;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--foreground);
+    font: inherit;
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
 }
 
 .expandButton:focus-visible {
-  outline: none;
-  border-radius: 0.25rem;
-  box-shadow: 0 0 0 2px var(--ring);
+    outline: none;
+    border-radius: 0.25rem;
+    box-shadow: 0 0 0 2px var(--ring);
 }
 
 .chevron {
-  width: 1rem;
-  height: 1rem;
-  flex-shrink: 0;
-  color: var(--muted-foreground);
-  transition: transform 150ms ease;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    color: var(--muted-foreground);
+    transition: transform 150ms ease;
 }
 
 .chevronOpen {
-  transform: rotate(90deg);
+    transform: rotate(90deg);
 }
 
 .rowActions {
-  display: flex;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-  gap: 0.375rem;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 0.375rem;
 }
 
 .rowActions .dangerOutline {
-  color: var(--destructive, #dc2626);
+    color: var(--destructive, #dc2626);
 }
 
 .rowActions .dangerSolid {
-  color: #fff;
-  background: var(--destructive, #dc2626);
+    color: #fff;
+    background: var(--destructive, #dc2626);
 }
 
 .rowActions .dangerSolid:hover {
-  background: color-mix(in oklab, var(--destructive, #dc2626) 88%, black);
+    background: color-mix(in oklab, var(--destructive, #dc2626) 88%, black);
 }
 
 .olympiadsTable td.emptyCell {
-  padding: 2.5rem 1.25rem;
-  color: var(--muted-foreground);
-  text-align: center;
+    padding: 2.5rem 1.25rem;
+    color: var(--muted-foreground);
+    text-align: center;
 }
 
 /* --- Rounds shown under an expanded olympiad --- */
 
 .olympiadsTable > tbody > tr.expandedRow > td {
-  padding: 0.75rem 1.25rem 1rem 2.75rem;
-  background: var(--muted);
+    padding: 0.75rem 1.25rem 1rem 2.75rem;
+    background: var(--muted);
 }
 
 .muted {
-  color: var(--muted-foreground);
+    color: var(--muted-foreground);
 }
 
 .roundsTable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.8125rem;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8125rem;
 }
 
 .roundsTable th,
 .roundsTable td {
-  padding: 0.5rem 0.75rem;
-  border-bottom: 1px solid var(--border);
-  text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
 }
 
 .roundsTable th {
-  color: var(--muted-foreground);
-  font-weight: 600;
+    color: var(--muted-foreground);
+    font-weight: 600;
 }
 
 .roundsTable tbody tr:last-child td {
-  border-bottom: none;
+    border-bottom: none;
 }
 
 .roundsTable .numeric {
-  text-align: right;
+    text-align: right;
 }
 
 .roundName {
-  font-weight: 500;
+    font-weight: 500;
 }
 
 .statePill {
-  display: inline-block;
-  padding: 0.125rem 0.5rem;
-  border-radius: 999px;
-  background: #f3f4f6;
-  color: #374151;
-  font-size: 0.75rem;
-  font-weight: 500;
-  text-transform: capitalize;
-  white-space: nowrap;
+    display: inline-block;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: capitalize;
+    white-space: nowrap;
 }
 
 .stateOpen {
-  background: #dcfce7;
-  color: #166534;
+    background: #dcfce7;
+    color: #166534;
 }
 
 .stateClosed {
-  background: #fee2e2;
-  color: #991b1b;
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 .stateMarking {
-  background: #fef3c7;
-  color: #92400e;
+    background: #fef3c7;
+    color: #92400e;
 }
 
 .stateReleased {
-  background: #dbeafe;
-  color: #1e40af;
+    background: #dbeafe;
+    color: #1e40af;
 }

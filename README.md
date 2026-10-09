@@ -16,12 +16,12 @@ See the README in each folder:
 
 The project has 2,064 automated tests across four levels:
 
-| Level | What it checks | Where |
-| --- | --- | --- |
-| Unit | Single functions, components and hooks, with everything around them mocked | backend/tests/unit, frontend/tests/unit |
-| Integration | Services against a real database, and whole pages inside the real app | backend/tests/integration, frontend/tests/integration |
-| API | Every endpoint over real HTTP: responses, permissions and validation | backend/tests/api |
-| End-to-end | Critical journeys in a real browser, front to back | frontend/e2e |
+| Level       | What it checks                                                             | Where                                                 |
+| ----------- | -------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Unit        | Single functions, components and hooks, with everything around them mocked | backend/tests/unit, frontend/tests/unit               |
+| Integration | Services against a real database, and whole pages inside the real app      | backend/tests/integration, frontend/tests/integration |
+| API         | Every endpoint over real HTTP: responses, permissions and validation       | backend/tests/api                                     |
+| End-to-end  | Critical journeys in a real browser, front to back                         | frontend/e2e                                          |
 
 Run them locally (no database, `.env` file or internet connection needed):
 
@@ -63,12 +63,12 @@ In the HTML report, click through the folders to a file: lines the tests never r
 
 Coverage measured on 29 September 2026:
 
-| Suite | Statements | Branches | Functions | Lines |
-| --- | --- | --- | --- | --- |
-| Backend unit | 88.8% | 79.2% | 87.5% | 90.0% |
-| Backend API | 80.9% | 65.3% | 77.5% | 82.8% |
-| Backend integration | 67.3% | 53.0% | 64.9% | 70.4% |
-| Frontend unit and integration (all source files) | 77.4% | 68.9% | 76.2% | 78.4% |
+| Suite                                            | Statements | Branches | Functions | Lines |
+| ------------------------------------------------ | ---------- | -------- | --------- | ----- |
+| Backend unit                                     | 88.8%      | 79.2%    | 87.5%     | 90.0% |
+| Backend API                                      | 80.9%      | 65.3%    | 77.5%     | 82.8% |
+| Backend integration                              | 67.3%      | 53.0%    | 64.9%     | 70.4% |
+| Frontend unit and integration (all source files) | 77.4%      | 68.9%    | 76.2%     | 78.4% |
 
 CI runs the backend and frontend suites on every pull request, and on pushes to `main` deploys to Azure once those checks have finished, whether they passed or not. The end-to-end tests aren't part of CI, so run them locally before merging a change to a user journey — see [.gitea/workflows/ci.yml](./.gitea/workflows/ci.yml).
 
