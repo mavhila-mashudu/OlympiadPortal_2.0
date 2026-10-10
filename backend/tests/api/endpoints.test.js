@@ -9,6 +9,7 @@ const { endpoints, mounts } = require('./helpers/endpoints');
 const { api, as, expectError } = require('./helpers/api');
 
 const ROLES = ['organiser', 'educator', 'student'];
+
 const key = (method, route) =>
     `${method.toUpperCase()} ${route.replace(/:\w+/g, ':param')}`;
 
@@ -22,8 +23,9 @@ describe('endpoint inventory', () => {
 
         for (const file of fs.readdirSync(routesDir)) {
             const source = fs.readFileSync(path.join(routesDir, file), 'utf8');
+
             for (const [, method, route] of source.matchAll(
-                /router\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g
+                /router\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/g
             )) {
                 expect(mounts).toHaveProperty([file]);
                 defined.add(
@@ -31,17 +33,20 @@ describe('endpoint inventory', () => {
                 );
             }
         }
+
         const appSource = fs.readFileSync(
             path.join(__dirname, '../../src/app.js'),
             'utf8'
         );
+
         for (const [, method, route] of appSource.matchAll(
-            /app\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g
+            /app\.(get|post|put|patch|delete)\(\s*["']([^"']+)["']/g
         )) {
             defined.add(key(method, route));
         }
 
         const listed = endpoints.map((e) => key(e.method, e.path));
+
         expect(new Set(listed).size).toBe(listed.length);
         expect([...defined].sort()).toEqual([...listed].sort());
     });
@@ -49,8 +54,10 @@ describe('endpoint inventory', () => {
 
 describe('authentication and roles', () => {
     let users;
+
     beforeEach(async () => {
         const school = await f.createSchool();
+
         users = {
             organiser: await f.createOrganiser(),
             educator: (await f.createEducator({ school })).user,
@@ -101,6 +108,7 @@ describe('authentication and roles', () => {
         const res = await api()
             [endpoint.method](urlFor(endpoint.path))
             .send({});
+
         expect([401, 403]).not.toContain(res.status);
     });
 });
