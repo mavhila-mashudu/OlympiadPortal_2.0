@@ -249,7 +249,7 @@ describe('POST /auth/register', () => {
             });
         });
 
-        it('claims the entrant an educator already listed under the same name', async () => {
+        it('does not claim a listed entrant without coordinator approval', async () => {
             const school = await f.createSchool();
             const listed = await f.createEntrant({
                 school,
@@ -273,12 +273,15 @@ describe('POST /auth/register', () => {
             expect(
                 await prisma.entrants.findUnique({ where: { id: listed.id } })
             ).toMatchObject({
-                user_id: user.id,
+                user_id: null,
                 grade: '11',
             });
             expect(
+                await prisma.entrants.findUnique({ where: { user_id: user.id } })
+            ).toMatchObject({ school_id: school.id, status: 'pending' });
+            expect(
                 await prisma.entrants.count({ where: { school_id: school.id } })
-            ).toBe(1);
+            ).toBe(2);
         });
 
         it('must pick a school from the list', async () => {
@@ -303,8 +306,8 @@ describe('POST /auth/register', () => {
                             school_id: '00000000-0000-4000-8000-000000000000',
                         })
                     ),
-                404,
-                'School not found'
+                400,
+                'The selected school no longer exists. Please select another.'
             );
         });
     });

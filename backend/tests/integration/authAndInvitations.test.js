@@ -165,7 +165,10 @@ describe('student sign-up without an invitation', () => {
                 role: 'student',
                 school_id: '00000000-0000-4000-8000-000000000000',
             })
-        ).rejects.toMatchObject({ statusCode: 404 });
+        ).rejects.toMatchObject({
+            statusCode: 400,
+            message: 'The selected school no longer exists. Please select another.',
+        });
     });
 
     it('leaves no orphaned Supabase login behind when the database write fails', async () => {

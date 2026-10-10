@@ -102,6 +102,7 @@ export const me = (
             role === 'student'
                 ? {
                       school_id: 'school-1',
+                      status: 'active',
                       schools: { id: 'school-1', name: 'Parktown High' },
                   }
                 : null,

@@ -76,6 +76,7 @@ const endpoints = [
     // School membership approval
     { method: 'get', path: '/memberships/requests', roles: STAFF },
     { method: 'patch', path: '/memberships/requests/:id', roles: STAFF },
+    { method: 'patch', path: '/memberships/student-requests/:id', roles: STAFF },
 
     // In-app olympiad invitations
     { method: 'get', path: '/invites/mine', roles: 'any' },

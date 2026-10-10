@@ -310,7 +310,16 @@ describe('signing up', () => {
             { status: 201 }
         );
         mockSupabaseSignIn({ userId: 'student-user' });
-        mockApi('get', '/auth/me', fx.me('student'));
+        mockApi('get', '/auth/me', fx.me('student', {
+            entrants: {
+                school_id: 'school-2',
+                status: 'pending',
+                schools: {
+                    id: 'school-2',
+                    name: 'Northview College',
+                },
+            },
+        }));
         const { user, currentPath } = renderApp('/signup');
 
         await user.click(screen.getByRole('radio', { name: /Student/ }));
@@ -326,7 +335,7 @@ describe('signing up', () => {
         );
 
         expect(
-            await screen.findByRole('heading', { name: 'Your olympiad' })
+            await screen.findByRole('heading', { name: 'Waiting for approval' })
         ).toBeInTheDocument();
         expect(currentPath()).toBe('/student');
         expect(registrations[0].body).toMatchObject({
