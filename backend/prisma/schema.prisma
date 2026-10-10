@@ -97,6 +97,7 @@ model entrants {
   full_name             String
   grade                 String?
   external_ref          String?
+  status                membership_status       @default(active)
   created_at            DateTime                @default(now()) @db.Timestamptz(6)
   entrant_registrations entrant_registrations[]
   schools               schools                 @relation(fields: [school_id], references: [id])
@@ -108,6 +109,7 @@ model entrants {
 
   @@index([school_id, full_name])
   @@index([school_id, external_ref])
+  @@index([school_id, status])
 }
 
 model olympiads {
@@ -399,6 +401,8 @@ enum school_role {
 
 enum membership_status {
   active
+  pending
+  rejected
   removed
 }
 

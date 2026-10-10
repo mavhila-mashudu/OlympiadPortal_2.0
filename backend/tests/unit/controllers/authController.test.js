@@ -4,7 +4,6 @@ jest.mock('../../../src/config/database', () => ({
 }));
 jest.mock('../../../src/services/authService', () => ({
     register: jest.fn(),
-    registerOrganiser: jest.fn(),
     listSchools: jest.fn(),
     deleteAccount: jest.fn(),
     listEducatorOlympiads: jest.fn(),
@@ -52,25 +51,6 @@ describeControllerCases(controller, [
         status: 201,
         result: { user: { id: 'auth-2', role: 'educator' } },
         json: () => ok({ user: { id: 'auth-2', role: 'educator' } }),
-    },
-    {
-        handler: 'registerOrganiser',
-        service: authService,
-        method: 'registerOrganiser',
-        req: mockReq({
-            body: {
-                full_name: 'Thandi',
-                email: 't@test.com',
-                password: 'Secret123',
-                role: 'admin',
-            },
-        }),
-        args: [
-            { full_name: 'Thandi', email: 't@test.com', password: 'Secret123' },
-        ],
-        status: 201,
-        result: { user: { id: 'auth-1', role: 'organiser' } },
-        json: () => ok({ user: { id: 'auth-1', role: 'organiser' } }),
     },
     {
         handler: 'listSchools',
@@ -135,7 +115,7 @@ describe('me', () => {
                 email: true,
                 role: true,
                 school_memberships: expect.objectContaining({
-                    where: { status: 'active' },
+                    select: expect.objectContaining({ status: true }),
                 }),
                 educators: expect.any(Object),
                 entrants: expect.any(Object),

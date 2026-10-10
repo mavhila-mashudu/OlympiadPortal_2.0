@@ -23,21 +23,6 @@ const register = async (req, res, next) => {
     }
 };
 
-const registerOrganiser = async (req, res, next) => {
-    try {
-        const { full_name, email, password } = req.body;
-        const { user } = await authService.registerOrganiser({
-            full_name,
-            email,
-            password,
-        });
-
-        res.status(201).json({ success: true, data: { user } });
-    } catch (err) {
-        next(err);
-    }
-};
-
 // Public: the school list that fills the signup form's dropdown.
 const listSchools = async (_req, res, next) => {
     try {
@@ -59,15 +44,15 @@ const me = async (req, res, next) => {
                 role: true,
                 created_at: true,
                 school_memberships: {
-                    where: { status: 'active' },
                     select: {
                         school_id: true,
                         role: true,
+                        status: true,
                         schools: { select: { name: true } },
                     },
                 },
                 educators: { select: { school_id: true, schools: true } },
-                entrants: { select: { school_id: true, schools: true } },
+                entrants: { select: { school_id: true, status: true, schools: true } },
             },
         });
 
@@ -130,7 +115,6 @@ const getEducatorOlympiads = async (req, res, next) => {
 
 module.exports = {
     register,
-    registerOrganiser,
     listSchools,
     me,
     logout,

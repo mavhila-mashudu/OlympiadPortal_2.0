@@ -63,38 +63,37 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 
 ### API Routes
 
-| Method | Path                                  | Role      | Purpose                       |
-| ------ | ------------------------------------- | --------- | ----------------------------- |
-| POST   | /auth/register                        | Public    | Sign up in any role           |
-| POST   | /auth/register/organiser              | Public    | Sign up as organiser (legacy) |
-| GET    | /auth/schools                         | Public    | Schools for the signup form   |
-| GET    | /auth/me                              | Any       | Get current user              |
-| DELETE | /auth/account                         | Any       | Soft-delete account           |
-| GET    | /invites/mine                         | Any       | Invitations addressed to me   |
-| POST   | /invites/:id/accept                   | Any       | Accept an invitation          |
-| POST   | /invites/:id/reject                   | Any       | Decline an invitation         |
-| POST   | /invites                              | Staff     | Invite someone to an olympiad |
-| DELETE | /invites/:id                          | Staff     | Withdraw an invitation        |
-| GET    | /invites/sent                         | Staff     | Invitations I have sent       |
-| GET    | /invites/candidates                   | Staff     | Who I may still invite        |
-| POST   | /olympiads                            | Organiser | Create olympiad               |
-| GET    | /olympiads                            | Organiser | List olympiads                |
-| GET    | /olympiads/:id                        | Organiser | Get olympiad detail           |
-| GET    | /olympiads/:id/schools                | Organiser | List registered schools       |
-| GET    | /olympiads/:id/archive                | Organiser | List archived papers          |
-| POST   | /olympiads/:id/rounds                 | Organiser | Create round                  |
-| GET    | /olympiads/:id/rounds                 | Organiser | List rounds                   |
-| GET    | /rounds/:id                           | Organiser | Get round detail              |
-| PATCH  | /rounds/:id                           | Organiser | Update round                  |
-| DELETE | /rounds/:id                           | Organiser | Delete round                  |
-| POST   | /rounds/:id/papers                    | Organiser | Upload paper and memo         |
-| GET    | /papers/:id/download                  | Organiser | Download paper file           |
-| POST   | /marking/:roundId/mark                | Organiser | Bulk auto-mark submissions    |
-| POST   | /marking/:roundId/results             | Organiser | Generate final results        |
-| PATCH  | /marking/:roundId/answers/:id         | Organiser | Manually mark answer          |
-| POST   | /submissions/:roundId/submissions     | Educator  | Create submission             |
-| GET    | /submissions/:roundId/submissions     | Edu/Org   | List submissions              |
-| GET    | /submissions/:roundId/submissions/:id | Edu/Org   | Get submission detail         |
+| Method | Path                                  | Role      | Purpose                        |
+| ------ | ------------------------------------- | --------- | ------------------------------ |
+| POST   | /auth/register                        | Public    | Sign up as educator or student |
+| GET    | /auth/schools                         | Public    | Schools for the signup form    |
+| GET    | /auth/me                              | Any       | Get current user               |
+| DELETE | /auth/account                         | Any       | Soft-delete account            |
+| GET    | /invites/mine                         | Any       | Invitations addressed to me    |
+| POST   | /invites/:id/accept                   | Any       | Accept an invitation           |
+| POST   | /invites/:id/reject                   | Any       | Decline an invitation          |
+| POST   | /invites                              | Staff     | Invite someone to an olympiad  |
+| DELETE | /invites/:id                          | Staff     | Withdraw an invitation         |
+| GET    | /invites/sent                         | Staff     | Invitations I have sent        |
+| GET    | /invites/candidates                   | Staff     | Who I may still invite         |
+| POST   | /olympiads                            | Organiser | Create olympiad                |
+| GET    | /olympiads                            | Organiser | List olympiads                 |
+| GET    | /olympiads/:id                        | Organiser | Get olympiad detail            |
+| GET    | /olympiads/:id/schools                | Organiser | List registered schools        |
+| GET    | /olympiads/:id/archive                | Organiser | List archived papers           |
+| POST   | /olympiads/:id/rounds                 | Organiser | Create round                   |
+| GET    | /olympiads/:id/rounds                 | Organiser | List rounds                    |
+| GET    | /rounds/:id                           | Organiser | Get round detail               |
+| PATCH  | /rounds/:id                           | Organiser | Update round                   |
+| DELETE | /rounds/:id                           | Organiser | Delete round                   |
+| POST   | /rounds/:id/papers                    | Organiser | Upload paper and memo          |
+| GET    | /papers/:id/download                  | Organiser | Download paper file            |
+| POST   | /marking/:roundId/mark                | Organiser | Bulk auto-mark submissions     |
+| POST   | /marking/:roundId/results             | Organiser | Generate final results         |
+| PATCH  | /marking/:roundId/answers/:id         | Organiser | Manually mark answer           |
+| POST   | /submissions/:roundId/submissions     | Educator  | Create submission              |
+| GET    | /submissions/:roundId/submissions     | Edu/Org   | List submissions               |
+| GET    | /submissions/:roundId/submissions/:id | Edu/Org   | Get submission detail          |
 
 ---
 

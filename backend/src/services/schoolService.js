@@ -12,7 +12,7 @@ const SCHOOL_DETAIL = {
     educators: {
         include: { users: { select: { full_name: true, email: true } } },
     },
-    _count: { select: { entrants: true } },
+    _count: { select: { entrants: { where: { status: 'active' } } } },
 };
 
 const describeSchool = (school) => ({

@@ -121,7 +121,6 @@ describe('CORS', () => {
 
 describe('rate limiting', () => {
     it.each([
-        ['post', '/auth/register/organiser'],
         ['post', '/auth/register'],
         ['get', '/auth/schools'],
         ['post', '/auth/forgot-password'],

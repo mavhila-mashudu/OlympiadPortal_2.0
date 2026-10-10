@@ -5,6 +5,7 @@ const {
     AppError,
     ConflictError,
     BadRequestError,
+    ForbiddenError,
     NotFoundError,
 } = require('../errors/AppError');
 const { forgetCachedToken, forgetCachedUser } = require('../middlewares/auth');
@@ -87,10 +88,13 @@ const resolveSchool = async (tx, { schoolId, schoolName, allowCreate }) => {
 };
 
 /**
- * Registers any of the three roles. Organisers need nothing beyond their
- * details; educators and students name the school they belong to.
+ * Creates an account of any role. Not exported: the public `register` below
+ * only allows educators and students, and organisers are provisioned through
+ * `registerOrganiser` (see scripts/createOrganiser.js), never by self-service.
+ * Organisers need nothing beyond their details; educators and students name
+ * the school they belong to.
  */
-const register = async ({
+const createAccount = async ({
     full_name,
     email,
     password,
@@ -111,6 +115,31 @@ const register = async ({
     }
     if (role === 'educator' && !school_id && !(school_name || '').trim()) {
         throw new BadRequestError('Select your school, or enter its name');
+    }
+
+
+    // Validate the school before creating a Supabase account.
+    if (school_id) {
+        const uuidPattern =
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+        if (typeof school_id !== 'string' ||
+            !uuidPattern.test(school_id)) {
+            throw new BadRequestError(
+                'Invalid school selection. Please select your school again.'
+            );
+        }
+
+        const schoolExists = await prisma.schools.findUnique({
+            where: { id: school_id },
+            select: { id: true },
+        });
+
+        if (!schoolExists) {
+            throw new BadRequestError(
+                'The selected school no longer exists. Please select another.'
+            );
+        }
     }
 
     const authUser = await createSupabaseUser({ email, password });
@@ -141,8 +170,9 @@ const register = async ({
                     data: { user_id: newUser.id, school_id: schoolId },
                 });
 
-                // Whoever brings a school onto the platform coordinates it; educators
-                // who join an established school get the ordinary member role.
+                // The first applicant proposes becoming coordinator, but has no
+                // privileges until a trusted organiser approves the membership.
+                // Other applicants must likewise await the school's coordinator.
                 const existingCoordinator =
                     await tx.school_memberships.findFirst({
                         where: {
@@ -158,32 +188,25 @@ const register = async ({
                         user_id: newUser.id,
                         school_id: schoolId,
                         role: existingCoordinator ? 'educator' : 'coordinator',
+                        status: 'pending',
                     },
                 });
             }
 
             if (role === 'student') {
-                // An educator may have already listed this student by name when
-                // uploading their entrants; claim that row rather than duplicating it.
-                const entrant = await tx.entrants.findFirst({
-                    where: { school_id: schoolId, user_id: null, full_name },
-                    orderBy: { created_at: 'asc' },
+                // The student has no access until the school's coordinator
+                // approves them. They are NOT matched to an entrant an educator
+                // listed by name here: anyone could type a classmate's name and
+                // take over that record. The coordinator makes that link when
+                // approving (see membershipApprovalService.decideStudentRequest).
+                await tx.entrants.create({
+                    data: {
+                        user_id: newUser.id,
+                        school_id: schoolId,
+                        full_name,
+                        status: 'pending',
+                    },
                 });
-
-                if (entrant) {
-                    await tx.entrants.update({
-                        where: { id: entrant.id },
-                        data: { user_id: newUser.id },
-                    });
-                } else {
-                    await tx.entrants.create({
-                        data: {
-                            user_id: newUser.id,
-                            school_id: schoolId,
-                            full_name,
-                        },
-                    });
-                }
             }
 
             return newUser;
@@ -196,8 +219,25 @@ const register = async ({
     }
 };
 
+/**
+ * Public self-service sign-up: educators and students only. Organisers hold
+ * authority over every olympiad, so nobody can claim that role by asking for it.
+ */
+const register = async (details) => {
+    if (details.role === 'organiser') {
+        throw new ForbiddenError(
+            'Organiser accounts are created by the portal administrator'
+        );
+    }
+    return createAccount(details);
+};
+
+/**
+ * Creates an organiser. Trusted callers only (the provisioning script); it is
+ * deliberately not reachable from any HTTP route.
+ */
 const registerOrganiser = async ({ full_name, email, password }) =>
-    register({ full_name, email, password, role: 'organiser' });
+    createAccount({ full_name, email, password, role: 'organiser' });
 
 /** The schools offered on the signup form and in the invite pickers. */
 const listSchools = async () => {

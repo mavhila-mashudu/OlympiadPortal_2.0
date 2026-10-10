@@ -86,6 +86,7 @@ export const me = (
                       {
                           school_id: 'school-1',
                           role: 'coordinator',
+                          status: 'active',
                           schools: { name: 'Parktown High' },
                       },
                   ]

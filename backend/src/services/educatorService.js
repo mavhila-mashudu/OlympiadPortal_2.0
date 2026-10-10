@@ -64,7 +64,7 @@ const resolveSchoolEntrants = async (tx, schoolId, entrantsData) => {
     ];
     const existing = lookups.length
         ? await tx.entrants.findMany({
-              where: { school_id: schoolId, OR: lookups },
+              where: { school_id: schoolId, status: 'active', OR: lookups },
               orderBy: { created_at: 'asc' },
           })
         : [];

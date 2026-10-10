@@ -359,6 +359,8 @@ describe('registerEntrants', () => {
         expect(prisma.entrants.findMany).toHaveBeenCalledWith({
             where: {
                 school_id: 'school-1',
+                // Students still awaiting approval are not entrants yet
+                status: 'active',
                 OR: [
                     { external_ref: { in: ['STU-001'] } },
                     { full_name: { in: ['Ben Smith'] } },
@@ -1273,6 +1275,7 @@ describe('registerEntrantsForOlympiad', () => {
         expect(prisma.entrants.findMany).toHaveBeenCalledWith({
             where: {
                 school_id: 'school-1',
+                status: 'active',
                 OR: [{ full_name: { in: ['Ayanda'] } }],
             },
             orderBy: { created_at: 'asc' },

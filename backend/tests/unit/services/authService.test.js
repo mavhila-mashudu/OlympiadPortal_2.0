@@ -16,11 +16,15 @@ const { prisma, resetPrismaMock } = require('../helpers/prismaMock');
 const supabase = require('../../../src/config/supabase');
 const authService = require('../../../src/services/authService');
 
+// The signup flow rejects a school id that is not a UUID before it creates the
+// Supabase account, so the tests use a real one.
+const SCHOOL_ID = '11111111-1111-4111-8111-111111111111';
+
 const input = (overrides = {}) => ({
     full_name: 'Thandi Mokoena',
     email: 'thandi@test.com',
     password: 'Secret123',
-    role: 'organiser',
+    role: 'educator',
     ...overrides,
 });
 
@@ -61,45 +65,29 @@ describe('register', () => {
             data: null,
             error: { message: 'weak password' },
         });
+        prisma.schools.findUnique.mockResolvedValue({ id: SCHOOL_ID });
 
-        await expect(authService.register(input())).rejects.toMatchObject({
+        await expect(
+            authService.register(input({ school_id: SCHOOL_ID }))
+        ).rejects.toMatchObject({
             statusCode: 400,
             message: 'weak password',
         });
     });
 
     describe('organiser', () => {
-        it('creates a confirmed Supabase user and the account with the same id', async () => {
-            const { user } = await authService.register(input());
-
-            expect(supabase.auth.admin.createUser).toHaveBeenCalledWith({
-                email: 'thandi@test.com',
-                password: 'Secret123',
-                email_confirm: true,
+        // The role carries authority over every olympiad, so self-service sign-up
+        // must never grant it, however the request is phrased.
+        it('refuses to create an organiser from public sign-up, before touching Supabase', async () => {
+            await expect(
+                authService.register(input({ role: 'organiser' }))
+            ).rejects.toMatchObject({
+                statusCode: 403,
+                message:
+                    'Organiser accounts are created by the portal administrator',
             });
-            expect(prisma.users.create).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    data: expect.objectContaining({
-                        id: 'auth-1',
-                        auth_provider_id: 'auth-1',
-                        role: 'organiser',
-                    }),
-                })
-            );
-            expect(user).toEqual({ id: 'auth-1', role: 'organiser' });
-            expect(prisma.educators.create).not.toHaveBeenCalled();
-            expect(prisma.entrants.create).not.toHaveBeenCalled();
-        });
-
-        it('deletes the Supabase login again if the account row cannot be written', async () => {
-            prisma.users.create.mockRejectedValue(new Error('db down'));
-
-            await expect(authService.register(input())).rejects.toThrow(
-                'db down'
-            );
-            expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith(
-                'auth-1'
-            );
+            expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
+            expect(prisma.users.create).not.toHaveBeenCalled();
         });
     });
 
@@ -112,7 +100,7 @@ describe('register', () => {
                 id: 'auth-1',
                 role: 'educator',
             });
-            prisma.schools.findUnique.mockResolvedValue({ id: 'school-1' });
+            prisma.schools.findUnique.mockResolvedValue({ id: SCHOOL_ID });
             prisma.schools.findFirst.mockResolvedValue(null);
             prisma.school_memberships.findFirst.mockResolvedValue(null);
         });
@@ -129,17 +117,18 @@ describe('register', () => {
 
         it('joins the chosen school and coordinates it when it has no coordinator yet', async () => {
             await authService.register(
-                educatorInput({ school_id: 'school-1' })
+                educatorInput({ school_id: SCHOOL_ID })
             );
 
             expect(prisma.educators.create).toHaveBeenCalledWith({
-                data: { user_id: 'auth-1', school_id: 'school-1' },
+                data: { user_id: 'auth-1', school_id: SCHOOL_ID },
             });
             expect(prisma.school_memberships.create).toHaveBeenCalledWith({
                 data: {
                     user_id: 'auth-1',
-                    school_id: 'school-1',
+                    school_id: SCHOOL_ID,
                     role: 'coordinator',
+                    status: 'pending',
                 },
             });
         });
@@ -150,14 +139,15 @@ describe('register', () => {
             });
 
             await authService.register(
-                educatorInput({ school_id: 'school-1' })
+                educatorInput({ school_id: SCHOOL_ID })
             );
 
             expect(prisma.school_memberships.create).toHaveBeenCalledWith({
                 data: {
                     user_id: 'auth-1',
-                    school_id: 'school-1',
+                    school_id: SCHOOL_ID,
                     role: 'educator',
+                    status: 'pending',
                 },
             });
         });
@@ -166,14 +156,23 @@ describe('register', () => {
             prisma.schools.findUnique.mockResolvedValue(null);
 
             await expect(
+                authService.register(educatorInput({ school_id: SCHOOL_ID }))
+            ).rejects.toMatchObject({
+                statusCode: 400,
+                message: 'The selected school no longer exists. Please select another.',
+            });
+            // Checked before any Supabase account is created, so nothing to undo
+            expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
+        });
+
+        it('rejects a school id that is not a UUID', async () => {
+            await expect(
                 authService.register(educatorInput({ school_id: 'missing' }))
             ).rejects.toMatchObject({
-                statusCode: 404,
-                message: 'School not found',
+                statusCode: 400,
+                message: 'Invalid school selection. Please select your school again.',
             });
-            expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith(
-                'auth-1'
-            );
+            expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
         });
 
         it('creates a school that is not on the platform yet, trimming its name', async () => {
@@ -198,7 +197,7 @@ describe('register', () => {
         });
 
         it('reuses a school whose name matches apart from case', async () => {
-            prisma.schools.findFirst.mockResolvedValue({ id: 'school-1' });
+            prisma.schools.findFirst.mockResolvedValue({ id: SCHOOL_ID });
 
             await authService.register(
                 educatorInput({ school_name: 'parktown BOYS high' })
@@ -206,7 +205,7 @@ describe('register', () => {
 
             expect(prisma.schools.create).not.toHaveBeenCalled();
             expect(prisma.educators.create).toHaveBeenCalledWith({
-                data: { user_id: 'auth-1', school_id: 'school-1' },
+                data: { user_id: 'auth-1', school_id: SCHOOL_ID },
             });
         });
     });
@@ -220,7 +219,7 @@ describe('register', () => {
                 id: 'auth-1',
                 role: 'student',
             });
-            prisma.schools.findUnique.mockResolvedValue({ id: 'school-1' });
+            prisma.schools.findUnique.mockResolvedValue({ id: SCHOOL_ID });
             prisma.entrants.findFirst.mockResolvedValue(null);
         });
 
@@ -236,36 +235,28 @@ describe('register', () => {
             expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
         });
 
-        it('creates an entrant at the chosen school', async () => {
-            await authService.register(studentInput({ school_id: 'school-1' }));
+        it('creates a pending entrant at the chosen school, awaiting the coordinator', async () => {
+            await authService.register(studentInput({ school_id: SCHOOL_ID }));
 
             expect(prisma.entrants.create).toHaveBeenCalledWith({
                 data: {
                     user_id: 'auth-1',
-                    school_id: 'school-1',
+                    school_id: SCHOOL_ID,
                     full_name: 'Thandi Mokoena',
+                    status: 'pending',
                 },
             });
         });
 
-        it('claims an entrant the educator already listed under the same name', async () => {
+        it('does not take over an entrant an educator listed under the same name', async () => {
             prisma.entrants.findFirst.mockResolvedValue({ id: 'entrant-1' });
 
-            await authService.register(studentInput({ school_id: 'school-1' }));
+            await authService.register(studentInput({ school_id: SCHOOL_ID }));
 
-            expect(prisma.entrants.findFirst).toHaveBeenCalledWith({
-                where: {
-                    school_id: 'school-1',
-                    user_id: null,
-                    full_name: 'Thandi Mokoena',
-                },
-                orderBy: { created_at: 'asc' },
-            });
-            expect(prisma.entrants.update).toHaveBeenCalledWith({
-                where: { id: 'entrant-1' },
-                data: { user_id: 'auth-1' },
-            });
-            expect(prisma.entrants.create).not.toHaveBeenCalled();
+            // Linking to a listed record only happens when the coordinator approves
+            expect(prisma.entrants.findFirst).not.toHaveBeenCalled();
+            expect(prisma.entrants.update).not.toHaveBeenCalled();
+            expect(prisma.entrants.create).toHaveBeenCalledTimes(1);
         });
     });
 });
@@ -285,16 +276,54 @@ describe('registerOrganiser', () => {
         );
         expect(user).toEqual({ id: 'auth-1', role: 'organiser' });
     });
+
+    it('creates a confirmed Supabase user and the account with the same id, and no school profile', async () => {
+        await authService.registerOrganiser({
+            full_name: 'Thandi Mokoena',
+            email: 'thandi@test.com',
+            password: 'Secret123',
+        });
+
+        expect(supabase.auth.admin.createUser).toHaveBeenCalledWith({
+            email: 'thandi@test.com',
+            password: 'Secret123',
+            email_confirm: true,
+        });
+        expect(prisma.users.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                data: expect.objectContaining({
+                    id: 'auth-1',
+                    auth_provider_id: 'auth-1',
+                    role: 'organiser',
+                }),
+            })
+        );
+        expect(prisma.educators.create).not.toHaveBeenCalled();
+        expect(prisma.entrants.create).not.toHaveBeenCalled();
+    });
+
+    it('deletes the Supabase login again if the account row cannot be written', async () => {
+        prisma.users.create.mockRejectedValue(new Error('db down'));
+
+        await expect(
+            authService.registerOrganiser({
+                full_name: 'Thandi',
+                email: 'thandi@test.com',
+                password: 'Secret123',
+            })
+        ).rejects.toThrow('db down');
+        expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith('auth-1');
+    });
 });
 
 describe('listSchools', () => {
     it('returns the schools by name, with only the fields the signup form needs', async () => {
         prisma.schools.findMany.mockResolvedValue([
-            { id: 'school-1', name: 'Alpha Academy' },
+            { id: SCHOOL_ID, name: 'Alpha Academy' },
         ]);
 
         await expect(authService.listSchools()).resolves.toEqual([
-            { id: 'school-1', name: 'Alpha Academy' },
+            { id: SCHOOL_ID, name: 'Alpha Academy' },
         ]);
         expect(prisma.schools.findMany).toHaveBeenCalledWith({
             select: { id: true, name: true },
@@ -310,11 +339,11 @@ describe('listEducatorOlympiads', () => {
         ]);
 
         await expect(
-            authService.listEducatorOlympiads('school-1')
+            authService.listEducatorOlympiads(SCHOOL_ID)
         ).resolves.toEqual([{ id: 'oly-1', name: 'Nationals' }]);
         expect(prisma.school_registrations.findMany).toHaveBeenCalledWith(
             expect.objectContaining({
-                where: { school_id: 'school-1', status: 'approved' },
+                where: { school_id: SCHOOL_ID, status: 'approved' },
             })
         );
     });

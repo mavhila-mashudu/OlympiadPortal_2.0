@@ -421,7 +421,7 @@ describe('emails when a round opens', () => {
         'emails each educator once while three passes run at once',
         async () => {
             const { olympiad, school } = await f.createOlympiadWithSchool();
-            for (const _ of range(12)) await f.createEducator({ school });
+            for (const _ of range(12)) await f.createEducator({ school, membershipRole: 'educator' });
             // Opened a minute ago, so the "round is now open" notice is due
             const round = await f.createRound({
                 olympiad,

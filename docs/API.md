@@ -347,26 +347,29 @@ reached.
 
 ## Authentication & Registration
 
-Registration is open: anyone may sign up in any role, and no invitation code
-is involved. Educators and students say which school they belong to when they
-sign up; taking part in a particular olympiad is then arranged through the
-in-app invitations below.
+Registration is open to educators and students: no invitation code is involved.
+They say which school they belong to when they sign up; taking part in a
+particular olympiad is then arranged through the in-app invitations below.
+
+Organisers cannot register themselves. The role carries authority over every
+olympiad the account owns, so the portal administrator creates organiser
+accounts with `npm run create-organiser` (see the backend README).
 
 ### `POST /auth/register`
 
-Create an account in any role.
+Create an educator or student account. Asking for the `organiser` role is refused with `422`.
 
 - **Auth:** none
 - **Body:**
 
-| Field         | Type   | Rules                                               |
-| ------------- | ------ | --------------------------------------------------- |
-| `full_name`   | string | required                                            |
-| `email`       | string | required, valid email                               |
-| `password`    | string | required, >=8 chars, >=1 uppercase, >=1 number      |
-| `role`        | string | required, one of `organiser`, `educator`, `student` |
-| `school_id`   | uuid   | required for a student; optional for an educator    |
-| `school_name` | string | educator only, when their school is not listed yet  |
+| Field         | Type   | Rules                                              |
+| ------------- | ------ | -------------------------------------------------- |
+| `full_name`   | string | required                                           |
+| `email`       | string | required, valid email                              |
+| `password`    | string | required, >=8 chars, >=1 uppercase, >=1 number     |
+| `role`        | string | required, one of `educator`, `student`             |
+| `school_id`   | uuid   | required for a student; optional for an educator   |
+| `school_name` | string | educator only, when their school is not listed yet |
 
 An educator supplies either `school_id` (a school already on the platform) or
 `school_name` (a new one, matched case-insensitively against existing schools
@@ -378,12 +381,6 @@ one.
 
 - **Response `201`:** `data.user` - `{ id, full_name, email, role, created_at }`
 - **Errors:** `400` missing/invalid school; `404` school not found; `409` email already registered
-
-### `POST /auth/register/organiser`
-
-Registers an organiser. Kept so existing sign-up links keep working; the body
-is `full_name`, `email` and `password`, and the behaviour matches
-`POST /auth/register` with `role: "organiser"`.
 
 ### `GET /auth/schools`
 

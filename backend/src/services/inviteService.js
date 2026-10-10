@@ -151,7 +151,11 @@ const listInviteCandidates = async ({ olympiadId, userId, role }) => {
 
     const educator = await resolveEducatorSchool(userId);
     const students = await prisma.entrants.findMany({
-        where: { school_id: educator.school_id, user_id: { not: null } },
+        where: {
+            school_id: educator.school_id,
+            user_id: { not: null },
+            status: 'active',
+        },
         select: {
             users: {
                 select: {

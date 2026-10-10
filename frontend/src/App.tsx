@@ -15,7 +15,7 @@ const ForgotPassword = lazyPage(() => import('./pages/auth/ForgotPassword'));
 const Login = lazyPage(() => import('./pages/auth/Login'));
 const ResetPassword = lazyPage(() => import('./pages/auth/ResetPassword'));
 const Signup = lazyPage(() => import('./pages/auth/Signup'));
-const EducatorDashboard = lazyPage(() => import('./pages/educator/Dashboard'));
+const EducatorDashboard = lazyPage(() => import('./pages/educator/SchoolApprovalGate'));
 const Entrants = lazyPage(() => import('./pages/educator/Entrants'));
 const ExamBuilder = lazyPage(() => import('./pages/educator/ExamBuilder'));
 const EducatorRemarks = lazyPage(() => import('./pages/educator/Remarks'));
@@ -40,8 +40,22 @@ const RoundReplay = lazyPage(() => import('./pages/organiser/RoundReplay'));
 const Olympiads = lazyPage(() => import('./pages/organiser/Olympiads'));
 const OrganiserRemarks = lazyPage(() => import('./pages/organiser/Remarks'));
 const Schools = lazyPage(() => import('./pages/organiser/Schools'));
+const EducatorMembershipRequests = lazyPage(() =>
+    import('./pages/shared/MembershipRequests').then(({ default: Page }) => ({
+        default: () => <Page mode="educator" />,
+    }))
+);
+
+const OrganiserMembershipRequests = lazyPage(() =>
+    import('./pages/shared/MembershipRequests').then(({ default: Page }) => ({
+        default: () => <Page mode="organiser" />,
+    }))
+);
 const Standings = lazyPage(() => import('./pages/organiser/Standings'));
 const ExamSitting = lazyPage(() => import('./pages/student/ExamSitting'));
+const StudentApprovalGate = lazyPage(
+    () => import('./pages/student/StudentApprovalGate')
+);
 const StudentDashboard = lazyPage(() => import('./pages/student/Dashboard'));
 const StudentResults = lazyPage(() => import('./pages/student/Results'));
 const StudentRoundDetail = lazyPage(
@@ -72,6 +86,7 @@ function App() {
                             element={<EducatorDashboard />}
                         />
                         <Route path="/educator/results" element={<Results />} />
+                        <Route path="/educator/members" element={<EducatorMembershipRequests />} />
                         <Route
                             path="/educator/remarks"
                             element={<EducatorRemarks />}
@@ -130,6 +145,7 @@ function App() {
                             path="/organiser/schools"
                             element={<Schools />}
                         />
+                        <Route path="/organiser/educators" element={<OrganiserMembershipRequests />} />
                         <Route
                             path="/organiser/standings"
                             element={<Standings />}
@@ -152,19 +168,24 @@ function App() {
                         />
                     </Route>
                     <Route element={<RequireSession role="student" />}>
-                        <Route path="/student" element={<StudentDashboard />} />
-                        <Route
-                            path="/student/results"
-                            element={<StudentResults />}
-                        />
-                        <Route
-                            path="/student/rounds/:id"
-                            element={<StudentRoundDetail />}
-                        />
-                        <Route
-                            path="/student/rounds/:id/exam"
-                            element={<ExamSitting />}
-                        />
+                        <Route element={<StudentApprovalGate />}>
+                            <Route
+                                path="/student"
+                                element={<StudentDashboard />}
+                            />
+                            <Route
+                                path="/student/results"
+                                element={<StudentResults />}
+                            />
+                            <Route
+                                path="/student/rounds/:id"
+                                element={<StudentRoundDetail />}
+                            />
+                            <Route
+                                path="/student/rounds/:id/exam"
+                                element={<ExamSitting />}
+                            />
+                        </Route>
                     </Route>
                 </Routes>
             </Suspense>
