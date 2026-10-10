@@ -3,6 +3,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const {
     register,
+    checkInvitation,
     listSchools,
     me,
     logout,
@@ -61,12 +62,20 @@ const registerRules = [
         .optional({ values: 'falsy' })
         .trim()
         .isLength({ max: 200 }),
+    // A matching educator or student code approves their signup without a
+    // manual request. Without a code, the existing approval queue applies.
+    body('invitation_code')
+        .optional({ values: 'falsy' })
+        .isString()
+        .isLength({ max: 40 })
+        .withMessage('Invitation code is too long'),
     body().custom((value) => {
-        if (value.role === 'student' && !value.school_id) {
+        if (value.role === 'student' && !value.school_id && !value.invitation_code) {
             throw new Error('Select your school from the list');
         }
         if (
             value.role === 'educator' &&
+            !value.invitation_code &&
             !value.school_id &&
             !(value.school_name || '').trim()
         ) {
@@ -78,6 +87,14 @@ const registerRules = [
 
 router.post('/register', publicAuthLimiter, registerRules, validate, register);
 router.get('/schools', publicAuthLimiter, listSchools);
+// Rate limited like signup itself: a code is secret, so guessing is capped
+router.post(
+    '/invitations/check',
+    publicAuthLimiter,
+    [body('code').isString().isLength({ min: 1, max: 40 })],
+    validate,
+    checkInvitation
+);
 router.post(
     '/forgot-password',
     publicAuthLimiter,

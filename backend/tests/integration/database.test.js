@@ -30,6 +30,7 @@ describe('migrations', () => {
             'results',
             'round_events',
             'rounds',
+            'school_invitations',
             'school_memberships',
             'school_registrations',
             'schools',

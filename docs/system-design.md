@@ -158,13 +158,14 @@ users ─────┬──── olympiad_invites
 
 ### Authentication Flow
 
-Registration is open to everyone: no invitation code exists, and nobody has to
-be invited before they can have an account.
+Registration is open to everyone: invitations are optional for educators and students. School access is either approved manually or granted by an authorised email-bound signup code.
 
-1. **Sign-up:** POST /auth/register with a role of organiser, educator or student. It creates the Supabase Auth user and the users row, plus an educators row and school membership for an educator, or an entrant row for a student.
-2. **Choosing a school:** educators and students pick from GET /auth/schools. An educator whose school is not listed may name a new one, and becomes its coordinator; later educators at that school join as ordinary members. A student must pick an existing school.
-3. **Joining an olympiad (organiser to educator):** the organiser sends an in-app invitation to an educator. It appears on the educator's dashboard; accepting registers their school for the olympiad.
-4. **Joining an olympiad (educator to student):** the educator invites a student of their own school. Accepting enters that student into every round still taking registrations.
+1. **Sign-up:** POST /auth/register with a role of educator or student (organisers are provisioned by the administrator). It creates the Supabase Auth user and the users row, plus an educators row and school membership for an educator, or an entrant row for a student.
+2. **Choosing a school:** educators and students pick from GET /auth/schools. An educator whose school is not listed may name a new one. A student must pick an existing school.
+3. **Approval (no invitation code):** a new educator's membership is `pending`. An organiser approves the first coordinator of a school; that coordinator approves later educators and all students. Until then the person can log in but only sees a "waiting for approval" page.
+4. **Invitation code (educators or students):** an organiser can invite an educator at a selected school, including a first coordinator. An active school educator (coordinator or ordinary educator) can invite educators and students to their **own school** using POST /school-invitations. A recipient signs up with the emailed address, matching account type and one-use code, gaining active school access without waiting. Student invitations create a new entrant only, never link an existing record by name. Codes expire after 7 days and only hashes are stored. A bad code is rejected rather than falling back to approval. EmailJS delivers the invitation, and the signup link uses FRONTEND_URL.
+5. **Joining an olympiad (organiser to educator):** the organiser sends an in-app invitation to an educator. It appears on the educator's dashboard; accepting registers their school for the olympiad.
+6. **Joining an olympiad (educator to student):** the educator invites a student of their own school. Accepting enters that student into every round still taking registrations.
 
 All API requests include `Authorization: Bearer <access_token>`. The requireAuth middleware validates the JWT via Supabase. The requireRole middleware checks user.role.
 

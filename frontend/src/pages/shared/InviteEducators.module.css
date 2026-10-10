@@ -1,0 +1,10 @@
+.section { display: grid; gap: 1rem; }
+.section h2 { margin: 0 0 .25rem; font-size: 1.1rem; }
+.section h3 { margin: .5rem 0 0; font-size: 1rem; }
+.section p { margin: .25rem 0; }
+.form { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+.field { display: grid; gap: .35rem; min-width: 15rem; flex: 1 1 15rem; }
+.manual { padding: .75rem 1rem; border-radius: .5rem; background: var(--muted, #f3f4f6); overflow-wrap: anywhere; }
+.tableWrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+.table th, .table td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid rgba(128, 128, 128, .25); }

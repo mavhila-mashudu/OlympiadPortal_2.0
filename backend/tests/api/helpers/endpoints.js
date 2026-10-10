@@ -67,6 +67,7 @@ const endpoints = [
     // Auth
     { method: 'post', path: '/auth/register', roles: 'public' },
     { method: 'get', path: '/auth/schools', roles: 'public' },
+    { method: 'post', path: '/auth/invitations/check', roles: 'public' },
     { method: 'post', path: '/auth/forgot-password', roles: 'public' },
     { method: 'get', path: '/auth/me', roles: 'any' },
     { method: 'post', path: '/auth/logout', roles: 'any' },
@@ -77,6 +78,11 @@ const endpoints = [
     { method: 'get', path: '/memberships/requests', roles: STAFF },
     { method: 'patch', path: '/memberships/requests/:id', roles: STAFF },
     { method: 'patch', path: '/memberships/student-requests/:id', roles: STAFF },
+
+    // School signup codes (organiser or active educator, school-scoped)
+    { method: 'get', path: '/school-invitations', roles: STAFF },
+    { method: 'post', path: '/school-invitations', roles: STAFF },
+    { method: 'delete', path: '/school-invitations/:id', roles: STAFF },
 
     // In-app olympiad invitations
     { method: 'get', path: '/invites/mine', roles: 'any' },
@@ -265,6 +271,7 @@ const mounts = {
     'reviews.js': '/rounds',
     'auth.js': '/auth',
     'membershipApprovals.js': '/memberships',
+    'schoolInvitations.js': '/school-invitations',
     'invites.js': '/invites',
     'educator.js': '/educator',
     'organiserRemarks.js': '/organiser/remarks',

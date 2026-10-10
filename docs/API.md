@@ -370,17 +370,72 @@ Create an educator or student account. Asking for the `organiser` role is refuse
 | `role`        | string | required, one of `educator`, `student`             |
 | `school_id`   | uuid   | required for a student; optional for an educator   |
 | `school_name` | string | educator only, when their school is not listed yet |
+| `invitation_code` | string | educator only, optional: the code from an invitation email |
 
 An educator supplies either `school_id` (a school already on the platform) or
 `school_name` (a new one, matched case-insensitively against existing schools
-before being created). The first educator at a school becomes its
-`coordinator`; later ones join as `educator`. A student must supply
-`school_id`, and is linked to an entrant record at that school — claiming the
-unclaimed entrant an educator already listed under the same name, if there is
-one.
+before being created). The first educator at a school proposes becoming its
+`coordinator`; later ones join as `educator`. Either way the membership is
+`pending` until an organiser (for a school's first coordinator) or the school's
+coordinator approves it (see `/memberships/requests`).
+
+An educator who has an **invitation code** (see `/school-invitations`) sends it
+as `invitation_code` and skips that wait: the membership is created `active`
+straight away. The code decides the school, so `school_id` and `school_name` are
+ignored, and the email must be the address the invitation was sent to. A code
+that is unknown, expired, used, cancelled, or meant for another address is
+refused with `400`; it never falls back to a pending signup. Without a code,
+signup works as described above.
+
+A student must supply `school_id`. The student gets a `pending` entrant record
+and no access until the school's coordinator approves them. The student is
+**not** matched to an entrant an educator listed under the same name; the
+coordinator chooses whether to link them to one when approving
+(`PATCH /memberships/student-requests/:id`).
 
 - **Response `201`:** `data.user` - `{ id, full_name, email, role, created_at }`
-- **Errors:** `400` missing/invalid school; `404` school not found; `409` email already registered
+- **Errors:** `400` missing/invalid school, or an invalid invitation code; `404` school not found; `409` email already registered
+
+### `POST /auth/invitations/check`
+
+What an invitation code leads to, so the signup form can show the school and
+the invited address before the account is created. No auth; rate limited per
+client IP like signup, because a code is secret.
+
+- **Body:** `code` (string; case, spaces and dashes don't matter)
+- **Response:** `data.invitation` - `{ school: { id, name }, email, role, accountType }`, where `accountType` is `student` or `educator`; educator invitations have school `role` of `educator` or `coordinator`
+- **Errors:** `400` the code isn't valid. The message is the same whether the code is unknown, used, cancelled or expired.
+
+### School signup invitations (educators and students)
+
+An organiser may email an educator a signup code for a selected school. Any
+**active** school educator (coordinator or ordinary educator) may invite other
+educators and students **only to their own school**. The email includes the
+code and a link to `/signup?code=…`. An email-, school-, and account-type-bound
+code grants immediate access; signup without one still awaits the normal
+coordinator/organiser approval. Codes are one-use, expire after 7 days, and
+only their hashes are stored. Student codes create a *new* active entrant;
+existing records/results are never claimed by name. These school signup codes
+are separate from the existing in-app Olympiad participation invitations.
+
+#### `POST /school-invitations`
+
+- **Body:** `email` (required); `account_type` (`educator` or `student`, default `educator`); `school_id` (required for an organiser, ignored for an educator who is restricted to their own school)
+- Organisers can invite **educators only**, including a first coordinator. Approved school educators can invite **students or educators**, but never create coordinator authority.
+- **Response `201`:** `data.invitation` - `{ id, email, accountType, role, status, createdAt, expiresAt, school, invitedBy }`, and `data.emailSent`. If the email could not be delivered, `data.code` and `data.signupUrl` are returned as well, so the inviter can pass them on.
+- The invited `role` is `coordinator` when an organiser invites someone to a school with no active coordinator, and `educator` otherwise. A newer invitation to the same address replaces an earlier open one.
+- **Errors:** `400` no school or invalid account type; `403` not permitted for that school; `404` school not found; `409` that address already has an account; `429` more than 30 invitations in an hour
+
+#### `GET /school-invitations`
+
+- **Query:** `school_id` (organisers only; optional filter)
+- **Response:** `data.invitations`, newest first. `status` is `pending`, `used`, `revoked` or `expired`.
+
+#### `DELETE /school-invitations/:id`
+
+Cancels an invitation that hasn't been used. Repeating it is harmless.
+
+- **Errors:** `403` not allowed for that school; `404` not found; `409` already used
 
 ### `GET /auth/schools`
 

@@ -2,12 +2,20 @@
 const prisma = require('../config/database').default;
 const authService = require('../services/authService');
 const passwordResetService = require('../services/passwordResetService');
+const schoolInvitations = require('../services/schoolInvitationService');
 const { UnauthorizedError } = require('../errors/AppError');
 
 const register = async (req, res, next) => {
     try {
-        const { full_name, email, password, role, school_id, school_name } =
-            req.body;
+        const {
+            full_name,
+            email,
+            password,
+            role,
+            school_id,
+            school_name,
+            invitation_code,
+        } = req.body;
         const { user } = await authService.register({
             full_name,
             email,
@@ -15,9 +23,21 @@ const register = async (req, res, next) => {
             role,
             school_id,
             school_name,
+            invitation_code,
         });
 
         res.status(201).json({ success: true, data: { user } });
+    } catch (err) {
+        next(err);
+    }
+};
+
+// Public: what an invitation code leads to, so the signup form can show the
+// school and the email it was sent to before the account is created.
+const checkInvitation = async (req, res, next) => {
+    try {
+        const invitation = await schoolInvitations.checkCode(req.body.code);
+        res.json({ success: true, data: { invitation } });
     } catch (err) {
         next(err);
     }
@@ -115,6 +135,7 @@ const getEducatorOlympiads = async (req, res, next) => {
 
 module.exports = {
     register,
+    checkInvitation,
     listSchools,
     me,
     logout,
