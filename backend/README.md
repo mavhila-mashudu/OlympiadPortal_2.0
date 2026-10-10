@@ -67,7 +67,20 @@ npm run dev
 
 The server will start at `http://localhost:3000`
 
-### 7. Verify the server is running
+### 7. Create the first organiser
+
+Organisers can't sign themselves up: the role controls every olympiad the
+account owns, so the portal administrator creates each one from the command
+line, using the same `.env` as the server:
+
+```bash
+npm run create-organiser -- "Thandi Mokoena" thandi@example.com
+```
+
+A random temporary password is printed once (or set `ORGANISER_PASSWORD`
+yourself). The organiser can change it with "Forgot password" on the login page.
+
+### 8. Verify the server is running
 
 ```bash
 curl http://localhost:3000/health
@@ -119,13 +132,12 @@ Expected response:
 
 ### Authentication
 
-| Method | Endpoint                   | Description                   | Auth Required |
-| ------ | -------------------------- | ----------------------------- | ------------- |
-| POST   | `/auth/register`           | Sign up in any role           | No            |
-| POST   | `/auth/register/organiser` | Sign up as organiser (legacy) | No            |
-| GET    | `/auth/schools`            | Schools for the signup form   | No            |
-| GET    | `/auth/me`                 | Get current user profile      | Yes           |
-| DELETE | `/auth/account`            | Delete account                | Yes           |
+| Method | Endpoint         | Description                    | Auth Required |
+| ------ | ---------------- | ------------------------------ | ------------- |
+| POST   | `/auth/register` | Sign up as educator or student | No            |
+| GET    | `/auth/schools`  | Schools for the signup form    | No            |
+| GET    | `/auth/me`       | Get current user profile       | Yes           |
+| DELETE | `/auth/account`  | Delete account                 | Yes           |
 
 ### Invitations
 
@@ -160,9 +172,10 @@ See `prisma/schema.prisma` for the full schema definition.
 ## Authentication Flow
 
 This project uses **Supabase Authentication** for token management.
-Registration is open: anyone may sign up as an organiser, educator or student
-without an invitation. Educators and students name the school they belong to,
-and take part in a particular olympiad by accepting an in-app invitation.
+Registration is open to educators and students, without an invitation; they
+name the school they belong to, and take part in a particular olympiad by
+accepting an in-app invitation. Organiser accounts are created by the portal
+administrator (`npm run create-organiser`), never through public sign-up.
 
 All protected API routes require a valid Supabase JWT token in the
 `Authorization: Bearer <token>` header.

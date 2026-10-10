@@ -1,10 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as fx from './support/fixtures';
 import { mockApi, mockApiError } from './support/network';
 import { renderApp } from './support/renderApp';
 
 describe('educator dashboard', () => {
+    beforeEach(() => {
+        mockApi('get', '/auth/me', fx.me('educator'));
+    });
     it("shows each round's status, countdown and next action", async () => {
         mockApi('get', '/educator/rounds', {
             school: fx.school,

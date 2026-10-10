@@ -1,0 +1,8 @@
+.stack { display: grid; gap: 1.5rem; max-width: 68rem; }
+.stack h1 { margin: 0 0 .5rem; }
+.stack h2 { margin: 0 0 .25rem; font-size: 1.1rem; }
+.stack p { margin: .25rem 0; }
+.request { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+.actions { display: flex; gap: .75rem; }
+.link { display: grid; gap: .35rem; margin-top: .6rem; max-width: 28rem; }
+.link label { font-size: .9rem; }

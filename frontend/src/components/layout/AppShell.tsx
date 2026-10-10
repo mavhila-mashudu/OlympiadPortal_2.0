@@ -106,6 +106,19 @@ export function AppShell({
     const location = useLocation();
     const user = useCurrentUser();
     const roleName = ROLE_NAMES[activeRole];
+    const [isCoordinator, setIsCoordinator] = useState(false);
+    useEffect(() => {
+        if (activeRole !== 'educator') return;
+        let active = true;
+        api.get<{ user: { school_memberships: { role: string; status: string }[] } }>('/auth/me', { background: true })
+            .then(({ user }) => {
+                if (active) setIsCoordinator(user.school_memberships.some(
+                    (m) => m.role === 'coordinator' && m.status === 'active'
+                ));
+            })
+            .catch(() => { if (active) setIsCoordinator(false); });
+        return () => { active = false; };
+    }, [activeRole]);
 
     const [collapsed, setCollapsed] = useState(readCollapsed);
     const toggleCollapsed = () => {
@@ -224,7 +237,7 @@ export function AppShell({
                     </div>
 
                     <nav className={styles.nav} aria-label="Main">
-                        {navItems.map((item) => (
+                        {navItems.filter((item) => item.to !== '/educator/members' || isCoordinator).map((item) => (
                             <NavLink
                                 end={
                                     item.to === '/organiser' ||

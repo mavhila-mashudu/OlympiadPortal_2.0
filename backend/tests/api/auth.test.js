@@ -1,5 +1,6 @@
-// /auth: open registration in all three roles, the public school list, the
-// current user, and account deletion.
+// /auth: open registration for educators and students (organisers are
+// provisioned by the administrator, never self-registered), the public school
+// list, the current user, and account deletion.
 const prisma = require('../../src/config/database').default;
 const f = require('../integration/helpers/factories');
 const { supabase } = require('../integration/helpers/externalMocks');
@@ -12,11 +13,12 @@ describe('POST /auth/register', () => {
         full_name: 'Thandi Mokoena',
         email: 'thandi@olympiad.test',
         password: PASSWORD,
-        role: 'organiser',
+        role: 'educator',
+        school_name: 'Parktown High',
         ...overrides,
     });
 
-    it('creates the Supabase login and the organiser, returning only safe fields', async () => {
+    it('creates the Supabase login and the educator, returning only safe fields', async () => {
         const res = await api().post('/auth/register').send(body());
 
         const { user } = expectOk(res, 201);
@@ -24,7 +26,7 @@ describe('POST /auth/register', () => {
             id: expect.any(String),
             full_name: 'Thandi Mokoena',
             email: 'thandi@olympiad.test',
-            role: 'organiser',
+            role: 'educator',
             created_at: expect.any(String),
         });
         expect(supabase.auth.admin.createUser).toHaveBeenCalledWith({
@@ -35,9 +37,25 @@ describe('POST /auth/register', () => {
         expect(
             await prisma.users.findUnique({ where: { id: user.id } })
         ).toMatchObject({
-            role: 'organiser',
+            role: 'educator',
             auth_provider_id: user.id,
         });
+    });
+
+    // An organiser can run and see every olympiad they own, so the role is never
+    // available through public sign-up, whatever the request says.
+    it('refuses to register an organiser, and creates no login or account', async () => {
+        const res = await api()
+            .post('/auth/register')
+            .send(body({ role: 'organiser' }));
+
+        expectError(res, 422, 'Choose educator or student');
+        expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
+        expect(
+            await prisma.users.findUnique({
+                where: { email: 'thandi@olympiad.test' },
+            })
+        ).toBeNull();
     });
 
     it('keeps the address the user typed (only lowercased), so they can log in with it', async () => {
@@ -66,11 +84,7 @@ describe('POST /auth/register', () => {
             { password: 'SecretPass' },
             'Needs a number',
         ],
-        [
-            'an unknown role',
-            { role: 'admin' },
-            'Choose organiser, educator or student',
-        ],
+        ['an unknown role', { role: 'admin' }, 'Choose educator or student'],
     ])('responds 422 for %s', async (_label, overrides, message) => {
         expectError(
             await api().post('/auth/register').send(body(overrides)),
@@ -125,7 +139,7 @@ describe('POST /auth/register', () => {
                         },
                     },
                 })
-            ).toMatchObject({ role: 'educator', status: 'active' });
+            ).toMatchObject({ role: 'educator', status: 'pending' });
         });
 
         it('creates a school that is not listed yet and makes the educator its coordinator', async () => {
@@ -200,7 +214,7 @@ describe('POST /auth/register', () => {
             expectError(
                 await api()
                     .post('/auth/register')
-                    .send(body({ role: 'educator' })),
+                    .send(body({ role: 'educator', school_name: '' })),
                 422,
                 'Select your school, or enter its name'
             );
@@ -235,7 +249,7 @@ describe('POST /auth/register', () => {
             });
         });
 
-        it('claims the entrant an educator already listed under the same name', async () => {
+        it('does not claim a listed entrant without coordinator approval', async () => {
             const school = await f.createSchool();
             const listed = await f.createEntrant({
                 school,
@@ -259,12 +273,15 @@ describe('POST /auth/register', () => {
             expect(
                 await prisma.entrants.findUnique({ where: { id: listed.id } })
             ).toMatchObject({
-                user_id: user.id,
+                user_id: null,
                 grade: '11',
             });
             expect(
+                await prisma.entrants.findUnique({ where: { user_id: user.id } })
+            ).toMatchObject({ school_id: school.id, status: 'pending' });
+            expect(
                 await prisma.entrants.count({ where: { school_id: school.id } })
-            ).toBe(1);
+            ).toBe(2);
         });
 
         it('must pick a school from the list', async () => {
@@ -289,8 +306,8 @@ describe('POST /auth/register', () => {
                             school_id: '00000000-0000-4000-8000-000000000000',
                         })
                     ),
-                404,
-                'School not found'
+                400,
+                'The selected school no longer exists. Please select another.'
             );
         });
     });
@@ -316,16 +333,20 @@ describe('POST /auth/register', () => {
 });
 
 describe('POST /auth/register/organiser', () => {
-    it('still registers an organiser, so existing sign-up links keep working', async () => {
-        const { user } = expectOk(
-            await api().post('/auth/register/organiser').send({
-                full_name: 'Sipho Dlamini',
-                email: 'sipho@olympiad.test',
-                password: PASSWORD,
-            }),
-            201
-        );
-        expect(user.role).toBe('organiser');
+    it('no longer exists: organisers cannot sign themselves up', async () => {
+        const res = await api().post('/auth/register/organiser').send({
+            full_name: 'Sipho Dlamini',
+            email: 'sipho@olympiad.test',
+            password: PASSWORD,
+        });
+
+        expectError(res, 404, 'Route not found');
+        expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
+        expect(
+            await prisma.users.findUnique({
+                where: { email: 'sipho@olympiad.test' },
+            })
+        ).toBeNull();
     });
 });
 
@@ -491,6 +512,7 @@ describe('GET /auth/me', () => {
             {
                 school_id: school.id,
                 role: 'coordinator',
+                status: 'active',
                 schools: { name: school.name },
             },
         ]);
@@ -589,7 +611,8 @@ describe('DELETE /auth/account', () => {
             full_name: 'Thandi Mokoena',
             email: 'thandi@olympiad.test',
             password: PASSWORD,
-            role: 'organiser',
+            role: 'educator',
+            school_name: 'Parktown High',
         });
         expect(res.status).toBe(201);
     });

@@ -13,7 +13,9 @@ import { startSession } from '../../lib/session';
 import { getSupabaseClient } from '../../lib/supabase';
 import styles from './Signup.module.css';
 
+// Organisers are not offered here: the portal administrator creates those accounts.
 type Role = 'organiser' | 'educator' | 'student';
+type SignupRole = Exclude<Role, 'organiser'>;
 
 type MeResponse = {
     user: { role: Role };
@@ -23,12 +25,7 @@ type School = { id: string; name: string };
 
 const NEW_SCHOOL = '__new__';
 
-const roleOptions: { value: Role; title: string; blurb: string }[] = [
-    {
-        value: 'organiser',
-        title: 'Organiser',
-        blurb: 'Create and manage olympiads',
-    },
+const roleOptions: { value: SignupRole; title: string; blurb: string }[] = [
     {
         value: 'educator',
         title: 'Educator',
@@ -45,13 +42,12 @@ function Signup() {
     const navigate = useNavigate();
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [role, setRole] = useState<Role>('organiser');
+    const [role, setRole] = useState<SignupRole>('educator');
     const [schools, setSchools] = useState<School[]>([]);
     const [schoolsError, setSchoolsError] = useState<string | null>(null);
     const [schoolId, setSchoolId] = useState('');
     const [newSchoolName, setNewSchoolName] = useState('');
 
-    const needsSchool = role !== 'organiser';
     const addingSchool = schoolId === NEW_SCHOOL;
 
     // The list is public so it can fill the dropdown before anyone has an account.
@@ -102,8 +98,10 @@ function Signup() {
                     <h1>Create account</h1>
                     <p className={styles.subtitle}>
                         Choose how you take part. Educators and students tell us
-                        which school they belong to; olympiad invitations then
-                        arrive on your dashboard.
+                        which school they belong to. Access starts after
+                        approval: organisers review a school's first
+                        educator, and school coordinators review everyone
+                        else, including students.
                     </p>
 
                     <form
@@ -127,14 +125,12 @@ function Signup() {
                                     email,
                                     password,
                                     role,
-                                    school_id:
-                                        needsSchool && !addingSchool
-                                            ? schoolId
-                                            : undefined,
-                                    school_name:
-                                        needsSchool && addingSchool
-                                            ? newSchoolName.trim()
-                                            : undefined,
+                                    school_id: !addingSchool
+                                        ? schoolId
+                                        : undefined,
+                                    school_name: addingSchool
+                                        ? newSchoolName.trim()
+                                        : undefined,
                                 });
 
                                 const supabase = getSupabaseClient();
@@ -217,47 +213,41 @@ function Signup() {
                             />
                         </div>
 
-                        {needsSchool && (
-                            <div className={styles.field}>
-                                <Label htmlFor="school">School</Label>
-                                <select
-                                    className={styles.select}
-                                    id="school"
-                                    name="school"
-                                    required
-                                    value={schoolId}
-                                    onChange={(event) =>
-                                        setSchoolId(event.target.value)
-                                    }
-                                >
-                                    <option value="">
-                                        Select your school…
+                        <div className={styles.field}>
+                            <Label htmlFor="school">School</Label>
+                            <select
+                                className={styles.select}
+                                id="school"
+                                name="school"
+                                required
+                                value={schoolId}
+                                onChange={(event) =>
+                                    setSchoolId(event.target.value)
+                                }
+                            >
+                                <option value="">Select your school…</option>
+                                {schools.map((school) => (
+                                    <option key={school.id} value={school.id}>
+                                        {school.name}
                                     </option>
-                                    {schools.map((school) => (
-                                        <option
-                                            key={school.id}
-                                            value={school.id}
-                                        >
-                                            {school.name}
-                                        </option>
-                                    ))}
-                                    {role === 'educator' && (
-                                        <option value={NEW_SCHOOL}>
-                                            My school isn’t listed…
-                                        </option>
-                                    )}
-                                </select>
-                                {role === 'student' && (
-                                    <small className={styles.hint}>
-                                        Students join a school an educator has
-                                        already added. If yours is missing, ask
-                                        your teacher to sign up first.
-                                    </small>
+                                ))}
+                                {role === 'educator' && (
+                                    <option value={NEW_SCHOOL}>
+                                        My school isn’t listed…
+                                    </option>
                                 )}
-                            </div>
-                        )}
+                            </select>
+                            {role === 'student' && (
+                                <small className={styles.hint}>
+                                    Students join a school an educator has
+                                    already added, and the school's coordinator
+                                    approves your request. If yours is missing,
+                                    ask your teacher to sign up first.
+                                </small>
+                            )}
+                        </div>
 
-                        {needsSchool && addingSchool && (
+                        {addingSchool && (
                             <div className={styles.field}>
                                 <Label htmlFor="school_name">School name</Label>
                                 <Input
@@ -272,8 +262,8 @@ function Signup() {
                                     }
                                 />
                                 <small className={styles.hint}>
-                                    You’ll become its coordinator and can invite
-                                    the rest of your staff.
+                                    Your request will be reviewed by an organiser.
+                                    Once approved, you can coordinate your school.
                                 </small>
                             </div>
                         )}

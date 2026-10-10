@@ -24,7 +24,7 @@ const getPlatformStats = async () => {
         prisma.olympiads.count(),
         prisma.rounds.count(),
         prisma.schools.count(),
-        prisma.entrants.count(),
+        prisma.entrants.count({ where: { status: 'active' } }),
         prisma.submissions.count(),
     ]);
 

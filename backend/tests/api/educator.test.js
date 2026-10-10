@@ -113,11 +113,11 @@ describe('GET /educator/rounds', () => {
         });
     });
 
-    it('responds 403 for an educator account without an educator profile', async () => {
+    it('responds 403 for an educator without active school membership', async () => {
         expectError(
             await as(await f.createUser('educator')).get('/educator/rounds'),
             403,
-            'Educator profile not found'
+            'School membership is awaiting approval'
         );
     });
 });

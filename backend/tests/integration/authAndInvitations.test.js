@@ -25,23 +25,29 @@ const runMiddleware = async (middleware, req) => {
     return next.mock.calls[0]?.[0];
 };
 
+const details = (overrides) => ({
+    full_name: 'Thandi Mokoena',
+    email: 'thandi@olympiad.test',
+    password: 'Secret123',
+    ...overrides,
+});
+
+// Public sign-up: educators and students only
 const signUp = (overrides) =>
-    authService.register({
-        full_name: 'Thandi Mokoena',
-        email: 'thandi@olympiad.test',
-        password: 'Secret123',
-        role: 'organiser',
-        ...overrides,
-    });
+    authService.register(details({ role: 'educator', ...overrides }));
+
+// Organisers are provisioned by the administrator (scripts/createOrganiser.js)
+const provisionOrganiser = (overrides) =>
+    authService.registerOrganiser(details(overrides));
 
 beforeEach(() => {
     resetExternalMocks();
     jest.spyOn(console, 'error').mockImplementation(() => {});
 });
 
-describe('organiser sign-up', () => {
+describe('organiser provisioning', () => {
     it("creates the account with the Supabase user's id", async () => {
-        const { user } = await signUp();
+        const { user } = await provisionOrganiser();
 
         const stored = await prisma.users.findUnique({
             where: { email: 'thandi@olympiad.test' },
@@ -65,12 +71,23 @@ describe('organiser sign-up', () => {
     });
 
     it('refuses an address that is already taken', async () => {
-        await signUp();
+        await provisionOrganiser();
         await expect(
-            signUp({ full_name: 'Someone Else' })
-        ).rejects.toMatchObject({
-            statusCode: 409,
+            provisionOrganiser({ full_name: 'Someone Else' })
+        ).rejects.toMatchObject({ statusCode: 409 });
+    });
+
+    it('is not available through public sign-up, which creates no login or account', async () => {
+        await expect(signUp({ role: 'organiser' })).rejects.toMatchObject({
+            statusCode: 403,
         });
+
+        expect(supabase.auth.admin.createUser).not.toHaveBeenCalled();
+        expect(
+            await prisma.users.findUnique({
+                where: { email: 'thandi@olympiad.test' },
+            })
+        ).toBeNull();
     });
 });
 
@@ -97,7 +114,7 @@ describe('educator sign-up without an invitation', () => {
                     },
                 },
             })
-        ).toMatchObject({ role: 'coordinator', status: 'active' });
+        ).toMatchObject({ role: 'coordinator', status: 'pending' });
     });
 
     it('joins a school that already has a coordinator as an ordinary member', async () => {
@@ -120,7 +137,7 @@ describe('educator sign-up without an invitation', () => {
                     },
                 },
             })
-        ).toMatchObject({ role: 'educator' });
+        ).toMatchObject({ role: 'educator', status: 'pending' });
     });
 });
 
@@ -148,7 +165,10 @@ describe('student sign-up without an invitation', () => {
                 role: 'student',
                 school_id: '00000000-0000-4000-8000-000000000000',
             })
-        ).rejects.toMatchObject({ statusCode: 404 });
+        ).rejects.toMatchObject({
+            statusCode: 400,
+            message: 'The selected school no longer exists. Please select another.',
+        });
     });
 
     it('leaves no orphaned Supabase login behind when the database write fails', async () => {
@@ -386,11 +406,11 @@ describe('request authentication', () => {
         });
         const removed = await f.createEducator({
             school,
-            membershipRole: 'coordinator',
+            membershipRole: 'educator',
         });
         await prisma.school_memberships.update({
             where: { id: removed.membership.id },
-            data: { status: 'removed' },
+            data: { role: 'coordinator', status: 'removed' },
         });
 
         const coordinatorOnly = requireSchoolMembership('coordinator');

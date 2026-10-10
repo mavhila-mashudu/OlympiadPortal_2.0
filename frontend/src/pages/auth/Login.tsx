@@ -147,9 +147,9 @@ function Login() {
                 </Card>
 
                 <p className={styles.signup}>
-                    Registering as an organiser?{' '}
+                    Teacher or student?{' '}
                     <Link className={styles.inlineLink} to="/signup">
-                        Create organiser account
+                        Create an account
                     </Link>
                 </p>
             </div>

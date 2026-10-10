@@ -89,6 +89,7 @@ app.get('/', (_req, res) => {
 app.use('/public', createPublicRateLimiter(), require('./routes/public'));
 
 app.use('/auth', require('./routes/auth'));
+app.use('/memberships', require('./routes/membershipApprovals'));
 app.use('/invites', require('./routes/invites'));
 app.use('/notifications', require('./routes/portalNotifications'));
 app.use('/educator', require('./routes/educator'));

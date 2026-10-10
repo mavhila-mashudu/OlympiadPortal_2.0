@@ -45,7 +45,10 @@ const resolveIdentity = async (token) => {
         where: { id: user.id },
         include: {
             educators: { select: { id: true, school_id: true } },
-            entrants: { select: { id: true, school_id: true } },
+            entrants: { select: { id: true, school_id: true, status: true } },
+            school_memberships: {
+                select: { school_id: true, status: true, role: true },
+            },
         },
     });
 
@@ -61,6 +64,13 @@ const resolveIdentity = async (token) => {
             dbUser.educators?.school_id || dbUser.entrants?.school_id || null,
         educator: dbUser.educators || null,
         entrant: dbUser.entrants || null,
+        // 'pending'/'rejected' until the school's coordinator approves a student
+        entrantStatus: dbUser.entrants?.status || null,
+        // This is an access-control boundary, not only a UI field.
+        membershipStatus:
+            dbUser.school_memberships?.find(
+                (m) => m.school_id === dbUser.educators?.school_id
+            )?.status || null,
     };
 };
 
@@ -122,6 +132,32 @@ const requireAuth = async (req, _res, next) => {
 
         const token = authHeader.split(' ')[1];
         req.user = { ...(await cachedIdentity(token)) };
+        // A pending/rejected educator can still view membership status, log out,
+        // or delete their account; all other authenticated routes are blocked.
+        // This protects the other school-scoped routes which previously checked
+        // only the broad 'educator' role.
+        const permittedWhilePending = new Set([
+            'GET /auth/me',
+            'POST /auth/logout',
+            'DELETE /auth/account',
+        ]);
+        const routeKey = `${req.method} ${String(req.originalUrl || req.url || '').split('?')[0]}`;
+        if (
+            req.user.role === 'educator' &&
+            req.user.membershipStatus !== 'active' &&
+            !permittedWhilePending.has(routeKey)
+        ) {
+            throw new ForbiddenError('School membership is awaiting approval');
+        }
+        // Same for a student whose coordinator has not approved them yet
+        if (
+            req.user.role === 'student' &&
+            req.user.entrantStatus &&
+            req.user.entrantStatus !== 'active' &&
+            !permittedWhilePending.has(routeKey)
+        ) {
+            throw new ForbiddenError('School membership is awaiting approval');
+        }
         // Kept for logout, which ends this particular session
         req.accessToken = token;
 

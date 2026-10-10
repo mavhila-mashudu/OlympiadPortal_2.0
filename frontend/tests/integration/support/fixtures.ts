@@ -86,6 +86,7 @@ export const me = (
                       {
                           school_id: 'school-1',
                           role: 'coordinator',
+                          status: 'active',
                           schools: { name: 'Parktown High' },
                       },
                   ]
@@ -101,6 +102,7 @@ export const me = (
             role === 'student'
                 ? {
                       school_id: 'school-1',
+                      status: 'active',
                       schools: { id: 'school-1', name: 'Parktown High' },
                   }
                 : null,

@@ -137,6 +137,7 @@ describe('requireAuth', () => {
             deleted_at: null,
             educators: educator,
             entrants: null,
+            school_memberships: [{ school_id: 'school-1', status: 'active', role: 'educator' }],
         });
 
         const req = authReq();
@@ -153,6 +154,8 @@ describe('requireAuth', () => {
             schoolId: 'school-1',
             educator,
             entrant: null,
+            entrantStatus: null,
+            membershipStatus: 'active',
         });
     });
 
@@ -173,7 +176,62 @@ describe('requireAuth', () => {
         await callMiddleware(requireAuth, req);
         expect(req.user.schoolId).toBe('school-9');
         expect(req.user.entrant).toBe(entrant);
+        expect(req.user.membershipStatus).toBeNull();
         expect(req.user.educator).toBeNull();
+    });
+
+    it('blocks a student awaiting approval from everything except their own status and logout', async () => {
+        supabase.auth.getUser.mockResolvedValue({
+            data: { user: { id: 'u2' } },
+            error: null,
+        });
+        prisma.users.findUnique.mockResolvedValue({
+            id: 'u2',
+            role: 'student',
+            educators: null,
+            entrants: { id: 'ent-1', school_id: 'school-9', status: 'pending' },
+        });
+
+        const blocked = mockReq({
+            user: undefined,
+            headers: { authorization: 'Bearer valid-token' },
+            method: 'GET',
+            originalUrl: '/student/rounds',
+        });
+        expectNextError(
+            await callMiddleware(requireAuth, blocked),
+            403,
+            'School membership is awaiting approval'
+        );
+
+        const status = mockReq({
+            user: undefined,
+            headers: { authorization: 'Bearer valid-token' },
+            method: 'GET',
+            originalUrl: '/auth/me',
+        });
+        expect(await callMiddleware(requireAuth, status)).toHaveBeenCalledWith();
+    });
+
+    it('lets an approved student through', async () => {
+        supabase.auth.getUser.mockResolvedValue({
+            data: { user: { id: 'u2' } },
+            error: null,
+        });
+        prisma.users.findUnique.mockResolvedValue({
+            id: 'u2',
+            role: 'student',
+            educators: null,
+            entrants: { id: 'ent-1', school_id: 'school-9', status: 'active' },
+        });
+
+        const req = mockReq({
+            user: undefined,
+            headers: { authorization: 'Bearer valid-token' },
+            method: 'GET',
+            originalUrl: '/student/rounds',
+        });
+        expect(await callMiddleware(requireAuth, req)).toHaveBeenCalledWith();
     });
 
     it('sets schoolId to null for an organiser', async () => {
@@ -189,6 +247,7 @@ describe('requireAuth', () => {
         const req = authReq();
         await callMiddleware(requireAuth, req);
         expect(req.user.schoolId).toBeNull();
+        expect(req.user.membershipStatus).toBeNull();
     });
 
     it('passes unexpected errors to the error handler', async () => {

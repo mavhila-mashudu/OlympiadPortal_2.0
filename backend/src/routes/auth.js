@@ -3,7 +3,6 @@ const express = require('express');
 const { body } = require('express-validator');
 const {
     register,
-    registerOrganiser,
     listSchools,
     me,
     logout,
@@ -43,14 +42,17 @@ const accountRules = [
     passwordRule,
 ];
 
-// Anyone may sign up in any role. Educators and students say which school
-// they belong to; a student must pick one that already exists, while an
-// educator may name a new school and bring it onto the platform.
+// Anyone may sign up as an educator or a student. Organisers are NOT on this
+// list: the role carries authority over every olympiad, so organiser accounts
+// are provisioned by the portal administrator (scripts/createOrganiser.js).
+// Educators and students say which school they belong to; a student must pick
+// one that already exists, while an educator may name a new school and bring
+// it onto the platform.
 const registerRules = [
     ...accountRules,
     body('role')
-        .isIn(['organiser', 'educator', 'student'])
-        .withMessage('Choose organiser, educator or student'),
+        .isIn(['educator', 'student'])
+        .withMessage('Choose educator or student'),
     body('school_id')
         .optional({ values: 'falsy' })
         .isUUID()
@@ -75,14 +77,6 @@ const registerRules = [
 ];
 
 router.post('/register', publicAuthLimiter, registerRules, validate, register);
-// Kept so existing organiser sign-up links and clients keep working
-router.post(
-    '/register/organiser',
-    publicAuthLimiter,
-    accountRules,
-    validate,
-    registerOrganiser
-);
 router.get('/schools', publicAuthLimiter, listSchools);
 router.post(
     '/forgot-password',

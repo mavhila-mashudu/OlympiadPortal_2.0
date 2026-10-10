@@ -71,25 +71,20 @@ test.describe('signing in', () => {
 });
 
 test.describe('signing up', () => {
-    test('a new organiser creates an account and is taken to their dashboard', async ({
+    test("public sign-up doesn't offer the organiser role", async ({
         page,
     }) => {
-        const email = `new.organiser.${Date.now()}@e2e.test`;
-
         await page.goto('/signup');
-        await page.getByLabel('Full name').fill('New Organiser');
-        await page.getByLabel('Email address').fill(email);
-        await page.getByLabel('Password', { exact: true }).fill(PASSWORD);
-        await page.getByRole('button', { name: 'Create account' }).click();
 
-        await expect(page).toHaveURL(/\/organiser$/);
         await expect(
-            page.getByRole('heading', { name: 'Organiser dashboard' })
+            page.getByRole('radio', { name: /Educator/ })
         ).toBeVisible();
-
-        // The new account can sign in again on its own
-        await page.getByRole('button', { name: 'Log out' }).click();
-        await signIn(page, { email, password: PASSWORD }, '/organiser');
+        await expect(
+            page.getByRole('radio', { name: /Student/ })
+        ).toBeVisible();
+        await expect(
+            page.getByRole('radio', { name: /Organiser/ })
+        ).toHaveCount(0);
     });
 
     test('a student signs up by picking their school, with no invitation code', async ({

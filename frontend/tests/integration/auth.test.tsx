@@ -40,14 +40,20 @@ describe('logging in', () => {
         await user.click(screen.getByRole('button', { name: 'Log in' }));
     };
 
-    it("shows the public landing page with working login and signup navigation", async () => {
-      const { user, currentPath } = renderApp("/");
-      expect(currentPath()).toBe("/");
-      expect(screen.getByRole("heading", { name: /A place for bright minds/i })).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Join the portal" })).toHaveAttribute("href", "/signup");
-      await user.click(screen.getByRole("link", { name: "Log in" }));
-      expect(currentPath()).toBe("/login");
-      expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
+    it('shows the public landing page with working login and signup navigation', async () => {
+        const { user, currentPath } = renderApp('/');
+        expect(currentPath()).toBe('/');
+        expect(
+            screen.getByRole('heading', { name: /A place for bright minds/i })
+        ).toBeInTheDocument();
+        expect(
+            screen.getByRole('link', { name: 'Join the portal' })
+        ).toHaveAttribute('href', '/signup');
+        await user.click(screen.getByRole('link', { name: 'Log in' }));
+        expect(currentPath()).toBe('/login');
+        expect(
+            screen.getByRole('heading', { name: 'Log in' })
+        ).toBeInTheDocument();
     });
 
     it.each([
@@ -138,10 +144,13 @@ describe('logging in', () => {
         ).toBeInTheDocument();
     });
 
-    it('links to organiser sign-up', async () => {
+    it('links to sign-up for teachers and students, and not to organiser sign-up', async () => {
         const { user, currentPath } = renderApp('/login');
+        expect(
+            screen.queryByRole('link', { name: /organiser account/i })
+        ).not.toBeInTheDocument();
         await user.click(
-            screen.getByRole('link', { name: 'Create organiser account' })
+            screen.getByRole('link', { name: 'Create an account' })
         );
         expect(currentPath()).toBe('/signup');
         expect(
@@ -168,44 +177,25 @@ describe('signing up', () => {
             ],
         });
 
-    it('registers an organiser, signs them in and opens the organiser dashboard', async () => {
-        mockLandingPages();
+    // Organisers hold authority over every olympiad they own, so the portal
+    // administrator creates them; public sign-up doesn't offer the role at all.
+    it('offers educator and student sign-up only, starting on educator', async () => {
         mockSchools();
-        const registrations = mockApi(
-            'post',
-            '/auth/register',
-            { user: { id: 'organiser-user' } },
-            { status: 201 }
-        );
-        mockSupabaseSignIn({
-            userId: 'organiser-user',
-            accessToken: 'fresh-jwt',
-        });
-        mockApi('get', '/auth/me', fx.me('organiser'));
-        const { user, currentPath } = renderApp('/signup');
+        renderApp('/signup');
 
-        // An organiser needs no school, and no invitation code exists any more
-        expect(screen.queryByLabelText('School')).not.toBeInTheDocument();
+        const roles = screen.getAllByRole('radio');
+        expect(roles.map((role) => role.textContent)).toEqual([
+            expect.stringContaining('Educator'),
+            expect.stringContaining('Student'),
+        ]);
         expect(
-            screen.queryByLabelText('Invitation code')
+            screen.queryByRole('radio', { name: /Organiser/ })
         ).not.toBeInTheDocument();
-
-        await fillDetails(user);
-        await user.click(
-            screen.getByRole('button', { name: 'Create account' })
+        expect(screen.getByRole('radio', { name: /Educator/ })).toHaveAttribute(
+            'aria-checked',
+            'true'
         );
-
-        expect(
-            await screen.findByRole('heading', { name: 'Organiser dashboard' })
-        ).toBeInTheDocument();
-        expect(currentPath()).toBe('/organiser');
-        expect(registrations[0].body).toEqual({
-            full_name: 'Thandi Mokoena',
-            email: 'thandi@olympiad.test',
-            password: 'Secret123',
-            role: 'organiser',
-        });
-        expect(localStorage.getItem('op_access_token')).toBe('fresh-jwt');
+        expect(await screen.findByLabelText('School')).toBeInTheDocument();
     });
 
     it("shows the backend's validation error and doesn't sign in", async () => {
@@ -214,6 +204,10 @@ describe('signing up', () => {
         const signIns = mockSupabaseSignIn({ userId: 'x' });
         const { user, currentPath } = renderApp('/signup');
 
+        await user.selectOptions(
+            await screen.findByLabelText('School'),
+            'school-1'
+        );
         await fillDetails(user);
         await user.click(
             screen.getByRole('button', { name: 'Create account' })
@@ -236,7 +230,14 @@ describe('signing up', () => {
             { status: 201 }
         );
         mockSupabaseSignIn({ userId: 'educator-user' });
-        mockApi('get', '/auth/me', fx.me('educator'));
+        mockApi('get', '/auth/me', fx.me('educator', {
+            school_memberships: [{
+                school_id: 'school-1',
+                role: 'educator',
+                status: 'pending',
+                schools: { name: 'Parktown High' },
+            }],
+        }));
         const { user, currentPath } = renderApp('/signup');
 
         await user.click(screen.getByRole('radio', { name: /Educator/ }));
@@ -250,7 +251,7 @@ describe('signing up', () => {
         );
 
         expect(
-            await screen.findByRole('heading', { name: 'Your rounds' })
+            await screen.findByRole('heading', { name: 'School approval pending' })
         ).toBeInTheDocument();
         expect(currentPath()).toBe('/educator');
         expect(registrations[0].body).toEqual({
@@ -309,7 +310,16 @@ describe('signing up', () => {
             { status: 201 }
         );
         mockSupabaseSignIn({ userId: 'student-user' });
-        mockApi('get', '/auth/me', fx.me('student'));
+        mockApi('get', '/auth/me', fx.me('student', {
+            entrants: {
+                school_id: 'school-2',
+                status: 'pending',
+                schools: {
+                    id: 'school-2',
+                    name: 'Northview College',
+                },
+            },
+        }));
         const { user, currentPath } = renderApp('/signup');
 
         await user.click(screen.getByRole('radio', { name: /Student/ }));
@@ -325,7 +335,7 @@ describe('signing up', () => {
         );
 
         expect(
-            await screen.findByRole('heading', { name: 'Your olympiad' })
+            await screen.findByRole('heading', { name: 'Waiting for approval' })
         ).toBeInTheDocument();
         expect(currentPath()).toBe('/student');
         expect(registrations[0].body).toMatchObject({
