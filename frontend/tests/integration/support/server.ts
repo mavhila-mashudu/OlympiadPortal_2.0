@@ -1,7 +1,7 @@
-import { http, HttpResponse } from "msw";
-import { setupServer } from "msw/node";
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
 
-const API_URL = "http://api.test";
+const API_URL = 'http://api.test';
 
 // Requests every signed-in page makes in the background: the shell polls for
 // portal notifications, and dashboards load the invitation inbox. They answer
@@ -9,16 +9,26 @@ const API_URL = "http://api.test";
 // is about; a test that cares overrides them with server.use() as usual.
 // server.resetHandlers() restores these after every test.
 const backgroundDefaults = [
-  http.get(`${API_URL}/notifications`, () =>
-    HttpResponse.json({ success: true, data: { notifications: [] } }),
-  ),
-  http.get(`${API_URL}/invites/mine`, () =>
-    HttpResponse.json({ success: true, data: { invites: [] } }),
-  ),
-  // The sidebar shows the signed-in person's name
-  http.get(`${API_URL}/auth/me`, () =>
-    HttpResponse.json({ success: true, data: { user: { id: "test-user", full_name: "Sam Tester", email: "sam@olympiad.test", role: "organiser" } } }),
-  ),
+    http.get(`${API_URL}/notifications`, () =>
+        HttpResponse.json({ success: true, data: { notifications: [] } })
+    ),
+    http.get(`${API_URL}/invites/mine`, () =>
+        HttpResponse.json({ success: true, data: { invites: [] } })
+    ),
+    // The sidebar shows the signed-in person's name
+    http.get(`${API_URL}/auth/me`, () =>
+        HttpResponse.json({
+            success: true,
+            data: {
+                user: {
+                    id: 'test-user',
+                    full_name: 'Sam Tester',
+                    email: 'sam@olympiad.test',
+                    role: 'organiser',
+                },
+            },
+        })
+    ),
 ];
 
 // Shared MSW server. Tests register the endpoints they need with server.use().

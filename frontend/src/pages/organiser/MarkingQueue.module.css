@@ -1,288 +1,288 @@
 .stack {
-  display: grid;
-  gap: 1.5rem;
+    display: grid;
+    gap: 1.5rem;
 }
 
 .pageHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1.25rem;
 }
 
 .pageHeader h1 {
-  color: var(--foreground);
-  font-size: 1.5rem;
-  font-weight: 600;
-  line-height: 2rem;
+    color: var(--foreground);
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 2rem;
 }
 
 .pageHeader p {
-  margin-top: 0.25rem;
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+    margin-top: 0.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
 }
 
 .pageActions {
-  display: flex;
-  flex-shrink: 0;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+    display: flex;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .loading {
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  padding: 2rem 0;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    padding: 2rem 0;
 }
 
 .errorBanner {
-  border: 1px solid color-mix(in oklab, var(--destructive) 30%, transparent);
-  border-radius: var(--radius);
-  background: color-mix(in oklab, var(--destructive) 8%, transparent);
-  color: var(--destructive);
-  font-size: 0.875rem;
-  padding: 0.75rem 1rem;
+    border: 1px solid color-mix(in oklab, var(--destructive) 30%, transparent);
+    border-radius: var(--radius);
+    background: color-mix(in oklab, var(--destructive) 8%, transparent);
+    color: var(--destructive);
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
 }
 
 .routeSummary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border-left: 3px solid var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-left: 3px solid var(--primary);
 }
 
 .routeSummary h2 {
-  color: var(--foreground);
-  font-size: 1rem;
-  font-weight: 600;
+    color: var(--foreground);
+    font-size: 1rem;
+    font-weight: 600;
 }
 
 .routeSummary p {
-  margin-top: 0.25rem;
-  color: var(--muted-foreground);
-  font-size: 0.8125rem;
+    margin-top: 0.25rem;
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
 }
 
 .routeCounts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  color: var(--muted-foreground);
-  white-space: nowrap;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    color: var(--muted-foreground);
+    white-space: nowrap;
 }
 
 .routeCounts strong {
-  color: var(--foreground);
-  font-size: 1.1rem;
+    color: var(--foreground);
+    font-size: 1.1rem;
 }
 
 @media (max-width: 40rem) {
-  .routeSummary {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+    .routeSummary {
+        align-items: flex-start;
+        flex-direction: column;
+    }
 }
 
 /* Queue summary */
 .queueSummary {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--card);
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--card);
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
 }
 
 .queueSummary strong {
-  color: var(--foreground);
+    color: var(--foreground);
 }
 
 .summaryIcon {
-  width: 1.125rem;
-  height: 1.125rem;
-  flex-shrink: 0;
-  color: var(--primary);
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
+    color: var(--primary);
 }
 
 /* Submission card */
 .submissionCard {
-  overflow: hidden;
+    overflow: hidden;
 }
 
 .submissionHeader {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  border-bottom: 1px solid var(--border);
-  padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1rem;
 }
 
 .submissionHeader h2 {
-  color: var(--foreground);
-  font-size: 0.9375rem;
-  font-weight: 600;
+    color: var(--foreground);
+    font-size: 0.9375rem;
+    font-weight: 600;
 }
 
 .gradeTag {
-  border-radius: 9999px;
-  background: var(--muted);
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 0.0625rem 0.5rem;
+    border-radius: 9999px;
+    background: var(--muted);
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    padding: 0.0625rem 0.5rem;
 }
 
 .lateTag {
-  border-radius: 9999px;
-  background: color-mix(in oklab, var(--status-upcoming) 15%, transparent);
-  color: var(--status-upcoming);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 0.0625rem 0.5rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--status-upcoming) 15%, transparent);
+    color: var(--status-upcoming);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    padding: 0.0625rem 0.5rem;
 }
 
 .answerCount {
-  margin-left: auto;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
+    margin-left: auto;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
 }
 
 .submissionBody {
-  display: grid;
-  gap: 0.75rem;
-  padding: 1rem;
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
 }
 
 /* Answer card */
 .answerCard {
-  border: 1px solid var(--border);
-  border-radius: calc(var(--radius) - 2px);
-  padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 0.875rem 1rem;
 }
 
 .answerHeader {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .typeBadge {
-  border-radius: 9999px;
-  background: color-mix(in oklab, var(--primary) 10%, transparent);
-  color: var(--primary);
-  font-size: 0.6875rem;
-  font-weight: 500;
-  padding: 0.0625rem 0.5rem;
+    border-radius: 9999px;
+    background: color-mix(in oklab, var(--primary) 10%, transparent);
+    color: var(--primary);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    padding: 0.0625rem 0.5rem;
 }
 
 .points {
-  margin-left: auto;
-  color: var(--muted-foreground);
-  font-size: 0.75rem;
+    margin-left: auto;
+    color: var(--muted-foreground);
+    font-size: 0.75rem;
 }
 
 .prompt {
-  color: var(--foreground);
-  font-size: 0.875rem;
-  line-height: 1.375rem;
-  margin-bottom: 0.625rem;
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    margin-bottom: 0.625rem;
 }
 
 .studentAnswer {
-  border-radius: calc(var(--radius) - 2px);
-  background: var(--muted);
-  padding: 0.625rem 0.75rem;
-  margin-bottom: 0.75rem;
+    border-radius: calc(var(--radius) - 2px);
+    background: var(--muted);
+    padding: 0.625rem 0.75rem;
+    margin-bottom: 0.75rem;
 }
 
 /* Reference answer from the memo, when one exists */
 .memoAnswer {
-  border-radius: calc(var(--radius) - 2px);
-  background: color-mix(in oklab, var(--status-open) 8%, transparent);
-  padding: 0.625rem 0.75rem;
-  margin-bottom: 0.75rem;
+    border-radius: calc(var(--radius) - 2px);
+    background: color-mix(in oklab, var(--status-open) 8%, transparent);
+    padding: 0.625rem 0.75rem;
+    margin-bottom: 0.75rem;
 }
 
 .memoAnswer strong {
-  color: var(--status-open);
+    color: var(--status-open);
 }
 
 .answerLabel {
-  display: block;
-  color: var(--muted-foreground);
-  font-size: 0.6875rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.25rem;
+    display: block;
+    color: var(--muted-foreground);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
 }
 
 .studentAnswer p {
-  color: var(--foreground);
-  font-size: 0.875rem;
-  line-height: 1.375rem;
-  white-space: pre-wrap;
+    color: var(--foreground);
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    white-space: pre-wrap;
 }
 
 .answerError {
-  color: var(--destructive);
-  font-size: 0.8125rem;
-  margin-bottom: 0.5rem;
+    color: var(--destructive);
+    font-size: 0.8125rem;
+    margin-bottom: 0.5rem;
 }
 
 /* Mark controls */
 .markRow {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .pointsField {
-  width: 5.5rem;
+    width: 5.5rem;
 }
 
 /* Empty state */
 .emptyCard {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 2.5rem 1.5rem;
-  text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
 }
 
 .emptyIcon {
-  width: 2rem;
-  height: 2rem;
-  color: var(--status-open);
+    width: 2rem;
+    height: 2rem;
+    color: var(--status-open);
 }
 
 .emptyCard h2 {
-  color: var(--foreground);
-  font-size: 1.125rem;
-  font-weight: 600;
+    color: var(--foreground);
+    font-size: 1.125rem;
+    font-weight: 600;
 }
 
 .emptyCard p {
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  line-height: 1.375rem;
-  max-width: 26rem;
+    color: var(--muted-foreground);
+    font-size: 0.875rem;
+    line-height: 1.375rem;
+    max-width: 26rem;
 }
 
 @media (min-width: 40rem) {
-  .pageHeader {
-    flex-direction: row;
-    align-items: flex-end;
-    justify-content: space-between;
-  }
+    .pageHeader {
+        flex-direction: row;
+        align-items: flex-end;
+        justify-content: space-between;
+    }
 }

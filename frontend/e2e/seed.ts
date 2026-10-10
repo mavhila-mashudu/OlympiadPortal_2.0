@@ -1,35 +1,37 @@
 // The starting state every E2E test begins from: one olympiad, one registered
 // school with a coordinator, one student, a live round to sit and a draft
 // round to build.
-import type { PGlite } from "@electric-sql/pglite";
+import type { PGlite } from '@electric-sql/pglite';
 import {
-  DRAFT_ROUND,
-  EDUCATOR_PROFILE_ID,
-  ENTRANT_ID,
-  JOINING_ENTRANT_ID,
-  LIVE_ROUND,
-  OLYMPIAD,
-  SCHOOL,
-  UNREGISTERED_SCHOOL,
-  USERS,
-} from "./test-data";
+    DRAFT_ROUND,
+    EDUCATOR_PROFILE_ID,
+    ENTRANT_ID,
+    JOINING_ENTRANT_ID,
+    LIVE_ROUND,
+    OLYMPIAD,
+    SCHOOL,
+    UNREGISTERED_SCHOOL,
+    USERS,
+} from './test-data';
 
 const hoursFromNow = (hours: number) =>
-  new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+    new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
 
 export async function seedDatabase(db: PGlite) {
-  const user = (u: { id: string; email: string; fullName: string }, role: string) =>
-    `('${u.id}', '${u.email}', '${u.fullName}', '${u.id}', '${role}')`;
+    const user = (
+        u: { id: string; email: string; fullName: string },
+        role: string
+    ) => `('${u.id}', '${u.email}', '${u.fullName}', '${u.id}', '${role}')`;
 
-  await db.exec(`
+    await db.exec(`
     INSERT INTO users (id, email, full_name, auth_provider_id, role) VALUES
-      ${user(USERS.organiser, "organiser")},
-      ${user(USERS.educator, "educator")},
-      ${user(USERS.student, "student")},
-      ${user(USERS.disposable, "organiser")},
-      ${user(USERS.resetting, "organiser")},
-      ${user(USERS.otherEducator, "educator")},
-      ${user(USERS.joiningStudent, "student")};
+      ${user(USERS.organiser, 'organiser')},
+      ${user(USERS.educator, 'educator')},
+      ${user(USERS.student, 'student')},
+      ${user(USERS.disposable, 'organiser')},
+      ${user(USERS.resetting, 'organiser')},
+      ${user(USERS.otherEducator, 'educator')},
+      ${user(USERS.joiningStudent, 'student')};
 
     INSERT INTO schools (id, name, address) VALUES
       ('${SCHOOL.id}', '${SCHOOL.name}', '1 Park Road'),
@@ -86,7 +88,7 @@ export async function seedDatabase(db: PGlite) {
 
 /** Every account the mock Supabase server must accept a login for. */
 export const seededLogins = Object.values(USERS).map((u) => ({
-  id: u.id,
-  email: u.email,
-  password: u.password,
+    id: u.id,
+    email: u.email,
+    password: u.password,
 }));

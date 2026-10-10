@@ -138,11 +138,11 @@ We use Agile with Scrum as the delivery framework:
 
 ### Deployment
 
-| Service  | Component         | Why                                                       |
-| -------- | ----------------- | --------------------------------------------------------- |
-| Azure App Service | Backend API | Linux Node 22 plan, deployed by Gitea Actions, automatic HTTPS |
-| Azure Storage     | Frontend SPA | Static website hosting, deployed by Gitea Actions, automatic HTTPS |
-| Supabase | PostgreSQL + Auth | Managed database with backups, built-in auth service      |
+| Service           | Component         | Why                                                                |
+| ----------------- | ----------------- | ------------------------------------------------------------------ |
+| Azure App Service | Backend API       | Linux Node 22 plan, deployed by Gitea Actions, automatic HTTPS     |
+| Azure Storage     | Frontend SPA      | Static website hosting, deployed by Gitea Actions, automatic HTTPS |
+| Supabase          | PostgreSQL + Auth | Managed database with backups, built-in auth service               |
 
 ---
 

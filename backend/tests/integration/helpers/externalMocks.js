@@ -5,43 +5,68 @@
 // Usage at the top of a test file:
 //   jest.mock("../../src/config/supabase", () => require("./helpers/externalMocks").supabase);
 //   beforeEach(() => require("./helpers/externalMocks").resetExternalMocks());
-const crypto = require("node:crypto");
+const crypto = require('node:crypto');
 
 const bucket = { upload: jest.fn(), createSignedUrl: jest.fn() };
 
 const supabase = {
-  auth: {
-    getUser: jest.fn(),
-    resetPasswordForEmail: jest.fn(),
-    admin: { createUser: jest.fn(), deleteUser: jest.fn(), signOut: jest.fn(), generateLink: jest.fn() },
-  },
-  storage: { from: jest.fn(() => bucket), bucket },
+    auth: {
+        getUser: jest.fn(),
+        resetPasswordForEmail: jest.fn(),
+        admin: {
+            createUser: jest.fn(),
+            deleteUser: jest.fn(),
+            signOut: jest.fn(),
+            generateLink: jest.fn(),
+        },
+    },
+    storage: { from: jest.fn(() => bucket), bucket },
 };
 
 const resetExternalMocks = () => {
-  supabase.auth.getUser.mockReset().mockResolvedValue({ data: { user: null }, error: { message: "no session" } });
-  supabase.auth.admin.createUser
-    .mockReset()
-    .mockImplementation(async ({ email }) => ({ data: { user: { id: crypto.randomUUID(), email } }, error: null }));
-  supabase.auth.admin.deleteUser.mockReset().mockResolvedValue({ data: {}, error: null });
-  supabase.auth.admin.signOut.mockReset().mockResolvedValue({ data: null, error: null });
-  supabase.auth.resetPasswordForEmail.mockReset().mockResolvedValue({ data: {}, error: null });
-  supabase.auth.admin.generateLink
-    .mockReset()
-    .mockImplementation(async ({ email }) => ({ data: { properties: { hashed_token: `hashed-${email}` } }, error: null }));
-  supabase.storage.from.mockClear();
-  bucket.upload.mockReset().mockResolvedValue({ data: {}, error: null });
-  bucket.createSignedUrl
-    .mockReset()
-    .mockImplementation(async (path, expiresIn) => ({
-      data: { signedUrl: `https://storage.test/${path}?expires=${expiresIn}` },
-      error: null,
-    }));
+    supabase.auth.getUser.mockReset().mockResolvedValue({
+        data: { user: null },
+        error: { message: 'no session' },
+    });
+    supabase.auth.admin.createUser
+        .mockReset()
+        .mockImplementation(async ({ email }) => ({
+            data: { user: { id: crypto.randomUUID(), email } },
+            error: null,
+        }));
+    supabase.auth.admin.deleteUser
+        .mockReset()
+        .mockResolvedValue({ data: {}, error: null });
+    supabase.auth.admin.signOut
+        .mockReset()
+        .mockResolvedValue({ data: null, error: null });
+    supabase.auth.resetPasswordForEmail
+        .mockReset()
+        .mockResolvedValue({ data: {}, error: null });
+    supabase.auth.admin.generateLink
+        .mockReset()
+        .mockImplementation(async ({ email }) => ({
+            data: { properties: { hashed_token: `hashed-${email}` } },
+            error: null,
+        }));
+    supabase.storage.from.mockClear();
+    bucket.upload.mockReset().mockResolvedValue({ data: {}, error: null });
+    bucket.createSignedUrl
+        .mockReset()
+        .mockImplementation(async (path, expiresIn) => ({
+            data: {
+                signedUrl: `https://storage.test/${path}?expires=${expiresIn}`,
+            },
+            error: null,
+        }));
 };
 
 // Makes Supabase accept a bearer token as belonging to this user
 const signInAs = (user) => {
-  supabase.auth.getUser.mockResolvedValue({ data: { user: { id: user.id, email: user.email } }, error: null });
+    supabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: user.id, email: user.email } },
+        error: null,
+    });
 };
 
 resetExternalMocks();
