@@ -441,15 +441,42 @@
                 moderation (I7) remains.
             </div>
 
+            <div class="note">
+                <strong>Update, 10 October 2026</strong>
+                Moderation (I7) is complete, so every story on this page is now
+                done. Re-checked against <code>main</code>: educators mark their
+                own school’s submissions from their marking queue
+                (<code>pages/educator/MarkingQueue.tsx</code>;
+                <code>routes/marking.js</code> lets organisers and educators
+                bulk-mark a round, list the queue and mark a single answer, and
+                <code>marked_by</code> is recorded by both
+                <code>markingService.js</code> and the offline upload path in
+                <code>educatorService.js</code>). Educators moderate too: both
+                review endpoints in <code>routes/reviews.js</code> accept either
+                role, gated by <code>assertRoundReviewAccess</code>, which
+                requires an educator profile whose school is registered for the
+                olympiad. A review records a <code>marking_reviews</code> row,
+                revises the mark and recalculates results in one transaction.
+                The rule that a marker may not moderate their own marking is the
+                integrity guarantee this model rests on rather than a blocker —
+                another educator at a registered school, or the organiser, always
+                can. <code>moderation.test.js</code> covers both directions
+                (organiser moderates an educator’s marking, educator moderates
+                an organiser’s), the self-moderation refusal, and an educator
+                whose school is not registered. The 27 and 29 September notes
+                above record the earlier state, when only the organiser’s queue
+                existed.
+            </div>
+
             <h2>Summary</h2>
 
             <div class="stats">
                 <div class="stat done">
-                    <div class="n">58</div>
+                    <div class="n">59</div>
                     <div class="l">Fully complete</div>
                 </div>
                 <div class="stat part">
-                    <div class="n">1</div>
+                    <div class="n">0</div>
                     <div class="l">Partially complete</div>
                 </div>
                 <div class="stat todo">
@@ -457,7 +484,7 @@
                     <div class="l">Not implemented</div>
                 </div>
                 <div class="stat">
-                    <div class="n">98%</div>
+                    <div class="n">100%</div>
                     <div class="l">Of all stories done</div>
                 </div>
             </div>
@@ -465,10 +492,10 @@
             <div
                 class="bar"
                 role="img"
-                aria-label="58 complete, 1 partial, 0 not implemented"
+                aria-label="59 complete, 0 partial, 0 not implemented"
             >
-                <i class="d" style="width: 98.3%"></i
-                ><i class="p" style="width: 1.7%"></i>
+                <i class="d" style="width: 100%"></i
+                ><i class="p" style="width: 0%"></i>
             </div>
 
             <div class="scroll">
@@ -495,8 +522,8 @@
                         </tr>
                         <tr>
                             <td><strong>Intermediate (I)</strong></td>
-                            <td>18</td>
-                            <td>1</td>
+                            <td>19</td>
+                            <td>0</td>
                             <td>0</td>
                             <td>19</td>
                         </tr>
@@ -563,8 +590,8 @@
                         </tr>
                         <tr>
                             <td><span class="role">Marker</span></td>
-                            <td>2</td>
-                            <td>1</td>
+                            <td>3</td>
+                            <td>0</td>
                             <td>0</td>
                             <td>3</td>
                         </tr>
@@ -580,11 +607,10 @@
             </div>
 
             <p>
-                <strong>The whole Basic tier is done.</strong> The Intermediate
-                tier is done apart from moderation (I7), which works but can’t
-                yet be used in the app.
-                <strong>The whole Advanced tier is done</strong>, and so are
-                <strong>all five Platform stories</strong>.
+                <strong>The whole Basic tier is done.</strong>
+                <strong>The whole Intermediate tier is done</strong>, moderation
+                (I7) included. <strong>The whole Advanced tier is done</strong>,
+                and so are <strong>all five Platform stories</strong>.
             </p>
 
             <h2>Fully complete</h2>
@@ -758,7 +784,7 @@
                 </table>
             </div>
 
-            <h3>Intermediate tier — 18 of 19</h3>
+            <h3>Intermediate tier — 19 of 19</h3>
             <div class="scroll">
                 <table>
                     <thead>
@@ -825,6 +851,28 @@
                             <td>
                                 <code>PATCH /rounds/:id/answers/:id</code>,
                                 <code>points_awarded</code>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="id">I7</td>
+                            <td><span class="role">Marker</span></td>
+                            <td>Moderator reviews marking consistency</td>
+                            <td>
+                                Educators mark their school’s submissions from
+                                their own marking queue
+                                (<code>pages/educator/MarkingQueue.tsx</code>),
+                                and both educators and the organiser moderate a
+                                stable sample of hand-marked answers: a review
+                                records a <code>marking_reviews</code> row,
+                                revises the mark and recalculates the round’s
+                                totals and ranks. Because a marker may not
+                                moderate their own marking, every review comes
+                                from a second person.
+                                <code>routes/reviews.js</code>
+                                (<code>assertRoundReviewAccess</code> requires an
+                                educator whose school is registered for the
+                                olympiad), 13 API tests in
+                                <code>moderation.test.js</code>
                             </td>
                         </tr>
                         <tr>
@@ -1278,40 +1326,10 @@
                 satisfied.
             </p>
 
-            <div class="scroll">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Role</th>
-                            <th>Story</th>
-                            <th>What exists / what is missing</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="id">I7</td>
-                            <td><span class="role">Marker</span></td>
-                            <td>Moderator reviews marking</td>
-                            <td>
-                                <strong>Exists:</strong> the organiser sees a
-                                stable sample of hand-marked answers on the
-                                marking page and can revise a mark, which is
-                                recorded and recalculates results. A marker may
-                                not moderate their own marking. 9 API tests in
-                                <code>moderation.test.js</code>.
-                                <strong>Missing:</strong> it can’t be used in
-                                the app. Only the organiser’s marking queue
-                                marks answers (educators may mark through the
-                                API, but have no screen for it), and the
-                                organiser is also the only moderator, so every
-                                review is refused as moderating their own
-                                marking.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+            <p>
+                None. Moderation (I7) was the last one and is now listed under
+                Fully complete.
+            </p>
 
             <h2>Not implemented</h2>
 
@@ -2026,7 +2044,12 @@
                 were repaired. The Platform stories were updated on 29 September
                 2026 from the team’s confirmation (P2, P4) and a check that the
                 documentation site answers (P5). A1 and A16 were verified
-                against the code and test output on 29 September 2026.
+                against the code and test output on 29 September 2026. I7 was
+                re-checked against <code>main</code> on 10 October 2026 — the
+                marking and review routes, their role guards, the
+                <code>marked_by</code> provenance both marking paths record, the
+                educator marking queue screen and the 13 API tests in
+                <code>moderation.test.js</code> — and moved to Fully complete.
             </footer>
         </div>
         <script>
