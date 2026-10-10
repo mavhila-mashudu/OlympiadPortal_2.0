@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { RequireSession } from './components/auth/RequireSession';
 import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import {
@@ -10,6 +10,7 @@ import { lazyPage } from './lib/lazyPage';
 
 // Each page is its own chunk, so the first visit downloads only the page
 // being opened instead of the whole portal.
+const Home = lazyPage(() => import('./pages/public/Home'));
 const ForgotPassword = lazyPage(() => import('./pages/auth/ForgotPassword'));
 const Login = lazyPage(() => import('./pages/auth/Login'));
 const ResetPassword = lazyPage(() => import('./pages/auth/ResetPassword'));
@@ -55,10 +56,7 @@ function App() {
                 fallback={<LoadingIndicator fullPage label="Loading page" />}
             >
                 <Routes>
-                    <Route
-                        path="/"
-                        element={<Navigate to="/login" replace />}
-                    />
+                    <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
                     <Route path="/register" element={<Signup />} />
