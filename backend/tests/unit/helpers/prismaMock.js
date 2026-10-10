@@ -15,6 +15,7 @@ const MODELS = [
     'olympiad_invites',
     'schools',
     'school_memberships',
+    'school_invitations',
     'educators',
     'entrants',
     'olympiads',

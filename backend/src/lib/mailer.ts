@@ -79,6 +79,15 @@ async function deliver(email: Email): Promise<{ delivered: boolean }> {
     }
 }
 
+// Names come from user input (an educator can name a new school), so they are
+// escaped before going into email HTML.
+const escapeHtml = (text: string) =>
+    text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
 const registrationLink = (url: string) =>
     `<p><a href="${url}">Click here to register</a></p><p>If the button does not work, copy this link into your browser:<br />${url}</p>`;
 
@@ -99,6 +108,35 @@ export async function sendSchoolInviteEmail({
         to,
         subject: `Invitation to register ${schoolName} for ${olympiadName}`,
         html: `<h2>School invitation</h2><p>You've been invited to register <strong>${schoolName}</strong> for <strong>${olympiadName}</strong>.</p><p>Your registration code is:</p><h3>${inviteCode}</h3>${registrationLink(registrationUrl)}`,
+    });
+}
+
+/** An educator's invitation to join a school, with the code for signup. */
+export async function sendSchoolEducatorInviteEmail({
+    to,
+    schoolName,
+    inviterName,
+    code,
+    signupUrl,
+    asCoordinator,
+    accountType = 'educator',
+    validDays,
+}: {
+    to: string;
+    schoolName: string;
+    inviterName: string;
+    code: string;
+    signupUrl: string;
+    asCoordinator: boolean;
+    accountType?: 'educator' | 'student';
+    validDays: number;
+}) {
+    const school = escapeHtml(schoolName);
+    const inviter = escapeHtml(inviterName);
+    return deliver({
+        to,
+        subject: `You're invited to join ${schoolName} on Olympiad Portal`,
+        html: `<h2>You're invited to Olympiad Portal</h2><p><strong>${inviter}</strong> has invited you to join <strong>${school}</strong> as ${accountType === 'student' ? 'a student' : asCoordinator ? 'its school coordinator' : 'an educator'}.</p><p>Your invitation code:</p><h3>${escapeHtml(code)}</h3><p>Create your account with <strong>this email address</strong> (${escapeHtml(to)}) and the code, and you'll have access straight away, with no approval wait.</p>${registrationLink(signupUrl)}<p>The code works once and expires in ${validDays} days. If you weren't expecting this invitation, you can ignore this email.</p>`,
     });
 }
 

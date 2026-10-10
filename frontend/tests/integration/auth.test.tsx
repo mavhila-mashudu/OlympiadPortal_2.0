@@ -183,7 +183,10 @@ describe('signing up', () => {
         mockSchools();
         renderApp('/signup');
 
-        const roles = screen.getAllByRole('radio');
+        // The invitation-code choice is a separate group of radios
+        const roles = within(
+            screen.getByRole('radiogroup', { name: 'Account type' })
+        ).getAllByRole('radio');
         expect(roles.map((role) => role.textContent)).toEqual([
             expect.stringContaining('Educator'),
             expect.stringContaining('Student'),
@@ -341,6 +344,150 @@ describe('signing up', () => {
         expect(registrations[0].body).toMatchObject({
             role: 'student',
             school_id: 'school-2',
+        });
+    });
+
+    describe('with an invitation code', () => {
+        const CODE = 'K7QD-2MXP-9TBW';
+        const invitation = {
+            school: { id: 'school-1', name: 'Parktown High' },
+            email: 'thandi@olympiad.test',
+            role: 'educator',
+            accountType: 'educator',
+        };
+
+        it('asks both educators and students whether they have a code, starting on no', async () => {
+            mockSchools();
+            const { user } = renderApp('/signup');
+
+            expect(
+                screen.getByRole('radio', { name: /No invitation code/ })
+            ).toHaveAttribute('aria-checked', 'true');
+            expect(
+                screen.queryByLabelText('Invitation code')
+            ).not.toBeInTheDocument();
+            expect(await screen.findByLabelText('School')).toBeInTheDocument();
+
+            await user.click(screen.getByRole('radio', { name: /Student/ }));
+            expect(
+                screen.getByRole('radio', { name: /No invitation code/ })
+            ).toBeInTheDocument();
+        });
+
+        it('shows where the code leads, locks the email, and signs up without choosing a school', async () => {
+            mockLandingPages();
+            mockSchools();
+            const checks = mockApi('post', '/auth/invitations/check', {
+                invitation,
+            });
+            const registrations = mockApi(
+                'post',
+                '/auth/register',
+                { user: { id: 'educator-user' } },
+                { status: 201 }
+            );
+            mockSupabaseSignIn({ userId: 'educator-user' });
+            mockApi('get', '/auth/me', fx.me('educator'));
+            const { user, currentPath } = renderApp('/signup');
+
+            await user.click(
+                screen.getByRole('radio', { name: /Yes, I have a code/ })
+            );
+            await user.type(screen.getByLabelText('Invitation code'), CODE);
+
+            expect(
+                await screen.findByText(/You’re invited to join/)
+            ).toHaveTextContent('Parktown High');
+            expect(checks[0].body).toEqual({ code: CODE });
+            // The invitation decides the school and the address
+            expect(screen.queryByLabelText('School')).not.toBeInTheDocument();
+            expect(screen.getByLabelText('Email address')).toHaveValue(
+                'thandi@olympiad.test'
+            );
+            expect(screen.getByLabelText('Email address')).toHaveAttribute(
+                'readonly'
+            );
+
+            await user.type(
+                screen.getByLabelText('Full name'),
+                'Thandi Mokoena'
+            );
+            await user.type(screen.getByLabelText('Password'), 'Secret123');
+            await user.click(
+                screen.getByRole('button', { name: 'Create account' })
+            );
+
+            await waitFor(() => expect(currentPath()).toBe('/educator'));
+            expect(registrations[0].body).toEqual({
+                full_name: 'Thandi Mokoena',
+                email: 'thandi@olympiad.test',
+                password: 'Secret123',
+                role: 'educator',
+                invitation_code: CODE,
+            });
+        });
+
+        it('accepts a student signup link and selects Student automatically', async () => {
+            mockSchools();
+            mockApi('post', '/auth/invitations/check', {
+                invitation: { ...invitation, accountType: 'student', role: null },
+            });
+            renderApp(`/signup?code=${CODE}`);
+            expect(await screen.findByText(/as a student/)).toBeInTheDocument();
+            expect(screen.getByRole('radio', { name: /Student/ })).toHaveAttribute('aria-checked', 'true');
+            expect(screen.getByLabelText('Email address')).toHaveValue('thandi@olympiad.test');
+            expect(screen.queryByLabelText('School')).not.toBeInTheDocument();
+        });
+
+        it('opens with the code from the email link already filled in', async () => {
+            mockSchools();
+            const checks = mockApi('post', '/auth/invitations/check', {
+                invitation,
+            });
+            renderApp(`/signup?code=${CODE}`);
+
+            expect(
+                screen.getByRole('radio', { name: /Yes, I have a code/ })
+            ).toHaveAttribute('aria-checked', 'true');
+            expect(screen.getByLabelText('Invitation code')).toHaveValue(CODE);
+            expect(
+                await screen.findByText(/You’re invited to join/)
+            ).toBeInTheDocument();
+            expect(checks).toHaveLength(1);
+        });
+
+        it('refuses a bad code, keeps the form blocked, and points to signing up without one', async () => {
+            mockSchools();
+            mockApiError(
+                'post',
+                '/auth/invitations/check',
+                400,
+                'This invitation code is not valid.'
+            );
+            const registrations = mockApi('post', '/auth/register', {});
+            const { user } = renderApp('/signup');
+
+            await user.click(
+                screen.getByRole('radio', { name: /Yes, I have a code/ })
+            );
+            await user.type(screen.getByLabelText('Invitation code'), CODE);
+
+            expect(
+                await screen.findByText(/This invitation code is not valid/)
+            ).toBeInTheDocument();
+            expect(
+                screen.getByRole('button', { name: 'Create account' })
+            ).toBeDisabled();
+            expect(registrations).toHaveLength(0);
+
+            // Choosing "no code" brings back the ordinary signup
+            await user.click(
+                screen.getByRole('radio', { name: /No invitation code/ })
+            );
+            expect(await screen.findByLabelText('School')).toBeInTheDocument();
+            expect(
+                screen.getByRole('button', { name: 'Create account' })
+            ).toBeEnabled();
         });
     });
 

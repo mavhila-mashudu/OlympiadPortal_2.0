@@ -4,6 +4,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ErrorAlert, LoadingIndicator } from '../../components/ui/Feedback';
 import { Select } from '../../components/ui/Select';
+import InviteEducators from './InviteEducators';
 import { api } from '../../lib/api';
 import { friendlyErrorMessage } from '../../lib/feedback';
 import { educatorNav, organiserNav } from '../../lib/mockData';
@@ -76,6 +77,7 @@ export default function MembershipRequests({ mode }: { mode: 'organiser' | 'educ
             <header><h1>{mode === 'organiser' ? 'Educator approvals' : 'School members'}</h1>
                 <p>{mode === 'organiser' ? 'Verify the first coordinator of each school.' : 'Review educators and students requesting to join your school.'}</p>
             </header>
+            {mode === 'organiser' && <InviteEducators mode={mode} />}
             {error && <ErrorAlert message={error} onRetry={() => void load()} />}
             {loading ? <LoadingIndicator label="Loading membership requests" /> : requests.length === 0 ?
                 <Card><p>No pending requests.</p></Card> : requests.map((request) =>

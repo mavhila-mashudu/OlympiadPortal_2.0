@@ -22,6 +22,8 @@ model users {
   entrants             entrants?
   invites_sent         olympiad_invites[]     @relation("invited_by")
   invites_received     olympiad_invites[]     @relation("invitee")
+  school_invitations_sent school_invitations[] @relation("school_invitation_sender")
+  school_invitation_used  school_invitations[] @relation("school_invitation_user")
   olympiads            olympiads[]
   school_memberships   school_memberships[]
 }
@@ -61,6 +63,31 @@ model schools {
   olympiad_invites     olympiad_invites[]
   school_registrations school_registrations[]
   school_memberships   school_memberships[]
+  school_invitations   school_invitations[]
+}
+
+// A one-use code for an approved educator or student signup. Organisers may
+// invite educators; active school educators can invite educators and students.
+// Email + account type + school must match at redemption. The code is hashed.
+model school_invitations {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id     String      @db.Uuid
+  email         String
+  code_hash     String      @unique
+  role          school_role?
+  account_type  user_role
+  invited_by_id String      @db.Uuid
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+  expires_at    DateTime    @db.Timestamptz(6)
+  used_at       DateTime?   @db.Timestamptz(6)
+  used_by_id    String?     @db.Uuid
+  revoked_at    DateTime?   @db.Timestamptz(6)
+  schools       schools     @relation(fields: [school_id], references: [id], onDelete: Cascade)
+  invited_by    users       @relation("school_invitation_sender", fields: [invited_by_id], references: [id], onDelete: Cascade)
+  used_by       users?      @relation("school_invitation_user", fields: [used_by_id], references: [id], onDelete: SetNull)
+
+  @@index([school_id, created_at])
+  @@index([email])
 }
 
 model school_memberships {

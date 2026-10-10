@@ -187,6 +187,7 @@ export const educatorNav: NavItem[] = [
     { label: 'Remarks', to: '/educator/remarks', icon: ClipboardList },
     { label: 'Register entrants', to: '/educator/entrants', icon: UserPlus },
     { label: 'Members', to: '/educator/members', icon: Users },
+    { label: 'Invite schoolmates', to: '/educator/invitations', icon: UserPlus },
 ];
 
 export const stats = [

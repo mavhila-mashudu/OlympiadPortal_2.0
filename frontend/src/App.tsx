@@ -51,6 +51,7 @@ const OrganiserMembershipRequests = lazyPage(() =>
         default: () => <Page mode="organiser" />,
     }))
 );
+const SchoolInvitationsPage = lazyPage(() => import('./pages/shared/SchoolInvitationsPage'));
 const Standings = lazyPage(() => import('./pages/organiser/Standings'));
 const ExamSitting = lazyPage(() => import('./pages/student/ExamSitting'));
 const StudentApprovalGate = lazyPage(
@@ -87,6 +88,7 @@ function App() {
                         />
                         <Route path="/educator/results" element={<Results />} />
                         <Route path="/educator/members" element={<EducatorMembershipRequests />} />
+                        <Route path="/educator/invitations" element={<SchoolInvitationsPage />} />
                         <Route
                             path="/educator/remarks"
                             element={<EducatorRemarks />}

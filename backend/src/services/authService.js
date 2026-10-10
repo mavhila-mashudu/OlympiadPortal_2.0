@@ -9,6 +9,7 @@ const {
     NotFoundError,
 } = require('../errors/AppError');
 const { forgetCachedToken, forgetCachedUser } = require('../middlewares/auth');
+const schoolInvitations = require('./schoolInvitationService');
 
 const SAFE_USER_FIELDS = {
     id: true,
@@ -101,6 +102,7 @@ const createAccount = async ({
     role,
     school_id,
     school_name,
+    invitation_code,
 }) => {
     if (!['organiser', 'educator', 'student'].includes(role)) {
         throw new BadRequestError('Unknown account type');
@@ -108,9 +110,24 @@ const createAccount = async ({
 
     await assertEmailAvailable(email);
 
+    // A valid invitation code (sent to this very email address) is the one thing
+    // that skips the approval queue. It also decides the school, so whatever
+    // school the form sent is ignored. A bad code is an error, never a quiet
+    // fall-back to pending: the person can sign up again without a code.
+    let invitation = null;
+    if (invitation_code) {
+        invitation = await schoolInvitations.findUsableInvitation(
+            invitation_code,
+            email,
+            role
+        );
+        school_id = invitation.school_id;
+        school_name = undefined;
+    }
+
     // A student may only join a school that already exists, so that a typo does
     // not strand them in a school of one with no educator to register them.
-    if (role === 'student' && !school_id) {
+    if (role === 'student' && !school_id && !invitation) {
         throw new BadRequestError('Select your school from the list');
     }
     if (role === 'educator' && !school_id && !(school_name || '').trim()) {
@@ -170,6 +187,14 @@ const createAccount = async ({
                     data: { user_id: newUser.id, school_id: schoolId },
                 });
 
+                if (invitation) {
+                    await schoolInvitations.consumeInvitation(
+                        tx,
+                        invitation.id,
+                        newUser.id
+                    );
+                }
+
                 // The first applicant proposes becoming coordinator, but has no
                 // privileges until a trusted organiser approves the membership.
                 // Other applicants must likewise await the school's coordinator.
@@ -183,30 +208,44 @@ const createAccount = async ({
                         select: { id: true },
                     });
 
+                // An invited educator is active at once, as coordinator only if
+                // the invitation said so and the school still has none; the
+                // database allows just one active coordinator per school.
+                // Anyone else joins pending, as before.
+                const membershipRole = existingCoordinator
+                    ? 'educator'
+                    : invitation && invitation.role === 'educator'
+                      ? 'educator'
+                      : 'coordinator';
                 await tx.school_memberships.create({
                     data: {
                         user_id: newUser.id,
                         school_id: schoolId,
-                        role: existingCoordinator ? 'educator' : 'coordinator',
-                        status: 'pending',
+                        role: membershipRole,
+                        status: invitation ? 'active' : 'pending',
                     },
                 });
             }
 
             if (role === 'student') {
-                // The student has no access until the school's coordinator
-                // approves them. They are NOT matched to an entrant an educator
-                // listed by name here: anyone could type a classmate's name and
-                // take over that record. The coordinator makes that link when
-                // approving (see membershipApprovalService.decideStudentRequest).
+                // With a valid, email-bound student code, a NEW entrant becomes
+                // active. Never link a legacy entrant by name alone. Without a
+                // code the coordinator must still approve/verify the account.
                 await tx.entrants.create({
                     data: {
                         user_id: newUser.id,
                         school_id: schoolId,
                         full_name,
-                        status: 'pending',
+                        status: invitation ? 'active' : 'pending',
                     },
                 });
+                if (invitation) {
+                    await schoolInvitations.consumeInvitation(
+                        tx,
+                        invitation.id,
+                        newUser.id
+                    );
+                }
             }
 
             return newUser;
