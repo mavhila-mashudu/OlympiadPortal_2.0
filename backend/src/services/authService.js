@@ -10,6 +10,7 @@ const {
 } = require('../errors/AppError');
 const { forgetCachedToken, forgetCachedUser } = require('../middlewares/auth');
 const schoolInvitations = require('./schoolInvitationService');
+const accountNotices = require('./accountNotificationService');
 
 const SAFE_USER_FIELDS = {
     id: true,
@@ -225,6 +226,17 @@ const createAccount = async ({
                         status: invitation ? 'active' : 'pending',
                     },
                 });
+                if (invitation) {
+                    await accountNotices.notifyInvitationAccepted(tx, {
+                        invitationId: invitation.id,
+                        invitedById: invitation.invited_by_id,
+                        userId: newUser.id, name: full_name, type: 'educator',
+                    });
+                } else {
+                    await accountNotices.notifyPendingSignup(tx, {
+                        userId: newUser.id, name: full_name, schoolId, type: 'educator',
+                    });
+                }
             }
 
             if (role === 'student') {
@@ -245,6 +257,15 @@ const createAccount = async ({
                         invitation.id,
                         newUser.id
                     );
+                    await accountNotices.notifyInvitationAccepted(tx, {
+                        invitationId: invitation.id,
+                        invitedById: invitation.invited_by_id,
+                        userId: newUser.id, name: full_name, type: 'student',
+                    });
+                } else {
+                    await accountNotices.notifyPendingSignup(tx, {
+                        userId: newUser.id, name: full_name, schoolId, type: 'student',
+                    });
                 }
             }
 

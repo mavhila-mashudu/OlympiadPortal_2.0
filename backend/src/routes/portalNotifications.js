@@ -10,6 +10,7 @@ router.get('/', async (req, res, next) => {
             take: 50,
             select: {
                 id: true,
+                dedupe_key: true,
                 title: true,
                 body: true,
                 created_at: true,

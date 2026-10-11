@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../../lib/session';
 import { api } from '../../lib/api';
+import { ApprovalUpdate } from '../../components/layout/ApprovalUpdate';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ErrorAlert, LoadingIndicator } from '../../components/ui/Feedback';
@@ -35,6 +36,7 @@ export default function SchoolApprovalGate() {
     return <main style={{ maxWidth: 540, margin: '5rem auto', padding: '1rem' }}>
         <Card><h1>{membership?.status === 'rejected' ? 'School membership not approved' : 'School approval pending'}</h1>
             <p>{membership?.schools?.name || 'Your school'}: {membership?.status === 'rejected' ? 'Your request was rejected. Contact the Olympiad organiser or a school coordinator for assistance.' : 'Your account has been created. An authorised organiser or school coordinator must approve your school membership before you can access school information.'}</p>
+                <ApprovalUpdate />
             <div style={{ display: 'flex', gap: '.75rem', marginTop: '1.25rem', flexWrap: 'wrap' }}>
                 <Button onClick={() => void refresh()}>Check again</Button>
                 <Button variant="outline" onClick={async () => { await logout(); navigate('/login', { replace: true }); }}>Log out</Button>
