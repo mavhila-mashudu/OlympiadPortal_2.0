@@ -64,6 +64,7 @@ No suite needs a database, a `.env` file or an internet connection. Everything r
 | **PGlite**                | Backend integration, API and E2E tests | Real PostgreSQL running inside the test process: genuine constraints and data types, with nothing to install.                                              |
 | **Supertest**             | Backend API tests                      | Sends real HTTP requests to the Express app and checks status codes, headers and bodies.                                                                   |
 | **Playwright**            | End-to-end tests                       | Drives real browsers from one install, runs headless without a display, and saves screenshots and traces when something fails.                             |
+| **Postman**               | API & load performance testing         | Standardized collection for live API functional validation, cold-start probing, and concurrency benchmarking (see [postman-testing.md](postman-testing.md)). |
 
 ### 2.2 Unit tests
 
