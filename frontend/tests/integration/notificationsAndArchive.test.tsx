@@ -257,7 +257,7 @@ describe('notification bell', () => {
     };
 
     it('counts the unread notifications and lists them when opened', async () => {
-        mockApi('get', '/notifications', {
+        mockApi('get', '/me/notifications', {
             notifications: [
                 note({ id: 'n-1', title: 'Round opens soon' }),
                 note({
@@ -297,10 +297,10 @@ describe('notification bell', () => {
     });
 
     it('marks a notification read and updates the count', async () => {
-        mockApi('get', '/notifications', {
+        mockApi('get', '/me/notifications', {
             notifications: [note({ id: 'n-1' })],
         });
-        const reads = mockApi('patch', '/notifications/:id/read', {
+        const reads = mockApi('patch', '/me/notifications/:id/read', {
             message: 'Read',
         });
         const { user } = renderPage();
@@ -316,7 +316,7 @@ describe('notification bell', () => {
         expect(
             screen.queryByRole('button', { name: 'Mark read' })
         ).not.toBeInTheDocument();
-        expect(reads.map((r) => r.path)).toEqual(['/notifications/n-1/read']);
+        expect(reads.map((r) => r.path)).toEqual(['/me/notifications/n-1/read']);
     });
 
     it('says so when there is nothing yet', async () => {
@@ -329,7 +329,7 @@ describe('notification bell', () => {
     });
 
     it("leaves the page working when notifications can't be loaded", async () => {
-        mockNetworkFailure('get', '/notifications');
+        mockNetworkFailure('get', '/me/notifications');
         renderPage();
 
         expect(

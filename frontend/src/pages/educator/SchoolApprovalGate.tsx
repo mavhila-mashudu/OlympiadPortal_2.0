@@ -18,7 +18,7 @@ export default function SchoolApprovalGate() {
         setLoading(true);
         setError(null);
         try {
-            const { user } = await api.get<{ user: { school_memberships: Membership[] } }>('/auth/me');
+            const { user } = await api.get<{ user: { school_memberships: Membership[] } }>('/me');
             const memberships = user?.school_memberships;
             if (!Array.isArray(memberships)) {
                 throw new Error('School membership information is unavailable.');

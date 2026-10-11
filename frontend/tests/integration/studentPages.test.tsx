@@ -4,12 +4,12 @@ import * as fx from './support/fixtures';
 import { mockApi, mockApiError } from './support/network';
 import { renderApp } from './support/renderApp';
 
-// Every student page asks /auth/me for the name and school in the sidebar
+// Every student page asks /me for the name and school in the sidebar
 beforeEach(() => {
-    mockApi('get', '/auth/me', fx.me('student'));
+    mockApi('get', '/me', fx.me('student'));
 });
 
-// GET /rounds/registered item
+// GET /me/rounds item
 const registeredRound = (overrides: Record<string, unknown> = {}) => ({
     id: fx.id('round'),
     title: 'Round 1',
@@ -27,7 +27,7 @@ const registeredRound = (overrides: Record<string, unknown> = {}) => ({
 
 describe('student dashboard', () => {
     it("shows the student's stats and what they can do in each round", async () => {
-        mockApi('get', '/rounds/registered', {
+        mockApi('get', '/me/rounds', {
             stats: {
                 roundsEntered: 4,
                 resultsAvailable: 1,
@@ -129,7 +129,7 @@ describe('student dashboard', () => {
     });
 
     it("explains when the student isn't registered for any rounds", async () => {
-        mockApi('get', '/rounds/registered', {
+        mockApi('get', '/me/rounds', {
             rounds: [],
             stats: {
                 roundsEntered: 0,
@@ -148,7 +148,7 @@ describe('student dashboard', () => {
     it("shows why the dashboard couldn't be loaded", async () => {
         mockApiError(
             'get',
-            '/rounds/registered',
+            '/me/rounds',
             403,
             'Only students can view registered rounds'
         );
@@ -401,7 +401,7 @@ describe('student round page', () => {
 
 describe('student results', () => {
     it('lists released and pending results with links to each round', async () => {
-        mockApi('get', '/rounds/my-results', {
+        mockApi('get', '/me/results', {
             results: [
                 {
                     id: 'round-2',
@@ -468,7 +468,7 @@ describe('student results', () => {
     });
 
     it('explains when there are no results yet', async () => {
-        mockApi('get', '/rounds/my-results', { results: [] });
+        mockApi('get', '/me/results', { results: [] });
         renderApp('/student/results');
         expect(
             await screen.findByText(
@@ -479,7 +479,7 @@ describe('student results', () => {
 
     it("shows why results couldn't be loaded", async () => {
         // (A 401 ends the session instead; see auth.test.tsx)
-        mockApiError('get', '/rounds/my-results', 500, 'Database unavailable');
+        mockApiError('get', '/me/results', 500, 'Database unavailable');
         renderApp('/student/results');
         expect(
             await screen.findByText('Database unavailable')

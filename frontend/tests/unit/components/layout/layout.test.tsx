@@ -54,7 +54,7 @@ describe('AppShell', () => {
             vi.fn(async (url: string, init?: RequestInit) => {
                 const path = new URL(url).pathname;
                 requests.push(`${init?.method ?? 'GET'} ${path}`);
-                if (path === '/auth/me') {
+                if (path === '/me') {
                     return signedInAs
                         ? new Response(
                               JSON.stringify({
@@ -129,14 +129,14 @@ describe('AppShell', () => {
         ).toBeInTheDocument();
         expect(within(account).getByText('TM')).toBeInTheDocument();
         // The name comes from the server, loaded once
-        expect(requests.filter((r) => r === 'GET /auth/me')).toHaveLength(1);
+        expect(requests.filter((r) => r === 'GET /me')).toHaveLength(1);
     });
 
     it("shows the role alone when the name can't be loaded", async () => {
         signedInAs = null;
         renderShell('/educator', { activeRole: 'educator' });
 
-        await waitFor(() => expect(requests).toContain('GET /auth/me'));
+        await waitFor(() => expect(requests).toContain('GET /me'));
         expect(screen.getByText('Educator')).toBeInTheDocument();
         expect(screen.getByText('E')).toBeInTheDocument();
     });

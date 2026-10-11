@@ -25,7 +25,7 @@ export default function StudentApprovalGate() {
         setError(null);
         try {
             const { user } = await api.get<{ user: { entrants: Entrant | null } }>(
-                '/auth/me'
+                '/me'
             );
             setEntrant(user?.entrants ?? null);
         } catch (err) {

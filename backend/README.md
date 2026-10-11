@@ -135,9 +135,9 @@ Expected response:
 | Method | Endpoint         | Description                    | Auth Required |
 | ------ | ---------------- | ------------------------------ | ------------- |
 | POST   | `/auth/register` | Sign up as educator or student | No            |
-| GET    | `/auth/schools`  | Schools for the signup form    | No            |
-| GET    | `/auth/me`       | Get current user profile       | Yes           |
-| DELETE | `/auth/account`  | Delete account                 | Yes           |
+| GET    | `/schools`       | Schools for the signup form    | No            |
+| GET    | `/me`            | Get current user profile       | Yes           |
+| DELETE | `/me`            | Delete account                 | Yes           |
 
 ### Invitations
 

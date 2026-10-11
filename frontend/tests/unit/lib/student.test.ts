@@ -11,7 +11,7 @@ const loadStudent = async () => {
 };
 
 describe('getStudentProfile', () => {
-    it('builds the name, initials and school from /auth/me', async () => {
+    it('builds the name, initials and school from /me', async () => {
         const { getStudentProfile, get } = await loadStudent();
         get.mockResolvedValue({
             user: {
@@ -25,7 +25,7 @@ describe('getStudentProfile', () => {
             userInitials: 'AK',
             organisation: 'Parktown High',
         });
-        expect(get).toHaveBeenCalledWith('/auth/me');
+        expect(get).toHaveBeenCalledWith('/me');
     });
 
     it('uses at most two initials', async () => {

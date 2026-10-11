@@ -37,4 +37,10 @@ const createPublicRateLimiter = () =>
             'Too many requests. The public API allows 300 requests per 15 minutes per client; see the RateLimit headers for when to retry.',
     });
 
-module.exports = { createRateLimiter, createPublicRateLimiter };
+// One instance shared by every public auth endpoint — signup, invitation
+// check, password reset and the signup form's school list. express-rate-limit
+// counts per limiter instance, so an instance per route would let a code
+// guesser multiply the allowance by the number of routes.
+const publicAuthLimiter = createRateLimiter();
+
+module.exports = { createRateLimiter, createPublicRateLimiter, publicAuthLimiter };

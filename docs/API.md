@@ -437,7 +437,7 @@ Cancels an invitation that hasn't been used. Repeating it is harmless.
 
 - **Errors:** `403` not allowed for that school; `404` not found; `409` already used
 
-### `GET /auth/schools`
+### `GET /schools`
 
 The schools on the platform, as `{ id, name }` ordered by name. No auth: the
 signup form needs it before anyone has an account.
@@ -461,13 +461,6 @@ can't deliver, Supabase's sender is used instead.
   one email a minute goes to the same address.
 - **Errors:** `422` invalid email; `429` too many requests
 
-### `GET /auth/me`
-
-Current user profile.
-
-- **Auth:** Bearer token (any role)
-- **Response:** `data.user` with `school_memberships`, `educators`, and `entrants` relations for school context
-
 ### `POST /auth/logout`
 
 Ends the session the request's token belongs to. Supabase revokes it, so it can't be refreshed or used again, and the server stops accepting the token at once. The frontend calls this before forgetting the token; if Supabase can't be reached the logout still succeeds, and the failure is logged.
@@ -475,7 +468,22 @@ Ends the session the request's token belongs to. Supabase revokes it, so it can'
 - **Auth:** Bearer token (any role)
 - **Response:** `data.message: "Logged out"`
 
-### `DELETE /auth/account`
+---
+
+## The Signed-in User
+
+Everything under `/me` is the signed-in user's own view of their data. All
+routes require a Bearer token (any role); where a URL is shared by two roles,
+the response follows the caller's role.
+
+### `GET /me`
+
+Current user profile.
+
+- **Auth:** Bearer token (any role)
+- **Response:** `data.user` with `school_memberships`, `educators`, and `entrants` relations for school context
+
+### `DELETE /me`
 
 Deletes the authenticated account. Cannot be undone.
 
@@ -485,7 +493,21 @@ Deletes the authenticated account. Cannot be undone.
 - **Response:** `data.message: "Account deleted"`
 - **Errors:** `409` an organiser whose olympiad still has a round without released results (nobody else could manage it); `502` Supabase couldn't delete the login, in which case nothing is changed
 
-### `GET /auth/educator-olympiads`
+### `GET /me/rounds`
+
+One URL for both roles, dispatched by the caller's role. A student gets the
+rounds they are registered for, plus dashboard stats (entered count, results
+available, certificates); an educator gets their school's rounds across the
+olympiads the school is registered for.
+
+### `GET /me/results`
+
+One URL for both roles, dispatched by the caller's role. A student gets
+released results for completed rounds, incl. score, percentage, and certificate
+availability; an educator gets every entrant's results for rounds of their
+school with released results.
+
+### `GET /me/olympiads`
 
 Olympiads the educator's school is approved for.
 
@@ -891,19 +913,11 @@ Manually mark a single answer.
 
 All student endpoints require the `student` role and an entrant profile linked to the account.
 
-### `GET /rounds/registered`
-
-Rounds the student is registered for, plus dashboard stats (entered count, results available, certificates).
-
 ### `GET /rounds/:roundId/details`
 
 Detailed round info for the student (timing, paper availability, own result when released).
 
 - **Param:** `roundId` must be a valid UUID
-
-### `GET /rounds/my-results`
-
-Released results for completed rounds, incl. score, percentage, and certificate availability.
 
 ---
 

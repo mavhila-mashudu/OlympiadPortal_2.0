@@ -15,7 +15,7 @@ const notify = (user, overrides = {}) =>
         },
     });
 
-describe('GET /notifications', () => {
+describe('GET /me/notifications', () => {
     it("lists the user's own notifications, newest first", async () => {
         const { user } = await f.createEducator();
         const someoneElse = (await f.createEducator()).user;
@@ -30,7 +30,7 @@ describe('GET /notifications', () => {
         await notify(someoneElse, { title: 'Not yours' });
 
         const { notifications } = expectOk(
-            await as(user).get('/notifications')
+            await as(user).get('/me/notifications')
         );
         expect(notifications.map((n) => n.id)).toEqual([newer.id, older.id]);
         expect(notifications[0]).toEqual({
@@ -56,7 +56,7 @@ describe('GET /notifications', () => {
         });
 
         const { notifications } = expectOk(
-            await as(user).get('/notifications')
+            await as(user).get('/me/notifications')
         );
         expect(notifications).toHaveLength(50);
         expect(notifications[0].title).toBe('Note 54');
@@ -64,25 +64,25 @@ describe('GET /notifications', () => {
 
     it('is empty for a user with no notifications', async () => {
         const student = await f.createUser('student');
-        expect(expectOk(await as(student).get('/notifications'))).toEqual({
+        expect(expectOk(await as(student).get('/me/notifications'))).toEqual({
             notifications: [],
         });
     });
 });
 
-describe('PATCH /notifications/:notificationId/read', () => {
+describe('PATCH /me/notifications/:notificationId/read', () => {
     it("marks the user's notification read, and leaves the first read time alone", async () => {
         const { user } = await f.createEducator();
         const note = await notify(user);
 
-        expectOk(await as(user).patch(`/notifications/${note.id}/read`));
+        expectOk(await as(user).patch(`/me/notifications/${note.id}/read`));
         const { read_at: firstRead } =
             await prisma.portal_notifications.findUnique({
                 where: { id: note.id },
             });
         expect(firstRead).toBeInstanceOf(Date);
 
-        expectOk(await as(user).patch(`/notifications/${note.id}/read`));
+        expectOk(await as(user).patch(`/me/notifications/${note.id}/read`));
         expect(
             (
                 await prisma.portal_notifications.findUnique({
@@ -98,7 +98,7 @@ describe('PATCH /notifications/:notificationId/read', () => {
         const note = await notify(user);
 
         // Answers the same way as for the owner, so it doesn't reveal whether the id exists
-        expectOk(await as(intruder).patch(`/notifications/${note.id}/read`));
+        expectOk(await as(intruder).patch(`/me/notifications/${note.id}/read`));
         expect(
             (
                 await prisma.portal_notifications.findUnique({
@@ -111,7 +111,7 @@ describe('PATCH /notifications/:notificationId/read', () => {
     it('rejects a malformed id', async () => {
         const { user } = await f.createEducator();
         expectError(
-            await as(user).patch('/notifications/not-a-uuid/read'),
+            await as(user).patch('/me/notifications/not-a-uuid/read'),
             400,
             'Invalid ID format'
         );

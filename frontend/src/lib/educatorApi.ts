@@ -233,7 +233,7 @@ export function useEducatorRounds() {
         queryKey: ['educator', 'rounds'],
         queryFn: () =>
             api.get<{ rounds: EducatorRound[]; school: EducatorSchool }>(
-                '/educator/rounds'
+                '/me/rounds'
             ),
     });
 }
@@ -241,7 +241,7 @@ export function useEducatorRounds() {
 export function useEducatorOverview() {
     return useQuery({
         queryKey: ['educator', 'overview'],
-        queryFn: () => api.get<EducatorOverview>('/educator/overview'),
+        queryFn: () => api.get<EducatorOverview>('/me/overview'),
     });
 }
 
@@ -343,7 +343,7 @@ export function useAllEducatorResults() {
         queryKey: ['educator', 'results'],
         queryFn: () =>
             api
-                .get<{ rounds: EducatorAllResultsRound[] }>('/educator/results')
+                .get<{ rounds: EducatorAllResultsRound[] }>('/me/results')
                 .then((d) => d.rounds),
     });
 }

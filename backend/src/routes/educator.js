@@ -5,7 +5,6 @@ const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
 const {
-    listRounds,
     getRound,
     registerEntrants,
     registerEntrantsForOlympiad,
@@ -14,8 +13,6 @@ const {
     getProgressionInfo,
     getOlympiadProgressionInfo,
     getResults,
-    listAllResults,
-    getOverview,
     listPastPapers,
     downloadPaper,
     listRemarks,
@@ -27,11 +24,7 @@ const {
 // All educator routes require authentication + educator role
 router.use(requireAuth, requireRole('educator'));
 
-// ── School overview (I19) ───────────────────────────────
-router.get('/overview', getOverview);
-
 // ── Rounds ──────────────────────────────────────────
-router.get('/rounds', listRounds);
 router.get('/rounds/:roundId', getRound);
 
 // ── Entrants (B4) ───────────────────────────────────
@@ -94,7 +87,6 @@ router.get('/olympiads/:olympiadId/progression', getOlympiadProgressionInfo);
 
 // ── Results (B15) ───────────────────────────────────
 router.get('/rounds/:roundId/results', getResults);
-router.get('/results', listAllResults);
 
 // ── Papers (B7, B11) ───────────────────────────────
 router.get('/rounds/:roundId/papers/past', listPastPapers);

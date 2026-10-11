@@ -52,7 +52,7 @@ async function request<T>(
     const isInitialDataRequest =
         !background &&
         (!options.method || options.method === 'GET') &&
-        !path.startsWith('/notifications');
+        !path.startsWith('/me/notifications');
     if (isInitialDataRequest) beginPageLoad();
     try {
         const res = await fetch(`${API_URL}${path}`, { ...options, headers });

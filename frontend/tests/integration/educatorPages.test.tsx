@@ -6,10 +6,10 @@ import { renderApp } from './support/renderApp';
 
 describe('educator dashboard', () => {
     beforeEach(() => {
-        mockApi('get', '/auth/me', fx.me('educator'));
+        mockApi('get', '/me', fx.me('educator'));
     });
     it("shows each round's status, countdown and next action", async () => {
-        mockApi('get', '/educator/rounds', {
+        mockApi('get', '/me/rounds', {
             school: fx.school,
             rounds: [
                 fx.educatorRound({
@@ -74,7 +74,7 @@ describe('educator dashboard', () => {
     });
 
     it('explains when the school has no rounds', async () => {
-        mockApi('get', '/educator/rounds', { rounds: [], school: fx.school });
+        mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
         renderApp('/educator');
         expect(await screen.findByText(/No rounds found/)).toBeInTheDocument();
     });
@@ -82,7 +82,7 @@ describe('educator dashboard', () => {
     it("shows why rounds couldn't be loaded", async () => {
         mockApiError(
             'get',
-            '/educator/rounds',
+            '/me/rounds',
             403,
             'Educator profile not found'
         );
@@ -677,15 +677,15 @@ describe('educator entrants and invitations', () => {
                 'oly-2': [] as ReturnType<typeof olympiadEntrant>[],
             } as Record<string, ReturnType<typeof olympiadEntrant>[]>,
         };
-        mockApi('get', '/educator/rounds', { rounds: [], school: fx.school });
-        mockApi('get', '/auth/educator-olympiads', { olympiads });
+        mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
+        mockApi('get', '/me/olympiads', { olympiads });
         mockApi('get', '/invites/sent', () => ({ invites: state.invitations }));
         mockApi('get', '/invites/candidates', () => ({
             candidates: state.candidates,
         }));
         mockApi(
             'get',
-            '/auth/me',
+            '/me',
             fx.me('educator', {
                 school_memberships: [
                     {
@@ -956,15 +956,15 @@ describe('educator entrants and invitations', () => {
     });
 
     it("tells the educator when invitations couldn't be loaded", async () => {
-        mockApi('get', '/educator/rounds', { rounds: [], school: fx.school });
+        mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
         mockApiError(
             'get',
-            '/auth/educator-olympiads',
+            '/me/olympiads',
             500,
             'Internal server error'
         );
         mockApi('get', '/invites/sent', { invites: [] });
-        mockApi('get', '/auth/me', fx.me('educator'));
+        mockApi('get', '/me', fx.me('educator'));
         renderApp('/educator/entrants');
 
         expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -1010,7 +1010,7 @@ describe('educator results', () => {
     ];
 
     it("shows the latest round's results and switches rounds", async () => {
-        mockApi('get', '/educator/results', { rounds });
+        mockApi('get', '/me/results', { rounds });
         const { user } = renderApp('/educator/results');
 
         const row = (await screen.findByText('Ayanda Khumalo')).closest('tr')!;
@@ -1032,7 +1032,7 @@ describe('educator results', () => {
     });
 
     it('explains when no results have been released', async () => {
-        mockApi('get', '/educator/results', { rounds: [] });
+        mockApi('get', '/me/results', { rounds: [] });
         renderApp('/educator/results');
         expect(
             await screen.findByText(/No results available yet/)
@@ -1042,7 +1042,7 @@ describe('educator results', () => {
     it("shows why results couldn't be loaded", async () => {
         mockApiError(
             'get',
-            '/educator/results',
+            '/me/results',
             403,
             'Educator profile not found'
         );

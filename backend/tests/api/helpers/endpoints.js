@@ -46,8 +46,12 @@ const endpoints = [
     { method: 'get', path: '/public/papers/:paperId/download', roles: 'public' },
 
     // Portal notifications
-    { method: 'get', path: '/notifications', roles: 'any' },
-    { method: 'patch', path: '/notifications/:notificationId/read', roles: 'any' },
+    { method: 'get', path: '/me/notifications', roles: 'any' },
+    {
+        method: 'patch',
+        path: '/me/notifications/:notificationId/read',
+        roles: 'any',
+    },
 
     // Marking review and remarks
     { method: 'get', path: '/rounds/:roundId/review-sample', roles: STAFF },
@@ -66,13 +70,20 @@ const endpoints = [
     },
     // Auth
     { method: 'post', path: '/auth/register', roles: 'public' },
-    { method: 'get', path: '/auth/schools', roles: 'public' },
     { method: 'post', path: '/auth/invitations/check', roles: 'public' },
     { method: 'post', path: '/auth/forgot-password', roles: 'public' },
-    { method: 'get', path: '/auth/me', roles: 'any' },
     { method: 'post', path: '/auth/logout', roles: 'any' },
-    { method: 'delete', path: '/auth/account', roles: 'any' },
-    { method: 'get', path: '/auth/educator-olympiads', roles: EDUCATOR },
+
+    // Schools (public signup list)
+    { method: 'get', path: '/schools', roles: 'public' },
+
+    // The signed-in user
+    { method: 'get', path: '/me', roles: 'any' },
+    { method: 'delete', path: '/me', roles: 'any' },
+    { method: 'get', path: '/me/rounds', roles: ['student', 'educator'] },
+    { method: 'get', path: '/me/results', roles: ['student', 'educator'] },
+    { method: 'get', path: '/me/overview', roles: EDUCATOR },
+    { method: 'get', path: '/me/olympiads', roles: EDUCATOR },
 
     // School membership approval
     { method: 'get', path: '/memberships/requests', roles: STAFF },
@@ -192,8 +203,6 @@ const endpoints = [
     { method: 'patch', path: '/rounds/:roundId/answers/:answerId', roles: STAFF },
 
     // Educator portal
-    { method: 'get', path: '/educator/overview', roles: EDUCATOR },
-    { method: 'get', path: '/educator/rounds', roles: EDUCATOR },
     { method: 'get', path: '/educator/rounds/:roundId', roles: EDUCATOR },
     {
         method: 'post',
@@ -230,7 +239,6 @@ const endpoints = [
         path: '/educator/rounds/:roundId/results',
         roles: EDUCATOR,
     },
-    { method: 'get', path: '/educator/results', roles: EDUCATOR },
     {
         method: 'get',
         path: '/educator/rounds/:roundId/papers/past',
@@ -273,10 +281,8 @@ const endpoints = [
     },
 
     // Student portal
-    { method: 'get', path: '/rounds/registered', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/details', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/certificate', roles: STUDENT },
-    { method: 'get', path: '/rounds/my-results', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/paper/download', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/exam', roles: STUDENT },
     { method: 'post', path: '/rounds/:roundId/exam/start', roles: STUDENT },
@@ -291,7 +297,9 @@ const endpoints = [
 // Where each route file is mounted (see src/app.js and src/routes/olympiads.js)
 const mounts = {
     'public.js': '/public',
-    'portalNotifications.js': '/notifications',
+    'me.js': '/me',
+    'schools.js': '/schools',
+    'portalNotifications.js': '/me/notifications',
     'reviews.js': '/rounds',
     'auth.js': '/auth',
     'membershipApprovals.js': '/memberships',

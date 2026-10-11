@@ -75,7 +75,7 @@ const setup = async () => {
     };
 };
 
-describe('GET /educator/rounds', () => {
+describe('GET /me/rounds', () => {
     it('lists rounds from every olympiad the school is in, with status and counts', async () => {
         const { round1, round2, olympiad, school, educatorApi } = await setup();
         const elsewhere = await f.createOlympiad({ name: 'Science Olympiad' });
@@ -89,7 +89,7 @@ describe('GET /educator/rounds', () => {
         await f.createPaper({ round: science, file_url: 'rounds/s/paper.pdf' });
         await f.createRound({ olympiad: await f.createOlympiad() }); // not the school's
 
-        const data = expectOk(await educatorApi.get('/educator/rounds'));
+        const data = expectOk(await educatorApi.get('/me/rounds'));
 
         expect(data.school).toEqual({ id: school.id, name: school.name });
         expect(
@@ -115,7 +115,7 @@ describe('GET /educator/rounds', () => {
 
     it('responds 403 for an educator without active school membership', async () => {
         expectError(
-            await as(await f.createUser('educator')).get('/educator/rounds'),
+            await as(await f.createUser('educator')).get('/me/rounds'),
             403,
             'School membership is awaiting approval'
         );
@@ -733,11 +733,11 @@ describe('GET /educator/rounds/:roundId/results', () => {
     });
 });
 
-describe('GET /educator/results', () => {
+describe('GET /me/results', () => {
     it("lists every released round with the school's results", async () => {
         const { round1, olympiad, ayanda, educatorApi } = await setup();
 
-        const { rounds } = expectOk(await educatorApi.get('/educator/results'));
+        const { rounds } = expectOk(await educatorApi.get('/me/results'));
 
         expect(rounds).toEqual([
             {
@@ -759,7 +759,7 @@ describe('GET /educator/results', () => {
 
     it('returns nothing to a school with no released rounds', async () => {
         const { outsiderApi } = await setup();
-        expect(expectOk(await outsiderApi.get('/educator/results'))).toEqual({
+        expect(expectOk(await outsiderApi.get('/me/results'))).toEqual({
             rounds: [],
         });
     });

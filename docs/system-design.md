@@ -66,9 +66,9 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 | Method | Path                                  | Role      | Purpose                        |
 | ------ | ------------------------------------- | --------- | ------------------------------ |
 | POST   | /auth/register                        | Public    | Sign up as educator or student |
-| GET    | /auth/schools                         | Public    | Schools for the signup form    |
-| GET    | /auth/me                              | Any       | Get current user               |
-| DELETE | /auth/account                         | Any       | Soft-delete account            |
+| GET    | /schools                              | Public    | Schools for the signup form    |
+| GET    | /me                                   | Any       | Get current user               |
+| DELETE | /me                                   | Any       | Soft-delete account            |
 | GET    | /invites/mine                         | Any       | Invitations addressed to me    |
 | POST   | /invites/:id/accept                   | Any       | Accept an invitation           |
 | POST   | /invites/:id/reject                   | Any       | Decline an invitation          |
@@ -161,7 +161,7 @@ users ─────┬──── olympiad_invites
 Registration is open to everyone: invitations are optional for educators and students. School access is either approved manually or granted by an authorised email-bound signup code.
 
 1. **Sign-up:** POST /auth/register with a role of educator or student (organisers are provisioned by the administrator). It creates the Supabase Auth user and the users row, plus an educators row and school membership for an educator, or an entrant row for a student.
-2. **Choosing a school:** educators and students pick from GET /auth/schools. An educator whose school is not listed may name a new one. A student must pick an existing school.
+2. **Choosing a school:** educators and students pick from GET /schools. An educator whose school is not listed may name a new one. A student must pick an existing school.
 3. **Approval (no invitation code):** a new educator's membership is `pending`. An organiser approves the first coordinator of a school; that coordinator approves later educators and all students. Until then the person can log in but only sees a "waiting for approval" page.
 4. **Invitation code (educators or students):** an organiser can invite an educator at a selected school, including a first coordinator. An active school educator (coordinator or ordinary educator) can invite educators and students to their **own school** using POST /school-invitations. A recipient signs up with the emailed address, matching account type and one-use code, gaining active school access without waiting. Student invitations create a new entrant only, never link an existing record by name. Codes expire after 7 days and only hashes are stored. A bad code is rejected rather than falling back to approval. EmailJS delivers the invitation, and the signup link uses FRONTEND_URL.
 5. **Joining an olympiad (organiser to educator):** the organiser sends an in-app invitation to an educator. It appears on the educator's dashboard; accepting registers their school for the olympiad.

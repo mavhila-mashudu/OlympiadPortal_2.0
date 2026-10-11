@@ -85,7 +85,7 @@ describe('query hooks', () => {
         {
             name: 'useEducatorRounds',
             use: () => educatorApi.useEducatorRounds(),
-            path: '/educator/rounds',
+            path: '/me/rounds',
             response: {
                 rounds: [{ id: 'r1' }],
                 school: { id: 's1', name: 'Parktown' },
@@ -148,7 +148,7 @@ describe('query hooks', () => {
         {
             name: 'useAllEducatorResults',
             use: () => educatorApi.useAllEducatorResults(),
-            path: '/educator/results',
+            path: '/me/results',
             response: { rounds: [{ id: 'r1', results: [] }] },
             data: [{ id: 'r1', results: [] }],
         },

@@ -89,10 +89,13 @@ app.get('/', (_req, res) => {
 app.use('/public', createPublicRateLimiter(), require('./routes/public'));
 
 app.use('/auth', require('./routes/auth'));
+app.use('/schools', require('./routes/schools'));
 app.use('/memberships', require('./routes/membershipApprovals'));
 app.use('/school-invitations', require('./routes/schoolInvitations'));
 app.use('/invites', require('./routes/invites'));
-app.use('/notifications', require('./routes/portalNotifications'));
+// /me/notifications is mounted before /me so it wins the shared prefix
+app.use('/me/notifications', require('./routes/portalNotifications'));
+app.use('/me', require('./routes/me'));
 app.use('/educator', require('./routes/educator'));
 app.use('/organiser/remarks', require('./routes/organiserRemarks'));
 

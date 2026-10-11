@@ -72,7 +72,7 @@ const setup = async (roundOverrides = {}) => {
 const unregisteredStudent = async (school) =>
     as((await f.createStudent({ school })).user);
 
-describe('GET /rounds/registered', () => {
+describe('GET /me/rounds', () => {
     it("summarises the student's rounds and stats", async () => {
         const { olympiad, educator, entrant, round, studentApi } =
             await setup();
@@ -98,7 +98,7 @@ describe('GET /rounds/registered', () => {
             },
         });
 
-        const data = expectOk(await studentApi.get('/rounds/registered'));
+        const data = expectOk(await studentApi.get('/me/rounds'));
 
         expect(data.stats).toEqual({
             roundsEntered: 2,
@@ -140,7 +140,7 @@ describe('GET /rounds/registered', () => {
             expectOk(
                 await (
                     await unregisteredStudent(school)
-                ).get('/rounds/registered')
+                ).get('/me/rounds')
             )
         ).toEqual({
             rounds: [],
@@ -154,7 +154,7 @@ describe('GET /rounds/registered', () => {
 
     it('responds 403 for a student account without a learner record', async () => {
         expectError(
-            await as(await f.createUser('student')).get('/rounds/registered'),
+            await as(await f.createUser('student')).get('/me/rounds'),
             403,
             'No entrant profile linked to your account'
         );
@@ -208,7 +208,7 @@ describe('GET /rounds/:roundId/details', () => {
     });
 });
 
-describe('GET /rounds/my-results', () => {
+describe('GET /me/results', () => {
     it('lists closed rounds, hiding scores until they are released', async () => {
         const { olympiad, educator, entrant, studentApi } = await setup();
         const marking = await f.createRound({
@@ -237,7 +237,7 @@ describe('GET /rounds/my-results', () => {
         }
 
         const { results } = expectOk(
-            await studentApi.get('/rounds/my-results')
+            await studentApi.get('/me/results')
         );
 
         expect(

@@ -106,14 +106,14 @@ describe('api requests', () => {
             jsonResponse({ success: true, data: { rounds: [1, 2] } })
         );
         const { api } = await loadApi();
-        await expect(api.get('/educator/rounds')).resolves.toEqual({
+        await expect(api.get('/me/rounds')).resolves.toEqual({
             rounds: [1, 2],
         });
     });
 
     it('sends JSON content type and no Authorization header when signed out', async () => {
         const { api } = await loadApi();
-        await api.get('/auth/me');
+        await api.get('/me');
         const { options, headers } = lastCall();
         expect(options.method).toBeUndefined();
         expect(headers.get('Content-Type')).toBe('application/json');
@@ -123,7 +123,7 @@ describe('api requests', () => {
     it('sends the stored token as a Bearer token', async () => {
         const { api, setToken } = await loadApi();
         setToken('jwt-abc');
-        await api.get('/auth/me');
+        await api.get('/me');
         expect(lastCall().headers.get('Authorization')).toBe('Bearer jwt-abc');
     });
 

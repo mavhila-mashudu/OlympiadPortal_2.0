@@ -350,12 +350,12 @@ describe('POST /auth/register/organiser', () => {
     });
 });
 
-describe('GET /auth/schools', () => {
+describe('GET /schools', () => {
     it('lists the schools by name without a token, so the signup form can offer them', async () => {
         await f.createSchool({ name: 'Zeta College' });
         await f.createSchool({ name: 'Alpha Academy' });
 
-        const { schools } = expectOk(await api().get('/auth/schools'));
+        const { schools } = expectOk(await api().get('/schools'));
 
         expect(schools.map((s) => s.name)).toEqual([
             'Alpha Academy',
@@ -446,7 +446,7 @@ describe('POST /auth/forgot-password', () => {
             const organiser = await f.createOrganiser({
                 email: 'thandi@olympiad.test',
             });
-            expectOk(await as(organiser).delete('/auth/account'));
+            expectOk(await as(organiser).delete('/me'));
 
             expectOk(
                 await api()
@@ -500,11 +500,11 @@ describe('POST /auth/forgot-password', () => {
     });
 });
 
-describe('GET /auth/me', () => {
+describe('GET /me', () => {
     it('returns the educator with their school and membership', async () => {
         const { educatorUser, school } = await f.createOlympiadWithSchool();
 
-        const { user } = expectOk(await as(educatorUser).get('/auth/me'));
+        const { user } = expectOk(await as(educatorUser).get('/me'));
 
         expect(user).toMatchObject({ id: educatorUser.id, role: 'educator' });
         expect(user.educators.school_id).toBe(school.id);
@@ -522,13 +522,13 @@ describe('GET /auth/me', () => {
         const school = await f.createSchool();
         const { user: studentUser } = await f.createStudent({ school });
 
-        const { user } = expectOk(await as(studentUser).get('/auth/me'));
+        const { user } = expectOk(await as(studentUser).get('/me'));
 
         expect(user.entrants.school_id).toBe(school.id);
     });
 });
 
-describe('GET /auth/educator-olympiads', () => {
+describe('GET /me/olympiads', () => {
     it("lists only the olympiads the educator's school is approved for", async () => {
         const { olympiad, school, educatorUser } =
             await f.createOlympiadWithSchool();
@@ -536,7 +536,7 @@ describe('GET /auth/educator-olympiads', () => {
         await f.registerSchool(school, other, { status: 'pending' });
 
         const { olympiads } = expectOk(
-            await as(educatorUser).get('/auth/educator-olympiads')
+            await as(educatorUser).get('/me/olympiads')
         );
 
         expect(olympiads).toEqual([{ id: olympiad.id, name: olympiad.name }]);
@@ -575,19 +575,19 @@ describe('POST /auth/logout', () => {
     });
 
     it('tells the browser not to keep responses', async () => {
-        const res = await as(await f.createOrganiser()).get('/auth/me');
+        const res = await as(await f.createOrganiser()).get('/me');
         expect(res.headers['cache-control']).toBe('no-store');
     });
 });
 
-describe('DELETE /auth/account', () => {
+describe('DELETE /me', () => {
     it("removes the Supabase login and the person's details, keeping the account row", async () => {
         const organiser = await f.createOrganiser({
             email: 'thandi@olympiad.test',
             full_name: 'Thandi Mokoena',
         });
 
-        expectOk(await as(organiser).delete('/auth/account'));
+        expectOk(await as(organiser).delete('/me'));
 
         expect(supabase.auth.admin.deleteUser).toHaveBeenCalledWith(
             organiser.id
@@ -605,7 +605,7 @@ describe('DELETE /auth/account', () => {
         const organiser = await f.createOrganiser({
             email: 'thandi@olympiad.test',
         });
-        expectOk(await as(organiser).delete('/auth/account'));
+        expectOk(await as(organiser).delete('/me'));
 
         const res = await api().post('/auth/register').send({
             full_name: 'Thandi Mokoena',
@@ -621,7 +621,7 @@ describe('DELETE /auth/account', () => {
         const { school } = await f.createOlympiadWithSchool();
         const { user, entrant } = await f.createStudent({ school });
 
-        expectOk(await as(user).delete('/auth/account'));
+        expectOk(await as(user).delete('/me'));
 
         expect(
             await prisma.entrants.findUnique({ where: { id: entrant.id } })
@@ -631,7 +631,7 @@ describe('DELETE /auth/account', () => {
     it("ends an educator's school membership", async () => {
         const { educatorUser } = await f.createOlympiadWithSchool();
 
-        expectOk(await as(educatorUser).delete('/auth/account'));
+        expectOk(await as(educatorUser).delete('/me'));
 
         const memberships = await prisma.school_memberships.findMany({
             where: { user_id: educatorUser.id },
@@ -649,7 +649,7 @@ describe('DELETE /auth/account', () => {
         await f.createRound({ olympiad, state: 'open' });
 
         expectError(
-            await as(organiser).delete('/auth/account'),
+            await as(organiser).delete('/me'),
             409,
             'You can’t delete your account while “Maths Olympiad” is still running. Release the results of all its rounds first.'
         );
@@ -665,7 +665,7 @@ describe('DELETE /auth/account', () => {
         const olympiad = await f.createOlympiad({ organiser });
         await f.createRound({ olympiad, state: 'results_released' });
 
-        expectOk(await as(organiser).delete('/auth/account'));
+        expectOk(await as(organiser).delete('/me'));
         // The finished olympiad stays, for the archive and standings
         expect(
             await prisma.olympiads.findUnique({ where: { id: olympiad.id } })
@@ -682,7 +682,7 @@ describe('DELETE /auth/account', () => {
         });
 
         expectError(
-            await as(organiser).delete('/auth/account'),
+            await as(organiser).delete('/me'),
             502,
             'We couldn’t delete your account. Please try again.'
         );
@@ -697,10 +697,10 @@ describe('DELETE /auth/account', () => {
     it("stops the account's token working afterwards", async () => {
         const organiser = await f.createOrganiser();
         const organiserApi = as(organiser);
-        expectOk(await organiserApi.delete('/auth/account'));
+        expectOk(await organiserApi.delete('/me'));
 
         expectError(
-            await organiserApi.get('/auth/me'),
+            await organiserApi.get('/me'),
             401,
             'Account not found or deleted'
         );

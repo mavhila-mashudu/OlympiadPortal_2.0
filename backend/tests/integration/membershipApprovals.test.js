@@ -31,12 +31,12 @@ test('first school applicant must be approved by organiser before any educator d
     const { user } = await signUp('first@school.test', null, 'Example High School');
     const membership = await prisma.school_memberships.findFirst({ where: { user_id: user.id } });
     expect(membership).toMatchObject({ role: 'coordinator', status: 'pending' });
-    expect((await checkGuard(user, '/educator/overview'))?.statusCode).toBe(403);
-    expect(await checkGuard(user, '/auth/me')).toBeNull();
+    expect((await checkGuard(user, '/me/overview'))?.statusCode).toBe(403);
+    expect(await checkGuard(user, '/me')).toBeNull();
     const queue = await listRequests({ role: 'organiser', userId: organiser.id });
     expect(queue.map((m) => m.id)).toContain(membership.id);
     await decideRequest({ role: 'organiser', userId: organiser.id }, membership.id, 'approve');
-    expect(await checkGuard(user, '/educator/overview')).toBeNull();
+    expect(await checkGuard(user, '/me/overview')).toBeNull();
 });
 
 test('active school coordinator approves members of own school, not another school', async () => {
@@ -67,6 +67,6 @@ test('rejecting membership keeps educator access blocked', async () => {
     await decideRequest({ role: 'organiser', userId: organiser.id }, member.id, 'reject');
     expect(await prisma.school_memberships.findUnique({ where: { id: member.id } }))
         .toMatchObject({ status: 'rejected' });
-    expect((await checkGuard(user, '/educator/overview'))?.statusCode).toBe(403);
-    expect(await checkGuard(user, '/auth/me')).toBeNull();
+    expect((await checkGuard(user, '/me/overview'))?.statusCode).toBe(403);
+    expect(await checkGuard(user, '/me')).toBeNull();
 });

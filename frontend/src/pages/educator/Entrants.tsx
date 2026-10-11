@@ -65,7 +65,7 @@ function Entrants() {
     async function loadInvitations() {
         try {
             const [olympiadData, invitationData] = await Promise.all([
-                api.get<{ olympiads: Olympiad[] }>('/auth/educator-olympiads'),
+                api.get<{ olympiads: Olympiad[] }>('/me/olympiads'),
                 api.get<{ invites: Invitation[] }>('/invites/sent'),
             ]);
             setOlympiads(olympiadData.olympiads);

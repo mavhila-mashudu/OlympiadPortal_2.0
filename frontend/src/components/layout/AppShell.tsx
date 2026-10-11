@@ -110,7 +110,7 @@ export function AppShell({
     useEffect(() => {
         if (activeRole !== 'educator') return;
         let active = true;
-        api.get<{ user: { school_memberships: { role: string; status: string }[] } }>('/auth/me', { background: true })
+        api.get<{ user: { school_memberships: { role: string; status: string }[] } }>('/me', { background: true })
             .then(({ user }) => {
                 if (active) setIsCoordinator(user.school_memberships.some(
                     (m) => m.role === 'coordinator' && m.status === 'active'
@@ -148,7 +148,7 @@ export function AppShell({
         let active = true;
         const refresh = () =>
             api
-                .get<{ notifications: typeof notifications }>('/notifications')
+                .get<{ notifications: typeof notifications }>('/me/notifications')
                 .then((data) => {
                     if (active) setNotifications(data.notifications);
                 })
@@ -172,7 +172,7 @@ export function AppShell({
         setDeleting(true);
         setDeleteError(null);
         try {
-            await api.delete('/auth/account');
+            await api.delete('/me');
             await endLocalSession();
             queryClient?.clear();
             navigate('/login', { replace: true });
@@ -420,7 +420,7 @@ export function AppShell({
                                             onClick={() =>
                                                 api
                                                     .patch(
-                                                        `/notifications/${n.id}/read`
+                                                        `/me/notifications/${n.id}/read`
                                                     )
                                                     .then(() =>
                                                         setNotifications(

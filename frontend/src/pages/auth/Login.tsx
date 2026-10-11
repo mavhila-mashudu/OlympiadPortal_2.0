@@ -83,7 +83,7 @@ function Login() {
 
                                 setToken(data.session.access_token);
                                 const { user } =
-                                    await api.get<MeResponse>('/auth/me');
+                                    await api.get<MeResponse>('/me');
                                 startSession(
                                     data.session.access_token,
                                     user.role

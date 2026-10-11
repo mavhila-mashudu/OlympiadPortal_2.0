@@ -143,7 +143,7 @@ describe('using the public API from another website', () => {
 
     it('still keeps other websites out of the signed-in API', async () => {
         const res = await api()
-            .get('/auth/schools')
+            .get('/schools')
             .set('Origin', EXTERNAL_SITE);
 
         expectError(res, 403, 'Origin is not allowed by CORS');
@@ -160,7 +160,7 @@ describe('using the public API from another website', () => {
             (await api().get('/public/stats')).headers['cache-control']
         ).toBe('public, max-age=60, stale-while-revalidate=300');
         expect(
-            (await api().get('/auth/schools')).headers['cache-control']
+            (await api().get('/schools')).headers['cache-control']
         ).toBe('no-store');
     });
 

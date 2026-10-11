@@ -64,7 +64,7 @@ export const examStatus = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-// GET /auth/me
+// GET /me
 export const me = (
     role: 'organiser' | 'educator' | 'student',
     overrides: Record<string, unknown> = {}
@@ -110,7 +110,7 @@ export const me = (
     },
 });
 
-// GET /educator/rounds item
+// GET /me/rounds item
 export const educatorRound = (overrides: Record<string, unknown> = {}) => ({
     id: id('round'),
     name: 'Round 1',

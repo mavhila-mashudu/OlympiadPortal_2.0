@@ -53,7 +53,7 @@ function StudentResults() {
                 const [prof, resData] = await Promise.all([
                     getStudentProfile(),
                     api.get<{ results: StudentResultItem[] }>(
-                        '/rounds/my-results'
+                        '/me/results'
                     ),
                 ]);
 
