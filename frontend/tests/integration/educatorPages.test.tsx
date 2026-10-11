@@ -96,7 +96,7 @@ describe('educator dashboard', () => {
 });
 
 describe('educator round page', () => {
-    // GET /educator/rounds/:id
+    // GET /me/rounds/:roundId
     const roundDetail = (overrides: Record<string, unknown> = {}) => ({
         id: 'round-1',
         name: 'Round 1 — Regional',
@@ -141,13 +141,13 @@ describe('educator round page', () => {
         { pastPapers = [] as unknown[], roster = entrants } = {}
     ) => {
         const state = { round };
-        mockApi('get', '/educator/rounds/round-1', () => ({
+        mockApi('get', '/me/rounds/round-1', () => ({
             round: state.round,
         }));
         mockApi('get', '/educator/rounds/round-1/papers/past', {
             papers: pastPapers,
         });
-        mockApi('get', '/educator/rounds/round-1/entrants', {
+        mockApi('get', '/rounds/round-1/entrants', {
             entrants: roster,
         });
         return state;
@@ -179,7 +179,7 @@ describe('educator round page', () => {
         );
     });
 
-    // A submission row as GET /educator/rounds/:id lists it
+    // A submission row as GET /me/rounds/:roundId lists it
     const submitted = (
         entrant: (typeof entrants)[number],
         overrides: Record<string, unknown> = {}
@@ -522,7 +522,7 @@ describe('educator round page', () => {
                 closes_at: fx.inHours(-28),
             })
         );
-        mockApi('get', '/educator/rounds/round-1/results', {
+        mockApi('get', '/me/rounds/round-1/results', {
             round: {
                 id: 'round-1',
                 name: 'Round 1 — Regional',
@@ -583,7 +583,7 @@ describe('educator round page', () => {
         mockRound(roundDetail({ state: 'marking', status: 'closed' }));
         const resultRequests = mockApiError(
             'get',
-            '/educator/rounds/round-1/results',
+            '/me/rounds/round-1/results',
             400,
             'Results are not yet available — round is "marking"'
         );
@@ -600,12 +600,12 @@ describe('educator round page', () => {
     it('shows a load failure with a way back', async () => {
         mockApiError(
             'get',
-            '/educator/rounds/round-1',
+            '/me/rounds/round-1',
             403,
             'Your school is not registered for this olympiad'
         );
         mockApi('get', '/educator/rounds/round-1/papers/past', { papers: [] });
-        mockApi('get', '/educator/rounds/round-1/entrants', { entrants: [] });
+        mockApi('get', '/rounds/round-1/entrants', { entrants: [] });
         renderApp('/educator/rounds/round-1');
 
         expect(
@@ -696,12 +696,12 @@ describe('educator entrants and invitations', () => {
                 ],
             })
         );
-        mockApi('get', '/educator/olympiads/:olympiadId/entrants', (req) => ({
-            entrants: state.entrants[req.path.split('/')[3]],
+        mockApi('get', '/olympiads/:olympiadId/entrants', (req) => ({
+            entrants: state.entrants[req.path.split('/')[2]],
         }));
         mockApi(
             'get',
-            '/educator/olympiads/:olympiadId/progression',
+            '/olympiads/:olympiadId/progression',
             (req) => ({
                 rounds: [
                     {
@@ -770,7 +770,7 @@ describe('educator entrants and invitations', () => {
         const state = mockEntrantsPage();
         const registrations = mockApi(
             'post',
-            '/educator/olympiads/:olympiadId/entrants',
+            '/olympiads/:olympiadId/entrants',
             (req) => {
                 const [entrant] = (
                     req.body as { entrants: Record<string, string>[] }
@@ -806,7 +806,7 @@ describe('educator entrants and invitations', () => {
             })
         ).toBeInTheDocument();
         expect(registrations[0].path).toBe(
-            '/educator/olympiads/oly-1/entrants'
+            '/olympiads/oly-1/entrants'
         );
         expect(registrations[0].body).toEqual({
             entrants: [
@@ -820,7 +820,7 @@ describe('educator entrants and invitations', () => {
         mockEntrantsPage();
         mockApi(
             'post',
-            '/educator/olympiads/:olympiadId/entrants',
+            '/olympiads/:olympiadId/entrants',
             {
                 entrants: [
                     olympiadEntrant({ full_name: 'Late Learner', rounds: [] }),
@@ -845,7 +845,7 @@ describe('educator entrants and invitations', () => {
         mockEntrantsPage();
         mockApiError(
             'post',
-            '/educator/olympiads/:olympiadId/entrants',
+            '/olympiads/:olympiadId/entrants',
             403,
             'Your school is not registered for this olympiad'
         );

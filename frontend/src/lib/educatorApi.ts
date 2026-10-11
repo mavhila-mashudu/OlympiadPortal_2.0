@@ -250,9 +250,7 @@ export function useEducatorRoundDetail(roundId: string) {
         queryKey: ['educator', 'rounds', roundId],
         queryFn: () =>
             api
-                .get<{ round: EducatorRoundDetail }>(
-                    `/educator/rounds/${roundId}`
-                )
+                .get<{ round: EducatorRoundDetail }>(`/me/rounds/${roundId}`)
                 .then((d) => d.round),
         enabled: !!roundId,
     });
@@ -264,7 +262,7 @@ export function useEducatorEntrants(roundId: string) {
         queryFn: () =>
             api
                 .get<{ entrants: EducatorEntrant[] }>(
-                    `/educator/rounds/${roundId}/entrants`
+                    `/rounds/${roundId}/entrants`
                 )
                 .then((d) => d.entrants),
         enabled: !!roundId,
@@ -275,7 +273,7 @@ export function useProgressionInfo(roundId: string) {
     return useQuery({
         queryKey: ['educator', 'rounds', roundId, 'progression'],
         queryFn: () =>
-            api.get<ProgressionInfo>(`/educator/rounds/${roundId}/progression`),
+            api.get<ProgressionInfo>(`/rounds/${roundId}/progression`),
         enabled: !!roundId,
     });
 }
@@ -286,7 +284,7 @@ export function useOlympiadEntrants(olympiadId: string) {
         queryFn: () =>
             api
                 .get<{ entrants: OlympiadEntrant[] }>(
-                    `/educator/olympiads/${olympiadId}/entrants`
+                    `/olympiads/${olympiadId}/entrants`
                 )
                 .then((d) => d.entrants),
         enabled: !!olympiadId,
@@ -298,7 +296,7 @@ export function useOlympiadProgressionInfo(olympiadId: string) {
         queryKey: ['educator', 'olympiads', olympiadId, 'progression'],
         queryFn: () =>
             api.get<OlympiadProgressionInfo>(
-                `/educator/olympiads/${olympiadId}/progression`
+                `/olympiads/${olympiadId}/progression`
             ),
         enabled: !!olympiadId,
     });
@@ -315,7 +313,7 @@ export function useRegisterEntrantsForOlympiad(olympiadId: string) {
             }>
         ) =>
             api.post<{ entrants: OlympiadEntrant[] }>(
-                `/educator/olympiads/${olympiadId}/entrants`,
+                `/olympiads/${olympiadId}/entrants`,
                 { entrants }
             ),
         onSuccess: () => {
@@ -331,9 +329,7 @@ export function useEducatorResults(roundId: string) {
     return useQuery({
         queryKey: ['educator', 'rounds', roundId, 'results'],
         queryFn: () =>
-            api.get<EducatorRoundResults>(
-                `/educator/rounds/${roundId}/results`
-            ),
+            api.get<EducatorRoundResults>(`/me/rounds/${roundId}/results`),
         enabled: !!roundId,
     });
 }
@@ -374,7 +370,7 @@ export function useRegisterEntrants(roundId: string) {
             }>
         ) =>
             api.post<{ entrants: EducatorEntrant[] }>(
-                `/educator/rounds/${roundId}/entrants`,
+                `/rounds/${roundId}/entrants`,
                 { entrants }
             ),
         onSuccess: () => {

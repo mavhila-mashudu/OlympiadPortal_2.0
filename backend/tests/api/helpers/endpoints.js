@@ -80,7 +80,17 @@ const endpoints = [
     { method: 'get', path: '/me', roles: 'any' },
     { method: 'delete', path: '/me', roles: 'any' },
     { method: 'get', path: '/me/rounds', roles: ['student', 'educator'] },
+    {
+        method: 'get',
+        path: '/me/rounds/:roundId',
+        roles: ['student', 'educator'],
+    },
     { method: 'get', path: '/me/results', roles: ['student', 'educator'] },
+    {
+        method: 'get',
+        path: '/me/rounds/:roundId/results',
+        roles: EDUCATOR,
+    },
     { method: 'get', path: '/me/overview', roles: EDUCATOR },
     { method: 'get', path: '/me/olympiads', roles: EDUCATOR },
     { method: 'get', path: '/me/olympiad-invitations', roles: 'any' },
@@ -138,6 +148,22 @@ const endpoints = [
     { method: 'get', path: '/olympiads/:olympiadId/schools', roles: ORGANISER },
     { method: 'get', path: '/olympiads/:olympiadId/archive', roles: ORGANISER },
     { method: 'get', path: '/olympiads/archive', roles: ORGANISER },
+    // School entrants and progression (educators)
+    {
+        method: 'post',
+        path: '/olympiads/:olympiadId/entrants',
+        roles: EDUCATOR,
+    },
+    {
+        method: 'get',
+        path: '/olympiads/:olympiadId/entrants',
+        roles: EDUCATOR,
+    },
+    {
+        method: 'get',
+        path: '/olympiads/:olympiadId/progression',
+        roles: EDUCATOR,
+    },
     { method: 'get', path: '/rounds/:roundId/replay', roles: ORGANISER },
     { method: 'post', path: '/olympiads/:olympiadId/rounds', roles: ORGANISER },
     { method: 'get', path: '/olympiads/:olympiadId/rounds', roles: ORGANISER },
@@ -174,6 +200,11 @@ const endpoints = [
     { method: 'patch', path: '/rounds/:roundId/state', roles: ORGANISER },
     { method: 'delete', path: '/rounds/:roundId', roles: ORGANISER },
     { method: 'post', path: '/rounds/:roundId/papers', roles: ORGANISER },
+
+    // Round entrants and progression (educator; school-scoped in the service)
+    { method: 'post', path: '/rounds/:roundId/entrants', roles: EDUCATOR },
+    { method: 'get', path: '/rounds/:roundId/entrants', roles: EDUCATOR },
+    { method: 'get', path: '/rounds/:roundId/progression', roles: EDUCATOR },
 
     // Questions and exam verification
     { method: 'post', path: '/rounds/:roundId/questions', roles: STAFF },
@@ -216,42 +247,6 @@ const endpoints = [
     { method: 'patch', path: '/rounds/:roundId/answers/:answerId', roles: STAFF },
 
     // Educator portal
-    { method: 'get', path: '/educator/rounds/:roundId', roles: EDUCATOR },
-    {
-        method: 'post',
-        path: '/educator/rounds/:roundId/entrants',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'get',
-        path: '/educator/rounds/:roundId/entrants',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'get',
-        path: '/educator/rounds/:roundId/progression',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'post',
-        path: '/educator/olympiads/:olympiadId/entrants',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'get',
-        path: '/educator/olympiads/:olympiadId/entrants',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'get',
-        path: '/educator/olympiads/:olympiadId/progression',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'get',
-        path: '/educator/rounds/:roundId/results',
-        roles: EDUCATOR,
-    },
     {
         method: 'get',
         path: '/educator/rounds/:roundId/papers/past',
@@ -294,7 +289,6 @@ const endpoints = [
     },
 
     // Student portal
-    { method: 'get', path: '/rounds/:roundId/details', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/certificate', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/paper/download', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/exam', roles: STUDENT },

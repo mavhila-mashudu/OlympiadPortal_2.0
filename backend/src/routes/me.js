@@ -3,7 +3,7 @@
 // (moved here from /auth), and their own view of rounds, results, invitations
 // and school data. Each handler keeps the guards it had at its previous URL.
 const express = require('express');
-const { query } = require('express-validator');
+const { param, query } = require('express-validator');
 const {
     requireAuth,
     requireRole,
@@ -18,11 +18,14 @@ const {
 const {
     listRegisteredRounds,
     getStudentResults,
+    getRoundDetail,
 } = require('../controllers/studentRoundController');
 const {
     listRounds,
     listAllResults,
     getOverview,
+    getRound,
+    getResults,
 } = require('../controllers/educatorController');
 const {
     listMyInvites,
@@ -50,6 +53,22 @@ router.get(
     '/results',
     byRole({ student: getStudentResults, educator: listAllResults })
 );
+
+// One round as the caller sees it: a student gets their own round page,
+// an educator their school's (paper, submissions, results availability).
+const roundIdRule = [
+    param('roundId').isUUID().withMessage('Valid round UUID required'),
+];
+
+router.get(
+    '/rounds/:roundId',
+    roundIdRule,
+    validate,
+    byRole({ student: getRoundDetail, educator: getRound })
+);
+// The educator's view of one round's released results; generating them
+// stays the organiser's POST /rounds/:roundId/results.
+router.get('/rounds/:roundId/results', requireRole('educator'), getResults);
 
 // ── Olympiad invitations ────────────────────────────────
 // The caller-specific lists; creating and answering an invitation stay on

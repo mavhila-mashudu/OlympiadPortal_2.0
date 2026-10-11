@@ -69,6 +69,8 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 | GET    | /schools                              | Public    | Schools for the signup form    |
 | GET    | /me                                   | Any       | Get current user               |
 | DELETE | /me                                   | Any       | Soft-delete account            |
+| GET    | /me/rounds/:roundId                   | Any       | One round, by caller's role    |
+| GET    | /me/rounds/:roundId/results           | Educator  | One round's results (school)   |
 | GET    | /me/olympiad-invitations              | Any       | Invitations addressed to me    |
 | GET    | /me/sent-olympiad-invitations         | Staff     | Invitations I have sent        |
 | GET    | /me/olympiad-invitation-candidates    | Staff     | Who I may still invite         |
@@ -81,9 +83,15 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 | GET    | /olympiads/:id                        | Organiser | Get olympiad detail            |
 | GET    | /olympiads/:id/schools                | Organiser | List registered schools        |
 | GET    | /olympiads/:id/archive                | Organiser | List archived papers           |
+| POST   | /olympiads/:olympiadId/entrants       | Educator  | Register entrants              |
+| GET    | /olympiads/:olympiadId/entrants       | Educator  | List olympiad entrants         |
+| GET    | /olympiads/:olympiadId/progression    | Educator  | Qualification funnel           |
 | POST   | /olympiads/:id/rounds                 | Organiser | Create round                   |
 | GET    | /olympiads/:id/rounds                 | Organiser | List rounds                    |
 | GET    | /rounds/:id                           | Organiser | Get round detail               |
+| POST   | /rounds/:roundId/entrants             | Educator  | Register entrants              |
+| GET    | /rounds/:roundId/entrants             | Educator  | List round entrants            |
+| GET    | /rounds/:roundId/progression          | Educator  | Qualification funnel           |
 | PATCH  | /rounds/:id                           | Organiser | Update round                   |
 | DELETE | /rounds/:id                           | Organiser | Delete round                   |
 | POST   | /rounds/:id/papers                    | Organiser | Upload paper and memo          |

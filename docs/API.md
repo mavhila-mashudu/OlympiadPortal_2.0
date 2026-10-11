@@ -501,6 +501,24 @@ rounds they are registered for, plus dashboard stats (entered count, results
 available, certificates); an educator gets their school's rounds across the
 olympiads the school is registered for.
 
+### `GET /me/rounds/:roundId`
+
+One URL for both roles, dispatched by the caller's role. A student gets the
+round page they see from the dashboard (timing, paper availability, their own
+submission, and own result when released); an educator gets their school's view
+of the round (paper, the school's submissions, results availability). Replaces
+the former student route `GET /rounds/:roundId/details`.
+
+- **Param:** `roundId` must be a valid UUID
+
+### `GET /me/rounds/:roundId/results`
+
+The educator's view of one round's released results, scoped to the educator's
+own school. Generating results stays the organiser's
+`POST /rounds/:roundId/results`.
+
+- **Auth:** educator
+
 ### `GET /me/results`
 
 One URL for both roles, dispatched by the caller's role. A student gets
@@ -604,7 +622,9 @@ Withdraw an invitation you sent that has not been answered yet.
 
 ## Olympiads
 
-All olympiad endpoints are organiser-only and scoped to the organiser's own olympiads.
+Most olympiad endpoints are organiser-only and scoped to the organiser's own
+olympiads; the entrants and progression endpoints serve educators and are
+scoped to their school in the service.
 
 ### `POST /olympiads`
 
@@ -649,6 +669,31 @@ Organiser-only. One archive of past papers shared by all of the organiser's olym
 ### `GET /olympiads/:olympiadId/archive`
 
 The same list, for a single olympiad. Closed rounds with downloadable paper/memo files.
+
+### `POST /olympiads/:olympiadId/entrants`
+
+Register learners of the educator's school for the olympiad. They are saved to
+the school and registered for every round that still takes registrations.
+
+- **Auth:** educator; the school must be registered for the olympiad
+- **Body:** `entrants` — array of `{ full_name (required), grade, external_ref }`
+- **Response `201`:** `data.entrants` — each with the rounds it was entered for
+
+### `GET /olympiads/:olympiadId/entrants`
+
+The school's entrants in the olympiad, each with the rounds it is registered
+for.
+
+- **Auth:** educator; the school must be registered for the olympiad
+- **Response:** `data.entrants`
+
+### `GET /olympiads/:olympiadId/progression`
+
+For every round of the olympiad: whether it requires qualification, which round
+is the previous one, which entrants qualified, and the round's state.
+
+- **Auth:** educator; the school must be registered for the olympiad
+- **Response:** `data.rounds`
 
 ---
 
@@ -723,6 +768,30 @@ Upload the question paper and/or memo PDF for a round.
 - **Storage:** files go to Supabase Storage (`papers` bucket); the DB stores the object paths
 - **Response `201`:** `data.paper` — `{ id, round_id, title, file_url, memo_file_url, ... }`
 - Re-uploading replaces the previous files (upsert).
+
+### Entrants and progression (educator)
+
+#### `POST /rounds/:roundId/entrants`
+
+Register learners of the educator's school for the round. A learner who already
+has an `external_ref` in the school is updated rather than duplicated. When the
+round requires qualification (a previous round has released results), only
+learners who qualified are accepted; **nobody in the batch is registered if one
+learner is refused.**
+
+- **Auth:** educator; the school must be registered for the olympiad
+- **Body:** `entrants` — array of `{ full_name (required), grade, external_ref }`
+- **Response `201`:** `data.entrants`
+- **Errors:** `400` once the round has closed, or when a learner did not qualify in the previous round
+
+#### `GET /rounds/:roundId/entrants`
+
+The school's entrants in the round.
+
+#### `GET /rounds/:roundId/progression`
+
+Whether the round requires qualification, which round decides it, and which
+entrants qualified.
 
 ---
 
@@ -919,9 +988,12 @@ Manually mark a single answer.
 
 All student endpoints require the `student` role and an entrant profile linked to the account.
 
-### `GET /rounds/:roundId/details`
+### `GET /me/rounds/:roundId`
 
-Detailed round info for the student (timing, paper availability, own result when released).
+Detailed round info for the student (timing, paper availability, own result
+when released). Shared with educators, who get their school's view — see
+[The Signed-in User](#the-signed-in-user). Replaces the former
+`GET /rounds/:roundId/details`.
 
 - **Param:** `roundId` must be a valid UUID
 

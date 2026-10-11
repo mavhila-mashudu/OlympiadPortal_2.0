@@ -1,6 +1,6 @@
 // @ts-nocheck
 const express = require('express');
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const router = express.Router();
 const {
     listSchools,
@@ -17,6 +17,11 @@ const {
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
 const { isValidTimeZone } = require('../utils/timezones');
+const {
+    registerEntrantsForOlympiad,
+    listOlympiadEntrants,
+    getOlympiadProgressionInfo,
+} = require('../controllers/educatorController');
 const roundsRouter = require('./rounds');
 
 // === Validation rules ====
@@ -43,6 +48,28 @@ const updateOlympiadRules = [
         .trim()
         .notEmpty()
         .withMessage('Timezone is required'),
+];
+
+// The educator registers their school's learners across the open rounds
+const registerOlympiadEntrantsRules = [
+    param('olympiadId')
+        .isUUID()
+        .withMessage('olympiadId must be a valid UUID'),
+    body('entrants')
+        .isArray({ min: 1 })
+        .withMessage('entrants array with at least one entry is required'),
+    body('entrants.*.full_name')
+        .isString()
+        .withMessage('full_name is required')
+        .bail()
+        .trim()
+        .notEmpty()
+        .withMessage('full_name is required'),
+    body('entrants.*.grade').optional(),
+    body('entrants.*.external_ref')
+        .optional()
+        .isString()
+        .withMessage('external_ref must be text'),
 ];
 
 // === Routes ===
@@ -73,6 +100,26 @@ router.patch(
 router.delete('/:olympiadId', requireRole('organiser'), deleteOlympiad);
 router.get('/:olympiadId/schools', requireRole('organiser'), listSchools);
 router.get('/:olympiadId/archive', requireRole('organiser'), listArchive);
+
+// School entrants and progression (educator). School access is checked in
+// the service, exactly as it was when these routes lived under /educator.
+router.post(
+    '/:olympiadId/entrants',
+    requireRole('educator'),
+    registerOlympiadEntrantsRules,
+    validate,
+    registerEntrantsForOlympiad
+);
+router.get(
+    '/:olympiadId/entrants',
+    requireRole('educator'),
+    listOlympiadEntrants
+);
+router.get(
+    '/:olympiadId/progression',
+    requireRole('educator'),
+    getOlympiadProgressionInfo
+);
 
 // Rounds are nested under their olympiad:
 // /olympiads/:olympiadId/rounds

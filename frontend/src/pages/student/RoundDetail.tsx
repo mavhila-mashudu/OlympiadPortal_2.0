@@ -69,9 +69,7 @@ function StudentRoundDetail() {
             try {
                 const [prof, roundRes] = await Promise.all([
                     getStudentProfile(),
-                    api.get<{ round: RoundDetailData }>(
-                        `/rounds/${id}/details`
-                    ),
+                    api.get<{ round: RoundDetailData }>(`/me/rounds/${id}`),
                 ]);
 
                 if (!cancelled) {

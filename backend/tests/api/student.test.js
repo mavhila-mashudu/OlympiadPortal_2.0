@@ -161,12 +161,12 @@ describe('GET /me/rounds', () => {
     });
 });
 
-describe('GET /rounds/:roundId/details', () => {
+describe('GET /me/rounds/:roundId', () => {
     it('describes a round the student is registered for, without storage paths', async () => {
         const { round, school, studentApi } = await setup();
 
         const { round: detail } = expectOk(
-            await studentApi.get(`/rounds/${round.id}/details`)
+            await studentApi.get(`/me/rounds/${round.id}`)
         );
 
         expect(detail).toMatchObject({
@@ -190,7 +190,7 @@ describe('GET /rounds/:roundId/details', () => {
         const { round, school } = await setup();
         const res = await (
             await unregisteredStudent(school)
-        ).get(`/rounds/${round.id}/details`);
+        ).get(`/me/rounds/${round.id}`);
         expectError(
             res,
             404,
@@ -201,7 +201,7 @@ describe('GET /rounds/:roundId/details', () => {
     it("responds 422 for a round id that isn't a UUID", async () => {
         const { studentApi } = await setup();
         expectError(
-            await studentApi.get('/rounds/round-2/details'),
+            await studentApi.get('/me/rounds/round-2'),
             422,
             'Valid round UUID required'
         );
@@ -522,7 +522,7 @@ describe('sitting an exam online', () => {
             expect(await prisma.submissions.count()).toBe(1);
             // The round page no longer offers the online sitting either
             expect(
-                expectOk(await studentApi.get(`/rounds/${round.id}/details`))
+                expectOk(await studentApi.get(`/me/rounds/${round.id}`))
                     .round
             ).toMatchObject({ hasSubmitted: true });
         });

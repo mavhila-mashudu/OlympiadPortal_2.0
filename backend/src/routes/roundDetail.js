@@ -1,9 +1,14 @@
 // @ts-nocheck
 const express = require('express');
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const router = express.Router();
 const upload = require('../middlewares/upload');
 const { uploadPapers } = require('../controllers/paperController');
+const {
+    registerEntrants,
+    listEntrants,
+    getProgressionInfo,
+} = require('../controllers/educatorController');
 const {
     getRound,
     updateRound,
@@ -53,6 +58,26 @@ const checkDatesRules = [
         .optional()
         .isUUID()
         .withMessage('olympiad_id must be a valid UUID'),
+];
+
+// The educator registers their school's learners for the round
+const registerEntrantsRules = [
+    param('roundId').isUUID().withMessage('roundId must be a valid UUID'),
+    body('entrants')
+        .isArray({ min: 1 })
+        .withMessage('entrants array with at least one entry is required'),
+    body('entrants.*.full_name')
+        .isString()
+        .withMessage('full_name is required')
+        .bail()
+        .trim()
+        .notEmpty()
+        .withMessage('full_name is required'),
+    body('entrants.*.grade').optional(),
+    body('entrants.*.external_ref')
+        .optional()
+        .isString()
+        .withMessage('external_ref must be text'),
 ];
 
 // ── Routes ──────────────────────────────────────────────
@@ -112,6 +137,24 @@ router.post(
         { name: 'memo', maxCount: 1 },
     ]),
     uploadPapers
+);
+
+// ── Entrants and progression (educator) ─────────────────
+// The educator registers their school's learners and follows the
+// qualification funnel. School access is checked in the service, exactly as
+// it was when these routes lived under /educator.
+router.post(
+    '/:roundId/entrants',
+    requireRole('educator'),
+    registerEntrantsRules,
+    validate,
+    registerEntrants
+);
+router.get('/:roundId/entrants', requireRole('educator'), listEntrants);
+router.get(
+    '/:roundId/progression',
+    requireRole('educator'),
+    getProgressionInfo
 );
 
 module.exports = router;

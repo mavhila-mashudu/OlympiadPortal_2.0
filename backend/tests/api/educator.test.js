@@ -1,5 +1,6 @@
-// /educator: the educator portal — rounds, entrant registration with round
-// progression, results and past papers. Every endpoint is scoped to the
+// The educator portal: round views under /me, entrant registration with
+// round progression under /rounds and /olympiads, results under /me, and
+// past papers still under /educator. Every endpoint is scoped to the
 // educator's own school.
 const prisma = require('../../src/config/database').default;
 const f = require('../integration/helpers/factories');
@@ -122,7 +123,7 @@ describe('GET /me/rounds', () => {
     });
 });
 
-describe('GET /educator/rounds/:roundId', () => {
+describe('GET /me/rounds/:roundId', () => {
     it("describes the round for the educator's school", async () => {
         const { round1, school, educatorApi } = await setup();
         await f.createPaper({
@@ -133,7 +134,7 @@ describe('GET /educator/rounds/:roundId', () => {
         });
 
         const { round } = expectOk(
-            await educatorApi.get(`/educator/rounds/${round1.id}`)
+            await educatorApi.get(`/me/rounds/${round1.id}`)
         );
 
         expect(round).toMatchObject({
@@ -174,7 +175,7 @@ describe('GET /educator/rounds/:roundId', () => {
         );
 
         const { round } = expectOk(
-            await educatorApi.get(`/educator/rounds/${open.id}`)
+            await educatorApi.get(`/me/rounds/${open.id}`)
         );
 
         expect(round.submissions).toEqual([
@@ -194,7 +195,7 @@ describe('GET /educator/rounds/:roundId', () => {
             201
         );
         expect(
-            expectOk(await educatorApi.get(`/educator/rounds/${open.id}`)).round
+            expectOk(await educatorApi.get(`/me/rounds/${open.id}`)).round
                 .submissions
         ).toHaveLength(2);
     });
@@ -202,19 +203,19 @@ describe('GET /educator/rounds/:roundId', () => {
     it('responds 403 to a school outside the olympiad and 404 for an unknown round', async () => {
         const { round1, outsiderApi, educatorApi } = await setup();
         expectError(
-            await outsiderApi.get(`/educator/rounds/${round1.id}`),
+            await outsiderApi.get(`/me/rounds/${round1.id}`),
             403,
             'Your school is not registered for this olympiad'
         );
         expectError(
-            await educatorApi.get(`/educator/rounds/${MISSING}`),
+            await educatorApi.get(`/me/rounds/${MISSING}`),
             404,
             'Round not found'
         );
     });
 });
 
-describe('POST /educator/rounds/:roundId/entrants', () => {
+describe('POST /rounds/:roundId/entrants', () => {
     it('registers new and existing learners, updating existing records instead of duplicating them', async () => {
         const { ayanda, educatorApi, school } = await setup();
         // A first round in another olympiad has no progression rule
@@ -223,7 +224,7 @@ describe('POST /educator/rounds/:roundId/entrants', () => {
         const first = await f.createRound({ olympiad: other });
 
         const res = await educatorApi
-            .post(`/educator/rounds/${first.id}/entrants`)
+            .post(`/rounds/${first.id}/entrants`)
             .send({
                 entrants: [
                     {
@@ -253,7 +254,7 @@ describe('POST /educator/rounds/:roundId/entrants', () => {
     it('responds 400 once the round has closed', async () => {
         const { round1, educatorApi } = await setup();
         const res = await educatorApi
-            .post(`/educator/rounds/${round1.id}/entrants`)
+            .post(`/rounds/${round1.id}/entrants`)
             .send({ entrants: [{ full_name: 'Late Learner' }] });
         expectError(
             res,
@@ -269,7 +270,7 @@ describe('POST /educator/rounds/:roundId/entrants', () => {
 
     it('only lets learners who qualified in the released previous round into the next', async () => {
         const { round2, educatorApi } = await setup();
-        const url = `/educator/rounds/${round2.id}/entrants`;
+        const url = `/rounds/${round2.id}/entrants`;
 
         expectOk(
             await educatorApi.post(url).send({
@@ -298,7 +299,7 @@ describe('POST /educator/rounds/:roundId/entrants', () => {
     it('registers nobody when one learner in the batch is refused', async () => {
         const { round2, educatorApi } = await setup();
         const res = await educatorApi
-            .post(`/educator/rounds/${round2.id}/entrants`)
+            .post(`/rounds/${round2.id}/entrants`)
             .send({
                 entrants: [
                     { full_name: 'Ayanda Khumalo', external_ref: 'STU-1' },
@@ -329,7 +330,7 @@ describe('POST /educator/rounds/:roundId/entrants', () => {
         const { round2, educatorApi } = await setup();
         expectError(
             await educatorApi
-                .post(`/educator/rounds/${round2.id}/entrants`)
+                .post(`/rounds/${round2.id}/entrants`)
                 .send(body),
             422,
             message
@@ -341,14 +342,14 @@ describe('POST /educator/rounds/:roundId/entrants', () => {
         const body = { entrants: [{ full_name: 'Someone' }] };
         expectError(
             await outsiderApi
-                .post(`/educator/rounds/${round2.id}/entrants`)
+                .post(`/rounds/${round2.id}/entrants`)
                 .send(body),
             403,
             'Your school is not registered for this olympiad'
         );
         expectError(
             await educatorApi
-                .post(`/educator/rounds/${MISSING}/entrants`)
+                .post(`/rounds/${MISSING}/entrants`)
                 .send(body),
             404,
             'Round not found'
@@ -356,7 +357,7 @@ describe('POST /educator/rounds/:roundId/entrants', () => {
     });
 });
 
-describe('GET /educator/rounds/:roundId/entrants', () => {
+describe('GET /rounds/:roundId/entrants', () => {
     it("lists only the school's learners registered for the round", async () => {
         const { round1, olympiad, educator, ayanda, ben, educatorApi } =
             await setup();
@@ -369,7 +370,7 @@ describe('GET /educator/rounds/:roundId/entrants', () => {
         });
 
         const { entrants } = expectOk(
-            await educatorApi.get(`/educator/rounds/${round1.id}/entrants`)
+            await educatorApi.get(`/rounds/${round1.id}/entrants`)
         );
 
         expect(entrants.map((e) => e.id).sort()).toEqual(
@@ -388,7 +389,7 @@ describe('GET /educator/rounds/:roundId/entrants', () => {
         const { round2, educatorApi } = await setup();
         expect(
             expectOk(
-                await educatorApi.get(`/educator/rounds/${round2.id}/entrants`)
+                await educatorApi.get(`/rounds/${round2.id}/entrants`)
             )
         ).toEqual({ entrants: [] });
     });
@@ -396,26 +397,26 @@ describe('GET /educator/rounds/:roundId/entrants', () => {
     it('responds 403 to a school outside the olympiad and 404 for an unknown round', async () => {
         const { round1, outsiderApi, educatorApi } = await setup();
         expectError(
-            await outsiderApi.get(`/educator/rounds/${round1.id}/entrants`),
+            await outsiderApi.get(`/rounds/${round1.id}/entrants`),
             403,
             'Your school is not registered for this olympiad'
         );
         expectError(
-            await educatorApi.get(`/educator/rounds/${MISSING}/entrants`),
+            await educatorApi.get(`/rounds/${MISSING}/entrants`),
             404,
             'Round not found'
         );
     });
 });
 
-describe('GET /educator/rounds/:roundId/progression', () => {
+describe('GET /rounds/:roundId/progression', () => {
     it('reports the qualification rule and who qualified', async () => {
         const { round1, round2, ayanda, educatorApi } = await setup();
 
         expect(
             expectOk(
                 await educatorApi.get(
-                    `/educator/rounds/${round2.id}/progression`
+                    `/rounds/${round2.id}/progression`
                 )
             )
         ).toEqual({
@@ -430,7 +431,7 @@ describe('GET /educator/rounds/:roundId/progression', () => {
         expect(
             expectOk(
                 await educatorApi.get(
-                    `/educator/rounds/${round1.id}/progression`
+                    `/rounds/${round1.id}/progression`
                 )
             )
         ).toEqual({
@@ -443,12 +444,12 @@ describe('GET /educator/rounds/:roundId/progression', () => {
     it('responds 403 to a school outside the olympiad and 404 for an unknown round', async () => {
         const { round2, outsiderApi, educatorApi } = await setup();
         expectError(
-            await outsiderApi.get(`/educator/rounds/${round2.id}/progression`),
+            await outsiderApi.get(`/rounds/${round2.id}/progression`),
             403,
             'Your school is not registered for this olympiad'
         );
         expectError(
-            await educatorApi.get(`/educator/rounds/${MISSING}/progression`),
+            await educatorApi.get(`/rounds/${MISSING}/progression`),
             404,
             'Round not found'
         );
@@ -456,7 +457,7 @@ describe('GET /educator/rounds/:roundId/progression', () => {
 });
 
 describe('olympiad-level entrants', () => {
-    describe('POST /educator/olympiads/:olympiadId/entrants', () => {
+    describe('POST /olympiads/:olympiadId/entrants', () => {
         it("registers each learner for every open round they're eligible for", async () => {
             const { olympiad, educatorApi } = await setup();
             const round3 = await f.createRound({
@@ -467,7 +468,7 @@ describe('olympiad-level entrants', () => {
             });
 
             const res = await educatorApi
-                .post(`/educator/olympiads/${olympiad.id}/entrants`)
+                .post(`/olympiads/${olympiad.id}/entrants`)
                 .send({
                     entrants: [
                         { full_name: 'Ayanda Khumalo', external_ref: 'STU-1' },
@@ -508,7 +509,7 @@ describe('olympiad-level entrants', () => {
                 state: 'results_released',
             });
             const res = await educatorApi
-                .post(`/educator/olympiads/${finished.id}/entrants`)
+                .post(`/olympiads/${finished.id}/entrants`)
                 .send({ entrants: [{ full_name: 'A' }] });
             expectError(
                 res,
@@ -523,7 +524,7 @@ describe('olympiad-level entrants', () => {
             await f.registerSchool(school, empty);
             expectError(
                 await educatorApi
-                    .post(`/educator/olympiads/${empty.id}/entrants`)
+                    .post(`/olympiads/${empty.id}/entrants`)
                     .send({ entrants: [{ full_name: 'A' }] }),
                 400,
                 'No rounds found for this olympiad'
@@ -534,14 +535,14 @@ describe('olympiad-level entrants', () => {
             const { olympiad, educatorApi } = await setup();
             expectError(
                 await educatorApi
-                    .post(`/educator/olympiads/${olympiad.id}/entrants`)
+                    .post(`/olympiads/${olympiad.id}/entrants`)
                     .send({ entrants: [] }),
                 422,
                 'entrants array with at least one entry is required'
             );
             expectError(
                 await educatorApi
-                    .post('/educator/olympiads/olympiad-1/entrants')
+                    .post('/olympiads/olympiad-1/entrants')
                     .send({ entrants: [{ full_name: 'A' }] }),
                 422,
                 'olympiadId must be a valid UUID'
@@ -553,14 +554,14 @@ describe('olympiad-level entrants', () => {
             const body = { entrants: [{ full_name: 'A' }] };
             expectError(
                 await outsiderApi
-                    .post(`/educator/olympiads/${olympiad.id}/entrants`)
+                    .post(`/olympiads/${olympiad.id}/entrants`)
                     .send(body),
                 403,
                 'Your school is not registered for this olympiad'
             );
             expectError(
                 await educatorApi
-                    .post(`/educator/olympiads/${MISSING}/entrants`)
+                    .post(`/olympiads/${MISSING}/entrants`)
                     .send(body),
                 404,
                 'Olympiad not found'
@@ -568,7 +569,7 @@ describe('olympiad-level entrants', () => {
         });
     });
 
-    describe('GET /educator/olympiads/:olympiadId/entrants', () => {
+    describe('GET /olympiads/:olympiadId/entrants', () => {
         it("lists the school's learners with the rounds each is registered for", async () => {
             const { olympiad, round2, educator, ayanda, ben, educatorApi } =
                 await setup();
@@ -580,7 +581,7 @@ describe('olympiad-level entrants', () => {
 
             const { entrants } = expectOk(
                 await educatorApi.get(
-                    `/educator/olympiads/${olympiad.id}/entrants`
+                    `/olympiads/${olympiad.id}/entrants`
                 )
             );
 
@@ -604,14 +605,14 @@ describe('olympiad-level entrants', () => {
             const { olympiad, outsiderApi, educatorApi } = await setup();
             expectError(
                 await outsiderApi.get(
-                    `/educator/olympiads/${olympiad.id}/entrants`
+                    `/olympiads/${olympiad.id}/entrants`
                 ),
                 403,
                 'Your school is not registered for this olympiad'
             );
             expectError(
                 await educatorApi.get(
-                    `/educator/olympiads/${MISSING}/entrants`
+                    `/olympiads/${MISSING}/entrants`
                 ),
                 404,
                 'Olympiad not found'
@@ -619,7 +620,7 @@ describe('olympiad-level entrants', () => {
         });
     });
 
-    describe('GET /educator/olympiads/:olympiadId/progression', () => {
+    describe('GET /olympiads/:olympiadId/progression', () => {
         it('reports per-round qualification rules', async () => {
             const { olympiad, round1, round2, ayanda, educatorApi } =
                 await setup();
@@ -627,7 +628,7 @@ describe('olympiad-level entrants', () => {
             expect(
                 expectOk(
                     await educatorApi.get(
-                        `/educator/olympiads/${olympiad.id}/progression`
+                        `/olympiads/${olympiad.id}/progression`
                     )
                 )
             ).toEqual({
@@ -659,14 +660,14 @@ describe('olympiad-level entrants', () => {
             const { olympiad, outsiderApi, educatorApi } = await setup();
             expectError(
                 await outsiderApi.get(
-                    `/educator/olympiads/${olympiad.id}/progression`
+                    `/olympiads/${olympiad.id}/progression`
                 ),
                 403,
                 'Your school is not registered for this olympiad'
             );
             expectError(
                 await educatorApi.get(
-                    `/educator/olympiads/${MISSING}/progression`
+                    `/olympiads/${MISSING}/progression`
                 ),
                 404,
                 'Olympiad not found'
@@ -675,7 +676,7 @@ describe('olympiad-level entrants', () => {
     });
 });
 
-describe('GET /educator/rounds/:roundId/results', () => {
+describe('GET /me/rounds/:roundId/results', () => {
     it("returns released results for the school's learners, in rank order", async () => {
         const { round1, olympiad, ayanda, ben, educatorApi } = await setup();
         const otherSchool = await f.createSchool();
@@ -692,7 +693,7 @@ describe('GET /educator/rounds/:roundId/results', () => {
         });
 
         const data = expectOk(
-            await educatorApi.get(`/educator/rounds/${round1.id}/results`)
+            await educatorApi.get(`/me/rounds/${round1.id}/results`)
         );
 
         expect(data.round).toEqual({
@@ -717,7 +718,7 @@ describe('GET /educator/rounds/:roundId/results', () => {
     it('responds 400 before results are released', async () => {
         const { round2, educatorApi } = await setup();
         expectError(
-            await educatorApi.get(`/educator/rounds/${round2.id}/results`),
+            await educatorApi.get(`/me/rounds/${round2.id}/results`),
             400,
             'Results are not yet available — round is "scheduled"'
         );
@@ -726,7 +727,7 @@ describe('GET /educator/rounds/:roundId/results', () => {
     it('responds 404 for an unknown round', async () => {
         const { educatorApi } = await setup();
         expectError(
-            await educatorApi.get(`/educator/rounds/${MISSING}/results`),
+            await educatorApi.get(`/me/rounds/${MISSING}/results`),
             404,
             'Round not found'
         );

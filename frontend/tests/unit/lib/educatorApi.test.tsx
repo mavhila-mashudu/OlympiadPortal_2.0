@@ -98,21 +98,21 @@ describe('query hooks', () => {
         {
             name: 'useEducatorRoundDetail',
             use: () => educatorApi.useEducatorRoundDetail('r1'),
-            path: '/educator/rounds/r1',
+            path: '/me/rounds/r1',
             response: { round: { id: 'r1', name: 'Round 1' } },
             data: { id: 'r1', name: 'Round 1' },
         },
         {
             name: 'useEducatorEntrants',
             use: () => educatorApi.useEducatorEntrants('r1'),
-            path: '/educator/rounds/r1/entrants',
+            path: '/rounds/r1/entrants',
             response: { entrants: [{ id: 'e1' }] },
             data: [{ id: 'e1' }],
         },
         {
             name: 'useProgressionInfo',
             use: () => educatorApi.useProgressionInfo('r1'),
-            path: '/educator/rounds/r1/progression',
+            path: '/rounds/r1/progression',
             response: {
                 requiresQualification: true,
                 previousRound: null,
@@ -127,21 +127,21 @@ describe('query hooks', () => {
         {
             name: 'useOlympiadEntrants',
             use: () => educatorApi.useOlympiadEntrants('o1'),
-            path: '/educator/olympiads/o1/entrants',
+            path: '/olympiads/o1/entrants',
             response: { entrants: [{ id: 'e1', rounds: [] }] },
             data: [{ id: 'e1', rounds: [] }],
         },
         {
             name: 'useOlympiadProgressionInfo',
             use: () => educatorApi.useOlympiadProgressionInfo('o1'),
-            path: '/educator/olympiads/o1/progression',
+            path: '/olympiads/o1/progression',
             response: { rounds: [{ roundId: 'r1' }] },
             data: { rounds: [{ roundId: 'r1' }] },
         },
         {
             name: 'useEducatorResults',
             use: () => educatorApi.useEducatorResults('r1'),
-            path: '/educator/rounds/r1/results',
+            path: '/me/rounds/r1/results',
             response: { round: { id: 'r1' }, results: [] },
             data: { round: { id: 'r1' }, results: [] },
         },
@@ -221,7 +221,7 @@ describe('mutation hooks', () => {
             name: 'useRegisterEntrants',
             use: () => educatorApi.useRegisterEntrants('r1'),
             variables: entrants,
-            path: '/educator/rounds/r1/entrants',
+            path: '/rounds/r1/entrants',
             body: { entrants },
             invalidated: [
                 ['educator', 'rounds', 'r1', 'entrants'],
@@ -232,7 +232,7 @@ describe('mutation hooks', () => {
             name: 'useRegisterEntrantsForOlympiad',
             use: () => educatorApi.useRegisterEntrantsForOlympiad('o1'),
             variables: entrants,
-            path: '/educator/olympiads/o1/entrants',
+            path: '/olympiads/o1/entrants',
             body: { entrants },
             invalidated: [
                 ['educator', 'olympiads', 'o1', 'entrants'],

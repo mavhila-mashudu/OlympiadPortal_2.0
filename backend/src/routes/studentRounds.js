@@ -4,10 +4,7 @@ const { param } = require('express-validator');
 const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
-const {
-    getRoundDetail,
-    downloadPaper,
-} = require('../controllers/studentRoundController');
+const { downloadPaper } = require('../controllers/studentRoundController');
 
 // All routes require authenticated student
 router.use(requireAuth);
@@ -33,15 +30,6 @@ router.get(
             next(err);
         }
     }
-);
-
-// GET /rounds/:roundId/details - get detailed round information for the student
-router.get(
-    '/:roundId/details',
-    requireRole('student'),
-    [param('roundId').isUUID().withMessage('Valid round UUID required')],
-    validate,
-    getRoundDetail
 );
 
 // GET /rounds/:roundId/paper/download — signed link to the round's question paper
