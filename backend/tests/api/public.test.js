@@ -390,7 +390,7 @@ describe('GET /public/olympiads', () => {
     });
 });
 
-describe('GET /public/olympiads/:id', () => {
+describe('GET /public/olympiads/:olympiadId', () => {
     it('shows an olympiad and its rounds', async () => {
         const { maths, released, upcoming } = await setup();
 
@@ -521,7 +521,7 @@ describe('GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school', 
     });
 });
 
-describe('GET /public/olympiads/:id/leaderboard', () => {
+describe('GET /public/olympiads/:olympiadId/leaderboard', () => {
     it('ranks schools by their average across released rounds', async () => {
         const { maths } = await setup();
 
@@ -621,7 +621,7 @@ describe('GET /public/schools', () => {
     });
 });
 
-describe('GET /public/schools/:id', () => {
+describe('GET /public/schools/:schoolId', () => {
     it("shows a school's participation and averages", async () => {
         const { parktown, maths, released } = await setup();
 
@@ -714,7 +714,7 @@ describe('GET /public/papers', () => {
     });
 });
 
-describe('GET /public/papers/:id/download', () => {
+describe('GET /public/papers/:paperId/download', () => {
     it('redirects to a short-lived link to the paper, or its memo', async () => {
         const { paper } = await setup();
 

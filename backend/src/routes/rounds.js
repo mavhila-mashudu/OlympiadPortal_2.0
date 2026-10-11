@@ -35,14 +35,20 @@ const updateRoundRules = [
         .withMessage('qualifying_threshold must be a percentage from 0 to 100'),
 ];
 
-// ── Routes ──────────────────────────────────────────────
-// Auth + role are already applied by the parent /olympiads
-// router, but this router can also be reached standalone
-// via /rounds/:id for get/update/delete, so guard again here.
+// ── Routes ────────────────────────────────────────────
+// Nested under /olympiads/:olympiadId/rounds. Auth at router level; role
+// per route — a router-level role guard would 403 requests meant for
+// sibling routers sharing the /rounds prefix.
 
-router.use(requireAuth, requireRole('organiser'));
+router.use(requireAuth);
 
-router.post('/', createRoundRules, validate, createRound);
-router.get('/', listRounds);
+router.post(
+    '/',
+    requireRole('organiser'),
+    createRoundRules,
+    validate,
+    createRound
+);
+router.get('/', requireRole('organiser'), listRounds);
 
 module.exports = router;

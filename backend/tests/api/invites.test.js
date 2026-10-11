@@ -199,7 +199,7 @@ describe('GET /invites/mine', () => {
     });
 });
 
-describe('POST /invites/:inviteId/accept', () => {
+describe('POST /invites/:invitationId/accept', () => {
     it("registers the educator's school for the olympiad", async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -307,7 +307,7 @@ describe('POST /invites/:inviteId/accept', () => {
     });
 });
 
-describe('POST /invites/:inviteId/reject', () => {
+describe('POST /invites/:invitationId/reject', () => {
     it('marks the invitation rejected and registers nothing', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -422,7 +422,7 @@ describe('GET /invites/sent', () => {
     });
 });
 
-describe('DELETE /invites/:inviteId', () => {
+describe('DELETE /invites/:invitationId', () => {
     it('withdraws an invitation the sender has not had answered yet', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });

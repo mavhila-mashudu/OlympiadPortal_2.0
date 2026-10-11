@@ -39,7 +39,7 @@ describe('paperController', () => {
             method: 'uploadRoundPapers',
             req: mockReq({
                 user: organiser,
-                params: { id: 'round-1' },
+                params: { roundId: 'round-1' },
                 files: { paper: [paperFile], memo: [memoFile] },
             }),
             args: [
@@ -59,7 +59,7 @@ describe('paperController', () => {
             method: 'getDownloadUrl',
             req: mockReq({
                 user: organiser,
-                params: { id: 'paper-1' },
+                params: { paperId: 'paper-1' },
                 query: { type: 'memo' },
             }),
             args: ['paper-1', 'org-1', 'memo'],
@@ -82,7 +82,7 @@ describe('paperController', () => {
         paperService.uploadRoundPapers.mockReset().mockResolvedValue({});
         await run(
             paperController.uploadPapers,
-            mockReq({ user: organiser, params: { id: 'round-1' } })
+            mockReq({ user: organiser, params: { roundId: 'round-1' } })
         );
         expect(paperService.uploadRoundPapers).toHaveBeenCalledWith({
             roundId: 'round-1',
@@ -164,7 +164,7 @@ describe('submissionController', () => {
             method: 'getSubmission',
             req: mockReq({
                 user: organiser,
-                params: { roundId: 'round-1', id: 'sub-1' },
+                params: { roundId: 'round-1', submissionId: 'sub-1' },
             }),
             args: ['sub-1', 'org-1', 'organiser', 'round-1'],
             json: (result) => ok({ submission: result }),

@@ -70,7 +70,7 @@ describe('GET /notifications', () => {
     });
 });
 
-describe('PATCH /notifications/:id/read', () => {
+describe('PATCH /notifications/:notificationId/read', () => {
     it("marks the user's notification read, and leaves the first read time alone", async () => {
         const { user } = await f.createEducator();
         const note = await notify(user);

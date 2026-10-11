@@ -124,15 +124,15 @@ data.forEach((school) =>
 | `GET /public/calendar`                                                | Rounds running within a date range                                    |
 | `GET /public/search`                                                  | Olympiads, schools and rounds matching a name                         |
 | `GET /public/olympiads`                                               | Olympiads, with search, year filter, sorting and pages                |
-| `GET /public/olympiads/:id`                                           | One olympiad and its rounds                                           |
+| `GET /public/olympiads/:olympiadId`                                   | One olympiad and its rounds                                           |
 | `GET /public/olympiads/:olympiadId/rounds/:roundId/results`           | A released round's result statistics                                  |
 | `GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school` | The same, for each school                                             |
-| `GET /public/olympiads/:id/leaderboard`                               | Schools ranked by average score in an olympiad                        |
+| `GET /public/olympiads/:olympiadId/leaderboard`                       | Schools ranked by average score in an olympiad                        |
 | `GET /public/schools/top`                                             | Schools ranked by average score across every olympiad                 |
 | `GET /public/schools`                                                 | Schools, with search and pages                                        |
-| `GET /public/schools/:id`                                             | One school's participation and averages                               |
+| `GET /public/schools/:schoolId`                                       | One school's participation and averages                               |
 | `GET /public/papers`                                                  | Past papers of released rounds, with download links                   |
-| `GET /public/papers/:id/download`                                     | Downloads a past paper or its memo                                    |
+| `GET /public/papers/:paperId/download`                                | Downloads a past paper or its memo                                    |
 
 Lists that page take `page` (from 1) and `limit`, and return a `pagination`
 object: `{ page, limit, total, totalPages }`. Ids are UUIDs; a malformed one
@@ -204,7 +204,7 @@ An empty `q` returns empty lists.
 }
 ```
 
-#### `GET /public/olympiads/:id`
+#### `GET /public/olympiads/:olympiadId`
 
 `{ id, name, timezone, createdAt, organiserName, schoolCount, studentCount, rounds }`,
 where each round is `{ id, name, state, opensAt, closesAt, resultsReleasedAt, participantCount, submissionCount }`.
@@ -250,7 +250,7 @@ round doesn't exist or belongs to another olympiad). Scores are marks out of
 `{ schoolId, schoolName, participantCount, averageScore, qualifiedCount, gradeDistribution }`.
 Same conditions as above.
 
-#### `GET /public/olympiads/:id/leaderboard`
+#### `GET /public/olympiads/:olympiadId/leaderboard`
 
 Schools ranked by their average over all of the olympiad's released rounds:
 `{ olympiadName, schools: [{ rank, schoolName, averageScore, totalParticipants, qualifiedCount }] }`.
@@ -270,7 +270,7 @@ Empty before any results are out.
 `search`, `page` and `limit` (1–100, default 20). Schools by name:
 `{ schools: [{ id, name, olympiadCount, studentCount }], pagination }`.
 
-#### `GET /public/schools/:id`
+#### `GET /public/schools/:schoolId`
 
 ```json
 {
@@ -325,7 +325,7 @@ Papers of rounds whose results are released, newest first:
 
 `memoFileUrl` is `null` when no memo was uploaded. The links don't expire, so they can be stored or put on a page.
 
-#### `GET /public/papers/:id/download`
+#### `GET /public/papers/:paperId/download`
 
 `type` — `paper` (the default) or `memo`. Redirects (`302`) to a link to the
 PDF that works for one minute, so follow the redirect straight away rather
@@ -391,7 +391,7 @@ A student must supply `school_id`. The student gets a `pending` entrant record
 and no access until the school's coordinator approves them. The student is
 **not** matched to an entrant an educator listed under the same name; the
 coordinator chooses whether to link them to one when approving
-(`PATCH /memberships/student-requests/:id`).
+(`PATCH /memberships/student-requests/:requestId`).
 
 - **Response `201`:** `data.user` - `{ id, full_name, email, role, created_at }`
 - **Errors:** `400` missing/invalid school, or an invalid invitation code; `404` school not found; `409` email already registered
@@ -431,7 +431,7 @@ are separate from the existing in-app Olympiad participation invitations.
 - **Query:** `school_id` (organisers only; optional filter)
 - **Response:** `data.invitations`, newest first. `status` is `pending`, `used`, `revoked` or `expired`.
 
-#### `DELETE /school-invitations/:id`
+#### `DELETE /school-invitations/:invitationId`
 
 Cancels an invitation that hasn't been used. Repeating it is harmless.
 
@@ -516,7 +516,7 @@ The invitations addressed to the signed-in user.
 - **Auth:** Bearer token (any role)
 - **Response:** `data.invites`
 
-### `POST /invites/:inviteId/accept`
+### `POST /invites/:invitationId/accept`
 
 Accept an invitation addressed to you, performing the registration it stands for.
 
@@ -524,7 +524,7 @@ Accept an invitation addressed to you, performing the registration it stands for
 - **Response:** `data.invite`
 - **Errors:** `400` already answered; `403` not your invitation; `404` unknown invitation
 
-### `POST /invites/:inviteId/reject`
+### `POST /invites/:invitationId/reject`
 
 Decline an invitation. Nothing is registered.
 
@@ -545,7 +545,7 @@ their school is approved for.
 - **Response `201`:** `data.invite`
 - **Errors:** `400` wrong role for the inviter; `403` not yours / not your school; `409` already invited to this olympiad
 
-### `DELETE /invites/:inviteId`
+### `DELETE /invites/:invitationId`
 
 Withdraw an invitation you sent that has not been answered yet.
 
@@ -588,11 +588,11 @@ All olympiad endpoints are organiser-only and scoped to the organiser's own olym
 
 List the organiser's olympiads.
 
-### `GET /olympiads/:id`
+### `GET /olympiads/:olympiadId`
 
 Single olympiad. `404` if not found or not owned by caller.
 
-### `PATCH /olympiads/:id`
+### `PATCH /olympiads/:olympiadId`
 
 Rename an olympiad.
 
@@ -600,7 +600,7 @@ Rename an olympiad.
 - **Body:** `{ "name": "New Name" }` (required)
 - **Response:** `data.olympiad`
 
-### `DELETE /olympiads/:id`
+### `DELETE /olympiads/:olympiadId`
 
 Delete an olympiad. Fails with `400` if the olympiad has any rounds — delete the rounds first.
 
@@ -616,7 +616,7 @@ Schools taking part in the olympiad, plus the educators who have been invited an
 Organiser-only. One archive of past papers shared by all of the organiser's olympiads: every round whose results have been released and whose paper has been archived, most recently closed first. The organiser's Archive page uses this.
 
 - **Response:** `data.rounds` — each round with its `papers` (`file_url`, `memo_file_url`, `is_archived`, …) and `olympiads` (`{ id, name, timezone }`), so rounds from different olympiads can be told apart and their times shown in each olympiad's timezone.
-- Download a file with `GET /papers/:id/download`.
+- Download a file with `GET /papers/:paperId/download`.
 
 ### `GET /olympiads/:olympiadId/archive`
 
@@ -665,15 +665,15 @@ Pre-flight holiday check. Call before creating or updating a round to surface pu
 
 ### Read / update / delete (standalone)
 
-#### `GET /rounds/:id`
+#### `GET /rounds/:roundId`
 
 Round detail incl. state, timing, and paper info. Organiser must own the round.
 
-#### `PATCH /rounds/:id`
+#### `PATCH /rounds/:roundId`
 
 Update round metadata. Same body fields as create, all optional. Response includes `data.warnings` (same shape as create) when dates fall on public holidays.
 
-#### `PATCH /rounds/:id/state`
+#### `PATCH /rounds/:roundId/state`
 
 Transition the round lifecycle.
 
@@ -681,11 +681,11 @@ Transition the round lifecycle.
 - **Body:** `state` — one of `scheduled`, `open`, `closed`, `marking`, `results_released`
 - **Response:** `data.round`
 
-#### `DELETE /rounds/:id`
+#### `DELETE /rounds/:roundId`
 
 Delete the round and its dependent records.
 
-#### `POST /rounds/:id/papers`
+#### `POST /rounds/:roundId/papers`
 
 Upload the question paper and/or memo PDF for a round.
 
@@ -782,11 +782,11 @@ Organiser-only, while the exam is `draft`. Copies the chosen bank questions onto
 - **Response `201`:** `data.questions` — the new copies
 - **Errors:** `400` exam not in draft · `404` a question isn't the organiser's or doesn't exist (nothing is imported) · `409` a question is already on this paper (nothing is imported)
 
-### `PATCH /rounds/:roundId/questions/:id`
+### `PATCH /rounds/:roundId/questions/:questionId`
 
 Same fields as create, all optional.
 
-### `DELETE /rounds/:roundId/questions/:id`
+### `DELETE /rounds/:roundId/questions/:questionId`
 
 ---
 
@@ -819,7 +819,7 @@ Signed, time-limited viewing URL (1 hour) for a round's paper or memo.
 - **Query:** `type=paper` (default) or `type=memo`
 - Organisers get both; educators get the paper only (the memo backs organiser verification).
 
-### `GET /papers/:id/download`
+### `GET /papers/:paperId/download`
 
 Signed direct download URL (60 seconds). Organiser-only.
 
@@ -850,7 +850,7 @@ List submissions for a round.
 
 - **Auth:** educator or organiser
 
-### `GET /rounds/:roundId/submissions/:id`
+### `GET /rounds/:roundId/submissions/:submissionId`
 
 Single submission with answers.
 
@@ -879,7 +879,7 @@ Generate final results with ranks and qualification status. Requires all answers
 - **Ranks:** highest total first; equal totals share a rank and the next rank skips ("1, 1, 3").
 - **Qualification:** an entrant qualifies when their total is at least `qualifying_threshold` percent of the paper's total marks (the sum of its questions' `max_points`). Qualifiers are entered for the olympiad's next round. With no threshold, nobody qualifies.
 
-### `PATCH /rounds/:roundId/answers/:id`
+### `PATCH /rounds/:roundId/answers/:answerId`
 
 Manually mark a single answer.
 
@@ -926,7 +926,7 @@ Create the submission and empty answer rows for every question. Idempotent — i
 - Once the round's deadline has passed → `400` "The round has closed", even in the moments before the lifecycle job marks the round closed.
 - **Response `201`:** `data.submission` — `{ id, status, answers }`
 
-### `PATCH /rounds/:roundId/exam/answers/:qid`
+### `PATCH /rounds/:roundId/exam/answers/:questionId`
 
 Auto-save a single answer as the student types.
 

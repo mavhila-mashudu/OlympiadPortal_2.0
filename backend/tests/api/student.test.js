@@ -540,7 +540,7 @@ describe('sitting an exam online', () => {
         });
     });
 
-    describe('PATCH /rounds/:roundId/exam/answers/:qid', () => {
+    describe('PATCH /rounds/:roundId/exam/answers/:questionId', () => {
         it("adds one autosave event per answer to the round's timeline, however often it is saved", async () => {
             const { round, mcq, short, studentApi } = await setup();
             expectOk(await studentApi.post(`${exam(round)}/start`), 201);

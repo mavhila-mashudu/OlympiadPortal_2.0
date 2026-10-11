@@ -23,7 +23,7 @@ const endpoints = [
     { method: 'get', path: '/public/calendar', roles: 'public' },
     { method: 'get', path: '/public/search', roles: 'public' },
     { method: 'get', path: '/public/olympiads', roles: 'public' },
-    { method: 'get', path: '/public/olympiads/:id', roles: 'public' },
+    { method: 'get', path: '/public/olympiads/:olympiadId', roles: 'public' },
     {
         method: 'get',
         path: '/public/olympiads/:olympiadId/rounds/:roundId/results',
@@ -36,18 +36,18 @@ const endpoints = [
     },
     {
         method: 'get',
-        path: '/public/olympiads/:id/leaderboard',
+        path: '/public/olympiads/:olympiadId/leaderboard',
         roles: 'public',
     },
     { method: 'get', path: '/public/schools/top', roles: 'public' },
     { method: 'get', path: '/public/schools', roles: 'public' },
-    { method: 'get', path: '/public/schools/:id', roles: 'public' },
+    { method: 'get', path: '/public/schools/:schoolId', roles: 'public' },
     { method: 'get', path: '/public/papers', roles: 'public' },
-    { method: 'get', path: '/public/papers/:id/download', roles: 'public' },
+    { method: 'get', path: '/public/papers/:paperId/download', roles: 'public' },
 
     // Portal notifications
     { method: 'get', path: '/notifications', roles: 'any' },
-    { method: 'patch', path: '/notifications/:id/read', roles: 'any' },
+    { method: 'patch', path: '/notifications/:notificationId/read', roles: 'any' },
 
     // Marking review and remarks
     { method: 'get', path: '/rounds/:roundId/review-sample', roles: STAFF },
@@ -76,33 +76,45 @@ const endpoints = [
 
     // School membership approval
     { method: 'get', path: '/memberships/requests', roles: STAFF },
-    { method: 'patch', path: '/memberships/requests/:id', roles: STAFF },
-    { method: 'patch', path: '/memberships/student-requests/:id', roles: STAFF },
+    { method: 'patch', path: '/memberships/requests/:requestId', roles: STAFF },
+    {
+        method: 'patch',
+        path: '/memberships/student-requests/:requestId',
+        roles: STAFF,
+    },
 
     // School signup codes (organiser or active educator, school-scoped)
     { method: 'get', path: '/school-invitations', roles: STAFF },
     { method: 'post', path: '/school-invitations', roles: STAFF },
-    { method: 'delete', path: '/school-invitations/:id', roles: STAFF },
+    {
+        method: 'delete',
+        path: '/school-invitations/:invitationId',
+        roles: STAFF,
+    },
 
     // In-app olympiad invitations
     { method: 'get', path: '/invites/mine', roles: 'any' },
-    { method: 'post', path: '/invites/:inviteId/accept', roles: 'any' },
-    { method: 'post', path: '/invites/:inviteId/reject', roles: 'any' },
+    { method: 'post', path: '/invites/:invitationId/accept', roles: 'any' },
+    { method: 'post', path: '/invites/:invitationId/reject', roles: 'any' },
     { method: 'get', path: '/invites/sent', roles: STAFF },
     { method: 'get', path: '/invites/candidates', roles: STAFF },
     { method: 'post', path: '/invites', roles: STAFF },
-    { method: 'delete', path: '/invites/:inviteId', roles: STAFF },
+    {
+        method: 'delete',
+        path: '/invites/:invitationId',
+        roles: STAFF,
+    },
 
     // Olympiads (organiser)
     { method: 'post', path: '/olympiads', roles: ORGANISER },
     { method: 'get', path: '/olympiads', roles: ORGANISER },
-    { method: 'get', path: '/olympiads/:id', roles: ORGANISER },
-    { method: 'patch', path: '/olympiads/:id', roles: ORGANISER },
-    { method: 'delete', path: '/olympiads/:id', roles: ORGANISER },
+    { method: 'get', path: '/olympiads/:olympiadId', roles: ORGANISER },
+    { method: 'patch', path: '/olympiads/:olympiadId', roles: ORGANISER },
+    { method: 'delete', path: '/olympiads/:olympiadId', roles: ORGANISER },
     { method: 'get', path: '/olympiads/:olympiadId/schools', roles: ORGANISER },
     { method: 'get', path: '/olympiads/:olympiadId/archive', roles: ORGANISER },
     { method: 'get', path: '/olympiads/archive', roles: ORGANISER },
-    { method: 'get', path: '/rounds/:id/replay', roles: ORGANISER },
+    { method: 'get', path: '/rounds/:roundId/replay', roles: ORGANISER },
     { method: 'post', path: '/olympiads/:olympiadId/rounds', roles: ORGANISER },
     { method: 'get', path: '/olympiads/:olympiadId/rounds', roles: ORGANISER },
     {
@@ -133,11 +145,11 @@ const endpoints = [
 
     // A single round (organiser)
     { method: 'post', path: '/rounds/check-dates', roles: ORGANISER },
-    { method: 'get', path: '/rounds/:id', roles: ORGANISER },
-    { method: 'patch', path: '/rounds/:id', roles: ORGANISER },
-    { method: 'patch', path: '/rounds/:id/state', roles: ORGANISER },
-    { method: 'delete', path: '/rounds/:id', roles: ORGANISER },
-    { method: 'post', path: '/rounds/:id/papers', roles: ORGANISER },
+    { method: 'get', path: '/rounds/:roundId', roles: ORGANISER },
+    { method: 'patch', path: '/rounds/:roundId', roles: ORGANISER },
+    { method: 'patch', path: '/rounds/:roundId/state', roles: ORGANISER },
+    { method: 'delete', path: '/rounds/:roundId', roles: ORGANISER },
+    { method: 'post', path: '/rounds/:roundId/papers', roles: ORGANISER },
 
     // Questions and exam verification
     { method: 'post', path: '/rounds/:roundId/questions', roles: STAFF },
@@ -148,24 +160,36 @@ const endpoints = [
         path: '/rounds/:roundId/question-bank/import',
         roles: ORGANISER,
     },
-    { method: 'patch', path: '/rounds/:roundId/questions/:id', roles: STAFF },
-    { method: 'delete', path: '/rounds/:roundId/questions/:id', roles: STAFF },
+    {
+        method: 'patch',
+        path: '/rounds/:roundId/questions/:questionId',
+        roles: STAFF,
+    },
+    {
+        method: 'delete',
+        path: '/rounds/:roundId/questions/:questionId',
+        roles: STAFF,
+    },
     { method: 'get', path: '/rounds/:roundId/exam-status', roles: STAFF },
     { method: 'patch', path: '/rounds/:roundId/exam-status', roles: STAFF },
 
     // Papers
     { method: 'get', path: '/papers/by-round/:roundId', roles: STAFF },
-    { method: 'get', path: '/papers/:id/download', roles: ORGANISER },
+    { method: 'get', path: '/papers/:paperId/download', roles: ORGANISER },
 
     // Submissions, marking and results
     { method: 'post', path: '/rounds/:roundId/submissions', roles: EDUCATOR },
     { method: 'get', path: '/rounds/:roundId/submissions', roles: STAFF },
-    { method: 'get', path: '/rounds/:roundId/submissions/:id', roles: STAFF },
+    {
+        method: 'get',
+        path: '/rounds/:roundId/submissions/:submissionId',
+        roles: STAFF,
+    },
     { method: 'post', path: '/rounds/:roundId/mark', roles: STAFF },
     { method: 'get', path: '/rounds/:roundId/marking-queue', roles: STAFF },
     { method: 'post', path: '/rounds/:roundId/results', roles: ORGANISER },
     { method: 'get', path: '/rounds/:roundId/standings', roles: ORGANISER },
-    { method: 'patch', path: '/rounds/:roundId/answers/:id', roles: STAFF },
+    { method: 'patch', path: '/rounds/:roundId/answers/:answerId', roles: STAFF },
 
     // Educator portal
     { method: 'get', path: '/educator/overview', roles: EDUCATOR },
@@ -258,7 +282,7 @@ const endpoints = [
     { method: 'post', path: '/rounds/:roundId/exam/start', roles: STUDENT },
     {
         method: 'patch',
-        path: '/rounds/:roundId/exam/answers/:qid',
+        path: '/rounds/:roundId/exam/answers/:questionId',
         roles: STUDENT,
     },
     { method: 'post', path: '/rounds/:roundId/exam/submit', roles: STUDENT },

@@ -28,7 +28,9 @@ const listOlympiads = async (req, res, next) => {
 
 const getOlympiadDetail = async (req, res, next) => {
     try {
-        const detail = await publicService.getOlympiadDetail(req.params.id);
+        const detail = await publicService.getOlympiadDetail(
+            req.params.olympiadId
+        );
         res.json({ success: true, data: detail });
     } catch (err) {
         next(err);
@@ -64,7 +66,7 @@ const getRoundResultsBySchool = async (req, res, next) => {
 const getOlympiadLeaderboard = async (req, res, next) => {
     try {
         const result = await publicService.getOlympiadLeaderboard(
-            req.params.id
+            req.params.olympiadId
         );
         res.json({ success: true, data: result });
     } catch (err) {
@@ -84,7 +86,7 @@ const listSchools = async (req, res, next) => {
 
 const getSchoolDetail = async (req, res, next) => {
     try {
-        const detail = await publicService.getSchoolDetail(req.params.id);
+        const detail = await publicService.getSchoolDetail(req.params.schoolId);
         res.json({ success: true, data: detail });
     } catch (err) {
         next(err);
@@ -112,7 +114,7 @@ const listPapers = async (req, res, next) => {
 const downloadPaper = async (req, res, next) => {
     try {
         const url = await publicService.getPaperDownloadUrl(
-            req.params.id,
+            req.params.paperId,
             req.query.type || 'paper'
         );
         // The link expires in a minute, so the redirect itself must not be kept

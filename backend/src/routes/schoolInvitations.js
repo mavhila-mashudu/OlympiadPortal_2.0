@@ -58,12 +58,12 @@ router.post(
 );
 
 router.delete(
-    '/:id',
-    [param('id').isUUID()],
+    '/:invitationId',
+    [param('invitationId').isUUID()],
     validate,
     async (req, res, next) => {
         try {
-            await service.revokeInvitation(req.user, req.params.id);
+            await service.revokeInvitation(req.user, req.params.invitationId);
             res.json({ success: true, data: {} });
         } catch (err) {
             next(err);

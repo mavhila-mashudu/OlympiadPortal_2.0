@@ -13,23 +13,23 @@ router.get('/requests', async (req, res, next) => {
         res.json({ success: true, data: { requests } });
     } catch (err) { next(err); }
 });
-router.patch('/requests/:id', [
-    param('id').isUUID(),
+router.patch('/requests/:requestId', [
+    param('requestId').isUUID(),
     body('decision').isIn(['approve','reject']),
 ], validate, async (req, res, next) => {
     try {
-        const membership = await service.decideRequest(req.user, req.params.id, req.body.decision);
+        const membership = await service.decideRequest(req.user, req.params.requestId, req.body.decision);
         res.json({ success: true, data: { membership } });
     } catch (err) { next(err); }
 });
-router.patch('/student-requests/:id', [
-    param('id').isUUID(),
+router.patch('/student-requests/:requestId', [
+    param('requestId').isUUID(),
     body('decision').isIn(['approve','reject']),
     body('link_entrant_id').optional({ values: 'falsy' }).isUUID(),
 ], validate, async (req, res, next) => {
     try {
         const student = await service.decideStudentRequest(
-            req.user, req.params.id, req.body.decision, req.body.link_entrant_id
+            req.user, req.params.requestId, req.body.decision, req.body.link_entrant_id
         );
         res.json({ success: true, data: { student } });
     } catch (err) { next(err); }

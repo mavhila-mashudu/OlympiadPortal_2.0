@@ -42,7 +42,7 @@ const listSubmissions = async (req, res, next) => {
 const getSubmission = async (req, res, next) => {
     try {
         const submission = await submissionService.getSubmission(
-            req.params.id,
+            req.params.submissionId,
             req.user.userId,
             req.user.role,
             req.params.roundId

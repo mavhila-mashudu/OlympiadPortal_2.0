@@ -56,7 +56,7 @@ const createInvite = async (req, res, next) => {
 const acceptInvite = async (req, res, next) => {
     try {
         const invite = await inviteService.respondToInvite({
-            inviteId: req.params.inviteId,
+            inviteId: req.params.invitationId,
             userId: req.user.userId,
             accept: true,
         });
@@ -69,7 +69,7 @@ const acceptInvite = async (req, res, next) => {
 const rejectInvite = async (req, res, next) => {
     try {
         const invite = await inviteService.respondToInvite({
-            inviteId: req.params.inviteId,
+            inviteId: req.params.invitationId,
             userId: req.user.userId,
             accept: false,
         });
@@ -82,7 +82,7 @@ const rejectInvite = async (req, res, next) => {
 const cancelInvite = async (req, res, next) => {
     try {
         const result = await inviteService.cancelInvite({
-            inviteId: req.params.inviteId,
+            inviteId: req.params.invitationId,
             userId: req.user.userId,
         });
         res.json({ success: true, data: result });

@@ -63,7 +63,7 @@ const checkDatesRules = [
 // falls through to them.
 router.use(requireAuth);
 
-// Static paths must come before /:id to avoid param capture.
+// Static paths must come before /:roundId to avoid param capture.
 router.post(
     '/check-dates',
     requireRole('organiser'),
@@ -72,35 +72,40 @@ router.post(
     checkDates
 );
 
-router.get('/:id', requireRole('organiser'), getRound);
-router.get('/:id/replay', requireRole('organiser'), async (req, res, next) => {
-    try {
-        const data = await require('../services/roundAuditService').replayRound(
-            req.params.id,
-            req.user.userId
-        );
-        res.json({ success: true, data });
-    } catch (error) {
-        next(error);
+router.get('/:roundId', requireRole('organiser'), getRound);
+router.get(
+    '/:roundId/replay',
+    requireRole('organiser'),
+    async (req, res, next) => {
+        try {
+            const data =
+                await require('../services/roundAuditService').replayRound(
+                    req.params.roundId,
+                    req.user.userId
+                );
+            res.json({ success: true, data });
+        } catch (error) {
+            next(error);
+        }
     }
-});
+);
 router.patch(
-    '/:id',
+    '/:roundId',
     requireRole('organiser'),
     updateRoundRules,
     validate,
     updateRound
 );
 router.patch(
-    '/:id/state',
+    '/:roundId/state',
     requireRole('organiser'),
     setRoundStateRules,
     validate,
     setRoundState
 );
-router.delete('/:id', requireRole('organiser'), deleteRound);
+router.delete('/:roundId', requireRole('organiser'), deleteRound);
 router.post(
-    '/:id/papers',
+    '/:roundId/papers',
     requireRole('organiser'),
     upload.fields([
         { name: 'paper', maxCount: 1 },

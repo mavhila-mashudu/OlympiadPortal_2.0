@@ -50,7 +50,7 @@ router.get(
 
 // Get a single submission — educator or organiser
 router.get(
-    '/:roundId/submissions/:id',
+    '/:roundId/submissions/:submissionId',
     requireRole('educator', 'organiser'),
     getSubmission
 );

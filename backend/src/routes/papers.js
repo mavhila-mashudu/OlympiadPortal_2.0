@@ -20,6 +20,6 @@ router.get(
 
 // Organiser-only direct download by paper id
 router.use(requireAuth, requireRole('organiser'));
-router.get('/:id/download', downloadPaper);
+router.get('/:paperId/download', downloadPaper);
 
 module.exports = router;

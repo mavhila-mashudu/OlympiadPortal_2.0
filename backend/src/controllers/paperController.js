@@ -7,7 +7,7 @@ const uploadPapers = async (req, res, next) => {
         const memoFile = req.files?.memo?.[0];
 
         const paper = await paperService.uploadRoundPapers({
-            roundId: req.params.id,
+            roundId: req.params.roundId,
             organiserId: req.user.userId,
             paperFile,
             memoFile,
@@ -23,7 +23,7 @@ const downloadPaper = async (req, res, next) => {
     try {
         const type = req.query.type === 'memo' ? 'memo' : 'paper';
         const url = await paperService.getDownloadUrl(
-            req.params.id,
+            req.params.paperId,
             req.user.userId,
             type
         );

@@ -91,8 +91,8 @@ router.get(
 
 // Single olympiad detail
 router.get(
-    '/olympiads/:id',
-    [param('id').isUUID().withMessage('Valid olympiad UUID required')],
+    '/olympiads/:olympiadId',
+    [param('olympiadId').isUUID().withMessage('Valid olympiad UUID required')],
     validate,
     getOlympiadDetail
 );
@@ -125,13 +125,13 @@ router.get(
 
 // Olympiad leaderboard (schools ranked by average score)
 router.get(
-    '/olympiads/:id/leaderboard',
-    [param('id').isUUID().withMessage('Valid olympiad UUID required')],
+    '/olympiads/:olympiadId/leaderboard',
+    [param('olympiadId').isUUID().withMessage('Valid olympiad UUID required')],
     validate,
     getOlympiadLeaderboard
 );
 
-// Top schools across all olympiads (declared before /schools/:id)
+// Top schools across all olympiads (declared before /schools/:schoolId)
 router.get(
     '/schools/top',
     [
@@ -168,8 +168,8 @@ router.get(
 
 // Single school detail
 router.get(
-    '/schools/:id',
-    [param('id').isUUID().withMessage('Valid school UUID required')],
+    '/schools/:schoolId',
+    [param('schoolId').isUUID().withMessage('Valid school UUID required')],
     validate,
     getSchoolDetail
 );
@@ -202,9 +202,9 @@ router.get(
 // Download an archived paper or its memo: redirects to a short-lived link to
 // the file, so the URLs in /papers keep working however long they are kept
 router.get(
-    '/papers/:id/download',
+    '/papers/:paperId/download',
     [
-        param('id').isUUID().withMessage('Valid paper UUID required'),
+        param('paperId').isUUID().withMessage('Valid paper UUID required'),
         query('type')
             .optional()
             .isIn(['paper', 'memo'])

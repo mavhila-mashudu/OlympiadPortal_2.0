@@ -279,7 +279,7 @@ describe('GET /rounds/:roundId/questions', () => {
     });
 });
 
-describe('PATCH /rounds/:roundId/questions/:id', () => {
+describe('PATCH /rounds/:roundId/questions/:questionId', () => {
     const withQuestion = async (roundOverrides) => {
         const world = await setup(roundOverrides);
         const { questions } = await f.createPaper({
@@ -386,7 +386,7 @@ describe('PATCH /rounds/:roundId/questions/:id', () => {
     });
 });
 
-describe('DELETE /rounds/:roundId/questions/:id', () => {
+describe('DELETE /rounds/:roundId/questions/:questionId', () => {
     it('deletes a question from a draft exam', async () => {
         const { round, organiserApi } = await setup();
         const { questions } = await f.createPaper({
@@ -1177,7 +1177,7 @@ describe('GET /papers/by-round/:roundId', () => {
     });
 });
 
-describe('GET /papers/:id/download', () => {
+describe('GET /papers/:paperId/download', () => {
     it('gives the owning organiser a one-minute download link', async () => {
         const { round, organiserApi } = await setup();
         const { paper } = await f.createPaper({

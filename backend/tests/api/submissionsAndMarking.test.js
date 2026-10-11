@@ -432,7 +432,7 @@ describe('GET /rounds/:roundId/submissions', () => {
     });
 });
 
-describe('GET /rounds/:roundId/submissions/:id', () => {
+describe('GET /rounds/:roundId/submissions/:submissionId', () => {
     it("returns a submission with its answers to the organiser and the learner's school", async () => {
         const { round, mine, organiserApi, educatorApi } =
             await withSubmissions();
@@ -594,7 +594,7 @@ describe('GET /rounds/:roundId/marking-queue', () => {
     });
 });
 
-describe('PATCH /rounds/:roundId/answers/:id', () => {
+describe('PATCH /rounds/:roundId/answers/:answerId', () => {
     const essayAnswerOf = (world, submission) =>
         prisma.answers.findFirst({
             where: {

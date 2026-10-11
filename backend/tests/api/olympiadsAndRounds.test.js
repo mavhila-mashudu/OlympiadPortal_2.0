@@ -104,7 +104,7 @@ describe('GET /olympiads', () => {
     });
 });
 
-describe('GET /olympiads/:id', () => {
+describe('GET /olympiads/:olympiadId', () => {
     it('returns the olympiad with its rounds in opening order', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -747,7 +747,7 @@ describe('a single round', () => {
     };
     const MISSING = '00000000-0000-4000-8000-000000000000';
 
-    describe('GET /rounds/:id', () => {
+    describe('GET /rounds/:roundId', () => {
         it('returns the round with its olympiad and papers', async () => {
             const { round, olympiad, client } = await owned();
             await f.createPaper({ round, file_url: 'rounds/x/paper.pdf' });
@@ -773,7 +773,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('PATCH /rounds/:id', () => {
+    describe('PATCH /rounds/:roundId', () => {
         it("edits a scheduled round's name, times and threshold", async () => {
             const { round, client } = await owned();
             const opens_at = iso(72);
@@ -866,7 +866,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('PATCH /rounds/:id/state', () => {
+    describe('PATCH /rounds/:roundId/state', () => {
         it.each([
             ['scheduled', 'open'],
             ['open', 'closed'],
@@ -1023,7 +1023,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('DELETE /rounds/:id', () => {
+    describe('DELETE /rounds/:roundId', () => {
         it('deletes a scheduled round together with its paper and registrations', async () => {
             const { organiser, olympiad, school, educator } =
                 await f.createOlympiadWithSchool();
@@ -1070,7 +1070,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('POST /rounds/:id/papers', () => {
+    describe('POST /rounds/:roundId/papers', () => {
         const PDF = Buffer.from('%PDF-1.4 test');
 
         it('uploads the paper and memo to storage and records their paths', async () => {

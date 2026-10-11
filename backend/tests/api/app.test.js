@@ -54,6 +54,20 @@ describe('unknown routes', () => {
             'Route not found'
         );
     });
+
+    it('lets an undefined /rounds subpath fall through to 404, not 403', async () => {
+        // Nine routers share the /rounds prefix, so a role guard applied with
+        // router.use would 403 a request before Express could fall through to
+        // the routers that do define it. Guards must stay on single routes.
+        const { user } = await f.createEducator();
+        expectError(
+            await as(user).get(
+                '/rounds/00000000-0000-4000-8000-000000000000/not-a-route'
+            ),
+            404,
+            'Route not found'
+        );
+    });
 });
 
 describe('security headers (helmet)', () => {

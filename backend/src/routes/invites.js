@@ -17,8 +17,8 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-const inviteIdRule = [
-    param('inviteId').isUUID().withMessage('Valid invitation id required'),
+const invitationIdRule = [
+    param('invitationId').isUUID().withMessage('Valid invitation id required'),
 ];
 const olympiadQueryRule = [
     query('olympiad_id').isUUID().withMessage('Valid olympiad id required'),
@@ -34,8 +34,8 @@ const createInviteRules = [
 
 // Invitations addressed to the signed-in user, shown on their dashboard.
 router.get('/mine', listMyInvites);
-router.post('/:inviteId/accept', inviteIdRule, validate, acceptInvite);
-router.post('/:inviteId/reject', inviteIdRule, validate, rejectInvite);
+router.post('/:invitationId/accept', invitationIdRule, validate, acceptInvite);
+router.post('/:invitationId/reject', invitationIdRule, validate, rejectInvite);
 
 // Invitations the signed-in user has sent. Organisers invite educators to
 // their own olympiads; educators invite the students of their own school.
@@ -55,9 +55,9 @@ router.post(
     createInvite
 );
 router.delete(
-    '/:inviteId',
+    '/:invitationId',
     requireRole('organiser', 'educator'),
-    inviteIdRule,
+    invitationIdRule,
     validate,
     cancelInvite
 );

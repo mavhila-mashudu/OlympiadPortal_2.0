@@ -14,7 +14,7 @@ const {
 // ── Validation rules ──────────────────────────────────
 
 const markAnswerRules = [
-    param('id').isUUID(),
+    param('answerId').isUUID(),
     body('is_correct')
         .isBoolean()
         .withMessage('is_correct (boolean) is required'),
@@ -46,7 +46,7 @@ router.post('/:roundId/results', requireRole('organiser'), generateResults);
 
 // Manually mark a single answer (non-MCQ)
 router.patch(
-    '/:roundId/answers/:id',
+    '/:roundId/answers/:answerId',
     requireRole('organiser', 'educator'),
     markAnswerRules,
     validate,

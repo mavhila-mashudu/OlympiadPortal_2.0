@@ -46,18 +46,33 @@ const updateOlympiadRules = [
 ];
 
 // === Routes ===
-// All olympiad routes are organiser-only
+// Auth at router level; role per route. Role guards must NOT be applied
+// with router.use — this prefix is shared with the educators' and
+// students' olympiad routes, and a router-level guard would 403 their
+// requests before Express falls through to them.
 
-router.use(requireAuth, requireRole('organiser'));
+router.use(requireAuth);
 
-router.post('/', createOlympiadRules, validate, createOlympiad);
-router.get('/', listOlympiads);
-router.get('/archive', listSharedArchive);
-router.get('/:id', getOlympiad);
-router.patch('/:id', updateOlympiadRules, validate, updateOlympiad);
-router.delete('/:id', deleteOlympiad);
-router.get('/:olympiadId/schools', listSchools);
-router.get('/:olympiadId/archive', listArchive);
+router.post(
+    '/',
+    requireRole('organiser'),
+    createOlympiadRules,
+    validate,
+    createOlympiad
+);
+router.get('/', requireRole('organiser'), listOlympiads);
+router.get('/archive', requireRole('organiser'), listSharedArchive);
+router.get('/:olympiadId', requireRole('organiser'), getOlympiad);
+router.patch(
+    '/:olympiadId',
+    requireRole('organiser'),
+    updateOlympiadRules,
+    validate,
+    updateOlympiad
+);
+router.delete('/:olympiadId', requireRole('organiser'), deleteOlympiad);
+router.get('/:olympiadId/schools', requireRole('organiser'), listSchools);
+router.get('/:olympiadId/archive', requireRole('organiser'), listArchive);
 
 // Rounds are nested under their olympiad:
 // /olympiads/:olympiadId/rounds

@@ -23,7 +23,7 @@ const startExam = getRouteHandler(
 const saveAnswer = getRouteHandler(
     studentExamRouter,
     'patch',
-    '/:roundId/exam/answers/:qid'
+    '/:roundId/exam/answers/:questionId'
 );
 const submitExam = getRouteHandler(
     studentExamRouter,
@@ -147,19 +147,22 @@ describe('online exam sitting', () => {
         // Save answers as the student works
         await run(
             saveAnswer,
-            req({ params: { qid: mcq.id }, body: { answer_value: primePicks } })
+            req({
+                params: { questionId: mcq.id },
+                body: { answer_value: primePicks },
+            })
         );
         await run(
             saveAnswer,
             req({
-                params: { qid: short.id },
+                params: { questionId: short.id },
                 body: { answer_value: '  pretoria ' },
             })
         );
         await run(
             saveAnswer,
             req({
-                params: { qid: essay.id },
+                params: { questionId: essay.id },
                 body: { answer_value: 'Plants turn light into sugar.' },
             })
         );
@@ -231,7 +234,7 @@ describe('online exam sitting', () => {
         });
         const lateEdit = await run(
             saveAnswer,
-            req({ params: { qid: mcq.id }, body: { answer_value: '0,2' } })
+            req({ params: { questionId: mcq.id }, body: { answer_value: '0,2' } })
         );
         expect(errorOf(lateEdit.next)).toMatchObject({ statusCode: 400 });
         expect(
@@ -291,11 +294,14 @@ describe('online exam sitting', () => {
         await run(startExam, req());
         await run(
             saveAnswer,
-            req({ params: { qid: mcq.id }, body: { answer_value: picks } })
+            req({ params: { questionId: mcq.id }, body: { answer_value: picks } })
         );
         await run(
             saveAnswer,
-            req({ params: { qid: short.id }, body: { answer_value: 'Durban' } })
+            req({
+                params: { questionId: short.id },
+                body: { answer_value: 'Durban' },
+            })
         );
         const { res } = await run(submitExam, req());
 
@@ -404,7 +410,7 @@ describe('online exam sitting', () => {
         const { req, mcq } = await setupSitting();
         const { next } = await run(
             saveAnswer,
-            req({ params: { qid: mcq.id }, body: { answer_value: '0' } })
+            req({ params: { questionId: mcq.id }, body: { answer_value: '0' } })
         );
         expect(errorOf(next)).toMatchObject({
             message: 'No active submission found — start the exam first',
@@ -425,7 +431,7 @@ describe('online exam sitting', () => {
         const { next } = await run(
             saveAnswer,
             req({
-                params: { qid: questions[0].id },
+                params: { questionId: questions[0].id },
                 body: { answer_value: 'x' },
             })
         );

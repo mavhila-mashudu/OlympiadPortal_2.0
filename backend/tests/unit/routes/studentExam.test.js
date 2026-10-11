@@ -18,7 +18,7 @@ const startExam = getRouteHandler(router, 'post', '/:roundId/exam/start');
 const saveAnswer = getRouteHandler(
     router,
     'patch',
-    '/:roundId/exam/answers/:qid'
+    '/:roundId/exam/answers/:questionId'
 );
 const submitExam = getRouteHandler(router, 'post', '/:roundId/exam/submit');
 
@@ -542,9 +542,9 @@ describe('POST /:roundId/exam/start', () => {
     });
 });
 
-describe('PATCH /:roundId/exam/answers/:qid', () => {
+describe('PATCH /:roundId/exam/answers/:questionId', () => {
     const saveReq = (body) =>
-        studentReq({ params: { roundId: 'round-1', qid: 'q1' }, body });
+        studentReq({ params: { roundId: 'round-1', questionId: 'q1' }, body });
     // An attempt in progress in a round that closes at 10:00
     const inProgress = (round = {}) => ({
         id: 'sub-1',
@@ -566,7 +566,7 @@ describe('PATCH /:roundId/exam/answers/:qid', () => {
             saveAnswer,
             mockReq({
                 user: { ...student, entrant: null },
-                params: { roundId: 'round-1', qid: 'q1' },
+                params: { roundId: 'round-1', questionId: 'q1' },
                 body: { answer_value: '0' },
             })
         );
