@@ -144,7 +144,7 @@ describe('educator round page', () => {
         mockApi('get', '/me/rounds/round-1', () => ({
             round: state.round,
         }));
-        mockApi('get', '/educator/rounds/round-1/papers/past', {
+        mockApi('get', '/rounds/round-1/papers/archive', {
             papers: pastPapers,
         });
         mockApi('get', '/rounds/round-1/entrants', {
@@ -157,7 +157,7 @@ describe('educator round page', () => {
         mockRound(roundDetail());
         const downloads = mockApi(
             'get',
-            '/educator/rounds/:roundId/paper/download',
+            '/rounds/:roundId/papers/download',
             (req) => ({ url: `https://storage.test/paper.pdf${req.search}` })
         );
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -175,7 +175,7 @@ describe('educator round page', () => {
             )
         );
         expect(downloads[0].path).toBe(
-            '/educator/rounds/round-1/paper/download'
+            '/rounds/round-1/papers/download'
         );
     });
 
@@ -488,7 +488,7 @@ describe('educator round page', () => {
         });
         const downloads = mockApi(
             'get',
-            '/educator/rounds/:roundId/paper/download',
+            '/rounds/:roundId/papers/download',
             { url: 'https://storage.test/past.pdf' }
         );
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -509,7 +509,7 @@ describe('educator round page', () => {
             )
         );
         expect(downloads[0].path).toBe(
-            '/educator/rounds/round-0/paper/download'
+            '/rounds/round-0/papers/download'
         );
     });
 
@@ -604,7 +604,7 @@ describe('educator round page', () => {
             403,
             'Your school is not registered for this olympiad'
         );
-        mockApi('get', '/educator/rounds/round-1/papers/past', { papers: [] });
+        mockApi('get', '/rounds/round-1/papers/archive', { papers: [] });
         mockApi('get', '/rounds/round-1/entrants', { entrants: [] });
         renderApp('/educator/rounds/round-1');
 

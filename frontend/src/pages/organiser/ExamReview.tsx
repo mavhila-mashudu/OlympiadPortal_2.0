@@ -144,7 +144,7 @@ function ExamReview() {
     // side-by-side so each digitized answer can be verified
     // against the original
     useEffect(() => {
-        api.get<{ url: string }>(`/papers/by-round/${roundId}?type=memo`)
+        api.get<{ url: string }>(`/rounds/${roundId}/papers/preview?type=memo`)
             .then((res) => setMemoUrl(res.url))
             .catch(() => setMemoUrl(null));
     }, [roundId]);

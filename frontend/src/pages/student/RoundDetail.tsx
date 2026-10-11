@@ -143,7 +143,7 @@ function StudentRoundDetail() {
         setDownloadError(null);
         try {
             const { url } = await api.get<{ url: string }>(
-                `/rounds/${round.id}/paper/download`
+                `/rounds/${round.id}/papers/download`
             );
             window.open(url, '_blank');
         } catch (err) {

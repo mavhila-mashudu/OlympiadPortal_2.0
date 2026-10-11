@@ -155,7 +155,7 @@ describe('query hooks', () => {
         {
             name: 'usePastPapers',
             use: () => educatorApi.usePastPapers('r1'),
-            path: '/educator/rounds/r1/papers/past',
+            path: '/rounds/r1/papers/archive',
             response: { papers: [{ id: 'p1' }] },
             data: [{ id: 'p1' }],
         },
@@ -301,7 +301,7 @@ describe('downloadPaperFile', () => {
         await educatorApi.downloadPaperFile('r1');
 
         expect(get).toHaveBeenCalledWith(
-            '/educator/rounds/r1/paper/download?type=paper'
+            '/rounds/r1/papers/download?type=paper'
         );
         expect(open).toHaveBeenCalledWith(
             'https://signed.test/paper.pdf',
@@ -315,7 +315,7 @@ describe('downloadPaperFile', () => {
 
         await educatorApi.downloadPaperFile('r1', 'memo');
         expect(get).toHaveBeenCalledWith(
-            '/educator/rounds/r1/paper/download?type=memo'
+            '/rounds/r1/papers/download?type=memo'
         );
     });
 

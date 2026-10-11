@@ -1077,7 +1077,7 @@ describe('PATCH /rounds/:roundId/exam-status', () => {
     });
 });
 
-describe('GET /papers/by-round/:roundId', () => {
+describe('GET /rounds/:roundId/papers/preview', () => {
     const withFiles = async (paperOverrides = {}) => {
         const world = await setup();
         await f.createPaper({
@@ -1094,7 +1094,7 @@ describe('GET /papers/by-round/:roundId', () => {
         expect(
             expectOk(
                 await organiserApi.get(
-                    `/papers/by-round/${round.id}?type=paper`
+                    `/rounds/${round.id}/papers/preview?type=paper`
                 )
             )
         ).toEqual({
@@ -1102,7 +1102,7 @@ describe('GET /papers/by-round/:roundId', () => {
         });
         expect(
             expectOk(
-                await organiserApi.get(`/papers/by-round/${round.id}?type=memo`)
+                await organiserApi.get(`/rounds/${round.id}/papers/preview?type=memo`)
             )
         ).toEqual({
             url: 'https://storage.test/rounds/r/memo.pdf?expires=3600',
@@ -1113,10 +1113,10 @@ describe('GET /papers/by-round/:roundId', () => {
     it("gives a registered school's educator the paper but not the memo", async () => {
         const { round, educatorApi } = await withFiles();
         expect(
-            expectOk(await educatorApi.get(`/papers/by-round/${round.id}`)).url
+            expectOk(await educatorApi.get(`/rounds/${round.id}/papers/preview`)).url
         ).toContain('paper.pdf');
         expectError(
-            await educatorApi.get(`/papers/by-round/${round.id}?type=memo`),
+            await educatorApi.get(`/rounds/${round.id}/papers/preview?type=memo`),
             403,
             'Only the organiser can view the memo'
         );
@@ -1127,7 +1127,7 @@ describe('GET /papers/by-round/:roundId', () => {
         expect(
             expectOk(
                 await organiserApi.get(
-                    `/papers/by-round/${round.id}?type=answers`
+                    `/rounds/${round.id}/papers/preview?type=answers`
                 )
             ).url
         ).toContain('paper.pdf');
@@ -1136,13 +1136,13 @@ describe('GET /papers/by-round/:roundId', () => {
     it("responds 404 when there's no paper or no file of that type", async () => {
         const { round, organiserApi } = await setup();
         expectError(
-            await organiserApi.get(`/papers/by-round/${round.id}`),
+            await organiserApi.get(`/rounds/${round.id}/papers/preview`),
             404,
             'No paper uploaded for this round'
         );
         await f.createPaper({ round, file_url: 'rounds/r/paper.pdf' });
         expectError(
-            await organiserApi.get(`/papers/by-round/${round.id}?type=memo`),
+            await organiserApi.get(`/rounds/${round.id}/papers/preview?type=memo`),
             404,
             'No memo uploaded for this round'
         );
@@ -1151,12 +1151,12 @@ describe('GET /papers/by-round/:roundId', () => {
     it('refuses organisers and schools outside the olympiad', async () => {
         const { round, otherOrganiserApi, outsiderApi } = await withFiles();
         expectError(
-            await otherOrganiserApi.get(`/papers/by-round/${round.id}`),
+            await otherOrganiserApi.get(`/rounds/${round.id}/papers/preview`),
             403,
             'Not your round'
         );
         expectError(
-            await outsiderApi.get(`/papers/by-round/${round.id}`),
+            await outsiderApi.get(`/rounds/${round.id}/papers/preview`),
             403,
             'Your school is not registered for this olympiad'
         );
@@ -1170,7 +1170,7 @@ describe('GET /papers/by-round/:roundId', () => {
             error: { message: 'Object not found' },
         });
         expectError(
-            await organiserApi.get(`/papers/by-round/${round.id}`),
+            await organiserApi.get(`/rounds/${round.id}/papers/preview`),
             400,
             'Could not generate view link: Object not found'
         );

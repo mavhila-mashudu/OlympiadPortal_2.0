@@ -2,11 +2,7 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const router = express.Router();
-const {
-    listSchools,
-    listArchive,
-    listSharedArchive,
-} = require('../controllers/schoolController');
+const { listSchools, listArchive } = require('../controllers/schoolController');
 const {
     createOlympiad,
     listOlympiads,
@@ -88,7 +84,6 @@ router.post(
     createOlympiad
 );
 router.get('/', requireRole('organiser'), listOlympiads);
-router.get('/archive', requireRole('organiser'), listSharedArchive);
 router.get('/:olympiadId', requireRole('organiser'), getOlympiad);
 router.patch(
     '/:olympiadId',
@@ -99,7 +94,11 @@ router.patch(
 );
 router.delete('/:olympiadId', requireRole('organiser'), deleteOlympiad);
 router.get('/:olympiadId/schools', requireRole('organiser'), listSchools);
-router.get('/:olympiadId/archive', requireRole('organiser'), listArchive);
+router.get(
+    '/:olympiadId/papers/archive',
+    requireRole('organiser'),
+    listArchive
+);
 
 // School entrants and progression (educator). School access is checked in
 // the service, exactly as it was when these routes lived under /educator.

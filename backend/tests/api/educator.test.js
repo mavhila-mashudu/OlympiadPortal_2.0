@@ -766,7 +766,7 @@ describe('GET /me/results', () => {
     });
 });
 
-describe('GET /educator/rounds/:roundId/papers/past', () => {
+describe('GET /rounds/:roundId/papers/archive', () => {
     it('lists papers from earlier closed rounds of the olympiad', async () => {
         const { round1, round2, educatorApi } = await setup();
         await f.createPaper({
@@ -779,7 +779,7 @@ describe('GET /educator/rounds/:roundId/papers/past', () => {
         expect(
             expectOk(
                 await educatorApi.get(
-                    `/educator/rounds/${round2.id}/papers/past`
+                    `/rounds/${round2.id}/papers/archive`
                 )
             )
         ).toEqual({
@@ -801,19 +801,19 @@ describe('GET /educator/rounds/:roundId/papers/past', () => {
     it('responds 403 to a school outside the olympiad and 404 for an unknown round', async () => {
         const { round2, outsiderApi, educatorApi } = await setup();
         expectError(
-            await outsiderApi.get(`/educator/rounds/${round2.id}/papers/past`),
+            await outsiderApi.get(`/rounds/${round2.id}/papers/archive`),
             403,
             'Your school is not registered for this olympiad'
         );
         expectError(
-            await educatorApi.get(`/educator/rounds/${MISSING}/papers/past`),
+            await educatorApi.get(`/rounds/${MISSING}/papers/archive`),
             404,
             'Round not found'
         );
     });
 });
 
-describe('GET /educator/rounds/:roundId/paper/download', () => {
+describe('GET /rounds/:roundId/papers/download', () => {
     it('signs a one-minute download link once the round has opened', async () => {
         const { round1, educatorApi } = await setup();
         await f.createPaper({
@@ -825,7 +825,7 @@ describe('GET /educator/rounds/:roundId/paper/download', () => {
         expect(
             expectOk(
                 await educatorApi.get(
-                    `/educator/rounds/${round1.id}/paper/download`
+                    `/rounds/${round1.id}/papers/download`
                 )
             )
         ).toEqual({
@@ -842,7 +842,7 @@ describe('GET /educator/rounds/:roundId/paper/download', () => {
         });
         expectError(
             await educatorApi.get(
-                `/educator/rounds/${round1.id}/paper/download?type=memo`
+                `/rounds/${round1.id}/papers/download?type=memo`
             ),
             403,
             'Only the organiser can download the memo'
@@ -854,7 +854,7 @@ describe('GET /educator/rounds/:roundId/paper/download', () => {
         await f.createPaper({ round: round2, file_url: 'p.pdf' });
         expectError(
             await educatorApi.get(
-                `/educator/rounds/${round2.id}/paper/download`
+                `/rounds/${round2.id}/papers/download`
             ),
             400,
             'Paper is not available yet — the round has not opened'
@@ -865,14 +865,14 @@ describe('GET /educator/rounds/:roundId/paper/download', () => {
         const { round1, outsiderApi, educatorApi } = await setup();
         expectError(
             await educatorApi.get(
-                `/educator/rounds/${round1.id}/paper/download`
+                `/rounds/${round1.id}/papers/download`
             ),
             404,
             'No paper uploaded for this round'
         );
         expectError(
             await outsiderApi.get(
-                `/educator/rounds/${round1.id}/paper/download`
+                `/rounds/${round1.id}/papers/download`
             ),
             403,
             'Your school is not registered for this olympiad'

@@ -146,8 +146,11 @@ const endpoints = [
     { method: 'patch', path: '/olympiads/:olympiadId', roles: ORGANISER },
     { method: 'delete', path: '/olympiads/:olympiadId', roles: ORGANISER },
     { method: 'get', path: '/olympiads/:olympiadId/schools', roles: ORGANISER },
-    { method: 'get', path: '/olympiads/:olympiadId/archive', roles: ORGANISER },
-    { method: 'get', path: '/olympiads/archive', roles: ORGANISER },
+    {
+        method: 'get',
+        path: '/olympiads/:olympiadId/papers/archive',
+        roles: ORGANISER,
+    },
     // School entrants and progression (educators)
     {
         method: 'post',
@@ -199,7 +202,16 @@ const endpoints = [
     { method: 'patch', path: '/rounds/:roundId', roles: ORGANISER },
     { method: 'patch', path: '/rounds/:roundId/state', roles: ORGANISER },
     { method: 'delete', path: '/rounds/:roundId', roles: ORGANISER },
+
+    // Round papers: upload, preview, download and the past-paper list
     { method: 'post', path: '/rounds/:roundId/papers', roles: ORGANISER },
+    { method: 'get', path: '/rounds/:roundId/papers/preview', roles: STAFF },
+    {
+        method: 'get',
+        path: '/rounds/:roundId/papers/download',
+        roles: ['educator', 'student'],
+    },
+    { method: 'get', path: '/rounds/:roundId/papers/archive', roles: EDUCATOR },
 
     // Round entrants and progression (educator; school-scoped in the service)
     { method: 'post', path: '/rounds/:roundId/entrants', roles: EDUCATOR },
@@ -229,7 +241,7 @@ const endpoints = [
     { method: 'patch', path: '/rounds/:roundId/exam-status', roles: STAFF },
 
     // Papers
-    { method: 'get', path: '/papers/by-round/:roundId', roles: STAFF },
+    { method: 'get', path: '/papers/archive', roles: ORGANISER },
     { method: 'get', path: '/papers/:paperId/download', roles: ORGANISER },
 
     // Submissions, marking and results
@@ -247,16 +259,6 @@ const endpoints = [
     { method: 'patch', path: '/rounds/:roundId/answers/:answerId', roles: STAFF },
 
     // Educator portal
-    {
-        method: 'get',
-        path: '/educator/rounds/:roundId/papers/past',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'get',
-        path: '/educator/rounds/:roundId/paper/download',
-        roles: EDUCATOR,
-    },
     { method: 'get', path: '/educator/remarks', roles: EDUCATOR },
     {
         method: 'get',
@@ -290,7 +292,6 @@ const endpoints = [
 
     // Student portal
     { method: 'get', path: '/rounds/:roundId/certificate', roles: STUDENT },
-    { method: 'get', path: '/rounds/:roundId/paper/download', roles: STUDENT },
     { method: 'get', path: '/rounds/:roundId/exam', roles: STUDENT },
     { method: 'post', path: '/rounds/:roundId/exam/start', roles: STUDENT },
     {
@@ -324,6 +325,7 @@ const mounts = {
     'submissions.js': '/rounds',
     'standings.js': '/rounds',
     'marking.js': '/rounds',
+    'roundPapers.js': '/rounds',
     'roundDetail.js': '/rounds',
     'papers.js': '/papers',
 };

@@ -625,7 +625,7 @@ describe('logging out', () => {
 
     it('shows the login page, not the account, when Back is pressed after logging out', async () => {
         mockLandingPages();
-        mockApi('get', '/olympiads/archive', { rounds: [] });
+        mockApi('get', '/papers/archive', { rounds: [] });
         mockApi('post', '/auth/logout', { message: 'Logged out' });
         localStorage.setItem('op_access_token', 'jwt');
         const { user, currentPath, goBack } = renderApp('/organiser');
@@ -656,7 +656,7 @@ describe('signed-in pages', () => {
         `header.${btoa(JSON.stringify({ exp: Math.floor(date.getTime() / 1000) })).replace(/=+$/, '')}.signature`;
 
     it("send a visitor who isn't signed in to the login page, and back after they log in", async () => {
-        mockApi('get', '/olympiads/archive', { rounds: [] });
+        mockApi('get', '/papers/archive', { rounds: [] });
         mockSupabaseSignIn({
             userId: 'organiser-user',
             accessToken: 'jwt-thandi',

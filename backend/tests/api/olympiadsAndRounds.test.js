@@ -348,7 +348,7 @@ describe('GET /olympiads/:olympiadId/schools', () => {
     });
 });
 
-describe('GET /olympiads/:olympiadId/archive', () => {
+describe('GET /olympiads/:olympiadId/papers/archive', () => {
     it('lists released rounds with archived papers, most recently closed first', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -377,7 +377,7 @@ describe('GET /olympiads/:olympiadId/archive', () => {
         await f.createRound({ olympiad, state: 'marking' });
 
         const { rounds } = expectOk(
-            await as(organiser).get(`/olympiads/${olympiad.id}/archive`)
+            await as(organiser).get(`/olympiads/${olympiad.id}/papers/archive`)
         );
 
         expect(rounds.map((r) => r.id)).toEqual([recent.id, old.id]);
@@ -393,7 +393,7 @@ describe('GET /olympiads/:olympiadId/archive', () => {
         const olympiad = await f.createOlympiad();
         expectError(
             await as(await f.createOrganiser()).get(
-                `/olympiads/${olympiad.id}/archive`
+                `/olympiads/${olympiad.id}/papers/archive`
             ),
             403,
             'Not your olympiad'
@@ -402,7 +402,7 @@ describe('GET /olympiads/:olympiadId/archive', () => {
 });
 
 // A16: one archive of past papers shared by all of the organiser's olympiads
-describe('GET /olympiads/archive', () => {
+describe('GET /papers/archive', () => {
     const released = async (olympiad, name, closesIn) => {
         const round = await f.createRound({
             olympiad,
@@ -436,7 +436,7 @@ describe('GET /olympiads/archive', () => {
         const mathsFinal = await released(maths, 'Maths final', -50);
 
         const { rounds } = expectOk(
-            await as(organiser).get('/olympiads/archive')
+            await as(organiser).get('/papers/archive')
         );
 
         expect(rounds.map((r) => r.id)).toEqual([
@@ -477,7 +477,7 @@ describe('GET /olympiads/archive', () => {
         await released(await f.createOlympiad(), "Someone else's", -5);
 
         const { rounds } = expectOk(
-            await as(organiser).get('/olympiads/archive')
+            await as(organiser).get('/papers/archive')
         );
 
         expect(rounds.map((r) => r.id)).toEqual([archived.id]);
@@ -485,7 +485,7 @@ describe('GET /olympiads/archive', () => {
 
     it('is empty for an organiser with nothing archived, and for organisers only', async () => {
         const organiser = await f.createOrganiser();
-        expect(expectOk(await as(organiser).get('/olympiads/archive'))).toEqual(
+        expect(expectOk(await as(organiser).get('/papers/archive'))).toEqual(
             {
                 rounds: [],
             }
@@ -493,7 +493,7 @@ describe('GET /olympiads/archive', () => {
 
         const { educatorUser } = await f.createOlympiadWithSchool();
         expectError(
-            await as(educatorUser).get('/olympiads/archive'),
+            await as(educatorUser).get('/papers/archive'),
             403,
             'Insufficient permissions'
         );

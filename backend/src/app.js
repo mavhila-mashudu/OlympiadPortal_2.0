@@ -111,6 +111,8 @@ app.use('/rounds', require('./routes/examStatus'));
 app.use('/rounds', require('./routes/submissions'));
 app.use('/rounds', require('./routes/marking'));
 app.use('/rounds', require('./routes/standings'));
+// Round papers: upload, preview, download and the past-paper list
+app.use('/rounds', require('./routes/roundPapers'));
 // Root parametrised last
 app.use('/rounds', require('./routes/roundDetail'));
 app.use('/papers', require('./routes/papers'));

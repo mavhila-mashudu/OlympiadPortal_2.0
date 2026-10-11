@@ -52,7 +52,7 @@ function ExamBuilder() {
     const fetchPaperUrl = useCallback(async () => {
         try {
             const res = await api.get<{ url: string }>(
-                `/papers/by-round/${roundId}?type=paper`
+                `/rounds/${roundId}/papers/preview?type=paper`
             );
             setPaperUrl(res.url);
         } catch {

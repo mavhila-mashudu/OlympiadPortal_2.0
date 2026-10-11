@@ -350,7 +350,7 @@ export function usePastPapers(roundId: string) {
         queryFn: () =>
             api
                 .get<{ papers: PastPaper[] }>(
-                    `/educator/rounds/${roundId}/papers/past`
+                    `/rounds/${roundId}/papers/archive`
                 )
                 .then((d) => d.papers),
         enabled: !!roundId,
@@ -407,17 +407,7 @@ export async function downloadPaperFile(
     type: 'paper' | 'memo' = 'paper'
 ): Promise<void> {
     const { url } = await api.get<{ url: string }>(
-        `/educator/rounds/${roundId}/paper/download?type=${type}`
-    );
-    window.open(url, '_blank');
-}
-
-export async function downloadPastPaper(paperId: string): Promise<void> {
-    // Past papers use the same download endpoint via their round_id
-    // The paper ID isn't directly usable here; callers should pass roundId
-    // This is a convenience wrapper; the actual download is handled inline
-    const { url } = await api.get<{ url: string }>(
-        `/papers/by-round/${paperId}?type=paper`
+        `/rounds/${roundId}/papers/download?type=${type}`
     );
     window.open(url, '_blank');
 }

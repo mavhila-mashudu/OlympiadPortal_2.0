@@ -220,7 +220,7 @@ describe('student round page', () => {
 
     it('downloads the paper through a signed link from the backend', async () => {
         mockApi('get', '/me/rounds/round-1', { round: details() });
-        const downloads = mockApi('get', '/rounds/:roundId/paper/download', {
+        const downloads = mockApi('get', '/rounds/:roundId/papers/download', {
             url: 'https://storage.test/regional.pdf?token=abc',
         });
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -236,7 +236,7 @@ describe('student round page', () => {
                 '_blank'
             )
         );
-        expect(downloads[0].path).toBe('/rounds/round-1/paper/download');
+        expect(downloads[0].path).toBe('/rounds/round-1/papers/download');
         expect(
             screen.getByRole('button', { name: 'Download paper' })
         ).toBeEnabled();
@@ -246,7 +246,7 @@ describe('student round page', () => {
         mockApi('get', '/me/rounds/round-1', { round: details() });
         mockApiError(
             'get',
-            '/rounds/:roundId/paper/download',
+            '/rounds/:roundId/papers/download',
             404,
             'No paper uploaded for this round'
         );

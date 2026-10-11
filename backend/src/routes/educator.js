@@ -5,8 +5,6 @@ const router = express.Router();
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
 const {
-    listPastPapers,
-    downloadPaper,
     listRemarks,
     getRemarkSubmissionAnswers,
     updateRemarkAnswer,
@@ -15,10 +13,6 @@ const {
 
 // All educator routes require authentication + educator role
 router.use(requireAuth, requireRole('educator'));
-
-// ── Papers (B7, B11) ───────────────────────────────
-router.get('/rounds/:roundId/papers/past', listPastPapers);
-router.get('/rounds/:roundId/paper/download', downloadPaper);
 
 // ── Remarks ─────────────────────────────────────────
 router.get('/remarks', listRemarks);

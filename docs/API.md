@@ -659,16 +659,9 @@ Delete an olympiad. Fails with `400` if the olympiad has any rounds — delete t
 
 Schools taking part in the olympiad, plus the educators who have been invited and have not accepted yet. Each row carries a `status` of `accepted` (participating), `pending` (invited) or `declined`; a pending row is keyed by the invitation rather than the school.
 
-### `GET /olympiads/archive`
+### `GET /olympiads/:olympiadId/papers/archive`
 
-Organiser-only. One archive of past papers shared by all of the organiser's olympiads: every round whose results have been released and whose paper has been archived, most recently closed first. The organiser's Archive page uses this.
-
-- **Response:** `data.rounds` — each round with its `papers` (`file_url`, `memo_file_url`, `is_archived`, …) and `olympiads` (`{ id, name, timezone }`), so rounds from different olympiads can be told apart and their times shown in each olympiad's timezone.
-- Download a file with `GET /papers/:paperId/download`.
-
-### `GET /olympiads/:olympiadId/archive`
-
-The same list, for a single olympiad. Closed rounds with downloadable paper/memo files.
+One olympiad's archive: every round whose results have been released and whose paper has been archived, most recently closed first. Closed rounds with downloadable paper/memo files. The shared archive across all of the organiser's olympiads is `GET /papers/archive`.
 
 ### `POST /olympiads/:olympiadId/entrants`
 
@@ -908,13 +901,33 @@ Two-stage verification before students can sit an online exam. Organiser-only.
 
 ## Papers & Downloads
 
-### `GET /papers/by-round/:roundId`
+### `GET /papers/archive`
+
+Organiser-only. One archive of past papers shared by all of the organiser's olympiads: every round whose results have been released and whose paper has been archived, most recently closed first. The organiser's Archive page uses this.
+
+- **Response:** `data.rounds` — each round with its `papers` (`file_url`, `memo_file_url`, `is_archived`, …) and `olympiads` (`{ id, name, timezone }`), so rounds from different olympiads can be told apart and their times shown in each olympiad's timezone.
+- Download a file with `GET /papers/:paperId/download`.
+
+### `GET /rounds/:roundId/papers/preview`
 
 Signed, time-limited viewing URL (1 hour) for a round's paper or memo.
 
 - **Auth:** organiser or educator
 - **Query:** `type=paper` (default) or `type=memo`
-- Organisers get both; educators get the paper only (the memo backs organiser verification).
+- Organisers get both; educators get the paper only (a memo request gives `403`; the memo backs organiser verification).
+
+### `GET /rounds/:roundId/papers/download`
+
+Signed direct download URL (60 seconds). One URL for both roles; the response follows the caller's role. An educator gets their school's paper for the round (the memo gives `403`); a student gets the question paper of a round they are registered for. `400` before the round opens; `404` without an uploaded paper.
+
+- **Auth:** educator or student
+- **Query:** `type=paper` (default) or `type=memo` (educator only)
+
+### `GET /rounds/:roundId/papers/archive`
+
+An educator's past papers for the round: earlier closed rounds of the olympiad, with their downloadable paper/memo files.
+
+- **Auth:** educator
 
 ### `GET /papers/:paperId/download`
 

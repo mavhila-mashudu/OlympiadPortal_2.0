@@ -32,13 +32,13 @@ const mockBuilder = ({
         })
     );
     if (paper)
-        mockApi('get', '/papers/by-round/round-1', (req) => ({
+        mockApi('get', '/rounds/round-1/papers/preview', (req) => ({
             url: `https://storage.test/paper.pdf${req.search}`,
         }));
     else
         mockApiError(
             'get',
-            '/papers/by-round/round-1',
+            '/rounds/round-1/papers/preview',
             404,
             'No paper uploaded for this round'
         );

@@ -82,7 +82,7 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 | GET    | /olympiads                            | Organiser | List olympiads                 |
 | GET    | /olympiads/:id                        | Organiser | Get olympiad detail            |
 | GET    | /olympiads/:id/schools                | Organiser | List registered schools        |
-| GET    | /olympiads/:id/archive                | Organiser | List archived papers           |
+| GET    | /olympiads/:olympiadId/papers/archive | Organiser | List archive (one olympiad)    |
 | POST   | /olympiads/:olympiadId/entrants       | Educator  | Register entrants              |
 | GET    | /olympiads/:olympiadId/entrants       | Educator  | List olympiad entrants         |
 | GET    | /olympiads/:olympiadId/progression    | Educator  | Qualification funnel           |
@@ -92,9 +92,13 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 | POST   | /rounds/:roundId/entrants             | Educator  | Register entrants              |
 | GET    | /rounds/:roundId/entrants             | Educator  | List round entrants            |
 | GET    | /rounds/:roundId/progression          | Educator  | Qualification funnel           |
+| GET    | /rounds/:roundId/papers/preview       | Edu/Org   | Signed paper/memo preview      |
+| GET    | /rounds/:roundId/papers/download      | Edu/Stud  | Paper download link (signed)   |
+| GET    | /rounds/:roundId/papers/archive       | Educator  | Past papers for the round      |
 | PATCH  | /rounds/:id                           | Organiser | Update round                   |
 | DELETE | /rounds/:id                           | Organiser | Delete round                   |
 | POST   | /rounds/:id/papers                    | Organiser | Upload paper and memo          |
+| GET    | /papers/archive                       | Organiser | Shared past-paper archive      |
 | GET    | /papers/:id/download                  | Organiser | Download paper file            |
 | POST   | /marking/:roundId/mark                | Organiser | Bulk auto-mark submissions     |
 | POST   | /marking/:roundId/results             | Organiser | Generate final results         |

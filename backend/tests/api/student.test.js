@@ -249,11 +249,11 @@ describe('GET /me/results', () => {
     });
 });
 
-describe('GET /rounds/:roundId/paper/download', () => {
+describe('GET /rounds/:roundId/papers/download', () => {
     it('signs a one-minute link to the paper for a registered student', async () => {
         const { round, studentApi } = await setup();
         expect(
-            expectOk(await studentApi.get(`/rounds/${round.id}/paper/download`))
+            expectOk(await studentApi.get(`/rounds/${round.id}/papers/download`))
         ).toEqual({
             url: 'https://storage.test/rounds/r2/paper-regional.pdf?expires=60',
         });
@@ -262,7 +262,7 @@ describe('GET /rounds/:roundId/paper/download', () => {
     it('responds 400 before the round opens', async () => {
         const { round, studentApi } = await setup({ state: 'scheduled' });
         expectError(
-            await studentApi.get(`/rounds/${round.id}/paper/download`),
+            await studentApi.get(`/rounds/${round.id}/papers/download`),
             400,
             'Paper is not available yet — the round has not opened'
         );
@@ -273,7 +273,7 @@ describe('GET /rounds/:roundId/paper/download', () => {
         expectError(
             await (
                 await unregisteredStudent(school)
-            ).get(`/rounds/${round.id}/paper/download`),
+            ).get(`/rounds/${round.id}/papers/download`),
             404,
             'Round not found or you are not registered for this round'
         );
@@ -282,7 +282,7 @@ describe('GET /rounds/:roundId/paper/download', () => {
             data: { file_url: null },
         });
         expectError(
-            await studentApi.get(`/rounds/${round.id}/paper/download`),
+            await studentApi.get(`/rounds/${round.id}/papers/download`),
             404,
             'No paper uploaded for this round'
         );

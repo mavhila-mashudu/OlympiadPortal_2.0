@@ -2,8 +2,6 @@
 const express = require('express');
 const { body, param } = require('express-validator');
 const router = express.Router();
-const upload = require('../middlewares/upload');
-const { uploadPapers } = require('../controllers/paperController');
 const {
     registerEntrants,
     listEntrants,
@@ -129,15 +127,6 @@ router.patch(
     setRoundState
 );
 router.delete('/:roundId', requireRole('organiser'), deleteRound);
-router.post(
-    '/:roundId/papers',
-    requireRole('organiser'),
-    upload.fields([
-        { name: 'paper', maxCount: 1 },
-        { name: 'memo', maxCount: 1 },
-    ]),
-    uploadPapers
-);
 
 // ── Entrants and progression (educator) ─────────────────
 // The educator registers their school's learners and follows the

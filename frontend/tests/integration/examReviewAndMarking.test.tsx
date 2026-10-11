@@ -56,13 +56,13 @@ describe('organiser exam review', () => {
         }));
         mockApi('get', '/rounds/round-1/exam-status', () => state.status);
         if (memo)
-            mockApi('get', '/papers/by-round/round-1', (req) => ({
+            mockApi('get', '/rounds/round-1/papers/preview', (req) => ({
                 url: `https://storage.test/memo.pdf${req.search}`,
             }));
         else
             mockApiError(
                 'get',
-                '/papers/by-round/round-1',
+                '/rounds/round-1/papers/preview',
                 404,
                 'No paper uploaded for this round'
             );
