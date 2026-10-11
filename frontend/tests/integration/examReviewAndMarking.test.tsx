@@ -893,8 +893,8 @@ describe('organiser marking queue', () => {
             ],
         }));
         const decisions = mockApi(
-            'patch',
-            '/rounds/round-1/remarks/:remarkId',
+            'post',
+            '/remarks/:remarkId/decision',
             () => {
                 status = 'approved';
                 return { remark: { id: 'remark-1', status } };
@@ -923,7 +923,7 @@ describe('organiser marking queue', () => {
             screen.queryByRole('button', { name: 'Record decision' })
         ).not.toBeInTheDocument();
         expect(decisions[0]).toMatchObject({
-            path: '/rounds/round-1/remarks/remark-1',
+            path: '/remarks/remark-1/decision',
             body: {
                 status: 'approved',
                 answer_id: 'ans-9',

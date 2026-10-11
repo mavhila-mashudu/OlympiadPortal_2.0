@@ -434,10 +434,34 @@ const submitRemarkRequest = async (entrantId, roundId, reason) => {
     });
 };
 
+/**
+ * The remark request the student made for one round, shaped with the round
+ * and entrant links the review pages use, or null when there is none.
+ */
+const getMyRemark = async (entrantId, roundId) => {
+    const remark = await prisma.remark_requests.findFirst({
+        where: {
+            results: { round_id: roundId, entrant_id: entrantId },
+        },
+        include: {
+            results: { select: { round_id: true, entrant_id: true } },
+        },
+    });
+
+    if (!remark) return null;
+
+    return {
+        ...remark,
+        round_id: remark.results?.round_id,
+        entrant_id: remark.results?.entrant_id,
+    };
+};
+
 module.exports = {
     getRegisteredRounds,
     getStudentRoundDetail,
     getStudentResults,
     getStudentPaperUrl,
     submitRemarkRequest,
+    getMyRemark,
 };

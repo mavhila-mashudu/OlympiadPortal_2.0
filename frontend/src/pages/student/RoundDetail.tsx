@@ -450,7 +450,7 @@ function StudentRoundDetail() {
                                                                 const submittedReason =
                                                                     remarkReason.trim();
                                                                 await api.post(
-                                                                    `/rounds/${round.id}/remark`,
+                                                                    `/rounds/${round.id}/remarks`,
                                                                     {
                                                                         reason: submittedReason,
                                                                     }

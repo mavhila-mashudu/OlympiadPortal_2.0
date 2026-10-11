@@ -4,7 +4,11 @@ const {
     NotFoundError,
     ForbiddenError,
     BadRequestError,
+    ConflictError,
 } = require('../errors/AppError');
+const {
+    recalculateRoundResults: recalculate,
+} = require('./resultRecalculationService');
 
 // An educator's review leaves a remark "reviewed"; an organiser's decision
 // leaves it "approved" or "rejected". This page shows all three as reviewed.
@@ -343,10 +347,113 @@ const autoAssignRemarks = async (organiserId, roundId) => {
     };
 };
 
+/**
+ * The organiser's decision on a remark: reject the appeal, or approve it
+ * with a revised mark on one of the entrant's answers. An approval re-marks
+ * the answer, recalculates the round (totals, ranks, next-round entry) and
+ * records the review; either way the request is stamped decided.
+ */
+const decideRemark = async (
+    organiserId,
+    remarkId,
+    { status, decision: rawDecision, answer_id, points_awarded }
+) => {
+    const remark = await prisma.remark_requests.findUnique({
+        where: { id: remarkId },
+        include: {
+            results: { select: { round_id: true, entrant_id: true } },
+        },
+    });
+    if (!remark) {
+        throw new NotFoundError('Remark not found');
+    }
+
+    // The round comes from the remark itself; only its owner may decide
+    const roundId = remark.results?.round_id;
+    if (!roundId) {
+        throw new NotFoundError('Remark not found');
+    }
+    const round = await prisma.rounds.findUnique({
+        where: { id: roundId },
+        include: { olympiads: true },
+    });
+    if (!round) {
+        throw new NotFoundError('Round not found');
+    }
+    if (round.olympiads.organiser_id !== organiserId) {
+        throw new ForbiddenError('Not your round');
+    }
+
+    if (remark.status !== 'pending') {
+        throw new ConflictError('Remark has already been decided');
+    }
+    const decision = String(rawDecision || '').trim();
+    if (!['approved', 'rejected'].includes(status) || decision.length < 5) {
+        throw new BadRequestError(
+            'Decision and approved/rejected status required'
+        );
+    }
+
+    let answer = null;
+    let points = null;
+    if (status === 'approved') {
+        points = Number(points_awarded);
+        answer = await prisma.answers.findUnique({
+            where: { id: answer_id },
+            include: { questions: true, submissions: true },
+        });
+        if (
+            !answer ||
+            answer.submissions.round_id !== roundId ||
+            answer.submissions.entrant_id !== remark.results.entrant_id ||
+            !Number.isFinite(points) ||
+            points < 0 ||
+            points > Number(answer.questions.max_points)
+        ) {
+            throw new BadRequestError(
+                'Select an answer from this entrant and valid revised points'
+            );
+        }
+    }
+
+    await prisma.$transaction(async (tx) => {
+        if (answer) {
+            await tx.marking_reviews.create({
+                data: {
+                    answer_id: answer.id,
+                    reviewer_id: organiserId,
+                    original_points: answer.points_awarded || 0,
+                    revised_points: points,
+                    comment: decision,
+                },
+            });
+            await tx.answers.update({
+                where: { id: answer.id },
+                data: { points_awarded: points },
+            });
+            await recalculate(tx, roundId);
+        }
+        const now = new Date();
+        await tx.remark_requests.update({
+            where: { id: remark.id },
+            data: {
+                status,
+                decision,
+                decided_at: now,
+                reviewer_id: organiserId,
+                reviewed_at: now,
+            },
+        });
+    });
+
+    return { message: 'Remark decided' };
+};
+
 module.exports = {
     assertOwnsRound,
     listRemarks,
     listEligibleEducators,
     assignRemark,
     autoAssignRemarks,
+    decideRemark,
 };

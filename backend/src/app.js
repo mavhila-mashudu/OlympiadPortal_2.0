@@ -96,8 +96,8 @@ app.use('/olympiad-invitations', require('./routes/olympiadInvitations'));
 // /me/notifications is mounted before /me so it wins the shared prefix
 app.use('/me/notifications', require('./routes/portalNotifications'));
 app.use('/me', require('./routes/me'));
-app.use('/educator', require('./routes/educator'));
-app.use('/organiser/remarks', require('./routes/organiserRemarks'));
+// Remarks: the organiser's decision and assignment, the educator's review
+app.use('/remarks', require('./routes/remarks'));
 
 //registering olympiads and rounds routes
 // Specific subpaths first

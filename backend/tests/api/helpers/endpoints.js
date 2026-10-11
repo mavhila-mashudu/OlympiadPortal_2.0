@@ -61,11 +61,15 @@ const endpoints = [
         roles: STAFF,
     },
     { method: 'get', path: '/rounds/:roundId/remarks', roles: ORGANISER },
-    { method: 'post', path: '/rounds/:roundId/remark', roles: STUDENT },
-    { method: 'get', path: '/rounds/:roundId/my-remark', roles: STUDENT },
+    { method: 'post', path: '/rounds/:roundId/remarks', roles: STUDENT },
     {
-        method: 'patch',
-        path: '/rounds/:roundId/remarks/:remarkId',
+        method: 'get',
+        path: '/rounds/:roundId/remarks/reviewers',
+        roles: ORGANISER,
+    },
+    {
+        method: 'post',
+        path: '/rounds/:roundId/remarks/auto-assign',
         roles: ORGANISER,
     },
     // Auth
@@ -91,7 +95,9 @@ const endpoints = [
         path: '/me/rounds/:roundId/results',
         roles: EDUCATOR,
     },
+    { method: 'get', path: '/me/rounds/:roundId/remark', roles: STUDENT },
     { method: 'get', path: '/me/overview', roles: EDUCATOR },
+    { method: 'get', path: '/me/assigned-remarks', roles: EDUCATOR },
     { method: 'get', path: '/me/olympiads', roles: EDUCATOR },
     { method: 'get', path: '/me/olympiad-invitations', roles: 'any' },
     { method: 'get', path: '/me/sent-olympiad-invitations', roles: STAFF },
@@ -258,36 +264,16 @@ const endpoints = [
     { method: 'get', path: '/rounds/:roundId/standings', roles: ORGANISER },
     { method: 'patch', path: '/rounds/:roundId/answers/:answerId', roles: STAFF },
 
-    // Educator portal
-    { method: 'get', path: '/educator/remarks', roles: EDUCATOR },
-    {
-        method: 'get',
-        path: '/educator/remarks/:remarkId/answers',
-        roles: EDUCATOR,
-    },
-    {
-        method: 'patch',
-        path: '/educator/remarks/:remarkId/answers/:answerId',
-        roles: EDUCATOR,
-    },
-    { method: 'patch', path: '/educator/remarks/:remarkId', roles: EDUCATOR },
-
-    // Organiser remarks
-    { method: 'get', path: '/organiser/remarks', roles: ORGANISER },
-    {
-        method: 'get',
-        path: '/organiser/remarks/rounds/:roundId/educators',
-        roles: ORGANISER,
-    },
+    // Remarks: the organiser decides, the assigned educator reviews
+    { method: 'get', path: '/remarks', roles: ORGANISER },
+    { method: 'post', path: '/remarks/:remarkId/decision', roles: ORGANISER },
+    { method: 'put', path: '/remarks/:remarkId/assignee', roles: ORGANISER },
+    { method: 'post', path: '/remarks/:remarkId/review', roles: EDUCATOR },
+    { method: 'get', path: '/remarks/:remarkId/answers', roles: EDUCATOR },
     {
         method: 'patch',
-        path: '/organiser/remarks/:remarkId/assign',
-        roles: ORGANISER,
-    },
-    {
-        method: 'post',
-        path: '/organiser/remarks/rounds/:roundId/auto-assign',
-        roles: ORGANISER,
+        path: '/remarks/:remarkId/answers/:answerId',
+        roles: EDUCATOR,
     },
 
     // Student portal
@@ -313,8 +299,7 @@ const mounts = {
     'membershipApprovals.js': '/memberships',
     'schoolInvitations.js': '/school-invitations',
     'olympiadInvitations.js': '/olympiad-invitations',
-    'educator.js': '/educator',
-    'organiserRemarks.js': '/organiser/remarks',
+    'remarks.js': '/remarks',
     'olympiads.js': '/olympiads',
     'rounds.js': '/olympiads/:olympiadId/rounds',
     'notificationRules.js': '/olympiads/:olympiadId/notification-rules',

@@ -82,11 +82,11 @@ const setup = async ({ state = 'results_released' } = {}) => {
 
 const requestRemark = async (student, round, reason = REASON) =>
     expectOk(
-        await student.api.post(`/rounds/${round.id}/remark`).send({ reason }),
+        await student.api.post(`/rounds/${round.id}/remarks`).send({ reason }),
         201
     ).remark;
 
-describe('POST /rounds/:roundId/remark', () => {
+describe('POST /rounds/:roundId/remarks', () => {
     it("records a pending request against the student's released result", async () => {
         const { round, ayanda } = await setup();
 
@@ -106,7 +106,7 @@ describe('POST /rounds/:roundId/remark', () => {
 
         expectError(
             await ayanda.api
-                .post(`/rounds/${round.id}/remark`)
+                .post(`/rounds/${round.id}/remarks`)
                 .send({ reason: REASON }),
             409,
             'You already requested a remark for this round'
@@ -120,27 +120,27 @@ describe('POST /rounds/:roundId/remark', () => {
 
         expectError(
             await ayanda.api
-                .post(`/rounds/${round.id}/remark`)
+                .post(`/rounds/${round.id}/remarks`)
                 .send({ reason: 'unfair' }),
             400,
             message
         );
         expectError(
             await ayanda.api
-                .post(`/rounds/${round.id}/remark`)
+                .post(`/rounds/${round.id}/remarks`)
                 .send({ reason: '   too short   ' }),
             400,
             message
         );
         expectError(
             await ayanda.api
-                .post(`/rounds/${round.id}/remark`)
+                .post(`/rounds/${round.id}/remarks`)
                 .send({ reason: 'x'.repeat(2001) }),
             400,
             message
         );
         expectError(
-            await ayanda.api.post(`/rounds/${round.id}/remark`).send({}),
+            await ayanda.api.post(`/rounds/${round.id}/remarks`).send({}),
             400,
             message
         );
@@ -152,7 +152,7 @@ describe('POST /rounds/:roundId/remark', () => {
         const message = 'Result not released for this student';
         expectError(
             await ayanda.api
-                .post(`/rounds/${round.id}/remark`)
+                .post(`/rounds/${round.id}/remarks`)
                 .send({ reason: REASON }),
             403,
             message
@@ -165,7 +165,7 @@ describe('POST /rounds/:roundId/remark', () => {
         });
         expectError(
             await as(bystander.user)
-                .post(`/rounds/${round.id}/remark`)
+                .post(`/rounds/${round.id}/remarks`)
                 .send({ reason: REASON }),
             403,
             message
@@ -178,7 +178,7 @@ describe('POST /rounds/:roundId/remark', () => {
         const unlinked = await f.createUser('student');
         expectError(
             await as(unlinked)
-                .post(`/rounds/${round.id}/remark`)
+                .post(`/rounds/${round.id}/remarks`)
                 .send({ reason: REASON }),
             403,
             'No linked entrant profile'
@@ -186,31 +186,31 @@ describe('POST /rounds/:roundId/remark', () => {
     });
 });
 
-describe('GET /rounds/:roundId/my-remark', () => {
+describe('GET /me/rounds/:roundId/remark', () => {
     it('shows the student their own request and its outcome, or null', async () => {
         const { round, ayanda, lerato, organiserApi } = await setup();
         expect(
-            expectOk(await ayanda.api.get(`/rounds/${round.id}/my-remark`))
+            expectOk(await ayanda.api.get(`/me/rounds/${round.id}/remark`))
         ).toEqual({ remark: null });
 
         const { id } = await requestRemark(ayanda, round);
         expect(
-            expectOk(await ayanda.api.get(`/rounds/${round.id}/my-remark`))
+            expectOk(await ayanda.api.get(`/me/rounds/${round.id}/remark`))
                 .remark
         ).toMatchObject({ id, status: 'pending', decision: null });
         // Another student doesn't see it
         expect(
-            expectOk(await lerato.api.get(`/rounds/${round.id}/my-remark`))
+            expectOk(await lerato.api.get(`/me/rounds/${round.id}/remark`))
         ).toEqual({ remark: null });
 
         expectOk(
-            await organiserApi.patch(`/rounds/${round.id}/remarks/${id}`).send({
+            await organiserApi.post(`/remarks/${id}/decision`).send({
                 status: 'rejected',
                 decision: 'Marked correctly against the memo',
             })
         );
         expect(
-            expectOk(await ayanda.api.get(`/rounds/${round.id}/my-remark`))
+            expectOk(await ayanda.api.get(`/me/rounds/${round.id}/remark`))
                 .remark
         ).toMatchObject({
             status: 'rejected',
@@ -256,14 +256,14 @@ describe('GET /rounds/:roundId/remarks', () => {
     });
 });
 
-describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
+describe('POST /remarks/:remarkId/decision', () => {
     const withRequest = async () => {
         const world = await setup();
         const remark = await requestRemark(world.ayanda, world.round);
         return {
             ...world,
             remark,
-            url: `/rounds/${world.round.id}/remarks/${remark.id}`,
+            url: `/remarks/${remark.id}/decision`,
         };
     };
 
@@ -271,7 +271,7 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
         const { url, organiserApi, organiser, ayanda } = await withRequest();
 
         expectOk(
-            await organiserApi.patch(url).send({
+            await organiserApi.post(url).send({
                 status: 'rejected',
                 decision: 'Marked correctly against the memo',
             })
@@ -302,7 +302,7 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
             await withRequest();
 
         expectOk(
-            await organiserApi.patch(url).send({
+            await organiserApi.post(url).send({
                 status: 'approved',
                 decision: 'The proof was complete',
                 answer_id: ayanda.answer.id,
@@ -346,7 +346,7 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
             await withRequest();
 
         expectOk(
-            await organiserApi.patch(url).send({
+            await organiserApi.post(url).send({
                 status: 'approved',
                 decision: 'The proof was complete',
                 answer_id: ayanda.answer.id,
@@ -393,7 +393,7 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
             await f.registerEntrant({ entrant, round: nextRound, educator });
 
         expectOk(
-            await organiserApi.patch(url).send({
+            await organiserApi.post(url).send({
                 status: 'approved',
                 decision: 'The proof was complete',
                 answer_id: ayanda.answer.id,
@@ -413,12 +413,12 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
         const { url, organiserApi } = await withRequest();
         expectOk(
             await organiserApi
-                .patch(url)
+                .post(url)
                 .send({ status: 'rejected', decision: 'Marked correctly' })
         );
         expectError(
             await organiserApi
-                .patch(url)
+                .post(url)
                 .send({ status: 'rejected', decision: 'Marked correctly' }),
             409,
             'Remark has already been decided'
@@ -430,14 +430,14 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
         const message = 'Decision and approved/rejected status required';
         expectError(
             await organiserApi
-                .patch(url)
+                .post(url)
                 .send({ status: 'maybe', decision: 'Not sure yet' }),
             400,
             message
         );
         expectError(
             await organiserApi
-                .patch(url)
+                .post(url)
                 .send({ status: 'rejected', decision: 'no' }),
             400,
             message
@@ -452,7 +452,7 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
         const message =
             'Select an answer from this entrant and valid revised points';
         const approve = (body) =>
-            organiserApi.patch(url).send({
+            organiserApi.post(url).send({
                 status: 'approved',
                 decision: 'Revised on review',
                 ...body,
@@ -492,21 +492,19 @@ describe('PATCH /rounds/:roundId/remarks/:remarkId', () => {
         );
     });
 
-    it("is only for the round's organiser, and only for a request in that round", async () => {
-        const { url, remark, olympiad, otherOrganiserApi, organiserApi } =
-            await withRequest();
-        const otherRound = await f.createRound({ olympiad });
+    it("is only for the organiser who owns the remark's round", async () => {
+        const { url, otherOrganiserApi, organiserApi } = await withRequest();
 
         expectError(
             await otherOrganiserApi
-                .patch(url)
+                .post(url)
                 .send({ status: 'rejected', decision: 'Marked correctly' }),
             403,
             'Not your round'
         );
         expectError(
             await organiserApi
-                .patch(`/rounds/${otherRound.id}/remarks/${remark.id}`)
+                .post(`/remarks/${MISSING}/decision`)
                 .send({ status: 'rejected', decision: 'Marked correctly' }),
             404,
             'Remark not found'

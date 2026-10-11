@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const prisma = require('../config/database').default;
+const { param } = require('express-validator');
 const { requireAuth, requireRole } = require('../middlewares/auth');
+const validate = require('../middlewares/validate');
 const {
     BadRequestError,
     ForbiddenError,
@@ -10,6 +12,10 @@ const {
 const {
     recalculateRoundResults: recalculate,
 } = require('../services/resultRecalculationService');
+const {
+    listEligibleEducators,
+    autoAssignRemarks,
+} = require('../controllers/organiserRemarkController');
 
 router.use(requireAuth);
 async function ownedRound(roundId, organiserId) {
@@ -212,8 +218,25 @@ router.get(
         }
     }
 );
+// Educators from another school who may review this round's remarks, and
+// the action that spreads the unassigned ones across them.
+router.get(
+    '/:roundId/remarks/reviewers',
+    requireRole('organiser'),
+    [param('roundId').isUUID().withMessage('roundId must be a valid UUID')],
+    validate,
+    listEligibleEducators
+);
 router.post(
-    '/:roundId/remark',
+    '/:roundId/remarks/auto-assign',
+    requireRole('organiser'),
+    [param('roundId').isUUID().withMessage('roundId must be a valid UUID')],
+    validate,
+    autoAssignRemarks
+);
+// A student asks for their released result to be looked at again
+router.post(
+    '/:roundId/remarks',
     requireRole('student'),
     async (req, res, next) => {
         try {
@@ -264,115 +287,6 @@ router.post(
                 success: true,
                 data: { remark: presentRemark(remark) },
             });
-        } catch (err) {
-            next(err);
-        }
-    }
-);
-router.get(
-    '/:roundId/my-remark',
-    requireRole('student'),
-    async (req, res, next) => {
-        try {
-            if (!req.user.entrant)
-                throw new ForbiddenError('No linked entrant profile');
-            const remark = await prisma.remark_requests.findFirst({
-                where: {
-                    results: {
-                        round_id: req.params.roundId,
-                        entrant_id: req.user.entrant.id,
-                    },
-                },
-                include: {
-                    results: { select: { round_id: true, entrant_id: true } },
-                },
-            });
-            res.json({
-                success: true,
-                data: { remark: remark ? presentRemark(remark) : null },
-            });
-        } catch (err) {
-            next(err);
-        }
-    }
-);
-router.patch(
-    '/:roundId/remarks/:remarkId',
-    requireRole('organiser'),
-    async (req, res, next) => {
-        try {
-            await ownedRound(req.params.roundId, req.user.userId);
-            const remark = await prisma.remark_requests.findUnique({
-                where: { id: req.params.remarkId },
-                include: {
-                    results: { select: { round_id: true, entrant_id: true } },
-                },
-            });
-            if (!remark || remark.results.round_id !== req.params.roundId)
-                throw new NotFoundError('Remark not found');
-            if (remark.status !== 'pending')
-                throw new ConflictError('Remark has already been decided');
-            const status = req.body.status;
-            const decision = String(req.body.decision || '').trim();
-            if (
-                !['approved', 'rejected'].includes(status) ||
-                decision.length < 5
-            )
-                throw new BadRequestError(
-                    'Decision and approved/rejected status required'
-                );
-            let answer = null;
-            let points = null;
-            if (status === 'approved') {
-                points = Number(req.body.points_awarded);
-                answer = await prisma.answers.findUnique({
-                    where: { id: req.body.answer_id },
-                    include: { questions: true, submissions: true },
-                });
-                if (
-                    !answer ||
-                    answer.submissions.round_id !== req.params.roundId ||
-                    answer.submissions.entrant_id !==
-                        remark.results.entrant_id ||
-                    !Number.isFinite(points) ||
-                    points < 0 ||
-                    points > Number(answer.questions.max_points)
-                ) {
-                    throw new BadRequestError(
-                        'Select an answer from this entrant and valid revised points'
-                    );
-                }
-            }
-            await prisma.$transaction(async (tx) => {
-                if (answer) {
-                    await tx.marking_reviews.create({
-                        data: {
-                            answer_id: answer.id,
-                            reviewer_id: req.user.userId,
-                            original_points: answer.points_awarded || 0,
-                            revised_points: points,
-                            comment: decision,
-                        },
-                    });
-                    await tx.answers.update({
-                        where: { id: answer.id },
-                        data: { points_awarded: points },
-                    });
-                    await recalculate(tx, req.params.roundId);
-                }
-                const now = new Date();
-                await tx.remark_requests.update({
-                    where: { id: remark.id },
-                    data: {
-                        status,
-                        decision,
-                        decided_at: now,
-                        reviewer_id: req.user.userId,
-                        reviewed_at: now,
-                    },
-                });
-            });
-            res.json({ success: true, data: { message: 'Remark decided' } });
         } catch (err) {
             next(err);
         }

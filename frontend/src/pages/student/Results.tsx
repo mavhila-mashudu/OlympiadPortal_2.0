@@ -73,7 +73,7 @@ function StudentResults() {
                                                     status: string;
                                                     decision: string | null;
                                                 } | null;
-                                            }>(`/rounds/${r.id}/my-remark`)
+                                            }>(`/me/rounds/${r.id}/remark`)
                                         ).remark,
                                     ] as const
                             )
@@ -107,7 +107,7 @@ function StudentResults() {
         try {
             const data = await api.post<{
                 remark: { status: string; decision: string | null };
-            }>(`/rounds/${roundId}/remark`, { reason });
+            }>(`/rounds/${roundId}/remarks`, { reason });
             setRemarks((current) => ({ ...current, [roundId]: data.remark }));
         } catch (err) {
             setError(

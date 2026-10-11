@@ -166,7 +166,7 @@ function MarkingQueue() {
         setAction(true);
         setError(null);
         try {
-            await api.patch(`/rounds/${roundId}/remarks/${id}`, {
+            await api.post(`/remarks/${id}/decision`, {
                 status: String(form.get('status')),
                 decision: String(form.get('decision')),
                 answer_id: String(form.get('answer_id')),

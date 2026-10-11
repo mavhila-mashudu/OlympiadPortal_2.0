@@ -19,6 +19,7 @@ const {
     listRegisteredRounds,
     getStudentResults,
     getRoundDetail,
+    getMyRemark,
 } = require('../controllers/studentRoundController');
 const {
     listRounds,
@@ -26,6 +27,7 @@ const {
     getOverview,
     getRound,
     getResults,
+    listRemarks,
 } = require('../controllers/educatorController');
 const {
     listMyInvites,
@@ -69,6 +71,8 @@ router.get(
 // The educator's view of one round's released results; generating them
 // stays the organiser's POST /rounds/:roundId/results.
 router.get('/rounds/:roundId/results', requireRole('educator'), getResults);
+// The student's own remark request for a round, from their results page
+router.get('/rounds/:roundId/remark', requireRole('student'), getMyRemark);
 
 // ── Olympiad invitations ────────────────────────────────
 // The caller-specific lists; creating and answering an invitation stay on
@@ -96,6 +100,8 @@ router.get(
 
 // ── Educator extras ─────────────────────────────────────
 router.get('/overview', requireRole('educator'), getOverview);
+// The remarks assigned to the educator for review
+router.get('/assigned-remarks', requireRole('educator'), listRemarks);
 router.get(
     '/olympiads',
     requireRole('educator'),
