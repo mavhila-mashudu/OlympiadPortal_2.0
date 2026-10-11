@@ -1,6 +1,7 @@
 // @ts-nocheck
 const prisma = require('../config/database').default;
 const { forgetCachedUser } = require('../middlewares/auth');
+const { notifyDecision } = require('./accountNotificationService');
 const {
     BadRequestError,
     ConflictError,
@@ -151,7 +152,7 @@ async function decideRequest(user, requestId, decision) {
         }
         // First approval creates a coordinator. Existing coordinators grant
         // ordinary educator memberships, never additional coordinator roles.
-        return tx.school_memberships.update({
+        const updated = await tx.school_memberships.update({
             where: { id: requestId, status: 'pending' },
             data: {
                 status: decision === 'approve' ? 'active' : 'rejected',
@@ -159,6 +160,8 @@ async function decideRequest(user, requestId, decision) {
             },
             select: { id: true, status: true, role: true, user_id: true },
         });
+        await notifyDecision(tx, { requestId, userId: updated.user_id, decision, type: 'educator' });
+        return updated;
     });
     // Permissions are cached for up to 30 s; revoke the cached identity so an
     // approved educator gains access on their very next authenticated call.
@@ -211,11 +214,13 @@ async function decideStudentRequest(user, entrantId, decision, linkEntrantId) {
 
         const select = { id: true, status: true, user_id: true };
         if (decision === 'reject') {
-            return tx.entrants.update({
+            const updated = await tx.entrants.update({
                 where: { id: target.id, status: 'pending' },
                 data: { status: 'rejected' },
                 select,
             });
+            await notifyDecision(tx, { requestId: entrantId, userId: target.user_id, decision, type: 'student' });
+            return updated;
         }
 
         // Two students can share a name, so nothing is linked by name alone.
@@ -240,17 +245,21 @@ async function decideStudentRequest(user, entrantId, decision, linkEntrantId) {
                 );
             }
             await tx.entrants.delete({ where: { id: target.id } });
-            return tx.entrants.update({
+            const updated = await tx.entrants.update({
                 where: { id: listed.id },
                 data: { user_id: target.user_id, status: 'active' },
                 select,
             });
+            await notifyDecision(tx, { requestId: entrantId, userId: target.user_id, decision, type: 'student' });
+            return updated;
         }
-        return tx.entrants.update({
+        const updated = await tx.entrants.update({
             where: { id: target.id, status: 'pending' },
             data: { status: 'active' },
             select,
         });
+        await notifyDecision(tx, { requestId: entrantId, userId: target.user_id, decision, type: 'student' });
+        return updated;
     });
     // Permissions are cached for up to 30 s; drop the cached identity so the
     // approved student gets in on their very next request.

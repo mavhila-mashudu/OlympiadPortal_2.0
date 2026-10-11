@@ -84,6 +84,22 @@ describe('educator signup with an invitation code', () => {
         );
     });
 
+    it('notifies the educator who sent the invitation after redemption', async () => {
+        prisma.school_invitations.findUnique.mockResolvedValue(
+            invitation({ invited_by_id: 'inviter-id' })
+        );
+
+        await authService.register(signup());
+
+        expect(prisma.portal_notifications.createMany).toHaveBeenCalledWith({
+            data: [expect.objectContaining({
+                user_id: 'inviter-id',
+                dedupe_key: 'account:invite:inv-1:accepted:inviter-id',
+            })],
+            skipDuplicates: true,
+        });
+    });
+
     it('makes the first educator of a school its active coordinator when invited as one', async () => {
         prisma.school_invitations.findUnique.mockResolvedValue(
             invitation({ role: 'coordinator' })

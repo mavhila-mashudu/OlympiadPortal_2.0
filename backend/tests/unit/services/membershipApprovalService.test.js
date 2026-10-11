@@ -53,6 +53,18 @@ describe('decideStudentRequest', () => {
         expect(forgetCachedUser).toHaveBeenCalledWith('stu-1');
     });
 
+    it('adds an in-app decision notification for the student', async () => {
+        await service.decideStudentRequest(coordinator, 'ent-new', 'approve');
+
+        expect(prisma.portal_notifications.createMany).toHaveBeenCalledWith({
+            data: [expect.objectContaining({
+                user_id: 'stu-1',
+                title: 'School membership approved',
+            })],
+            skipDuplicates: true,
+        });
+    });
+
     it('rejects a pending student', async () => {
         const result = await service.decideStudentRequest(
             coordinator,
