@@ -377,7 +377,7 @@ An educator supplies either `school_id` (a school already on the platform) or
 before being created). The first educator at a school proposes becoming its
 `coordinator`; later ones join as `educator`. Either way the membership is
 `pending` until an organiser (for a school's first coordinator) or the school's
-coordinator approves it (see `/memberships/requests`).
+coordinator approves it (see `/membership-requests`).
 
 An educator who has an **invitation code** (see `/school-invitations`) sends it
 as `invitation_code` and skips that wait: the membership is created `active`
@@ -391,7 +391,7 @@ A student must supply `school_id`. The student gets a `pending` entrant record
 and no access until the school's coordinator approves them. The student is
 **not** matched to an entrant an educator listed under the same name; the
 coordinator chooses whether to link them to one when approving
-(`PATCH /memberships/student-requests/:requestId`).
+(`PATCH /membership-requests/:requestId`).
 
 - **Response `201`:** `data.user` - `{ id, full_name, email, role, created_at }`
 - **Errors:** `400` missing/invalid school, or an invalid invitation code; `404` school not found; `409` email already registered
@@ -713,17 +713,17 @@ is the previous one, which entrants qualified, and the round's state.
 
 List rounds for the olympiad.
 
-#### `POST /rounds/check-dates`
+#### `POST /olympiads/:olympiadId/rounds/date-check`
 
-Pre-flight holiday check. Call before creating or updating a round to surface public holiday clashes without persisting anything.
+Pre-flight holiday check. Call before creating or updating a round to surface public holiday clashes without persisting anything. The olympiad in the path decides which calendar the dates are read in, so the organiser must own it.
 
 - **Auth:** organiser
 - **Body:**
 
 | Field       | Type          | Rules    |
 | ----------- | ------------- | -------- |
-| `opens_at`  | ISO 8601 date | optional |
-| `closes_at` | ISO 8601 date | optional |
+| `opens_at`  | ISO 8601 date | required |
+| `closes_at` | ISO 8601 date | required |
 
 - **Response:** `data.warnings` — array of strings, e.g. `["2026-12-16 falls on a public holiday: Day of Reconciliation"]`. Empty array when no clashes.
 
@@ -882,13 +882,13 @@ Same fields as create, all optional.
 
 ## Exam Approval (Exam Status)
 
-Two-stage verification before students can sit an online exam. Organiser-only.
+Two-stage verification before students can sit an online exam. Educators submit the finished exam for review; approving it or sending it back is organiser-only.
 
-### `GET /rounds/:roundId/exam-status`
+### `GET /rounds/:roundId/exam/status`
 
 - **Response:** `data` — `{ exam_status, state, question_count, questions_by_type, paper_id, approved_by, approved_at, approved_by_name }`
 
-### `PATCH /rounds/:roundId/exam-status`
+### `PATCH /rounds/:roundId/exam/status`
 
 - **Body:** `status` — `draft`, `ready`, or `live`
 - **Allowed transitions:**
@@ -970,9 +970,9 @@ Single submission with answers.
 
 ## Marking
 
-All marking endpoints are organiser-only.
+The organiser and the round's educators may mark; generating results is organiser-only.
 
-### `POST /rounds/:roundId/mark`
+### `POST /rounds/:roundId/auto-mark`
 
 Bulk auto-mark all received submissions in the round (MCQ, true/false, short answer).
 

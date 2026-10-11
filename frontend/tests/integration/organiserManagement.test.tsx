@@ -586,7 +586,7 @@ describe('creating a round', () => {
     // on a public holiday
     let dateChecks: ReturnType<typeof mockApi>;
     beforeEach(() => {
-        dateChecks = mockApi('post', '/rounds/check-dates', { warnings: [] });
+        dateChecks = mockApi('post', '/olympiads/oly-1/rounds/date-check', { warnings: [] });
     });
 
     const fillRoundForm = async (
@@ -654,11 +654,10 @@ describe('creating a round', () => {
             closes_at: '2026-10-01T08:30:00.000Z',
             qualifying_threshold: 62.5,
         });
-        // Holidays are checked on that olympiad's calendar
+        // Holidays are checked on that olympiad's calendar (in the URL)
         expect(dateChecks[0].body).toEqual({
             opens_at: '2026-10-01T06:00:00.000Z',
             closes_at: '2026-10-01T08:30:00.000Z',
-            olympiad_id: 'oly-1',
         });
         expect(uploads).toHaveLength(1);
         expect(uploads[0].headers.get('authorization')).toBe(
@@ -700,7 +699,7 @@ describe('creating a round', () => {
     it('warns about a public holiday and creates the round only once confirmed', async () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
         mockApi('get', '/olympiads/oly-1/rounds', { rounds: [] });
-        dateChecks = mockApi('post', '/rounds/check-dates', {
+        dateChecks = mockApi('post', '/olympiads/oly-1/rounds/date-check', {
             warnings: ['2026-10-01 falls on a public holiday: Heritage Day'],
         });
         const created = mockApi(

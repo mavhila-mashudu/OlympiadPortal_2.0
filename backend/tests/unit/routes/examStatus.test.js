@@ -12,11 +12,11 @@ const { prisma, resetPrismaMock } = require('../helpers/prismaMock');
 const router = require('../../../src/routes/examStatus');
 const { mockReq, getRouteHandler, run } = require('../helpers/http');
 
-const getExamStatus = getRouteHandler(router, 'get', '/:roundId/exam-status');
+const getExamStatus = getRouteHandler(router, 'get', '/:roundId/exam/status');
 const updateExamStatus = getRouteHandler(
     router,
     'patch',
-    '/:roundId/exam-status'
+    '/:roundId/exam/status'
 );
 
 const organiser = { userId: 'org-1', role: 'organiser' };
@@ -36,7 +36,7 @@ const round = (overrides = {}) => ({
 
 beforeEach(resetPrismaMock);
 
-describe('GET /:roundId/exam-status', () => {
+describe('GET /:roundId/exam/status', () => {
     it('rejects an unknown round', async () => {
         prisma.rounds.findUnique.mockResolvedValue(null);
         const { next } = await run(getExamStatus, req());
@@ -133,7 +133,7 @@ describe('GET /:roundId/exam-status', () => {
     });
 });
 
-describe('PATCH /:roundId/exam-status', () => {
+describe('PATCH /:roundId/exam/status', () => {
     const patch = (status) => req({ body: { status } });
 
     it.each([undefined, 'archived', 'LIVE'])(

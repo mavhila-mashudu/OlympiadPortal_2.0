@@ -497,12 +497,12 @@ describe('GET /rounds/:roundId/submissions/:submissionId', () => {
     });
 });
 
-describe('POST /rounds/:roundId/mark', () => {
+describe('POST /rounds/:roundId/auto-mark', () => {
     it('auto-marks every received submission for the organiser', async () => {
         const { round, organiserApi } = await withSubmissions();
 
         const { result } = expectOk(
-            await organiserApi.post(`/rounds/${round.id}/mark`)
+            await organiserApi.post(`/rounds/${round.id}/auto-mark`)
         );
 
         expect(result.total).toBe(2);
@@ -519,7 +519,7 @@ describe('POST /rounds/:roundId/mark', () => {
         const { round, mine, theirs, educatorApi } = await withSubmissions();
 
         expect(
-            expectOk(await educatorApi.post(`/rounds/${round.id}/mark`)).result
+            expectOk(await educatorApi.post(`/rounds/${round.id}/auto-mark`)).result
                 .total
         ).toBe(1);
         expect(
@@ -536,12 +536,12 @@ describe('POST /rounds/:roundId/mark', () => {
         const { round, otherOrganiserApi } = await withSubmissions();
         const outsider = as((await f.createEducator()).user);
         expectError(
-            await otherOrganiserApi.post(`/rounds/${round.id}/mark`),
+            await otherOrganiserApi.post(`/rounds/${round.id}/auto-mark`),
             403,
             'Not your round'
         );
         expectError(
-            await outsider.post(`/rounds/${round.id}/mark`),
+            await outsider.post(`/rounds/${round.id}/auto-mark`),
             403,
             'Your school is not registered for this olympiad'
         );
@@ -555,7 +555,7 @@ describe('GET /rounds/:roundId/marking-queue', () => {
     it('lists unmarked answers with the memo, organiser sees all schools, educator their own', async () => {
         const { round, essay, organiserApi, educatorApi } =
             await withSubmissions();
-        expectOk(await organiserApi.post(`/rounds/${round.id}/mark`));
+        expectOk(await organiserApi.post(`/rounds/${round.id}/auto-mark`));
 
         const all = expectOk(
             await organiserApi.get(`/rounds/${round.id}/marking-queue`)

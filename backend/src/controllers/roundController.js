@@ -95,14 +95,20 @@ const setRoundState = async (req, res, next) => {
 
 const checkDates = async (req, res, next) => {
     try {
-        const { opens_at, closes_at, olympiad_id } = req.body;
+        const { opens_at, closes_at } = req.body;
         const dates = [opens_at, closes_at]
             .filter(Boolean)
             .map((d) => new Date(d));
-        const olympiad = olympiad_id
-            ? await assertOwnsOlympiad(olympiad_id, req.user.userId)
-            : null;
-        const warnings = await checkDatesForHolidays(dates, olympiad?.timezone);
+        // The olympiad comes from the path, so the calendar always belongs
+        // to an olympiad the caller owns
+        const olympiad = await assertOwnsOlympiad(
+            req.params.olympiadId,
+            req.user.userId
+        );
+        const warnings = await checkDatesForHolidays(
+            dates,
+            olympiad?.timezone
+        );
         res.json({ success: true, data: { warnings } });
     } catch (err) {
         next(err);

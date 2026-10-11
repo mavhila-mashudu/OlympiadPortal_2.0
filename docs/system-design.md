@@ -100,12 +100,12 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 | POST   | /rounds/:id/papers                    | Organiser | Upload paper and memo          |
 | GET    | /papers/archive                       | Organiser | Shared past-paper archive      |
 | GET    | /papers/:id/download                  | Organiser | Download paper file            |
-| POST   | /marking/:roundId/mark                | Organiser | Bulk auto-mark submissions     |
-| POST   | /marking/:roundId/results             | Organiser | Generate final results         |
-| PATCH  | /marking/:roundId/answers/:id         | Organiser | Manually mark answer           |
-| POST   | /submissions/:roundId/submissions     | Educator  | Create submission              |
-| GET    | /submissions/:roundId/submissions     | Edu/Org   | List submissions               |
-| GET    | /submissions/:roundId/submissions/:id | Edu/Org   | Get submission detail          |
+| POST   | /rounds/:roundId/auto-mark            | Edu/Org   | Bulk auto-mark submissions     |
+| POST   | /rounds/:roundId/results              | Organiser | Generate final results         |
+| PATCH  | /rounds/:roundId/answers/:id          | Edu/Org   | Manually mark answer           |
+| POST   | /rounds/:roundId/submissions          | Educator  | Create submission              |
+| GET    | /rounds/:roundId/submissions          | Edu/Org   | List submissions               |
+| GET    | /rounds/:roundId/submissions/:id      | Edu/Org   | Get submission detail          |
 
 ---
 

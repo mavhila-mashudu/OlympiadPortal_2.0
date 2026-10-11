@@ -88,7 +88,7 @@ function ExamReview() {
                     question_count: number;
                     approved_by_name?: string | null;
                     approved_at?: string | null;
-                }>(`/rounds/${roundId}/exam-status`),
+                }>(`/rounds/${roundId}/exam/status`),
             ]);
             setQuestions(qRes.questions);
             setExamStatus(sRes.exam_status);
@@ -153,7 +153,7 @@ function ExamReview() {
         setActionLoading(true);
         setError(null);
         try {
-            await api.patch(`/rounds/${roundId}/exam-status`, {
+            await api.patch(`/rounds/${roundId}/exam/status`, {
                 status: 'live',
             });
             // Re-fetch so the audit trail (approved_by / approved_at)
@@ -170,7 +170,7 @@ function ExamReview() {
         setActionLoading(true);
         setError(null);
         try {
-            await api.patch(`/rounds/${roundId}/exam-status`, {
+            await api.patch(`/rounds/${roundId}/exam/status`, {
                 status: 'draft',
             });
             setExamStatus('draft');

@@ -90,7 +90,7 @@ app.use('/public', createPublicRateLimiter(), require('./routes/public'));
 
 app.use('/auth', require('./routes/auth'));
 app.use('/schools', require('./routes/schools'));
-app.use('/memberships', require('./routes/membershipApprovals'));
+app.use('/membership-requests', require('./routes/membershipApprovals'));
 app.use('/school-invitations', require('./routes/schoolInvitations'));
 app.use('/olympiad-invitations', require('./routes/olympiadInvitations'));
 // /me/notifications is mounted before /me so it wins the shared prefix
@@ -100,9 +100,10 @@ app.use('/me', require('./routes/me'));
 app.use('/remarks', require('./routes/remarks'));
 
 //registering olympiads and rounds routes
-// Specific subpaths first
 app.use('/olympiads', require('./routes/olympiads'));
-// Review routes handle the shared remark endpoints before student round routes.
+// Every route under /rounds carries :roundId (or a deeper segment), so
+// nothing static competes with roundDetail's /:roundId and no mount order
+// is load-bearing.
 app.use('/rounds', require('./routes/reviews'));
 app.use('/rounds', require('./routes/studentRounds'));
 app.use('/rounds', require('./routes/studentExam'));
@@ -113,7 +114,6 @@ app.use('/rounds', require('./routes/marking'));
 app.use('/rounds', require('./routes/standings'));
 // Round papers: upload, preview, download and the past-paper list
 app.use('/rounds', require('./routes/roundPapers'));
-// Root parametrised last
 app.use('/rounds', require('./routes/roundDetail'));
 app.use('/papers', require('./routes/papers'));
 

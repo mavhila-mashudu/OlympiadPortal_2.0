@@ -155,7 +155,7 @@ describe('api requests', () => {
 
     it('PATCHes a JSON body', async () => {
         const { api } = await loadApi();
-        await api.patch('/rounds/r1/exam-status', { status: 'ready' });
+        await api.patch('/rounds/r1/exam/status', { status: 'ready' });
         expect(lastCall().options).toMatchObject({
             method: 'PATCH',
             body: '{"status":"ready"}',

@@ -1191,7 +1191,7 @@ describe('a single round', () => {
 
 // The create-round form asks for holiday warnings before saving. Holidays are
 // calendar days, so the check reads the dates in the olympiad's timezone.
-describe('POST /rounds/check-dates', () => {
+describe('POST /olympiads/:olympiadId/rounds/date-check', () => {
     const {
         checkDatesForHolidays,
     } = require('../../src/services/holidayService');
@@ -1205,34 +1205,23 @@ describe('POST /rounds/check-dates', () => {
             '2026-06-16 falls on a public holiday: Youth Day',
         ]);
         const organiser = await f.createOrganiser();
-
-        expect(
-            expectOk(
-                await as(organiser).post('/rounds/check-dates').send(dates)
-            )
-        ).toEqual({
-            warnings: ['2026-06-16 falls on a public holiday: Youth Day'],
-        });
-        expect(checkDatesForHolidays).toHaveBeenCalledWith(
-            [new Date(dates.opens_at), new Date(dates.closes_at)],
-            undefined
-        );
-    });
-
-    it("checks on the olympiad's calendar when told which olympiad", async () => {
-        const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({
             organiser,
             timezone: 'Asia/Kolkata',
         });
 
-        expectOk(
-            await as(organiser)
-                .post('/rounds/check-dates')
-                .send({ ...dates, olympiad_id: olympiad.id })
-        );
+        expect(
+            expectOk(
+                await as(organiser)
+                    .post(`/olympiads/${olympiad.id}/rounds/date-check`)
+                    .send(dates)
+            )
+        ).toEqual({
+            warnings: ['2026-06-16 falls on a public holiday: Youth Day'],
+        });
+        // Checked on the olympiad's own calendar, taken from the path
         expect(checkDatesForHolidays).toHaveBeenCalledWith(
-            expect.any(Array),
+            [new Date(dates.opens_at), new Date(dates.closes_at)],
             'Asia/Kolkata'
         );
     });
@@ -1243,33 +1232,34 @@ describe('POST /rounds/check-dates', () => {
 
         expectError(
             await intruder
-                .post('/rounds/check-dates')
-                .send({ ...dates, olympiad_id: olympiad.id }),
+                .post(`/olympiads/${olympiad.id}/rounds/date-check`)
+                .send(dates),
             403,
             'Not your olympiad'
         );
         expectError(
             await intruder
-                .post('/rounds/check-dates')
-                .send({ ...dates, olympiad_id: 'oly-1' }),
+                .post('/olympiads/oly-1/rounds/date-check')
+                .send(dates),
             422,
-            'olympiad_id must be a valid UUID'
+            'olympiadId must be a valid UUID'
         );
         expect(checkDatesForHolidays).not.toHaveBeenCalled();
     });
 
     it('needs valid dates', async () => {
-        const organiser = as(await f.createOrganiser());
+        const organiser = await f.createOrganiser();
+        const olympiad = await f.createOlympiad({ organiser });
         expectError(
-            await organiser
-                .post('/rounds/check-dates')
+            await as(organiser)
+                .post(`/olympiads/${olympiad.id}/rounds/date-check`)
                 .send({ ...dates, opens_at: 'tomorrow' }),
             422,
             'opens_at must be a valid date'
         );
         expectError(
-            await organiser
-                .post('/rounds/check-dates')
+            await as(organiser)
+                .post(`/olympiads/${olympiad.id}/rounds/date-check`)
                 .send({ opens_at: dates.opens_at }),
             422,
             'closes_at must be a valid date'

@@ -184,7 +184,7 @@ describe('request parsing', () => {
         ],
         [
             'a nested path id',
-            (organiser) => as(organiser).get('/rounds/123/exam-status'),
+            (organiser) => as(organiser).get('/rounds/123/exam/status'),
         ],
     ])(
         "responds 400 to %s that isn't a UUID, without leaking internals",

@@ -32,7 +32,11 @@ const markAnswerRules = [
 router.use(requireAuth);
 
 // Bulk auto-mark all received submissions in a round
-router.post('/:roundId/mark', requireRole('organiser', 'educator'), markRound);
+router.post(
+    '/:roundId/auto-mark',
+    requireRole('organiser', 'educator'),
+    markRound
+);
 
 // List unmarked (essay) answers awaiting manual marking
 router.get(

@@ -15,12 +15,12 @@ const f = require('./helpers/factories');
 const getExamStatus = getRouteHandler(
     examStatusRouter,
     'get',
-    '/:roundId/exam-status'
+    '/:roundId/exam/status'
 );
 const updateExamStatus = getRouteHandler(
     examStatusRouter,
     'patch',
-    '/:roundId/exam-status'
+    '/:roundId/exam/status'
 );
 
 const mcq = {

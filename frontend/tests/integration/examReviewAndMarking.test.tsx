@@ -54,7 +54,7 @@ describe('organiser exam review', () => {
         mockApi('get', '/rounds/round-1/questions', () => ({
             questions: state.questions,
         }));
-        mockApi('get', '/rounds/round-1/exam-status', () => state.status);
+        mockApi('get', '/rounds/round-1/exam/status', () => state.status);
         if (memo)
             mockApi('get', '/rounds/round-1/papers/preview', (req) => ({
                 url: `https://storage.test/memo.pdf${req.search}`,
@@ -139,7 +139,7 @@ describe('organiser exam review', () => {
 
     it('approves the exam and shows who verified it', async () => {
         const state = mockReview();
-        const patches = mockApi('patch', '/rounds/round-1/exam-status', () => {
+        const patches = mockApi('patch', '/rounds/round-1/exam/status', () => {
             state.status = {
                 ...state.status,
                 exam_status: 'live',
@@ -167,7 +167,7 @@ describe('organiser exam review', () => {
 
     it('sends the exam back to the educator', async () => {
         mockReview();
-        const patches = mockApi('patch', '/rounds/round-1/exam-status', {
+        const patches = mockApi('patch', '/rounds/round-1/exam/status', {
             round: { exam_status: 'draft' },
         });
         const { user } = renderApp('/organiser/rounds/round-1/review');
@@ -189,7 +189,7 @@ describe('organiser exam review', () => {
         mockReview();
         mockApiError(
             'patch',
-            '/rounds/round-1/exam-status',
+            '/rounds/round-1/exam/status',
             400,
             'Exam has no questions'
         );

@@ -12,7 +12,6 @@ const {
     updateRound,
     deleteRound,
     setRoundState,
-    checkDates,
 } = require('../controllers/roundController');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
@@ -48,16 +47,6 @@ const setRoundStateRules = [
         .withMessage('state must be a valid round state'),
 ];
 
-const checkDatesRules = [
-    body('opens_at').isISO8601().withMessage('opens_at must be a valid date'),
-    body('closes_at').isISO8601().withMessage('closes_at must be a valid date'),
-    // Holidays are checked on the olympiad's local calendar
-    body('olympiad_id')
-        .optional()
-        .isUUID()
-        .withMessage('olympiad_id must be a valid UUID'),
-];
-
 // The educator registers their school's learners for the round
 const registerEntrantsRules = [
     param('roundId').isUUID().withMessage('roundId must be a valid UUID'),
@@ -85,15 +74,6 @@ const registerEntrantsRules = [
 // and a router-level guard would 403 their requests before Express
 // falls through to them.
 router.use(requireAuth);
-
-// Static paths must come before /:roundId to avoid param capture.
-router.post(
-    '/check-dates',
-    requireRole('organiser'),
-    checkDatesRules,
-    validate,
-    checkDates
-);
 
 router.get('/:roundId', requireRole('organiser'), getRound);
 router.get(

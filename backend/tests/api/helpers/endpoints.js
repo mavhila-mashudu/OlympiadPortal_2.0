@@ -108,11 +108,10 @@ const endpoints = [
     },
 
     // School membership approval
-    { method: 'get', path: '/memberships/requests', roles: STAFF },
-    { method: 'patch', path: '/memberships/requests/:requestId', roles: STAFF },
+    { method: 'get', path: '/membership-requests', roles: STAFF },
     {
         method: 'patch',
-        path: '/memberships/student-requests/:requestId',
+        path: '/membership-requests/:requestId',
         roles: STAFF,
     },
 
@@ -177,6 +176,11 @@ const endpoints = [
     { method: 'post', path: '/olympiads/:olympiadId/rounds', roles: ORGANISER },
     { method: 'get', path: '/olympiads/:olympiadId/rounds', roles: ORGANISER },
     {
+        method: 'post',
+        path: '/olympiads/:olympiadId/rounds/date-check',
+        roles: ORGANISER,
+    },
+    {
         method: 'get',
         path: '/olympiads/:olympiadId/notification-rules',
         roles: ORGANISER,
@@ -203,7 +207,6 @@ const endpoints = [
     },
 
     // A single round (organiser)
-    { method: 'post', path: '/rounds/check-dates', roles: ORGANISER },
     { method: 'get', path: '/rounds/:roundId', roles: ORGANISER },
     { method: 'patch', path: '/rounds/:roundId', roles: ORGANISER },
     { method: 'patch', path: '/rounds/:roundId/state', roles: ORGANISER },
@@ -243,8 +246,8 @@ const endpoints = [
         path: '/rounds/:roundId/questions/:questionId',
         roles: STAFF,
     },
-    { method: 'get', path: '/rounds/:roundId/exam-status', roles: STAFF },
-    { method: 'patch', path: '/rounds/:roundId/exam-status', roles: STAFF },
+    { method: 'get', path: '/rounds/:roundId/exam/status', roles: STAFF },
+    { method: 'patch', path: '/rounds/:roundId/exam/status', roles: STAFF },
 
     // Papers
     { method: 'get', path: '/papers/archive', roles: ORGANISER },
@@ -258,7 +261,7 @@ const endpoints = [
         path: '/rounds/:roundId/submissions/:submissionId',
         roles: STAFF,
     },
-    { method: 'post', path: '/rounds/:roundId/mark', roles: STAFF },
+    { method: 'post', path: '/rounds/:roundId/auto-mark', roles: STAFF },
     { method: 'get', path: '/rounds/:roundId/marking-queue', roles: STAFF },
     { method: 'post', path: '/rounds/:roundId/results', roles: ORGANISER },
     { method: 'get', path: '/rounds/:roundId/standings', roles: ORGANISER },
@@ -296,7 +299,7 @@ const mounts = {
     'portalNotifications.js': '/me/notifications',
     'reviews.js': '/rounds',
     'auth.js': '/auth',
-    'membershipApprovals.js': '/memberships',
+    'membershipApprovals.js': '/membership-requests',
     'schoolInvitations.js': '/school-invitations',
     'olympiadInvitations.js': '/olympiad-invitations',
     'remarks.js': '/remarks',

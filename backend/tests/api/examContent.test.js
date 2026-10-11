@@ -855,7 +855,7 @@ describe('question difficulty', () => {
     });
 });
 
-describe('GET /rounds/:roundId/exam-status', () => {
+describe('GET /rounds/:roundId/exam/status', () => {
     it('summarises the exam and who approved it', async () => {
         const { round, organiser, organiserApi } = await setup({
             exam_status: 'live',
@@ -871,7 +871,7 @@ describe('GET /rounds/:roundId/exam-status', () => {
         });
 
         expect(
-            expectOk(await organiserApi.get(`/rounds/${round.id}/exam-status`))
+            expectOk(await organiserApi.get(`/rounds/${round.id}/exam/status`))
         ).toEqual({
             exam_status: 'live',
             state: 'scheduled',
@@ -887,7 +887,7 @@ describe('GET /rounds/:roundId/exam-status', () => {
     it('reports an empty draft for a round without a paper', async () => {
         const { round, organiserApi } = await setup();
         expect(
-            expectOk(await organiserApi.get(`/rounds/${round.id}/exam-status`))
+            expectOk(await organiserApi.get(`/rounds/${round.id}/exam/status`))
         ).toMatchObject({
             exam_status: 'draft',
             question_count: 0,
@@ -904,7 +904,7 @@ describe('GET /rounds/:roundId/exam-status', () => {
             questions: [mcq(), mcq({ type: 'essay' })],
         });
         expect(
-            expectOk(await educatorApi.get(`/rounds/${round.id}/exam-status`))
+            expectOk(await educatorApi.get(`/rounds/${round.id}/exam/status`))
         ).toMatchObject({
             exam_status: 'draft',
             question_count: 2,
@@ -916,26 +916,26 @@ describe('GET /rounds/:roundId/exam-status', () => {
         const { round, otherOrganiserApi, organiserApi, outsiderApi } =
             await setup();
         expectError(
-            await outsiderApi.get(`/rounds/${round.id}/exam-status`),
+            await outsiderApi.get(`/rounds/${round.id}/exam/status`),
             403,
             'Your school is not registered for this olympiad'
         );
         expectError(
-            await otherOrganiserApi.get(`/rounds/${round.id}/exam-status`),
+            await otherOrganiserApi.get(`/rounds/${round.id}/exam/status`),
             403,
             'Not your round'
         );
         expectError(
-            await organiserApi.get(`/rounds/${MISSING}/exam-status`),
+            await organiserApi.get(`/rounds/${MISSING}/exam/status`),
             404,
             'Round not found'
         );
     });
 });
 
-describe('PATCH /rounds/:roundId/exam-status', () => {
+describe('PATCH /rounds/:roundId/exam/status', () => {
     const status = (api, round, value) =>
-        api.patch(`/rounds/${round.id}/exam-status`).send({ status: value });
+        api.patch(`/rounds/${round.id}/exam/status`).send({ status: value });
 
     it('runs draft → ready → live, recording the approving organiser', async () => {
         const { round, organiser, organiserApi } = await setup();
@@ -988,7 +988,7 @@ describe('PATCH /rounds/:roundId/exam-status', () => {
             exam_status: 'ready',
         });
         expect(
-            expectOk(await educatorApi.get(`/rounds/${round.id}/exam-status`))
+            expectOk(await educatorApi.get(`/rounds/${round.id}/exam/status`))
         ).toMatchObject({
             exam_status: 'ready',
             question_count: 1,
