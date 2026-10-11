@@ -35,6 +35,7 @@ describe('GET /me/notifications', () => {
         expect(notifications.map((n) => n.id)).toEqual([newer.id, older.id]);
         expect(notifications[0]).toEqual({
             id: newer.id,
+            dedupe_key: newer.dedupe_key,
             title: 'Newer',
             body: 'Qualifier opens at 2026-10-01T11:00:00.000Z.',
             created_at: '2026-10-01T10:00:00.000Z',

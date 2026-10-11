@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { logout } from '../../lib/session';
 import { api } from '../../lib/api';
+import { ApprovalUpdate } from '../../components/layout/ApprovalUpdate';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ErrorAlert, LoadingIndicator } from '../../components/ui/Feedback';
@@ -66,6 +67,7 @@ export default function StudentApprovalGate() {
                         ? 'Your coordinator did not approve your request. Contact your teacher or school coordinator for help.'
                         : 'Your account has been created. Your school coordinator must approve you before you can see rounds and results.'}
                 </p>
+                <ApprovalUpdate />
                 <div
                     style={{
                         display: 'flex',

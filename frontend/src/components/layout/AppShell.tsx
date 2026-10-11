@@ -141,7 +141,7 @@ export function AppShell({
     const queryClient = useContext(QueryClientContext);
 
     const [notifications, setNotifications] = useState<
-        { id: string; title: string; body: string; read_at: string | null }[]
+        { id: string; dedupe_key?: string; title: string; body: string; read_at: string | null }[]
     >([]);
     const [showNotifications, setShowNotifications] = useState(false);
     useEffect(() => {
@@ -414,6 +414,32 @@ export function AppShell({
                                 >
                                     <strong>{n.title}</strong>
                                     <p>{n.body}</p>
+                                    {n.dedupe_key?.includes(':signup:') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowNotifications(false);
+                                                navigate(activeRole === 'organiser'
+                                                    ? '/organiser/educators'
+                                                    : '/educator/members');
+                                            }}
+                                        >
+                                            Review request
+                                        </button>
+                                    )}
+                                    {n.dedupe_key?.includes(':invite:') && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setShowNotifications(false);
+                                                navigate(activeRole === 'organiser'
+                                                    ? '/organiser/educators'
+                                                    : '/educator/invitations');
+                                            }}
+                                        >
+                                            View invitations
+                                        </button>
+                                    )}
                                     {!n.read_at && (
                                         <button
                                             type="button"

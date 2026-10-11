@@ -138,6 +138,7 @@ const requireAuth = async (req, _res, next) => {
         // only the broad 'educator' role.
         const permittedWhilePending = new Set([
             'GET /me',
+            'GET /me/notifications',
             'POST /auth/logout',
             'DELETE /me',
         ]);

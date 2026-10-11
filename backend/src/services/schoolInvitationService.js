@@ -257,6 +257,7 @@ const findUsableInvitation = async (rawCode, email, expectedAccountType) => {
             email: true,
             role: true,
             account_type: true,
+            invited_by_id: true,
             used_at: true,
             revoked_at: true,
             expires_at: true,
