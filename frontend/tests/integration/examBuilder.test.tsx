@@ -25,20 +25,20 @@ const mockBuilder = ({
     mockApi('get', '/rounds/round-1/questions', () => ({
         questions: state.questions,
     }));
-    mockApi('get', '/rounds/round-1/exam-status', () =>
+    mockApi('get', '/rounds/round-1/exam/status', () =>
         fx.examStatus({
             exam_status: state.status,
             question_count: state.questions.length,
         })
     );
     if (paper)
-        mockApi('get', '/papers/by-round/round-1', (req) => ({
+        mockApi('get', '/rounds/round-1/papers/preview', (req) => ({
             url: `https://storage.test/paper.pdf${req.search}`,
         }));
     else
         mockApiError(
             'get',
-            '/papers/by-round/round-1',
+            '/rounds/round-1/papers/preview',
             404,
             'No paper uploaded for this round'
         );
@@ -83,7 +83,7 @@ const mockBuilder = ({
     );
     const statusChanges = mockApi(
         'patch',
-        '/rounds/round-1/exam-status',
+        '/rounds/round-1/exam/status',
         (req) => {
             state.status = (req.body as { status: string }).status;
             return { round: { exam_status: state.status } };

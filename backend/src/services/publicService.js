@@ -677,7 +677,7 @@ const listPapers = async ({
         roundName: p.rounds.name,
         year: new Date(p.rounds.opens_at).getFullYear(),
         // The files are in private storage; these links lead to them through
-        // GET /public/papers/:id/download
+        // GET /public/v1/papers/:paperId/download
         fileUrl: `${baseUrl}/papers/${p.id}/download`,
         memoFileUrl: p.memo_file_url
             ? `${baseUrl}/papers/${p.id}/download?type=memo`

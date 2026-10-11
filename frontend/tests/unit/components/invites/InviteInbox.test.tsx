@@ -43,7 +43,7 @@ describe('InviteInbox', () => {
         get.mockResolvedValue({ invites: [] });
         const { container } = render(<InviteInbox />);
 
-        await waitFor(() => expect(get).toHaveBeenCalledWith('/invites/mine'));
+        await waitFor(() => expect(get).toHaveBeenCalledWith('/me/olympiad-invitations'));
         expect(container).toBeEmptyDOMElement();
     });
 
@@ -112,7 +112,7 @@ describe('InviteInbox', () => {
             await screen.findByRole('button', { name: 'Accept' })
         );
 
-        expect(post).toHaveBeenCalledWith('/invites/inv-1/accept');
+        expect(post).toHaveBeenCalledWith('/olympiad-invitations/inv-1/accept');
         await waitFor(() => expect(onAccepted).toHaveBeenCalled());
         expect(get).toHaveBeenCalledTimes(2);
     });
@@ -129,7 +129,7 @@ describe('InviteInbox', () => {
             await screen.findByRole('button', { name: 'Decline' })
         );
 
-        expect(post).toHaveBeenCalledWith('/invites/inv-1/reject');
+        expect(post).toHaveBeenCalledWith('/olympiad-invitations/inv-1/reject');
         await waitFor(() => expect(get).toHaveBeenCalledTimes(2));
         expect(onAccepted).not.toHaveBeenCalled();
     });

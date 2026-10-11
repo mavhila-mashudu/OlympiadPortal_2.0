@@ -4,12 +4,12 @@ import * as fx from './support/fixtures';
 import { mockApi, mockApiError } from './support/network';
 import { renderApp } from './support/renderApp';
 
-// Every student page asks /auth/me for the name and school in the sidebar
+// Every student page asks /me for the name and school in the sidebar
 beforeEach(() => {
-    mockApi('get', '/auth/me', fx.me('student'));
+    mockApi('get', '/me', fx.me('student'));
 });
 
-// GET /rounds/registered item
+// GET /me/rounds item
 const registeredRound = (overrides: Record<string, unknown> = {}) => ({
     id: fx.id('round'),
     title: 'Round 1',
@@ -27,7 +27,7 @@ const registeredRound = (overrides: Record<string, unknown> = {}) => ({
 
 describe('student dashboard', () => {
     it("shows the student's stats and what they can do in each round", async () => {
-        mockApi('get', '/rounds/registered', {
+        mockApi('get', '/me/rounds', {
             stats: {
                 roundsEntered: 4,
                 resultsAvailable: 1,
@@ -62,7 +62,7 @@ describe('student dashboard', () => {
             ],
         });
         // The round detail page the dashboard links to loads its own round
-        mockApi('get', '/rounds/r-open/details', {
+        mockApi('get', '/me/rounds/r-open', {
             round: {
                 id: 'r-open',
                 title: 'Round 2 — Regional',
@@ -129,7 +129,7 @@ describe('student dashboard', () => {
     });
 
     it("explains when the student isn't registered for any rounds", async () => {
-        mockApi('get', '/rounds/registered', {
+        mockApi('get', '/me/rounds', {
             rounds: [],
             stats: {
                 roundsEntered: 0,
@@ -148,7 +148,7 @@ describe('student dashboard', () => {
     it("shows why the dashboard couldn't be loaded", async () => {
         mockApiError(
             'get',
-            '/rounds/registered',
+            '/me/rounds',
             403,
             'Only students can view registered rounds'
         );
@@ -160,7 +160,7 @@ describe('student dashboard', () => {
 });
 
 describe('student round page', () => {
-    // GET /rounds/:id/details
+    // GET /me/rounds/:roundId
     const details = (overrides: Record<string, unknown> = {}) => ({
         id: 'round-1',
         title: 'Round 2 — Regional',
@@ -181,7 +181,7 @@ describe('student round page', () => {
     });
 
     it('offers the online exam while the round is open', async () => {
-        mockApi('get', '/rounds/round-1/details', { round: details() });
+        mockApi('get', '/me/rounds/round-1', { round: details() });
         // The exam page the link opens loads the paper itself; sitting it is covered in examSitting
         mockApi('get', '/rounds/round-1/exam', {
             round: {
@@ -219,8 +219,8 @@ describe('student round page', () => {
     });
 
     it('downloads the paper through a signed link from the backend', async () => {
-        mockApi('get', '/rounds/round-1/details', { round: details() });
-        const downloads = mockApi('get', '/rounds/:roundId/paper/download', {
+        mockApi('get', '/me/rounds/round-1', { round: details() });
+        const downloads = mockApi('get', '/rounds/:roundId/papers/download', {
             url: 'https://storage.test/regional.pdf?token=abc',
         });
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -236,17 +236,17 @@ describe('student round page', () => {
                 '_blank'
             )
         );
-        expect(downloads[0].path).toBe('/rounds/round-1/paper/download');
+        expect(downloads[0].path).toBe('/rounds/round-1/papers/download');
         expect(
             screen.getByRole('button', { name: 'Download paper' })
         ).toBeEnabled();
     });
 
     it("shows why the paper couldn't be downloaded", async () => {
-        mockApi('get', '/rounds/round-1/details', { round: details() });
+        mockApi('get', '/me/rounds/round-1', { round: details() });
         mockApiError(
             'get',
-            '/rounds/:roundId/paper/download',
+            '/rounds/:roundId/papers/download',
             404,
             'No paper uploaded for this round'
         );
@@ -264,7 +264,7 @@ describe('student round page', () => {
     });
 
     it('disables the download when no paper was uploaded', async () => {
-        mockApi('get', '/rounds/round-1/details', {
+        mockApi('get', '/me/rounds/round-1', {
             round: details({
                 hasPaper: false,
                 paperFile: 'question-paper.pdf',
@@ -278,7 +278,7 @@ describe('student round page', () => {
 
     it("offers the exam again when a started sitting hasn't been submitted", async () => {
         // The backend reports an in-progress online sitting as not yet submitted
-        mockApi('get', '/rounds/round-1/details', {
+        mockApi('get', '/me/rounds/round-1', {
             round: details({
                 hasSubmitted: false,
                 submissionStatus: 'received',
@@ -295,7 +295,7 @@ describe('student round page', () => {
     });
 
     it('shows a submitted exam instead of the sitting link', async () => {
-        mockApi('get', '/rounds/round-1/details', {
+        mockApi('get', '/me/rounds/round-1', {
             round: details({
                 hasSubmitted: true,
                 submissionStatus: 'queued_for_marking',
@@ -314,7 +314,7 @@ describe('student round page', () => {
     });
 
     it('keeps the paper locked before the round opens', async () => {
-        mockApi('get', '/rounds/round-1/details', {
+        mockApi('get', '/me/rounds/round-1', {
             round: details({
                 status: 'upcoming',
                 canSitOnline: false,
@@ -336,7 +336,7 @@ describe('student round page', () => {
     });
 
     it('shows the released result and certificate for a closed round', async () => {
-        mockApi('get', '/rounds/round-1/details', {
+        mockApi('get', '/me/rounds/round-1', {
             round: details({
                 status: 'closed',
                 canSitOnline: false,
@@ -370,7 +370,7 @@ describe('student round page', () => {
     });
 
     it("says results aren't out yet for a closed round without them", async () => {
-        mockApi('get', '/rounds/round-1/details', {
+        mockApi('get', '/me/rounds/round-1', {
             round: details({ status: 'closed', canSitOnline: false }),
         });
         renderApp('/student/rounds/round-1');
@@ -382,7 +382,7 @@ describe('student round page', () => {
     it("shows the backend's message for a round the student isn't registered for", async () => {
         mockApiError(
             'get',
-            '/rounds/round-1/details',
+            '/me/rounds/round-1',
             404,
             'Round not found or you are not registered for this round'
         );
@@ -401,7 +401,7 @@ describe('student round page', () => {
 
 describe('student results', () => {
     it('lists released and pending results with links to each round', async () => {
-        mockApi('get', '/rounds/my-results', {
+        mockApi('get', '/me/results', {
             results: [
                 {
                     id: 'round-2',
@@ -430,7 +430,7 @@ describe('student results', () => {
             ],
         });
         // The round detail page each result links to loads its own round
-        mockApi('get', '/rounds/round-1/details', {
+        mockApi('get', '/me/rounds/round-1', {
             round: {
                 id: 'round-1',
                 title: 'Round 1 — School',
@@ -468,7 +468,7 @@ describe('student results', () => {
     });
 
     it('explains when there are no results yet', async () => {
-        mockApi('get', '/rounds/my-results', { results: [] });
+        mockApi('get', '/me/results', { results: [] });
         renderApp('/student/results');
         expect(
             await screen.findByText(
@@ -479,7 +479,7 @@ describe('student results', () => {
 
     it("shows why results couldn't be loaded", async () => {
         // (A 401 ends the session instead; see auth.test.tsx)
-        mockApiError('get', '/rounds/my-results', 500, 'Database unavailable');
+        mockApiError('get', '/me/results', 500, 'Database unavailable');
         renderApp('/student/results');
         expect(
             await screen.findByText('Database unavailable')

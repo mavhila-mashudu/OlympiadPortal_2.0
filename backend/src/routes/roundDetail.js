@@ -1,15 +1,17 @@
 // @ts-nocheck
 const express = require('express');
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const router = express.Router();
-const upload = require('../middlewares/upload');
-const { uploadPapers } = require('../controllers/paperController');
+const {
+    registerEntrants,
+    listEntrants,
+    getProgressionInfo,
+} = require('../controllers/educatorController');
 const {
     getRound,
     updateRound,
     deleteRound,
     setRoundState,
-    checkDates,
 } = require('../controllers/roundController');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
@@ -45,14 +47,24 @@ const setRoundStateRules = [
         .withMessage('state must be a valid round state'),
 ];
 
-const checkDatesRules = [
-    body('opens_at').isISO8601().withMessage('opens_at must be a valid date'),
-    body('closes_at').isISO8601().withMessage('closes_at must be a valid date'),
-    // Holidays are checked on the olympiad's local calendar
-    body('olympiad_id')
+// The educator registers their school's learners for the round
+const registerEntrantsRules = [
+    param('roundId').isUUID().withMessage('roundId must be a valid UUID'),
+    body('entrants')
+        .isArray({ min: 1 })
+        .withMessage('entrants array with at least one entry is required'),
+    body('entrants.*.full_name')
+        .isString()
+        .withMessage('full_name is required')
+        .bail()
+        .trim()
+        .notEmpty()
+        .withMessage('full_name is required'),
+    body('entrants.*.grade').optional(),
+    body('entrants.*.external_ref')
         .optional()
-        .isUUID()
-        .withMessage('olympiad_id must be a valid UUID'),
+        .isString()
+        .withMessage('external_ref must be text'),
 ];
 
 // ── Routes ──────────────────────────────────────────────
@@ -63,50 +75,55 @@ const checkDatesRules = [
 // falls through to them.
 router.use(requireAuth);
 
-// Static paths must come before /:id to avoid param capture.
-router.post(
-    '/check-dates',
+router.get('/:roundId', requireRole('organiser'), getRound);
+router.get(
+    '/:roundId/replay',
     requireRole('organiser'),
-    checkDatesRules,
-    validate,
-    checkDates
-);
-
-router.get('/:id', requireRole('organiser'), getRound);
-router.get('/:id/replay', requireRole('organiser'), async (req, res, next) => {
-    try {
-        const data = await require('../services/roundAuditService').replayRound(
-            req.params.id,
-            req.user.userId
-        );
-        res.json({ success: true, data });
-    } catch (error) {
-        next(error);
+    async (req, res, next) => {
+        try {
+            const data =
+                await require('../services/roundAuditService').replayRound(
+                    req.params.roundId,
+                    req.user.userId
+                );
+            res.json({ success: true, data });
+        } catch (error) {
+            next(error);
+        }
     }
-});
+);
 router.patch(
-    '/:id',
+    '/:roundId',
     requireRole('organiser'),
     updateRoundRules,
     validate,
     updateRound
 );
 router.patch(
-    '/:id/state',
+    '/:roundId/state',
     requireRole('organiser'),
     setRoundStateRules,
     validate,
     setRoundState
 );
-router.delete('/:id', requireRole('organiser'), deleteRound);
+router.delete('/:roundId', requireRole('organiser'), deleteRound);
+
+// ── Entrants and progression (educator) ─────────────────
+// The educator registers their school's learners and follows the
+// qualification funnel. School access is checked in the service, exactly as
+// it was when these routes lived under /educator.
 router.post(
-    '/:id/papers',
-    requireRole('organiser'),
-    upload.fields([
-        { name: 'paper', maxCount: 1 },
-        { name: 'memo', maxCount: 1 },
-    ]),
-    uploadPapers
+    '/:roundId/entrants',
+    requireRole('educator'),
+    registerEntrantsRules,
+    validate,
+    registerEntrants
+);
+router.get('/:roundId/entrants', requireRole('educator'), listEntrants);
+router.get(
+    '/:roundId/progression',
+    requireRole('educator'),
+    getProgressionInfo
 );
 
 module.exports = router;

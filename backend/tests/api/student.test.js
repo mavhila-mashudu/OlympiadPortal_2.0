@@ -72,7 +72,7 @@ const setup = async (roundOverrides = {}) => {
 const unregisteredStudent = async (school) =>
     as((await f.createStudent({ school })).user);
 
-describe('GET /rounds/registered', () => {
+describe('GET /me/rounds', () => {
     it("summarises the student's rounds and stats", async () => {
         const { olympiad, educator, entrant, round, studentApi } =
             await setup();
@@ -98,7 +98,7 @@ describe('GET /rounds/registered', () => {
             },
         });
 
-        const data = expectOk(await studentApi.get('/rounds/registered'));
+        const data = expectOk(await studentApi.get('/me/rounds'));
 
         expect(data.stats).toEqual({
             roundsEntered: 2,
@@ -140,7 +140,7 @@ describe('GET /rounds/registered', () => {
             expectOk(
                 await (
                     await unregisteredStudent(school)
-                ).get('/rounds/registered')
+                ).get('/me/rounds')
             )
         ).toEqual({
             rounds: [],
@@ -154,19 +154,19 @@ describe('GET /rounds/registered', () => {
 
     it('responds 403 for a student account without a learner record', async () => {
         expectError(
-            await as(await f.createUser('student')).get('/rounds/registered'),
+            await as(await f.createUser('student')).get('/me/rounds'),
             403,
             'No entrant profile linked to your account'
         );
     });
 });
 
-describe('GET /rounds/:roundId/details', () => {
+describe('GET /me/rounds/:roundId', () => {
     it('describes a round the student is registered for, without storage paths', async () => {
         const { round, school, studentApi } = await setup();
 
         const { round: detail } = expectOk(
-            await studentApi.get(`/rounds/${round.id}/details`)
+            await studentApi.get(`/me/rounds/${round.id}`)
         );
 
         expect(detail).toMatchObject({
@@ -190,7 +190,7 @@ describe('GET /rounds/:roundId/details', () => {
         const { round, school } = await setup();
         const res = await (
             await unregisteredStudent(school)
-        ).get(`/rounds/${round.id}/details`);
+        ).get(`/me/rounds/${round.id}`);
         expectError(
             res,
             404,
@@ -201,14 +201,14 @@ describe('GET /rounds/:roundId/details', () => {
     it("responds 422 for a round id that isn't a UUID", async () => {
         const { studentApi } = await setup();
         expectError(
-            await studentApi.get('/rounds/round-2/details'),
+            await studentApi.get('/me/rounds/round-2'),
             422,
             'Valid round UUID required'
         );
     });
 });
 
-describe('GET /rounds/my-results', () => {
+describe('GET /me/results', () => {
     it('lists closed rounds, hiding scores until they are released', async () => {
         const { olympiad, educator, entrant, studentApi } = await setup();
         const marking = await f.createRound({
@@ -237,7 +237,7 @@ describe('GET /rounds/my-results', () => {
         }
 
         const { results } = expectOk(
-            await studentApi.get('/rounds/my-results')
+            await studentApi.get('/me/results')
         );
 
         expect(
@@ -249,11 +249,11 @@ describe('GET /rounds/my-results', () => {
     });
 });
 
-describe('GET /rounds/:roundId/paper/download', () => {
+describe('GET /rounds/:roundId/papers/download', () => {
     it('signs a one-minute link to the paper for a registered student', async () => {
         const { round, studentApi } = await setup();
         expect(
-            expectOk(await studentApi.get(`/rounds/${round.id}/paper/download`))
+            expectOk(await studentApi.get(`/rounds/${round.id}/papers/download`))
         ).toEqual({
             url: 'https://storage.test/rounds/r2/paper-regional.pdf?expires=60',
         });
@@ -262,7 +262,7 @@ describe('GET /rounds/:roundId/paper/download', () => {
     it('responds 400 before the round opens', async () => {
         const { round, studentApi } = await setup({ state: 'scheduled' });
         expectError(
-            await studentApi.get(`/rounds/${round.id}/paper/download`),
+            await studentApi.get(`/rounds/${round.id}/papers/download`),
             400,
             'Paper is not available yet — the round has not opened'
         );
@@ -273,7 +273,7 @@ describe('GET /rounds/:roundId/paper/download', () => {
         expectError(
             await (
                 await unregisteredStudent(school)
-            ).get(`/rounds/${round.id}/paper/download`),
+            ).get(`/rounds/${round.id}/papers/download`),
             404,
             'Round not found or you are not registered for this round'
         );
@@ -282,7 +282,7 @@ describe('GET /rounds/:roundId/paper/download', () => {
             data: { file_url: null },
         });
         expectError(
-            await studentApi.get(`/rounds/${round.id}/paper/download`),
+            await studentApi.get(`/rounds/${round.id}/papers/download`),
             404,
             'No paper uploaded for this round'
         );
@@ -522,7 +522,7 @@ describe('sitting an exam online', () => {
             expect(await prisma.submissions.count()).toBe(1);
             // The round page no longer offers the online sitting either
             expect(
-                expectOk(await studentApi.get(`/rounds/${round.id}/details`))
+                expectOk(await studentApi.get(`/me/rounds/${round.id}`))
                     .round
             ).toMatchObject({ hasSubmitted: true });
         });
@@ -540,7 +540,7 @@ describe('sitting an exam online', () => {
         });
     });
 
-    describe('PATCH /rounds/:roundId/exam/answers/:qid', () => {
+    describe('PATCH /rounds/:roundId/exam/answers/:questionId', () => {
         it("adds one autosave event per answer to the round's timeline, however often it is saved", async () => {
             const { round, mcq, short, studentApi } = await setup();
             expectOk(await studentApi.post(`${exam(round)}/start`), 201);

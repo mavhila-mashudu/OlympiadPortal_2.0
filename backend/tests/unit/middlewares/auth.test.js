@@ -11,6 +11,7 @@ const { prisma, resetPrismaMock } = require('../helpers/prismaMock');
 const {
     requireAuth,
     requireRole,
+    byRole,
     requireSchoolMembership,
 } = require('../../../src/middlewares/auth');
 const { mockReq, mockRes } = require('../helpers/http');
@@ -208,7 +209,7 @@ describe('requireAuth', () => {
             user: undefined,
             headers: { authorization: 'Bearer valid-token' },
             method: 'GET',
-            originalUrl: '/auth/me',
+            originalUrl: '/me',
         });
         expect(await callMiddleware(requireAuth, status)).toHaveBeenCalledWith();
     });
@@ -293,6 +294,103 @@ describe('requireRole', () => {
             next
         );
         expect(next).toHaveBeenCalledWith();
+    });
+});
+
+describe('byRole', () => {
+    const roleReq = (role) => mockReq({ user: { role } });
+
+    it('rejects an unauthenticated request', () => {
+        const next = jest.fn();
+        byRole({ educator: jest.fn() })(
+            mockReq({ user: undefined }),
+            mockRes(),
+            next
+        );
+        expectNextError(next, 401, 'Not authenticated');
+    });
+
+    it('rejects a role with no handler in the map', () => {
+        const next = jest.fn();
+        byRole({ educator: jest.fn() })(roleReq('organiser'), mockRes(), next);
+        expectNextError(next, 403, 'Insufficient permissions');
+    });
+
+    it("runs the handler for the signed-in user's role", () => {
+        const student = jest.fn((_req, _res, next) => next());
+        const educator = jest.fn((_req, _res, next) => next());
+        const next = jest.fn();
+
+        byRole({ student, educator })(roleReq('student'), mockRes(), next);
+
+        expect(student).toHaveBeenCalledTimes(1);
+        expect(educator).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    it('runs a role chain in order and passes on at the end', () => {
+        const order = [];
+        const guard = (_req, _res, next) => {
+            order.push('guard');
+            next();
+        };
+        const handler = (_req, _res, next) => {
+            order.push('handler');
+            next();
+        };
+        const next = jest.fn();
+
+        byRole({ educator: [guard, handler] })(
+            roleReq('educator'),
+            mockRes(),
+            next
+        );
+
+        expect(order).toEqual(['guard', 'handler']);
+        expect(next).toHaveBeenCalledWith();
+    });
+
+    it('stops a chain at its first error', () => {
+        const boom = new Error('nope');
+        const guard = (_req, _res, next) => next(boom);
+        const handler = jest.fn();
+        const next = jest.fn();
+
+        byRole({ educator: [guard, handler] })(
+            roleReq('educator'),
+            mockRes(),
+            next
+        );
+
+        expect(handler).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledWith(boom);
+    });
+
+    it('passes a synchronous throw to the error handler', () => {
+        const boom = new Error('boom');
+        const next = jest.fn();
+
+        byRole({
+            educator: () => {
+                throw boom;
+            },
+        })(roleReq('educator'), mockRes(), next);
+
+        expect(next).toHaveBeenCalledWith(boom);
+    });
+
+    it('passes an async rejection to the error handler', async () => {
+        const boom = new Error('async boom');
+        const next = jest.fn();
+
+        byRole({
+            educator: async () => {
+                throw boom;
+            },
+        })(roleReq('educator'), mockRes(), next);
+
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(next).toHaveBeenCalledWith(boom);
     });
 });
 

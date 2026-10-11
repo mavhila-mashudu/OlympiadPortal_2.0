@@ -39,7 +39,7 @@ function Archive() {
             try {
                 const { rounds: list } = await api.get<{
                     rounds: ArchivedRound[];
-                }>('/olympiads/archive');
+                }>('/papers/archive');
 
                 if (!cancelled) {
                     setRounds(list);

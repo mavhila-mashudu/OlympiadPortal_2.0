@@ -3,25 +3,13 @@ const express = require('express');
 const { body } = require('express-validator');
 const {
     register,
-    checkInvitation,
-    listSchools,
-    me,
     logout,
-    deleteAccount,
     forgotPassword,
-    getEducatorOlympiads,
 } = require('../controllers/authController');
-const {
-    requireAuth,
-    requireRole,
-    requireSchoolMembership,
-} = require('../middlewares/auth');
+const { requireAuth } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
-const { createRateLimiter } = require('../middlewares/rateLimit');
-
-// Shared by every public endpoint that creates an account, reads the school
-// list that the signup form offers, or sends a password reset email
-const publicAuthLimiter = createRateLimiter();
+// Shared with the other public endpoints — see routes/schools.js
+const { publicAuthLimiter } = require('../middlewares/rateLimit');
 
 const router = express.Router();
 
@@ -86,15 +74,6 @@ const registerRules = [
 ];
 
 router.post('/register', publicAuthLimiter, registerRules, validate, register);
-router.get('/schools', publicAuthLimiter, listSchools);
-// Rate limited like signup itself: a code is secret, so guessing is capped
-router.post(
-    '/invitations/check',
-    publicAuthLimiter,
-    [body('code').isString().isLength({ min: 1, max: 40 })],
-    validate,
-    checkInvitation
-);
 router.post(
     '/forgot-password',
     publicAuthLimiter,
@@ -107,16 +86,6 @@ router.post(
     forgotPassword
 );
 
-router.get('/me', requireAuth, me);
 router.post('/logout', requireAuth, logout);
-router.delete('/account', requireAuth, deleteAccount);
-
-router.get(
-    '/educator-olympiads',
-    requireAuth,
-    requireRole('educator'),
-    requireSchoolMembership('coordinator', 'educator'),
-    getEducatorOlympiads
-);
 
 module.exports = router;

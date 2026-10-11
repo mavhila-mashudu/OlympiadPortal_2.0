@@ -21,7 +21,7 @@ const markAnswer = async (req, res, next) => {
 
         const result = await markingService.markAnswer(
             req.params.roundId,
-            req.params.id,
+            req.params.answerId,
             req.user.userId,
             req.user.role,
             { is_correct, points_awarded }

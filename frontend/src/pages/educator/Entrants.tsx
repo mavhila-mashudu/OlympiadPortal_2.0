@@ -65,8 +65,10 @@ function Entrants() {
     async function loadInvitations() {
         try {
             const [olympiadData, invitationData] = await Promise.all([
-                api.get<{ olympiads: Olympiad[] }>('/auth/educator-olympiads'),
-                api.get<{ invites: Invitation[] }>('/invites/sent'),
+                api.get<{ olympiads: Olympiad[] }>('/me/olympiads'),
+                api.get<{ invites: Invitation[] }>(
+                    '/me/sent-olympiad-invitations'
+                ),
             ]);
             setOlympiads(olympiadData.olympiads);
             setOlympiadId(
@@ -96,7 +98,7 @@ function Entrants() {
         let cancelled = false;
 
         api.get<{ candidates: Candidate[] }>(
-            `/invites/candidates?olympiad_id=${olympiadId}`
+            `/me/olympiad-invitation-candidates?olympiad_id=${olympiadId}`
         )
             .then((data) => {
                 if (!cancelled) {
@@ -150,7 +152,7 @@ function Entrants() {
         setToast(null);
         setSending(true);
         try {
-            await api.post('/invites', {
+            await api.post('/olympiad-invitations', {
                 olympiad_id: olympiadId,
                 invitee_id: inviteeId,
                 message: inviteMessage.trim() || undefined,

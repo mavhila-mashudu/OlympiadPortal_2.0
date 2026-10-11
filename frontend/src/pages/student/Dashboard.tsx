@@ -71,7 +71,7 @@ function StudentDashboard() {
             const [prof, dashData] = await Promise.all([
                 getStudentProfile(),
                 api.get<{ rounds: RoundItem[]; stats: DashboardStats }>(
-                    '/rounds/registered'
+                    '/me/rounds'
                 ),
             ]);
 

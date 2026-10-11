@@ -89,7 +89,7 @@ export function EducatorRemarks() {
         setError(null);
         try {
             const data = await api.get<{ remarks: RemarkRow[] }>(
-                '/educator/remarks'
+                '/me/assigned-remarks'
             );
             setRemarks(data.remarks || []);
         } catch (err) {
@@ -116,7 +116,7 @@ export function EducatorRemarks() {
 
         try {
             const data = await api.get<RemarkAnswersResponse>(
-                `/educator/remarks/${remark.id}/answers`
+                `/remarks/${remark.id}/answers`
             );
             setAnswers(data.answers || []);
             setModalTotalPoints(data.totalPoints ?? remark.score);
@@ -156,7 +156,7 @@ export function EducatorRemarks() {
                 pointsAwarded: number;
                 isCorrect: boolean;
                 totalPoints: number;
-            }>(`/educator/remarks/${activeRemark.id}/answers/${answer.id}`, {
+            }>(`/remarks/${activeRemark.id}/answers/${answer.id}`, {
                 points_awarded: awarded,
             });
 
@@ -204,7 +204,7 @@ export function EducatorRemarks() {
 
         try {
             const note = reviewNoteDraft.trim();
-            await api.patch(`/educator/remarks/${activeRemark.id}`, {
+            await api.post(`/remarks/${activeRemark.id}/review`, {
                 status: 'reviewed',
                 review_note: note || null,
             });

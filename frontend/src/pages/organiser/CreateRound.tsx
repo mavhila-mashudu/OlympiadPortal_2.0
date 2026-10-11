@@ -119,12 +119,14 @@ function CreateRound() {
                                     const { warnings: preWarnings } =
                                         await api.post<{
                                             warnings: string[];
-                                        }>('/rounds/check-dates', {
-                                            opens_at: opensAt,
-                                            closes_at: closesAt,
+                                        }>(
                                             // Holidays are checked on the olympiad's calendar
-                                            olympiad_id: selectedOlympiadId,
-                                        });
+                                            `/olympiads/${selectedOlympiadId}/rounds/date-check`,
+                                            {
+                                                opens_at: opensAt,
+                                                closes_at: closesAt,
+                                            }
+                                        );
                                     if (preWarnings && preWarnings.length > 0) {
                                         setPendingWarnings(preWarnings);
                                         setSubmitting(false);

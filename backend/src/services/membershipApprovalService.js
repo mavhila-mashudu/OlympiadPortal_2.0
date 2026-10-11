@@ -258,4 +258,40 @@ async function decideStudentRequest(user, entrantId, decision, linkEntrantId) {
     return changed;
 }
 
-module.exports = { listRequests, decideRequest, decideStudentRequest };
+// The unified decision endpoint cannot tell the kind from the URL, so the id
+// decides: a row in school_memberships is a staff request, a row in entrants
+// is a student signup. An id in neither is not found.
+async function decideRequestById(user, requestId, decision, linkEntrantId) {
+    if (!['approve', 'reject'].includes(decision)) {
+        throw new BadRequestError('Decision must be approve or reject');
+    }
+    const membership = await prisma.school_memberships.findUnique({
+        where: { id: requestId },
+        select: { id: true },
+    });
+    if (membership) {
+        return { membership: await decideRequest(user, requestId, decision) };
+    }
+    const student = await prisma.entrants.findUnique({
+        where: { id: requestId },
+        select: { id: true },
+    });
+    if (student) {
+        return {
+            student: await decideStudentRequest(
+                user,
+                requestId,
+                decision,
+                linkEntrantId
+            ),
+        };
+    }
+    throw new NotFoundError('Request not found');
+}
+
+module.exports = {
+    listRequests,
+    decideRequest,
+    decideStudentRequest,
+    decideRequestById,
+};

@@ -281,7 +281,7 @@ const autoMarkRoundInternal = async (roundId) => {
 // Thin wrapper around autoMarkRoundInternal
 // that first verifies the caller owns the
 // round.  Used by the organiser-facing
-// POST /rounds/:roundId/mark endpoint.
+// POST /rounds/:roundId/auto-mark endpoint.
 // ─────────────────────────────────────────
 const autoMarkRound = async (roundId, userId, role) => {
     const round = await assertRoundOwnership(roundId, userId, role);

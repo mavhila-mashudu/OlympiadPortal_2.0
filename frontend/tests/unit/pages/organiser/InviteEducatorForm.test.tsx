@@ -55,7 +55,7 @@ describe('InviteEducatorForm', () => {
             await screen.findByRole('option', { name: /Ms Naidoo/ })
         ).toBeInTheDocument();
         expect(get).toHaveBeenCalledWith(
-            '/invites/candidates?olympiad_id=oly-1'
+            '/me/olympiad-invitation-candidates?olympiad_id=oly-1'
         );
     });
 
@@ -65,7 +65,7 @@ describe('InviteEducatorForm', () => {
 
         await pick('edu-1');
 
-        expect(post).toHaveBeenCalledWith('/invites', {
+        expect(post).toHaveBeenCalledWith('/olympiad-invitations', {
             olympiad_id: 'oly-1',
             invitee_id: 'edu-1',
             message: undefined,
@@ -83,7 +83,7 @@ describe('InviteEducatorForm', () => {
         await pick('edu-1');
 
         expect(post).toHaveBeenCalledWith(
-            '/invites',
+            '/olympiad-invitations',
             expect.objectContaining({ message: 'Please join us' })
         );
     });
@@ -99,7 +99,7 @@ describe('InviteEducatorForm', () => {
 
         await waitFor(() =>
             expect(get).toHaveBeenCalledWith(
-                '/invites/candidates?olympiad_id=oly-2'
+                '/me/olympiad-invitation-candidates?olympiad_id=oly-2'
             )
         );
     });
@@ -179,7 +179,7 @@ describe('InviteEducatorForm', () => {
         await screen.findByRole('option', { name: /Ms Naidoo/ });
         expect(screen.queryByLabelText('Olympiad')).not.toBeInTheDocument();
         expect(get).toHaveBeenCalledWith(
-            '/invites/candidates?olympiad_id=oly-2'
+            '/me/olympiad-invitation-candidates?olympiad_id=oly-2'
         );
     });
 });

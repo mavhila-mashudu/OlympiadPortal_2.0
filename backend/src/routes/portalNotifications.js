@@ -22,11 +22,11 @@ router.get('/', async (req, res, next) => {
         next(err);
     }
 });
-router.patch('/:id/read', async (req, res, next) => {
+router.patch('/:notificationId/read', async (req, res, next) => {
     try {
         await prisma.portal_notifications.updateMany({
             where: {
-                id: req.params.id,
+                id: req.params.notificationId,
                 user_id: req.user.userId,
                 read_at: null,
             },

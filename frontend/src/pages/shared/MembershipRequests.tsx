@@ -40,7 +40,7 @@ export default function MembershipRequests({ mode }: { mode: 'organiser' | 'educ
     const load = useCallback(async () => {
         setError(null);
         try {
-            const { requests: pending } = await api.get<{requests: Membership[]}>('/memberships/requests');
+            const { requests: pending } = await api.get<{requests: Membership[]}>('/membership-requests');
             setRequests(pending);
             // One listed student with this name is the likely match, so it starts
             // selected; with several, the coordinator has to choose.
@@ -58,8 +58,9 @@ export default function MembershipRequests({ mode }: { mode: 'organiser' | 'educ
         setBusy(id);
         setError(null);
         try {
-            const path = request.kind === 'student' ? 'student-requests' : 'requests';
-            await api.patch(`/memberships/${path}/${id}`, {
+            // One endpoint decides both kinds: the id tells the server whether
+            // this is a staff membership or a student signup
+            await api.patch(`/membership-requests/${id}`, {
                 decision,
                 link_entrant_id: request.kind === 'student' && decision === 'approve'
                     ? links[id] || null : undefined,

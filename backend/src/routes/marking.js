@@ -14,7 +14,7 @@ const {
 // ── Validation rules ──────────────────────────────────
 
 const markAnswerRules = [
-    param('id').isUUID(),
+    param('answerId').isUUID(),
     body('is_correct')
         .isBoolean()
         .withMessage('is_correct (boolean) is required'),
@@ -32,7 +32,11 @@ const markAnswerRules = [
 router.use(requireAuth);
 
 // Bulk auto-mark all received submissions in a round
-router.post('/:roundId/mark', requireRole('organiser', 'educator'), markRound);
+router.post(
+    '/:roundId/auto-mark',
+    requireRole('organiser', 'educator'),
+    markRound
+);
 
 // List unmarked (essay) answers awaiting manual marking
 router.get(
@@ -46,7 +50,7 @@ router.post('/:roundId/results', requireRole('organiser'), generateResults);
 
 // Manually mark a single answer (non-MCQ)
 router.patch(
-    '/:roundId/answers/:id',
+    '/:roundId/answers/:answerId',
     requireRole('organiser', 'educator'),
     markAnswerRules,
     validate,

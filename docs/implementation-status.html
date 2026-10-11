@@ -646,7 +646,7 @@
                             <td>Register schools to an olympiad</td>
                             <td>
                                 <code>school_registrations</code>,
-                                <code>GET /olympiads/:id/schools</code>
+                                <code>GET /olympiads/:olympiadId/schools</code>
                             </td>
                         </tr>
                         <tr>
@@ -664,7 +664,7 @@
                             <td><span class="role">Educator</span></td>
                             <td>Register entrants for a round</td>
                             <td>
-                                <code>POST /educator/rounds/:id/entrants</code>
+                                <code>POST /rounds/:roundId/entrants</code>
                             </td>
                         </tr>
                         <tr>
@@ -674,7 +674,7 @@
                             <td>
                                 <code>rounds.opens_at</code> /
                                 <code>closes_at</code>,
-                                <code>POST /rounds/check-dates</code>
+                                <code>POST /olympiads/:olympiadId/rounds/date-check</code>
                             </td>
                         </tr>
                         <tr>
@@ -709,7 +709,7 @@
                             <td><span class="role">Organiser</span></td>
                             <td>Upload paper and memo</td>
                             <td>
-                                <code>POST /rounds/:id/papers</code>, Supabase
+                                <code>POST /rounds/:roundId/papers</code>, Supabase
                                 Storage
                             </td>
                         </tr>
@@ -729,7 +729,7 @@
                             <td>Download current and past papers</td>
                             <td>
                                 <code
-                                    >GET /educator/rounds/:id/papers/past</code
+                                    >GET /rounds/:roundId/papers/archive</code
                                 >
                             </td>
                         </tr>
@@ -737,7 +737,7 @@
                             <td class="id">B12</td>
                             <td><span class="role">Educator</span></td>
                             <td>Upload results in the open window</td>
-                            <td><code>POST /rounds/:id/submissions</code></td>
+                            <td><code>POST /rounds/:roundId/submissions</code></td>
                         </tr>
                         <tr>
                             <td class="id">B13</td>
@@ -816,7 +816,7 @@
                             <td><span class="role">Student</span></td>
                             <td>Answers saved as given</td>
                             <td>
-                                <code>PATCH /rounds/:id/exam/answers/:qid</code>
+                                <code>PATCH /rounds/:roundId/exam/answers/:questionId</code>
                                 on each change
                             </td>
                         </tr>
@@ -839,7 +839,7 @@
                             <td><span class="role">System</span></td>
                             <td>Queue non-MCQ for a marker</td>
                             <td>
-                                <code>GET /rounds/:id/marking-queue</code>,
+                                <code>GET /rounds/:roundId/marking-queue</code>,
                                 status
                                 <code>queued_for_marking</code>
                             </td>
@@ -849,7 +849,7 @@
                             <td><span class="role">Marker</span></td>
                             <td>Marker awards partial credit</td>
                             <td>
-                                <code>PATCH /rounds/:id/answers/:id</code>,
+                                <code>PATCH /rounds/:roundId/answers/:answerId</code>,
                                 <code>points_awarded</code>
                             </td>
                         </tr>
@@ -946,7 +946,7 @@
                             <td>Configure notification rules</td>
                             <td>
                                 Full CRUD under
-                                <code>/olympiads/:id/notification-rules</code>
+                                <code>/olympiads/:olympiadId/notification-rules</code>
                             </td>
                         </tr>
                         <tr>
@@ -1224,11 +1224,11 @@
                             <td>
                                 The organiser’s Archive page lists released
                                 papers and memos from all their olympiads in one
-                                place (<code>GET /olympiads/archive</code>,
+                                place (<code>GET /papers/archive</code>,
                                 added in PR #57), each labelled with its
                                 olympiad and shown in that olympiad’s timezone.
                                 A public archive across every olympiad is at
-                                <code>GET /public/papers</code> (PR #64). API
+                                <code>GET /public/v1/papers</code> (PR #64). API
                                 tests cover the shared archive
                             </td>
                         </tr>
@@ -1253,7 +1253,7 @@
                                 The round’s Replay page shows its events and
                                 deadline rulings as one timeline, in order
                                 (<code>RoundReplay.tsx</code>,
-                                <code>GET /rounds/:id/replay</code>)
+                                <code>GET /rounds/:roundId/replay</code>)
                             </td>
                         </tr>
                         <tr>
@@ -1263,7 +1263,7 @@
                             <td>
                                 Supabase Auth; reset-password flow; soft-delete
                                 on
-                                <code>DELETE /auth/account</code>
+                                <code>DELETE /me</code>
                             </td>
                         </tr>
                         <tr>

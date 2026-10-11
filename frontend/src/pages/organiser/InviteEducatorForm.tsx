@@ -81,7 +81,7 @@ export function InviteEducatorForm({
         setLoadingCandidates(true);
         setInviteeId('');
         api.get<{ candidates: Candidate[] }>(
-            `/invites/candidates?olympiad_id=${olympiadId}`
+            `/me/olympiad-invitation-candidates?olympiad_id=${olympiadId}`
         )
             .then((data) => {
                 if (!cancelled) setCandidates(data.candidates || []);
@@ -129,7 +129,7 @@ export function InviteEducatorForm({
 
         setLoading(true);
         try {
-            await api.post('/invites', {
+            await api.post('/olympiad-invitations', {
                 olympiad_id: olympiadId,
                 invitee_id: inviteeId,
                 message: message.trim() || undefined,

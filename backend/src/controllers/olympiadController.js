@@ -27,7 +27,7 @@ const listOlympiads = async (req, res, next) => {
 const getOlympiad = async (req, res, next) => {
     try {
         const olympiad = await olympiadService.getOlympiad(
-            req.params.id,
+            req.params.olympiadId,
             req.user.userId
         );
         res.json({ success: true, data: { olympiad } });
@@ -39,7 +39,7 @@ const getOlympiad = async (req, res, next) => {
 const updateOlympiad = async (req, res, next) => {
     try {
         const olympiad = await olympiadService.updateOlympiad(
-            req.params.id,
+            req.params.olympiadId,
             req.user.userId,
             { name: req.body.name, timezone: req.body.timezone }
         );
@@ -51,7 +51,10 @@ const updateOlympiad = async (req, res, next) => {
 
 const deleteOlympiad = async (req, res, next) => {
     try {
-        await olympiadService.deleteOlympiad(req.params.id, req.user.userId);
+        await olympiadService.deleteOlympiad(
+            req.params.olympiadId,
+            req.user.userId
+        );
         res.json({ success: true, data: { message: 'Olympiad deleted' } });
     } catch (err) {
         next(err);

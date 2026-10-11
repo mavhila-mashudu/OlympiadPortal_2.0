@@ -69,9 +69,7 @@ function StudentRoundDetail() {
             try {
                 const [prof, roundRes] = await Promise.all([
                     getStudentProfile(),
-                    api.get<{ round: RoundDetailData }>(
-                        `/rounds/${id}/details`
-                    ),
+                    api.get<{ round: RoundDetailData }>(`/me/rounds/${id}`),
                 ]);
 
                 if (!cancelled) {
@@ -145,7 +143,7 @@ function StudentRoundDetail() {
         setDownloadError(null);
         try {
             const { url } = await api.get<{ url: string }>(
-                `/rounds/${round.id}/paper/download`
+                `/rounds/${round.id}/papers/download`
             );
             window.open(url, '_blank');
         } catch (err) {
@@ -452,7 +450,7 @@ function StudentRoundDetail() {
                                                                 const submittedReason =
                                                                     remarkReason.trim();
                                                                 await api.post(
-                                                                    `/rounds/${round.id}/remark`,
+                                                                    `/rounds/${round.id}/remarks`,
                                                                     {
                                                                         reason: submittedReason,
                                                                     }

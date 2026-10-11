@@ -29,6 +29,24 @@ const listEligibleEducators = async (req, res, next) => {
     }
 };
 
+const decideRemark = async (req, res, next) => {
+    try {
+        const data = await organiserRemarkService.decideRemark(
+            req.user.userId,
+            req.params.remarkId,
+            {
+                status: req.body.status,
+                decision: req.body.decision,
+                answer_id: req.body.answer_id,
+                points_awarded: req.body.points_awarded,
+            }
+        );
+        res.json({ success: true, data });
+    } catch (err) {
+        next(err);
+    }
+};
+
 const assignRemark = async (req, res, next) => {
     try {
         const remark = await organiserRemarkService.assignRemark(
@@ -59,4 +77,5 @@ module.exports = {
     listEligibleEducators,
     assignRemark,
     autoAssignRemarks,
+    decideRemark,
 };

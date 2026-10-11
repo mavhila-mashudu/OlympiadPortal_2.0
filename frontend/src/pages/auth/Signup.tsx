@@ -87,7 +87,7 @@ function Signup() {
 
         let cancelled = false;
         setCheckingCode(true);
-        api.post<{ invitation: Invite }>('/auth/invitations/check', {
+        api.post<{ invitation: Invite }>('/school-invitations/check', {
             code: inviteCode,
         })
             .then(({ invitation }) => {
@@ -119,7 +119,7 @@ function Signup() {
     useEffect(() => {
         let cancelled = false;
 
-        api.get<{ schools: School[] }>('/auth/schools')
+        api.get<{ schools: School[] }>('/schools')
             .then((data) => {
                 if (!cancelled) setSchools(data.schools || []);
             })
@@ -222,7 +222,7 @@ function Signup() {
 
                                 setToken(data.session.access_token);
                                 const { user } =
-                                    await api.get<MeResponse>('/auth/me');
+                                    await api.get<MeResponse>('/me');
                                 startSession(
                                     data.session.access_token,
                                     user.role

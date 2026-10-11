@@ -9,14 +9,14 @@ const API_URL = 'http://api.test';
 // is about; a test that cares overrides them with server.use() as usual.
 // server.resetHandlers() restores these after every test.
 const backgroundDefaults = [
-    http.get(`${API_URL}/notifications`, () =>
+    http.get(`${API_URL}/me/notifications`, () =>
         HttpResponse.json({ success: true, data: { notifications: [] } })
     ),
-    http.get(`${API_URL}/invites/mine`, () =>
+    http.get(`${API_URL}/me/olympiad-invitations`, () =>
         HttpResponse.json({ success: true, data: { invites: [] } })
     ),
     // The sidebar shows the signed-in person's name
-    http.get(`${API_URL}/auth/me`, () =>
+    http.get(`${API_URL}/me`, () =>
         HttpResponse.json({
             success: true,
             data: {

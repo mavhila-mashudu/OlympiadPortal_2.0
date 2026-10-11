@@ -18,7 +18,7 @@ const { assertRoundAccess } = require('../services/questionService');
 // falls through to them.
 router.use(requireAuth);
 
-// GET /rounds/:roundId/exam-status — get current exam status + question count
+// GET /rounds/:roundId/exam/status — get current exam status + question count
 const getExamStatus = async (req, res, next) => {
     try {
         const round = await prisma.rounds.findUnique({
@@ -78,7 +78,7 @@ const getExamStatus = async (req, res, next) => {
     }
 };
 
-// PATCH /rounds/:roundId/exam-status — transition exam status
+// PATCH /rounds/:roundId/exam/status — transition exam status
 // Allowed transitions: draft → ready, ready → draft (un-approve), ready → live
 const updateExamStatus = async (req, res, next) => {
     try {
@@ -161,12 +161,12 @@ const updateExamStatus = async (req, res, next) => {
 };
 
 router.get(
-    '/:roundId/exam-status',
+    '/:roundId/exam/status',
     requireRole('organiser', 'educator'),
     getExamStatus
 );
 router.patch(
-    '/:roundId/exam-status',
+    '/:roundId/exam/status',
     requireRole('organiser', 'educator'),
     [
         param('roundId').isUUID().withMessage('roundId must be a valid UUID'),

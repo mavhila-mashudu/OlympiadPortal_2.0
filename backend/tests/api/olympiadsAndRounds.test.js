@@ -104,7 +104,7 @@ describe('GET /olympiads', () => {
     });
 });
 
-describe('GET /olympiads/:id', () => {
+describe('GET /olympiads/:olympiadId', () => {
     it('returns the olympiad with its rounds in opening order', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -348,7 +348,7 @@ describe('GET /olympiads/:olympiadId/schools', () => {
     });
 });
 
-describe('GET /olympiads/:olympiadId/archive', () => {
+describe('GET /olympiads/:olympiadId/papers/archive', () => {
     it('lists released rounds with archived papers, most recently closed first', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -377,7 +377,7 @@ describe('GET /olympiads/:olympiadId/archive', () => {
         await f.createRound({ olympiad, state: 'marking' });
 
         const { rounds } = expectOk(
-            await as(organiser).get(`/olympiads/${olympiad.id}/archive`)
+            await as(organiser).get(`/olympiads/${olympiad.id}/papers/archive`)
         );
 
         expect(rounds.map((r) => r.id)).toEqual([recent.id, old.id]);
@@ -393,7 +393,7 @@ describe('GET /olympiads/:olympiadId/archive', () => {
         const olympiad = await f.createOlympiad();
         expectError(
             await as(await f.createOrganiser()).get(
-                `/olympiads/${olympiad.id}/archive`
+                `/olympiads/${olympiad.id}/papers/archive`
             ),
             403,
             'Not your olympiad'
@@ -402,7 +402,7 @@ describe('GET /olympiads/:olympiadId/archive', () => {
 });
 
 // A16: one archive of past papers shared by all of the organiser's olympiads
-describe('GET /olympiads/archive', () => {
+describe('GET /papers/archive', () => {
     const released = async (olympiad, name, closesIn) => {
         const round = await f.createRound({
             olympiad,
@@ -436,7 +436,7 @@ describe('GET /olympiads/archive', () => {
         const mathsFinal = await released(maths, 'Maths final', -50);
 
         const { rounds } = expectOk(
-            await as(organiser).get('/olympiads/archive')
+            await as(organiser).get('/papers/archive')
         );
 
         expect(rounds.map((r) => r.id)).toEqual([
@@ -477,7 +477,7 @@ describe('GET /olympiads/archive', () => {
         await released(await f.createOlympiad(), "Someone else's", -5);
 
         const { rounds } = expectOk(
-            await as(organiser).get('/olympiads/archive')
+            await as(organiser).get('/papers/archive')
         );
 
         expect(rounds.map((r) => r.id)).toEqual([archived.id]);
@@ -485,7 +485,7 @@ describe('GET /olympiads/archive', () => {
 
     it('is empty for an organiser with nothing archived, and for organisers only', async () => {
         const organiser = await f.createOrganiser();
-        expect(expectOk(await as(organiser).get('/olympiads/archive'))).toEqual(
+        expect(expectOk(await as(organiser).get('/papers/archive'))).toEqual(
             {
                 rounds: [],
             }
@@ -493,7 +493,7 @@ describe('GET /olympiads/archive', () => {
 
         const { educatorUser } = await f.createOlympiadWithSchool();
         expectError(
-            await as(educatorUser).get('/olympiads/archive'),
+            await as(educatorUser).get('/papers/archive'),
             403,
             'Insufficient permissions'
         );
@@ -747,7 +747,7 @@ describe('a single round', () => {
     };
     const MISSING = '00000000-0000-4000-8000-000000000000';
 
-    describe('GET /rounds/:id', () => {
+    describe('GET /rounds/:roundId', () => {
         it('returns the round with its olympiad and papers', async () => {
             const { round, olympiad, client } = await owned();
             await f.createPaper({ round, file_url: 'rounds/x/paper.pdf' });
@@ -773,7 +773,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('PATCH /rounds/:id', () => {
+    describe('PATCH /rounds/:roundId', () => {
         it("edits a scheduled round's name, times and threshold", async () => {
             const { round, client } = await owned();
             const opens_at = iso(72);
@@ -866,7 +866,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('PATCH /rounds/:id/state', () => {
+    describe('PATCH /rounds/:roundId/state', () => {
         it.each([
             ['scheduled', 'open'],
             ['open', 'closed'],
@@ -1023,7 +1023,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('DELETE /rounds/:id', () => {
+    describe('DELETE /rounds/:roundId', () => {
         it('deletes a scheduled round together with its paper and registrations', async () => {
             const { organiser, olympiad, school, educator } =
                 await f.createOlympiadWithSchool();
@@ -1070,7 +1070,7 @@ describe('a single round', () => {
         });
     });
 
-    describe('POST /rounds/:id/papers', () => {
+    describe('POST /rounds/:roundId/papers', () => {
         const PDF = Buffer.from('%PDF-1.4 test');
 
         it('uploads the paper and memo to storage and records their paths', async () => {
@@ -1191,7 +1191,7 @@ describe('a single round', () => {
 
 // The create-round form asks for holiday warnings before saving. Holidays are
 // calendar days, so the check reads the dates in the olympiad's timezone.
-describe('POST /rounds/check-dates', () => {
+describe('POST /olympiads/:olympiadId/rounds/date-check', () => {
     const {
         checkDatesForHolidays,
     } = require('../../src/services/holidayService');
@@ -1205,34 +1205,23 @@ describe('POST /rounds/check-dates', () => {
             '2026-06-16 falls on a public holiday: Youth Day',
         ]);
         const organiser = await f.createOrganiser();
-
-        expect(
-            expectOk(
-                await as(organiser).post('/rounds/check-dates').send(dates)
-            )
-        ).toEqual({
-            warnings: ['2026-06-16 falls on a public holiday: Youth Day'],
-        });
-        expect(checkDatesForHolidays).toHaveBeenCalledWith(
-            [new Date(dates.opens_at), new Date(dates.closes_at)],
-            undefined
-        );
-    });
-
-    it("checks on the olympiad's calendar when told which olympiad", async () => {
-        const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({
             organiser,
             timezone: 'Asia/Kolkata',
         });
 
-        expectOk(
-            await as(organiser)
-                .post('/rounds/check-dates')
-                .send({ ...dates, olympiad_id: olympiad.id })
-        );
+        expect(
+            expectOk(
+                await as(organiser)
+                    .post(`/olympiads/${olympiad.id}/rounds/date-check`)
+                    .send(dates)
+            )
+        ).toEqual({
+            warnings: ['2026-06-16 falls on a public holiday: Youth Day'],
+        });
+        // Checked on the olympiad's own calendar, taken from the path
         expect(checkDatesForHolidays).toHaveBeenCalledWith(
-            expect.any(Array),
+            [new Date(dates.opens_at), new Date(dates.closes_at)],
             'Asia/Kolkata'
         );
     });
@@ -1243,33 +1232,34 @@ describe('POST /rounds/check-dates', () => {
 
         expectError(
             await intruder
-                .post('/rounds/check-dates')
-                .send({ ...dates, olympiad_id: olympiad.id }),
+                .post(`/olympiads/${olympiad.id}/rounds/date-check`)
+                .send(dates),
             403,
             'Not your olympiad'
         );
         expectError(
             await intruder
-                .post('/rounds/check-dates')
-                .send({ ...dates, olympiad_id: 'oly-1' }),
+                .post('/olympiads/oly-1/rounds/date-check')
+                .send(dates),
             422,
-            'olympiad_id must be a valid UUID'
+            'olympiadId must be a valid UUID'
         );
         expect(checkDatesForHolidays).not.toHaveBeenCalled();
     });
 
     it('needs valid dates', async () => {
-        const organiser = as(await f.createOrganiser());
+        const organiser = await f.createOrganiser();
+        const olympiad = await f.createOlympiad({ organiser });
         expectError(
-            await organiser
-                .post('/rounds/check-dates')
+            await as(organiser)
+                .post(`/olympiads/${olympiad.id}/rounds/date-check`)
                 .send({ ...dates, opens_at: 'tomorrow' }),
             422,
             'opens_at must be a valid date'
         );
         expectError(
-            await organiser
-                .post('/rounds/check-dates')
+            await as(organiser)
+                .post(`/olympiads/${olympiad.id}/rounds/date-check`)
                 .send({ opens_at: dates.opens_at }),
             422,
             'closes_at must be a valid date'

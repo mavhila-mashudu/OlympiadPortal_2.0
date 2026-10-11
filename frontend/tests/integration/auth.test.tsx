@@ -15,12 +15,12 @@ import { renderApp } from './support/renderApp';
 const mockLandingPages = () => {
     mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
     mockApi('get', '/olympiads/oly-1/rounds', { rounds: [] });
-    mockApi('get', '/educator/rounds', { rounds: [], school: fx.school });
-    mockApi('get', '/rounds/registered', {
+    mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
+    mockApi('get', '/me/rounds', {
         rounds: [],
         stats: { roundsEntered: 0, resultsAvailable: 0, certificatesEarned: 0 },
     });
-    mockApi('get', '/invites/mine', { invites: [] });
+    mockApi('get', '/me/olympiad-invitations', { invites: [] });
 };
 
 beforeEach(() => {
@@ -68,7 +68,7 @@ describe('logging in', () => {
                 userId: `${role}-user`,
                 accessToken: `jwt-for-${role}`,
             });
-            mockApi('get', '/auth/me', fx.me(role));
+            mockApi('get', '/me', fx.me(role));
             const { user, currentPath } = renderApp('/login');
 
             await fillAndSubmit(user);
@@ -96,7 +96,7 @@ describe('logging in', () => {
             userId: 'organiser-user',
             accessToken: 'jwt-abc',
         });
-        const meCalls = mockApi('get', '/auth/me', fx.me('organiser'));
+        const meCalls = mockApi('get', '/me', fx.me('organiser'));
         const { user } = renderApp('/login');
 
         await fillAndSubmit(user);
@@ -121,7 +121,7 @@ describe('logging in', () => {
 
     it("explains when the backend can't be reached", async () => {
         mockSupabaseSignIn({ userId: 'organiser-user' });
-        mockNetworkFailure('get', '/auth/me');
+        mockNetworkFailure('get', '/me');
         const { user } = renderApp('/login');
 
         await fillAndSubmit(user);
@@ -135,7 +135,7 @@ describe('logging in', () => {
 
     it('shows a backend error such as a deleted account', async () => {
         mockSupabaseSignIn({ userId: 'organiser-user' });
-        mockApiError('get', '/auth/me', 401, 'Account not found or deleted');
+        mockApiError('get', '/me', 401, 'Account not found or deleted');
         const { user } = renderApp('/login');
 
         await fillAndSubmit(user);
@@ -170,7 +170,7 @@ describe('signing up', () => {
     };
 
     const mockSchools = () =>
-        mockApi('get', '/auth/schools', {
+        mockApi('get', '/schools', {
             schools: [
                 { id: 'school-1', name: 'Parktown High' },
                 { id: 'school-2', name: 'Northview College' },
@@ -233,7 +233,7 @@ describe('signing up', () => {
             { status: 201 }
         );
         mockSupabaseSignIn({ userId: 'educator-user' });
-        mockApi('get', '/auth/me', fx.me('educator', {
+        mockApi('get', '/me', fx.me('educator', {
             school_memberships: [{
                 school_id: 'school-1',
                 role: 'educator',
@@ -276,7 +276,7 @@ describe('signing up', () => {
             { status: 201 }
         );
         mockSupabaseSignIn({ userId: 'educator-user' });
-        mockApi('get', '/auth/me', fx.me('educator'));
+        mockApi('get', '/me', fx.me('educator'));
         const { user } = renderApp('/signup');
 
         await user.click(screen.getByRole('radio', { name: /Educator/ }));
@@ -313,7 +313,7 @@ describe('signing up', () => {
             { status: 201 }
         );
         mockSupabaseSignIn({ userId: 'student-user' });
-        mockApi('get', '/auth/me', fx.me('student', {
+        mockApi('get', '/me', fx.me('student', {
             entrants: {
                 school_id: 'school-2',
                 status: 'pending',
@@ -377,7 +377,7 @@ describe('signing up', () => {
         it('shows where the code leads, locks the email, and signs up without choosing a school', async () => {
             mockLandingPages();
             mockSchools();
-            const checks = mockApi('post', '/auth/invitations/check', {
+            const checks = mockApi('post', '/school-invitations/check', {
                 invitation,
             });
             const registrations = mockApi(
@@ -387,7 +387,7 @@ describe('signing up', () => {
                 { status: 201 }
             );
             mockSupabaseSignIn({ userId: 'educator-user' });
-            mockApi('get', '/auth/me', fx.me('educator'));
+            mockApi('get', '/me', fx.me('educator'));
             const { user, currentPath } = renderApp('/signup');
 
             await user.click(
@@ -429,7 +429,7 @@ describe('signing up', () => {
 
         it('accepts a student signup link and selects Student automatically', async () => {
             mockSchools();
-            mockApi('post', '/auth/invitations/check', {
+            mockApi('post', '/school-invitations/check', {
                 invitation: { ...invitation, accountType: 'student', role: null },
             });
             renderApp(`/signup?code=${CODE}`);
@@ -441,7 +441,7 @@ describe('signing up', () => {
 
         it('opens with the code from the email link already filled in', async () => {
             mockSchools();
-            const checks = mockApi('post', '/auth/invitations/check', {
+            const checks = mockApi('post', '/school-invitations/check', {
                 invitation,
             });
             renderApp(`/signup?code=${CODE}`);
@@ -460,7 +460,7 @@ describe('signing up', () => {
             mockSchools();
             mockApiError(
                 'post',
-                '/auth/invitations/check',
+                '/school-invitations/check',
                 400,
                 'This invitation code is not valid.'
             );
@@ -535,7 +535,7 @@ describe('logging out', () => {
         ];
         const meCalls = mockApi(
             'get',
-            '/auth/me',
+            '/me',
             () => students[Math.min(meCalls.length - 1, 1)]
         );
         const { user, currentPath, queryClient } = renderApp('/login');
@@ -625,7 +625,7 @@ describe('logging out', () => {
 
     it('shows the login page, not the account, when Back is pressed after logging out', async () => {
         mockLandingPages();
-        mockApi('get', '/olympiads/archive', { rounds: [] });
+        mockApi('get', '/papers/archive', { rounds: [] });
         mockApi('post', '/auth/logout', { message: 'Logged out' });
         localStorage.setItem('op_access_token', 'jwt');
         const { user, currentPath, goBack } = renderApp('/organiser');
@@ -656,12 +656,12 @@ describe('signed-in pages', () => {
         `header.${btoa(JSON.stringify({ exp: Math.floor(date.getTime() / 1000) })).replace(/=+$/, '')}.signature`;
 
     it("send a visitor who isn't signed in to the login page, and back after they log in", async () => {
-        mockApi('get', '/olympiads/archive', { rounds: [] });
+        mockApi('get', '/papers/archive', { rounds: [] });
         mockSupabaseSignIn({
             userId: 'organiser-user',
             accessToken: 'jwt-thandi',
         });
-        mockApi('get', '/auth/me', fx.me('organiser'));
+        mockApi('get', '/me', fx.me('organiser'));
         const { user, currentPath } = renderApp('/organiser/archive');
 
         expect(
@@ -713,7 +713,7 @@ describe('signed-in pages', () => {
 
     it("end the session when the server says it's no longer valid", async () => {
         mockApiError('get', '/olympiads', 401, 'Invalid or expired token');
-        mockApiError('get', '/notifications', 401, 'Invalid or expired token');
+        mockApiError('get', '/me/notifications', 401, 'Invalid or expired token');
         localStorage.setItem('op_access_token', 'jwt');
         const { currentPath } = renderApp('/organiser');
 
@@ -927,7 +927,7 @@ describe('deleting an account', () => {
 
     it('asks for confirmation, then deletes the account and returns to login', async () => {
         signedInOrganiser();
-        const deletions = mockApi('delete', '/auth/account', {
+        const deletions = mockApi('delete', '/me', {
             message: 'Account deleted',
         });
         mockSupabaseSignOut();
@@ -969,7 +969,7 @@ describe('deleting an account', () => {
 
     it('keeps the user signed in when the deletion fails', async () => {
         signedInOrganiser();
-        mockApiError('delete', '/auth/account', 500, 'Something went wrong');
+        mockApiError('delete', '/me', 500, 'Something went wrong');
         const { user, currentPath } = renderApp('/organiser');
 
         await screen.findByRole('heading', { name: 'Organiser dashboard' });

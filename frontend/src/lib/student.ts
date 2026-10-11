@@ -27,7 +27,7 @@ export async function getStudentProfile(): Promise<StudentProfile> {
                     };
                 }[];
             };
-        }>('/auth/me');
+        }>('/me');
 
         const name = user.full_name || 'Student';
         const initials =

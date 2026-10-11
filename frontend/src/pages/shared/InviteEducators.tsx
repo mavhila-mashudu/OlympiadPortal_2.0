@@ -81,7 +81,7 @@ export default function InviteEducators({
 
     useEffect(() => {
         if (mode !== 'organiser') return;
-        api.get<{ schools: School[] }>('/auth/schools')
+        api.get<{ schools: School[] }>('/schools')
             .then((data) => setSchools(data.schools || []))
             .catch(() =>
                 setError('We couldn’t load the list of schools.')

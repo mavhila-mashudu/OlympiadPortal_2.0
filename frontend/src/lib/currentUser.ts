@@ -19,7 +19,7 @@ export const initialsOf = (name: string) =>
 export function getCurrentUser(): Promise<CurrentUser | null> {
     cached ??= api
         // background: the sidebar loading must never cover the page
-        .get<{ user: { full_name: string } }>('/auth/me', { background: true })
+        .get<{ user: { full_name: string } }>('/me', { background: true })
         .then(({ user }) =>
             user?.full_name
                 ? { name: user.full_name, initials: initialsOf(user.full_name) }

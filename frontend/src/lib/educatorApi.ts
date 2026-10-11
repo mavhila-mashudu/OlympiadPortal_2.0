@@ -233,7 +233,7 @@ export function useEducatorRounds() {
         queryKey: ['educator', 'rounds'],
         queryFn: () =>
             api.get<{ rounds: EducatorRound[]; school: EducatorSchool }>(
-                '/educator/rounds'
+                '/me/rounds'
             ),
     });
 }
@@ -241,7 +241,7 @@ export function useEducatorRounds() {
 export function useEducatorOverview() {
     return useQuery({
         queryKey: ['educator', 'overview'],
-        queryFn: () => api.get<EducatorOverview>('/educator/overview'),
+        queryFn: () => api.get<EducatorOverview>('/me/overview'),
     });
 }
 
@@ -250,9 +250,7 @@ export function useEducatorRoundDetail(roundId: string) {
         queryKey: ['educator', 'rounds', roundId],
         queryFn: () =>
             api
-                .get<{ round: EducatorRoundDetail }>(
-                    `/educator/rounds/${roundId}`
-                )
+                .get<{ round: EducatorRoundDetail }>(`/me/rounds/${roundId}`)
                 .then((d) => d.round),
         enabled: !!roundId,
     });
@@ -264,7 +262,7 @@ export function useEducatorEntrants(roundId: string) {
         queryFn: () =>
             api
                 .get<{ entrants: EducatorEntrant[] }>(
-                    `/educator/rounds/${roundId}/entrants`
+                    `/rounds/${roundId}/entrants`
                 )
                 .then((d) => d.entrants),
         enabled: !!roundId,
@@ -275,7 +273,7 @@ export function useProgressionInfo(roundId: string) {
     return useQuery({
         queryKey: ['educator', 'rounds', roundId, 'progression'],
         queryFn: () =>
-            api.get<ProgressionInfo>(`/educator/rounds/${roundId}/progression`),
+            api.get<ProgressionInfo>(`/rounds/${roundId}/progression`),
         enabled: !!roundId,
     });
 }
@@ -286,7 +284,7 @@ export function useOlympiadEntrants(olympiadId: string) {
         queryFn: () =>
             api
                 .get<{ entrants: OlympiadEntrant[] }>(
-                    `/educator/olympiads/${olympiadId}/entrants`
+                    `/olympiads/${olympiadId}/entrants`
                 )
                 .then((d) => d.entrants),
         enabled: !!olympiadId,
@@ -298,7 +296,7 @@ export function useOlympiadProgressionInfo(olympiadId: string) {
         queryKey: ['educator', 'olympiads', olympiadId, 'progression'],
         queryFn: () =>
             api.get<OlympiadProgressionInfo>(
-                `/educator/olympiads/${olympiadId}/progression`
+                `/olympiads/${olympiadId}/progression`
             ),
         enabled: !!olympiadId,
     });
@@ -315,7 +313,7 @@ export function useRegisterEntrantsForOlympiad(olympiadId: string) {
             }>
         ) =>
             api.post<{ entrants: OlympiadEntrant[] }>(
-                `/educator/olympiads/${olympiadId}/entrants`,
+                `/olympiads/${olympiadId}/entrants`,
                 { entrants }
             ),
         onSuccess: () => {
@@ -331,9 +329,7 @@ export function useEducatorResults(roundId: string) {
     return useQuery({
         queryKey: ['educator', 'rounds', roundId, 'results'],
         queryFn: () =>
-            api.get<EducatorRoundResults>(
-                `/educator/rounds/${roundId}/results`
-            ),
+            api.get<EducatorRoundResults>(`/me/rounds/${roundId}/results`),
         enabled: !!roundId,
     });
 }
@@ -343,7 +339,7 @@ export function useAllEducatorResults() {
         queryKey: ['educator', 'results'],
         queryFn: () =>
             api
-                .get<{ rounds: EducatorAllResultsRound[] }>('/educator/results')
+                .get<{ rounds: EducatorAllResultsRound[] }>('/me/results')
                 .then((d) => d.rounds),
     });
 }
@@ -354,7 +350,7 @@ export function usePastPapers(roundId: string) {
         queryFn: () =>
             api
                 .get<{ papers: PastPaper[] }>(
-                    `/educator/rounds/${roundId}/papers/past`
+                    `/rounds/${roundId}/papers/archive`
                 )
                 .then((d) => d.papers),
         enabled: !!roundId,
@@ -374,7 +370,7 @@ export function useRegisterEntrants(roundId: string) {
             }>
         ) =>
             api.post<{ entrants: EducatorEntrant[] }>(
-                `/educator/rounds/${roundId}/entrants`,
+                `/rounds/${roundId}/entrants`,
                 { entrants }
             ),
         onSuccess: () => {
@@ -411,17 +407,7 @@ export async function downloadPaperFile(
     type: 'paper' | 'memo' = 'paper'
 ): Promise<void> {
     const { url } = await api.get<{ url: string }>(
-        `/educator/rounds/${roundId}/paper/download?type=${type}`
-    );
-    window.open(url, '_blank');
-}
-
-export async function downloadPastPaper(paperId: string): Promise<void> {
-    // Past papers use the same download endpoint via their round_id
-    // The paper ID isn't directly usable here; callers should pass roundId
-    // This is a convenience wrapper; the actual download is handled inline
-    const { url } = await api.get<{ url: string }>(
-        `/papers/by-round/${paperId}?type=paper`
+        `/rounds/${roundId}/papers/download?type=${type}`
     );
     window.open(url, '_blank');
 }

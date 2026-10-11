@@ -335,7 +335,7 @@ const startExam = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────
-// PATCH /rounds/:roundId/exam/answers/:qid
+// PATCH /rounds/:roundId/exam/answers/:questionId
 //
 // Update a single answer value.  Used for
 // auto-save as the student types.
@@ -345,7 +345,7 @@ const saveAnswer = async (req, res, next) => {
         const receivedAt = new Date();
         const entrant = resolveEntrant(req);
         const { answer_value } = req.body;
-        const questionId = req.params.qid;
+        const questionId = req.params.questionId;
 
         // Find the student's submission for this round
         const submission = await prisma.submissions.findFirst({
@@ -653,11 +653,11 @@ router.get('/:roundId/exam', requireRole('student'), getExam);
 router.post('/:roundId/exam/start', requireRole('student'), startExam);
 
 router.patch(
-    '/:roundId/exam/answers/:qid',
+    '/:roundId/exam/answers/:questionId',
     requireRole('student'),
     [
         param('roundId').isUUID(),
-        param('qid').isUUID(),
+        param('questionId').isUUID(),
         body('answer_value').optional().isString(),
     ],
     validate,

@@ -85,7 +85,7 @@ describe('query hooks', () => {
         {
             name: 'useEducatorRounds',
             use: () => educatorApi.useEducatorRounds(),
-            path: '/educator/rounds',
+            path: '/me/rounds',
             response: {
                 rounds: [{ id: 'r1' }],
                 school: { id: 's1', name: 'Parktown' },
@@ -98,21 +98,21 @@ describe('query hooks', () => {
         {
             name: 'useEducatorRoundDetail',
             use: () => educatorApi.useEducatorRoundDetail('r1'),
-            path: '/educator/rounds/r1',
+            path: '/me/rounds/r1',
             response: { round: { id: 'r1', name: 'Round 1' } },
             data: { id: 'r1', name: 'Round 1' },
         },
         {
             name: 'useEducatorEntrants',
             use: () => educatorApi.useEducatorEntrants('r1'),
-            path: '/educator/rounds/r1/entrants',
+            path: '/rounds/r1/entrants',
             response: { entrants: [{ id: 'e1' }] },
             data: [{ id: 'e1' }],
         },
         {
             name: 'useProgressionInfo',
             use: () => educatorApi.useProgressionInfo('r1'),
-            path: '/educator/rounds/r1/progression',
+            path: '/rounds/r1/progression',
             response: {
                 requiresQualification: true,
                 previousRound: null,
@@ -127,35 +127,35 @@ describe('query hooks', () => {
         {
             name: 'useOlympiadEntrants',
             use: () => educatorApi.useOlympiadEntrants('o1'),
-            path: '/educator/olympiads/o1/entrants',
+            path: '/olympiads/o1/entrants',
             response: { entrants: [{ id: 'e1', rounds: [] }] },
             data: [{ id: 'e1', rounds: [] }],
         },
         {
             name: 'useOlympiadProgressionInfo',
             use: () => educatorApi.useOlympiadProgressionInfo('o1'),
-            path: '/educator/olympiads/o1/progression',
+            path: '/olympiads/o1/progression',
             response: { rounds: [{ roundId: 'r1' }] },
             data: { rounds: [{ roundId: 'r1' }] },
         },
         {
             name: 'useEducatorResults',
             use: () => educatorApi.useEducatorResults('r1'),
-            path: '/educator/rounds/r1/results',
+            path: '/me/rounds/r1/results',
             response: { round: { id: 'r1' }, results: [] },
             data: { round: { id: 'r1' }, results: [] },
         },
         {
             name: 'useAllEducatorResults',
             use: () => educatorApi.useAllEducatorResults(),
-            path: '/educator/results',
+            path: '/me/results',
             response: { rounds: [{ id: 'r1', results: [] }] },
             data: [{ id: 'r1', results: [] }],
         },
         {
             name: 'usePastPapers',
             use: () => educatorApi.usePastPapers('r1'),
-            path: '/educator/rounds/r1/papers/past',
+            path: '/rounds/r1/papers/archive',
             response: { papers: [{ id: 'p1' }] },
             data: [{ id: 'p1' }],
         },
@@ -221,7 +221,7 @@ describe('mutation hooks', () => {
             name: 'useRegisterEntrants',
             use: () => educatorApi.useRegisterEntrants('r1'),
             variables: entrants,
-            path: '/educator/rounds/r1/entrants',
+            path: '/rounds/r1/entrants',
             body: { entrants },
             invalidated: [
                 ['educator', 'rounds', 'r1', 'entrants'],
@@ -232,7 +232,7 @@ describe('mutation hooks', () => {
             name: 'useRegisterEntrantsForOlympiad',
             use: () => educatorApi.useRegisterEntrantsForOlympiad('o1'),
             variables: entrants,
-            path: '/educator/olympiads/o1/entrants',
+            path: '/olympiads/o1/entrants',
             body: { entrants },
             invalidated: [
                 ['educator', 'olympiads', 'o1', 'entrants'],
@@ -301,7 +301,7 @@ describe('downloadPaperFile', () => {
         await educatorApi.downloadPaperFile('r1');
 
         expect(get).toHaveBeenCalledWith(
-            '/educator/rounds/r1/paper/download?type=paper'
+            '/rounds/r1/papers/download?type=paper'
         );
         expect(open).toHaveBeenCalledWith(
             'https://signed.test/paper.pdf',
@@ -315,7 +315,7 @@ describe('downloadPaperFile', () => {
 
         await educatorApi.downloadPaperFile('r1', 'memo');
         expect(get).toHaveBeenCalledWith(
-            '/educator/rounds/r1/paper/download?type=memo'
+            '/rounds/r1/papers/download?type=memo'
         );
     });
 

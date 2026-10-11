@@ -151,7 +151,7 @@ describe('organiser dashboard', () => {
             closes_at: '2026-10-01T08:30:00.000Z',
         });
         mockApi('get', '/olympiads/oly-1/rounds', { rounds: [round] });
-        mockApi('get', '/rounds/:id', {
+        mockApi('get', '/rounds/:roundId', {
             round: {
                 ...round,
                 state: 'scheduled',
@@ -192,7 +192,7 @@ describe('organiser dashboard', () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
         let current = rounds();
         mockApi('get', '/olympiads/oly-1/rounds', () => ({ rounds: current }));
-        const stateChanges = mockApi('patch', '/rounds/:id/state', (req) => {
+        const stateChanges = mockApi('patch', '/rounds/:roundId/state', (req) => {
             current = current.map((r) =>
                 r.id === 'r-ready' ? { ...r, state: 'open' } : r
             );
@@ -223,7 +223,7 @@ describe('organiser dashboard', () => {
         mockApi('get', '/olympiads/oly-1/rounds', { rounds: rounds() });
         mockApiError(
             'patch',
-            '/rounds/:id/state',
+            '/rounds/:roundId/state',
             400,
             'Cannot transition from "open" to "closed"'
         );
@@ -412,7 +412,7 @@ describe('olympiads page', () => {
                 fx.olympiad({ id: 'oly-2', name: 'Science Olympiad' }),
             ],
         });
-        mockApi('get', '/invites/candidates', {
+        mockApi('get', '/me/olympiad-invitation-candidates', {
             candidates: [
                 {
                     id: 'edu-1',
@@ -424,7 +424,7 @@ describe('olympiads page', () => {
         });
         const invites = mockApi(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             { invite: { id: 'inv-1' } },
             { status: 201 }
         );
@@ -459,7 +459,7 @@ describe('olympiads page', () => {
 });
 
 describe('schools page', () => {
-    // GET /olympiads/:id/schools returns participating schools plus outstanding
+    // GET /olympiads/:olympiadId/schools returns participating schools plus outstanding
     // educator invitations
     const schools = [
         {
@@ -526,7 +526,7 @@ describe('schools page', () => {
         const listCalls = mockApi('get', '/olympiads/oly-1/schools', () => ({
             schools: list,
         }));
-        mockApi('get', '/invites/candidates', {
+        mockApi('get', '/me/olympiad-invitation-candidates', {
             candidates: [
                 {
                     id: 'edu-2',
@@ -538,7 +538,7 @@ describe('schools page', () => {
         });
         const invites = mockApi(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             () => {
                 list = [schools[1]];
                 return { invite: { id: 'inv-2' } };
@@ -586,7 +586,7 @@ describe('creating a round', () => {
     // on a public holiday
     let dateChecks: ReturnType<typeof mockApi>;
     beforeEach(() => {
-        dateChecks = mockApi('post', '/rounds/check-dates', { warnings: [] });
+        dateChecks = mockApi('post', '/olympiads/oly-1/rounds/date-check', { warnings: [] });
     });
 
     const fillRoundForm = async (
@@ -654,11 +654,10 @@ describe('creating a round', () => {
             closes_at: '2026-10-01T08:30:00.000Z',
             qualifying_threshold: 62.5,
         });
-        // Holidays are checked on that olympiad's calendar
+        // Holidays are checked on that olympiad's calendar (in the URL)
         expect(dateChecks[0].body).toEqual({
             opens_at: '2026-10-01T06:00:00.000Z',
             closes_at: '2026-10-01T08:30:00.000Z',
-            olympiad_id: 'oly-1',
         });
         expect(uploads).toHaveLength(1);
         expect(uploads[0].headers.get('authorization')).toBe(
@@ -700,7 +699,7 @@ describe('creating a round', () => {
     it('warns about a public holiday and creates the round only once confirmed', async () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
         mockApi('get', '/olympiads/oly-1/rounds', { rounds: [] });
-        dateChecks = mockApi('post', '/rounds/check-dates', {
+        dateChecks = mockApi('post', '/olympiads/oly-1/rounds/date-check', {
             warnings: ['2026-10-01 falls on a public holiday: Heritage Day'],
         });
         const created = mockApi(

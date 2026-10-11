@@ -1,4 +1,4 @@
-// The public developer API (/public/*): read-only, aggregated data that any
+// The public developer API (/public/v1/*): read-only, aggregated data that any
 // website or app may use without an account. Checks what other sites rely on
 // (CORS, caching, rate limits), every endpoint's data, and that nothing
 // identifies an individual learner.
@@ -111,12 +111,12 @@ const setup = async () => {
 };
 
 const resultsUrl = (olympiad, round) =>
-    `/public/olympiads/${olympiad.id}/rounds/${round.id}/results`;
+    `/public/v1/olympiads/${olympiad.id}/rounds/${round.id}/results`;
 
 describe('using the public API from another website', () => {
     it('lets any website read it from the browser', async () => {
         const res = await api()
-            .get('/public/stats')
+            .get('/public/v1/stats')
             .set('Origin', EXTERNAL_SITE);
 
         expect(res.status).toBe(200);
@@ -130,7 +130,7 @@ describe('using the public API from another website', () => {
 
     it("answers the browser's preflight check", async () => {
         const res = await api()
-            .options('/public/olympiads')
+            .options('/public/v1/olympiads')
             .set('Origin', EXTERNAL_SITE)
             .set('Access-Control-Request-Method', 'GET');
 
@@ -143,7 +143,7 @@ describe('using the public API from another website', () => {
 
     it('still keeps other websites out of the signed-in API', async () => {
         const res = await api()
-            .get('/auth/schools')
+            .get('/schools')
             .set('Origin', EXTERNAL_SITE);
 
         expectError(res, 403, 'Origin is not allowed by CORS');
@@ -157,15 +157,15 @@ describe('using the public API from another website', () => {
 
     it('lets browsers and CDNs cache public data for a minute, but never signed-in data', async () => {
         expect(
-            (await api().get('/public/stats')).headers['cache-control']
+            (await api().get('/public/v1/stats')).headers['cache-control']
         ).toBe('public, max-age=60, stale-while-revalidate=300');
         expect(
-            (await api().get('/auth/schools')).headers['cache-control']
+            (await api().get('/schools')).headers['cache-control']
         ).toBe('no-store');
     });
 
     it('tells clients their rate limit, separately from the sign-up limit', async () => {
-        const res = await api().get('/public/stats');
+        const res = await api().get('/public/v1/stats');
         // The tests raise the limit (PUBLIC_RATE_LIMIT_MAX); production allows 300 per 15 minutes
         expect(res.headers.ratelimit).toMatch(
             /^"100000-in-15min"; r=\d+; t=\d+$/
@@ -177,17 +177,21 @@ describe('using the public API from another website', () => {
 
     it("uses the API's usual error envelope for unknown public paths", async () => {
         expectError(
-            await api().get('/public/nothing-here'),
+            await api().get('/public/v1/nothing-here'),
             404,
             'Route not found'
         );
     });
+
+    it('no longer serves the unversioned /public prefix', async () => {
+        expectError(await api().get('/public/stats'), 404, 'Route not found');
+    });
 });
 
-describe('GET /public/stats', () => {
+describe('GET /public/v1/stats', () => {
     it('totals the whole platform', async () => {
         await setup();
-        expect(expectOk(await api().get('/public/stats'))).toEqual({
+        expect(expectOk(await api().get('/public/v1/stats'))).toEqual({
             totalOlympiads: 2,
             totalRounds: 3,
             totalSchools: 2,
@@ -197,7 +201,7 @@ describe('GET /public/stats', () => {
     });
 });
 
-describe('GET /public/stats/yearly', () => {
+describe('GET /public/v1/stats/yearly', () => {
     it('totals each year by when its rounds open', async () => {
         const { released, upcoming, unreleased } = await setup();
         const years = new Set(
@@ -206,7 +210,7 @@ describe('GET /public/stats/yearly', () => {
             )
         );
 
-        const rows = expectOk(await api().get('/public/stats/yearly'));
+        const rows = expectOk(await api().get('/public/v1/stats/yearly'));
 
         expect(rows.map((r) => r.year)).toEqual(
             [...years].sort((a, b) => b - a)
@@ -225,11 +229,11 @@ describe('GET /public/stats/yearly', () => {
     });
 });
 
-describe('GET /public/activity', () => {
+describe('GET /public/v1/activity', () => {
     it('lists recently closed rounds, upcoming rounds and recently released results', async () => {
         const { maths, released, upcoming, unreleased } = await setup();
 
-        const activity = expectOk(await api().get('/public/activity'));
+        const activity = expectOk(await api().get('/public/v1/activity'));
 
         expect(activity.recentlyCompletedRounds.map((r) => r.id)).toEqual([
             unreleased.id,
@@ -248,14 +252,14 @@ describe('GET /public/activity', () => {
     });
 });
 
-describe('GET /public/calendar', () => {
+describe('GET /public/v1/calendar', () => {
     it('lists the rounds running within the dates asked for', async () => {
         const { released, upcoming, unreleased } = await setup();
         const from = f.hoursFromNow(-12).toISOString();
         const to = f.hoursFromNow(72).toISOString();
 
         const rounds = expectOk(
-            await api().get('/public/calendar').query({ from, to })
+            await api().get('/public/v1/calendar').query({ from, to })
         );
 
         expect(rounds.map((r) => r.id)).toEqual([unreleased.id, upcoming.id]);
@@ -264,19 +268,19 @@ describe('GET /public/calendar', () => {
 
     it("responds 422 for a date that isn't ISO 8601", async () => {
         expectError(
-            await api().get('/public/calendar').query({ from: 'next tuesday' }),
+            await api().get('/public/v1/calendar').query({ from: 'next tuesday' }),
             422,
             'from must be a valid ISO 8601 date'
         );
     });
 });
 
-describe('GET /public/search', () => {
+describe('GET /public/v1/search', () => {
     it('finds olympiads, schools and rounds by name, ignoring case', async () => {
         const { maths, parktown } = await setup();
 
         const byOlympiad = expectOk(
-            await api().get('/public/search').query({ q: 'maths' })
+            await api().get('/public/v1/search').query({ q: 'maths' })
         );
         expect(byOlympiad.olympiads).toEqual([
             expect.objectContaining({
@@ -287,14 +291,14 @@ describe('GET /public/search', () => {
         ]);
 
         const bySchool = expectOk(
-            await api().get('/public/search').query({ q: 'PARKTOWN' })
+            await api().get('/public/v1/search').query({ q: 'PARKTOWN' })
         );
         expect(bySchool.schools).toEqual([
             { id: parktown.id, name: 'Parktown High', studentCount: 2 },
         ]);
 
         const byRound = expectOk(
-            await api().get('/public/search').query({ q: 'science round' })
+            await api().get('/public/v1/search').query({ q: 'science round' })
         );
         expect(byRound.rounds.map((r) => r.name)).toEqual(['Science Round 1']);
     });
@@ -302,7 +306,7 @@ describe('GET /public/search', () => {
     it('returns nothing for an empty search', async () => {
         await setup();
         expect(
-            expectOk(await api().get('/public/search').query({ q: '  ' }))
+            expectOk(await api().get('/public/v1/search').query({ q: '  ' }))
         ).toEqual({
             olympiads: [],
             schools: [],
@@ -311,12 +315,12 @@ describe('GET /public/search', () => {
     });
 });
 
-describe('GET /public/olympiads', () => {
+describe('GET /public/v1/olympiads', () => {
     it('lists olympiads with their counts, newest first', async () => {
         const { maths, science, released } = await setup();
 
         const { olympiads, pagination } = expectOk(
-            await api().get('/public/olympiads')
+            await api().get('/public/v1/olympiads')
         );
 
         expect(olympiads.map((o) => o.id)).toEqual([science.id, maths.id]);
@@ -341,7 +345,7 @@ describe('GET /public/olympiads', () => {
         await setup();
 
         const found = expectOk(
-            await api().get('/public/olympiads').query({ search: 'science' })
+            await api().get('/public/v1/olympiads').query({ search: 'science' })
         );
         expect(found.olympiads.map((o) => o.name)).toEqual([
             'Science Olympiad',
@@ -349,7 +353,7 @@ describe('GET /public/olympiads', () => {
 
         const firstPage = expectOk(
             await api()
-                .get('/public/olympiads')
+                .get('/public/v1/olympiads')
                 .query({ sort: 'name', limit: 1 })
         );
         expect(firstPage.olympiads.map((o) => o.name)).toEqual([
@@ -364,7 +368,7 @@ describe('GET /public/olympiads', () => {
 
         const secondPage = expectOk(
             await api()
-                .get('/public/olympiads')
+                .get('/public/v1/olympiads')
                 .query({ sort: 'name', limit: 1, page: 2 })
         );
         expect(secondPage.olympiads.map((o) => o.name)).toEqual([
@@ -383,19 +387,19 @@ describe('GET /public/olympiads', () => {
         ['an impossible year', { year: 1999 }, 'Year must be valid'],
     ])('responds 422 for %s', async (_label, query, message) => {
         expectError(
-            await api().get('/public/olympiads').query(query),
+            await api().get('/public/v1/olympiads').query(query),
             422,
             message
         );
     });
 });
 
-describe('GET /public/olympiads/:id', () => {
+describe('GET /public/v1/olympiads/:olympiadId', () => {
     it('shows an olympiad and its rounds', async () => {
         const { maths, released, upcoming } = await setup();
 
         const detail = expectOk(
-            await api().get(`/public/olympiads/${maths.id}`)
+            await api().get(`/public/v1/olympiads/${maths.id}`)
         );
 
         expect(detail).toMatchObject({
@@ -424,19 +428,19 @@ describe('GET /public/olympiads/:id', () => {
 
     it('responds 404 for an unknown olympiad and 422 for a malformed id', async () => {
         expectError(
-            await api().get(`/public/olympiads/${MISSING}`),
+            await api().get(`/public/v1/olympiads/${MISSING}`),
             404,
             'Olympiad not found'
         );
         expectError(
-            await api().get('/public/olympiads/not-a-uuid'),
+            await api().get('/public/v1/olympiads/not-a-uuid'),
             422,
             'Valid olympiad UUID required'
         );
     });
 });
 
-describe('GET /public/olympiads/:olympiadId/rounds/:roundId/results', () => {
+describe('GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results', () => {
     it("summarises a released round without any learner's own result", async () => {
         const { maths, released } = await setup();
 
@@ -487,14 +491,14 @@ describe('GET /public/olympiads/:olympiadId/rounds/:roundId/results', () => {
 
     it('responds 422 for malformed ids', async () => {
         expectError(
-            await api().get('/public/olympiads/x/rounds/y/results'),
+            await api().get('/public/v1/olympiads/x/rounds/y/results'),
             422,
             'Valid olympiad UUID required, Valid round UUID required'
         );
     });
 });
 
-describe('GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school', () => {
+describe('GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results/by-school', () => {
     it("summarises each school's results, best average first", async () => {
         const { maths, released, parktown, sandton } = await setup();
 
@@ -521,13 +525,13 @@ describe('GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school', 
     });
 });
 
-describe('GET /public/olympiads/:id/leaderboard', () => {
+describe('GET /public/v1/olympiads/:olympiadId/leaderboard', () => {
     it('ranks schools by their average across released rounds', async () => {
         const { maths } = await setup();
 
         expect(
             expectOk(
-                await api().get(`/public/olympiads/${maths.id}/leaderboard`)
+                await api().get(`/public/v1/olympiads/${maths.id}/leaderboard`)
             )
         ).toEqual({
             olympiadName: 'Maths Olympiad',
@@ -554,17 +558,17 @@ describe('GET /public/olympiads/:id/leaderboard', () => {
         const { science } = await setup();
         expect(
             expectOk(
-                await api().get(`/public/olympiads/${science.id}/leaderboard`)
+                await api().get(`/public/v1/olympiads/${science.id}/leaderboard`)
             )
         ).toEqual({ olympiadName: 'Science Olympiad', schools: [] });
     });
 });
 
-describe('GET /public/schools/top', () => {
+describe('GET /public/v1/schools/top', () => {
     it('ranks schools across every olympiad, and limits the list', async () => {
         const { parktown } = await setup();
 
-        const top = expectOk(await api().get('/public/schools/top'));
+        const top = expectOk(await api().get('/public/v1/schools/top'));
         expect(top.map((s) => [s.rank, s.schoolName, s.averageScore])).toEqual([
             [1, 'Parktown High', 7],
             [2, 'Sandton College', 3],
@@ -580,22 +584,22 @@ describe('GET /public/schools/top', () => {
         });
 
         expect(
-            expectOk(await api().get('/public/schools/top').query({ limit: 1 }))
+            expectOk(await api().get('/public/v1/schools/top').query({ limit: 1 }))
         ).toHaveLength(1);
         expectError(
-            await api().get('/public/schools/top').query({ limit: 51 }),
+            await api().get('/public/v1/schools/top').query({ limit: 51 }),
             422,
             'Limit must be 1–50'
         );
     });
 });
 
-describe('GET /public/schools', () => {
+describe('GET /public/v1/schools', () => {
     it('lists schools by name, with search and pages', async () => {
         const { parktown } = await setup();
 
         const { schools, pagination } = expectOk(
-            await api().get('/public/schools')
+            await api().get('/public/v1/schools')
         );
         expect(schools.map((s) => s.name)).toEqual([
             'Parktown High',
@@ -615,18 +619,18 @@ describe('GET /public/schools', () => {
         });
 
         const found = expectOk(
-            await api().get('/public/schools').query({ search: 'sandton' })
+            await api().get('/public/v1/schools').query({ search: 'sandton' })
         );
         expect(found.schools.map((s) => s.name)).toEqual(['Sandton College']);
     });
 });
 
-describe('GET /public/schools/:id', () => {
+describe('GET /public/v1/schools/:schoolId', () => {
     it("shows a school's participation and averages", async () => {
         const { parktown, maths, released } = await setup();
 
         expect(
-            expectOk(await api().get(`/public/schools/${parktown.id}`))
+            expectOk(await api().get(`/public/v1/schools/${parktown.id}`))
         ).toEqual({
             id: parktown.id,
             name: 'Parktown High',
@@ -649,19 +653,19 @@ describe('GET /public/schools/:id', () => {
 
     it('responds 404 for an unknown school', async () => {
         expectError(
-            await api().get(`/public/schools/${MISSING}`),
+            await api().get(`/public/v1/schools/${MISSING}`),
             404,
             'School not found'
         );
     });
 });
 
-describe('GET /public/papers', () => {
+describe('GET /public/v1/papers', () => {
     it('lists released papers with download links that work from anywhere', async () => {
         const { maths, paper } = await setup();
 
         const { papers, pagination } = expectOk(
-            await api().get('/public/papers')
+            await api().get('/public/v1/papers')
         );
 
         expect(papers).toEqual([
@@ -674,12 +678,12 @@ describe('GET /public/papers', () => {
                 year: expect.any(Number),
                 fileUrl: expect.stringMatching(
                     new RegExp(
-                        `^http://127\\.0\\.0\\.1:\\d+/public/papers/${paper.id}/download$`
+                        `^http://127\\.0\\.0\\.1:\\d+/public/v1/papers/${paper.id}/download$`
                     )
                 ),
                 memoFileUrl: expect.stringMatching(
                     new RegExp(
-                        `^http://127\\.0\\.0\\.1:\\d+/public/papers/${paper.id}/download\\?type=memo$`
+                        `^http://127\\.0\\.0\\.1:\\d+/public/v1/papers/${paper.id}/download\\?type=memo$`
                     )
                 ),
             },
@@ -694,12 +698,12 @@ describe('GET /public/papers', () => {
         expect(
             expectOk(
                 await api()
-                    .get('/public/papers')
+                    .get('/public/v1/papers')
                     .query({ olympiad: science.id })
             ).papers
         ).toEqual([]);
         expectError(
-            await api().get('/public/papers').query({ olympiad: 'maths' }),
+            await api().get('/public/v1/papers').query({ olympiad: 'maths' }),
             422,
             'Valid olympiad UUID required'
         );
@@ -708,17 +712,17 @@ describe('GET /public/papers', () => {
     it('gives the address clients called, behind the proxy too', async () => {
         await setup();
         const { papers } = expectOk(
-            await api().get('/public/papers').set('X-Forwarded-Proto', 'https')
+            await api().get('/public/v1/papers').set('X-Forwarded-Proto', 'https')
         );
         expect(papers[0].fileUrl).toMatch(/^https:\/\//);
     });
 });
 
-describe('GET /public/papers/:id/download', () => {
+describe('GET /public/v1/papers/:paperId/download', () => {
     it('redirects to a short-lived link to the paper, or its memo', async () => {
         const { paper } = await setup();
 
-        const res = await api().get(`/public/papers/${paper.id}/download`);
+        const res = await api().get(`/public/v1/papers/${paper.id}/download`);
         expect(res.status).toBe(302);
         expect(res.headers.location).toBe(
             'https://storage.test/maths/round-1/paper.pdf?expires=60'
@@ -727,7 +731,7 @@ describe('GET /public/papers/:id/download', () => {
         expect(res.headers['cache-control']).toBe('no-store');
 
         const memo = await api()
-            .get(`/public/papers/${paper.id}/download`)
+            .get(`/public/v1/papers/${paper.id}/download`)
             .query({ type: 'memo' });
         expect(memo.headers.location).toBe(
             'https://storage.test/maths/round-1/memo.pdf?expires=60'
@@ -737,7 +741,7 @@ describe('GET /public/papers/:id/download', () => {
 
     it('follows the link in the paper list', async () => {
         await setup();
-        const { papers } = expectOk(await api().get('/public/papers'));
+        const { papers } = expectOk(await api().get('/public/v1/papers'));
 
         const res = await api().get(new URL(papers[0].fileUrl).pathname);
 
@@ -747,7 +751,7 @@ describe('GET /public/papers/:id/download', () => {
     it("doesn't serve a paper before its round's results are out", async () => {
         const { unreleasedPaper } = await setup();
         expectError(
-            await api().get(`/public/papers/${unreleasedPaper.id}/download`),
+            await api().get(`/public/v1/papers/${unreleasedPaper.id}/download`),
             404,
             'Paper not found'
         );
@@ -763,13 +767,13 @@ describe('GET /public/papers/:id/download', () => {
 
         expectError(
             await api()
-                .get(`/public/papers/${paper.id}/download`)
+                .get(`/public/v1/papers/${paper.id}/download`)
                 .query({ type: 'memo' }),
             404,
             'Memo not found'
         );
         expectError(
-            await api().get(`/public/papers/${MISSING}/download`),
+            await api().get(`/public/v1/papers/${MISSING}/download`),
             404,
             'Paper not found'
         );
@@ -783,7 +787,7 @@ describe('GET /public/papers/:id/download', () => {
         });
 
         expectError(
-            await api().get(`/public/papers/${paper.id}/download`),
+            await api().get(`/public/v1/papers/${paper.id}/download`),
             502,
             "The file couldn't be fetched. Please try again."
         );
@@ -793,7 +797,7 @@ describe('GET /public/papers/:id/download', () => {
         const { paper } = await setup();
         expectError(
             await api()
-                .get(`/public/papers/${paper.id}/download`)
+                .get(`/public/v1/papers/${paper.id}/download`)
                 .query({ type: 'answers' }),
             422,
             "Type must be 'paper' or 'memo'"
@@ -806,20 +810,20 @@ describe('privacy', () => {
         const world = await setup();
         const { maths, released, parktown } = world;
         const urls = [
-            '/public/stats',
-            '/public/stats/yearly',
-            '/public/activity',
-            `/public/calendar?from=${f.hoursFromNow(-100).toISOString()}&to=${f.hoursFromNow(100).toISOString()}`,
-            '/public/search?q=a',
-            '/public/olympiads',
-            `/public/olympiads/${maths.id}`,
+            '/public/v1/stats',
+            '/public/v1/stats/yearly',
+            '/public/v1/activity',
+            `/public/v1/calendar?from=${f.hoursFromNow(-100).toISOString()}&to=${f.hoursFromNow(100).toISOString()}`,
+            '/public/v1/search?q=a',
+            '/public/v1/olympiads',
+            `/public/v1/olympiads/${maths.id}`,
             resultsUrl(maths, released),
             `${resultsUrl(maths, released)}/by-school`,
-            `/public/olympiads/${maths.id}/leaderboard`,
-            '/public/schools/top',
-            '/public/schools',
-            `/public/schools/${parktown.id}`,
-            '/public/papers',
+            `/public/v1/olympiads/${maths.id}/leaderboard`,
+            '/public/v1/schools/top',
+            '/public/v1/schools',
+            `/public/v1/schools/${parktown.id}`,
+            '/public/v1/papers',
         ];
 
         const bodies = await Promise.all(

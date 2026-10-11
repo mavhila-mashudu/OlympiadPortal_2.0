@@ -76,7 +76,7 @@ const createQuestionRules = [
 ];
 
 const updateQuestionRules = [
-    param('id').isUUID().withMessage('Question id must be a valid UUID'),
+    param('questionId').isUUID().withMessage('Question id must be a valid UUID'),
     body('type')
         .optional({ values: 'null' })
         .trim()
@@ -155,7 +155,7 @@ router.post(
 
 // Update a specific question
 router.patch(
-    '/:roundId/questions/:id',
+    '/:roundId/questions/:questionId',
     requireRole('organiser', 'educator'),
     updateQuestionRules,
     validate,
@@ -164,7 +164,7 @@ router.patch(
 
 // Delete a specific question
 router.delete(
-    '/:roundId/questions/:id',
+    '/:roundId/questions/:questionId',
     requireRole('organiser', 'educator'),
     deleteQuestion
 );

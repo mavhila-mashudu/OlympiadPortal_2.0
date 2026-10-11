@@ -61,9 +61,7 @@ export function OrganiserRemarks() {
         setLoading(true);
         setError(null);
         try {
-            const data = await api.get<{ remarks: RemarkItem[] }>(
-                '/organiser/remarks'
-            );
+            const data = await api.get<{ remarks: RemarkItem[] }>('/remarks');
             setRemarks(data.remarks || []);
 
             // Gather unique round IDs to prefetch eligible educators
@@ -89,7 +87,7 @@ export function OrganiserRemarks() {
         for (const roundId of roundIds) {
             try {
                 const data = await api.get<{ educators: EligibleEducator[] }>(
-                    `/organiser/remarks/rounds/${roundId}/educators`
+                    `/rounds/${roundId}/remarks/reviewers`
                 );
                 mapping[roundId] = data.educators || [];
             } catch (err) {
@@ -115,8 +113,8 @@ export function OrganiserRemarks() {
         setSuccessMsg(null);
 
         try {
-            const res = await api.patch<{ remark: { reviewer_id: string } }>(
-                `/organiser/remarks/${remarkId}/assign`,
+            const res = await api.put<{ remark: { reviewer_id: string } }>(
+                `/remarks/${remarkId}/assignee`,
                 { reviewerId }
             );
 
@@ -179,7 +177,7 @@ export function OrganiserRemarks() {
                 const res = await api.post<{
                     assignedCount: number;
                     skippedCount?: number;
-                }>(`/organiser/remarks/rounds/${roundId}/auto-assign`);
+                }>(`/rounds/${roundId}/remarks/auto-assign`);
                 totalAssigned += res.assignedCount || 0;
                 totalSkipped += res.skippedCount || 0;
             }

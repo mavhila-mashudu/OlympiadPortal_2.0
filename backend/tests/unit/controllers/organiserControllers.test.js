@@ -89,7 +89,7 @@ describe('olympiadController', () => {
                 handler: 'getOlympiad',
                 service: olympiadService,
                 method: 'getOlympiad',
-                req: mockReq({ user: organiser, params: { id: 'oly-1' } }),
+                req: mockReq({ user: organiser, params: { olympiadId: 'oly-1' } }),
                 args: ['oly-1', 'org-1'],
                 json: (result) => ok({ olympiad: result }),
             },
@@ -148,7 +148,7 @@ describe('roundController', () => {
                 handler: 'getRound',
                 service: roundService,
                 method: 'getRound',
-                req: mockReq({ user: organiser, params: { id: 'round-1' } }),
+                req: mockReq({ user: organiser, params: { roundId: 'round-1' } }),
                 args: ['round-1', 'org-1'],
                 json: (result) => ok({ round: result }),
             },
@@ -158,7 +158,7 @@ describe('roundController', () => {
                 method: 'updateRound',
                 req: mockReq({
                     user: organiser,
-                    params: { id: 'round-1' },
+                    params: { roundId: 'round-1' },
                     body: schedule,
                 }),
                 args: [
@@ -179,7 +179,7 @@ describe('roundController', () => {
                 handler: 'deleteRound',
                 service: roundService,
                 method: 'deleteRound',
-                req: mockReq({ user: organiser, params: { id: 'round-1' } }),
+                req: mockReq({ user: organiser, params: { roundId: 'round-1' } }),
                 args: ['round-1', 'org-1'],
                 json: () => ok({ message: 'Round deleted' }),
             },
@@ -189,7 +189,7 @@ describe('roundController', () => {
                 method: 'setRoundState',
                 req: mockReq({
                     user: organiser,
-                    params: { id: 'round-1' },
+                    params: { roundId: 'round-1' },
                     body: { state: 'open' },
                 }),
                 args: ['round-1', 'org-1', 'open'],
@@ -244,7 +244,7 @@ describe('questionController', () => {
                 method: 'updateQuestion',
                 req: mockReq({
                     user: organiser,
-                    params: { roundId: 'round-1', id: 'q-1' },
+                    params: { roundId: 'round-1', questionId: 'q-1' },
                     body: fields,
                 }),
                 args: ['q-1', 'org-1', 'organiser', fields, 'round-1'],
@@ -256,7 +256,7 @@ describe('questionController', () => {
                 method: 'deleteQuestion',
                 req: mockReq({
                     user: organiser,
-                    params: { roundId: 'round-1', id: 'q-1' },
+                    params: { roundId: 'round-1', questionId: 'q-1' },
                 }),
                 args: ['q-1', 'org-1', 'organiser', 'round-1'],
                 json: () => ok({ message: 'Question deleted' }),
@@ -286,7 +286,7 @@ describe('markingController', () => {
                 method: 'markAnswer',
                 req: mockReq({
                     user: organiser,
-                    params: { roundId: 'round-1', id: 'ans-1' },
+                    params: { roundId: 'round-1', answerId: 'ans-1' },
                     body: {
                         is_correct: true,
                         points_awarded: 3,

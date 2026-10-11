@@ -257,7 +257,7 @@ describe('notification bell', () => {
     };
 
     it('counts the unread notifications and lists them when opened', async () => {
-        mockApi('get', '/notifications', {
+        mockApi('get', '/me/notifications', {
             notifications: [
                 note({ id: 'n-1', title: 'Round opens soon' }),
                 note({
@@ -297,10 +297,10 @@ describe('notification bell', () => {
     });
 
     it('marks a notification read and updates the count', async () => {
-        mockApi('get', '/notifications', {
+        mockApi('get', '/me/notifications', {
             notifications: [note({ id: 'n-1' })],
         });
-        const reads = mockApi('patch', '/notifications/:id/read', {
+        const reads = mockApi('patch', '/me/notifications/:notificationId/read', {
             message: 'Read',
         });
         const { user } = renderPage();
@@ -316,7 +316,7 @@ describe('notification bell', () => {
         expect(
             screen.queryByRole('button', { name: 'Mark read' })
         ).not.toBeInTheDocument();
-        expect(reads.map((r) => r.path)).toEqual(['/notifications/n-1/read']);
+        expect(reads.map((r) => r.path)).toEqual(['/me/notifications/n-1/read']);
     });
 
     it('says so when there is nothing yet', async () => {
@@ -329,7 +329,7 @@ describe('notification bell', () => {
     });
 
     it("leaves the page working when notifications can't be loaded", async () => {
-        mockNetworkFailure('get', '/notifications');
+        mockNetworkFailure('get', '/me/notifications');
         renderPage();
 
         expect(
@@ -381,7 +381,7 @@ describe('paper archive', () => {
 
     it('lists archived rounds and enables only the files that exist', async () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
-        mockApi('get', '/olympiads/archive', { rounds: archived });
+        mockApi('get', '/papers/archive', { rounds: archived });
         renderApp('/organiser/archive');
 
         const round2 = (await screen.findByText('Round 2')).closest('tr')!;
@@ -400,8 +400,8 @@ describe('paper archive', () => {
 
     it('opens a signed download link for the chosen file', async () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
-        mockApi('get', '/olympiads/archive', { rounds: archived });
-        const downloads = mockApi('get', '/papers/:id/download', (req) => ({
+        mockApi('get', '/papers/archive', { rounds: archived });
+        const downloads = mockApi('get', '/papers/:paperId/download', (req) => ({
             url: `https://storage.test/${req.path.split('/')[2]}${req.search}`,
         }));
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -424,10 +424,10 @@ describe('paper archive', () => {
 
     it('shows a download failure', async () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
-        mockApi('get', '/olympiads/archive', { rounds: archived });
+        mockApi('get', '/papers/archive', { rounds: archived });
         mockApiError(
             'get',
-            '/papers/:id/download',
+            '/papers/:paperId/download',
             404,
             'Paper file not found'
         );
@@ -448,7 +448,7 @@ describe('paper archive', () => {
 
     it('explains when nothing has been archived yet', async () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
-        mockApi('get', '/olympiads/archive', { rounds: [] });
+        mockApi('get', '/papers/archive', { rounds: [] });
         renderApp('/organiser/archive');
         expect(
             await screen.findByText(

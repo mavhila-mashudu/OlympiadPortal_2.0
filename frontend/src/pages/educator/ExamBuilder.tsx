@@ -38,7 +38,7 @@ function ExamBuilder() {
     const fetchStatus = useCallback(async () => {
         try {
             const res = await api.get<{ exam_status: string }>(
-                `/rounds/${roundId}/exam-status`
+                `/rounds/${roundId}/exam/status`
             );
             setExamStatus(res.exam_status);
         } catch {
@@ -52,7 +52,7 @@ function ExamBuilder() {
     const fetchPaperUrl = useCallback(async () => {
         try {
             const res = await api.get<{ url: string }>(
-                `/papers/by-round/${roundId}?type=paper`
+                `/rounds/${roundId}/papers/preview?type=paper`
             );
             setPaperUrl(res.url);
         } catch {
@@ -110,7 +110,7 @@ function ExamBuilder() {
     const handleMarkReady = async () => {
         setError(null);
         try {
-            await api.patch(`/rounds/${roundId}/exam-status`, {
+            await api.patch(`/rounds/${roundId}/exam/status`, {
                 status: 'ready',
             });
             setExamStatus('ready');

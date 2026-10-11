@@ -79,7 +79,7 @@ const setup = async () => {
     const lerato = await sat(7, 1);
     const remark = expectOk(
         await ayanda.api
-            .post(`/rounds/${round.id}/remark`)
+            .post(`/rounds/${round.id}/remarks`)
             .send({ reason: REASON }),
         201
     ).remark;
@@ -105,7 +105,7 @@ describe('assigning a remark', () => {
 
         expectError(
             await organiserApi
-                .patch(`/organiser/remarks/${remark.id}/assign`)
+                .put(`/remarks/${remark.id}/assignee`)
                 .send({ reviewerId: educatorUser.id }),
             400,
             'An educator cannot review a remark from a learner at their own school'
@@ -116,7 +116,7 @@ describe('assigning a remark', () => {
 
         expectOk(
             await organiserApi
-                .patch(`/organiser/remarks/${remark.id}/assign`)
+                .put(`/remarks/${remark.id}/assignee`)
                 .send({ reviewerId: otherEducatorUser.id })
         );
         expect((await prisma.remark_requests.findFirst()).reviewer_id).toBe(
@@ -130,7 +130,7 @@ describe('assigning a remark', () => {
         expect(
             expectOk(
                 await organiserApi.post(
-                    `/organiser/remarks/rounds/${round.id}/auto-assign`
+                    `/rounds/${round.id}/remarks/auto-assign`
                 )
             )
         ).toMatchObject({ assignedCount: 1, skippedCount: 0 });
@@ -151,7 +151,7 @@ describe('assigning a remark', () => {
         expect(
             expectOk(
                 await organiserApi.post(
-                    `/organiser/remarks/rounds/${round.id}/auto-assign`
+                    `/rounds/${round.id}/remarks/auto-assign`
                 )
             )
         ).toMatchObject({ assignedCount: 0, skippedCount: 1 });
@@ -184,7 +184,7 @@ describe("an educator's re-mark", () => {
         const data = expectOk(
             await otherEducatorApi
                 .patch(
-                    `/educator/remarks/${remark.id}/answers/${ayanda.answer.id}`
+                    `/remarks/${remark.id}/answers/${ayanda.answer.id}`
                 )
                 .send({ points_awarded: 9 })
         );
@@ -221,7 +221,7 @@ describe("an educator's re-mark", () => {
 
         expectOk(
             await otherEducatorApi
-                .patch(`/educator/remarks/${remark.id}`)
+                .post(`/remarks/${remark.id}/review`)
                 .send({
                     status: 'reviewed',
                     review_note: 'approved: full marks were deserved',
@@ -229,7 +229,7 @@ describe("an educator's re-mark", () => {
         );
 
         expect(
-            expectOk(await ayanda.api.get(`/rounds/${round.id}/my-remark`))
+            expectOk(await ayanda.api.get(`/me/rounds/${round.id}/remark`))
                 .remark
         ).toMatchObject({
             status: 'reviewed',
@@ -242,13 +242,13 @@ describe("an educator's re-mark", () => {
         const { remark, ayanda, otherEducatorApi } = await assigned();
         expectOk(
             await otherEducatorApi
-                .patch(`/educator/remarks/${remark.id}`)
+                .post(`/remarks/${remark.id}/review`)
                 .send({ status: 'reviewed' })
         );
 
         expectError(
             await otherEducatorApi
-                .patch(`/educator/remarks/${remark.id}`)
+                .post(`/remarks/${remark.id}/review`)
                 .send({ status: 'reviewed' }),
             400,
             'This remark has already been reviewed'
@@ -256,7 +256,7 @@ describe("an educator's re-mark", () => {
         expectError(
             await otherEducatorApi
                 .patch(
-                    `/educator/remarks/${remark.id}/answers/${ayanda.answer.id}`
+                    `/remarks/${remark.id}/answers/${ayanda.answer.id}`
                 )
                 .send({ points_awarded: 9 }),
             400,

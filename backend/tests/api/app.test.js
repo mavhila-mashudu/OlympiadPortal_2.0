@@ -54,6 +54,20 @@ describe('unknown routes', () => {
             'Route not found'
         );
     });
+
+    it('lets an undefined /rounds subpath fall through to 404, not 403', async () => {
+        // Nine routers share the /rounds prefix, so a role guard applied with
+        // router.use would 403 a request before Express could fall through to
+        // the routers that do define it. Guards must stay on single routes.
+        const { user } = await f.createEducator();
+        expectError(
+            await as(user).get(
+                '/rounds/00000000-0000-4000-8000-000000000000/not-a-route'
+            ),
+            404,
+            'Route not found'
+        );
+    });
 });
 
 describe('security headers (helmet)', () => {
@@ -122,7 +136,8 @@ describe('CORS', () => {
 describe('rate limiting', () => {
     it.each([
         ['post', '/auth/register'],
-        ['get', '/auth/schools'],
+        ['get', '/schools'],
+        ['post', '/school-invitations/check'],
         ['post', '/auth/forgot-password'],
     ])('limits requests to %s %s per client', async (method, path) => {
         const res = await api()[method](path).send({});
@@ -136,7 +151,7 @@ describe('rate limiting', () => {
         const organiser = await f.createOrganiser();
         expect((await api().get('/health')).headers.ratelimit).toBeUndefined();
         expect(
-            (await as(organiser).get('/auth/me')).headers.ratelimit
+            (await as(organiser).get('/me')).headers.ratelimit
         ).toBeUndefined();
     });
 });
@@ -169,7 +184,7 @@ describe('request parsing', () => {
         ],
         [
             'a nested path id',
-            (organiser) => as(organiser).get('/rounds/123/exam-status'),
+            (organiser) => as(organiser).get('/rounds/123/exam/status'),
         ],
     ])(
         "responds 400 to %s that isn't a UUID, without leaking internals",
@@ -185,14 +200,14 @@ describe('request parsing', () => {
 
 describe('authentication middleware', () => {
     it('responds 401 without an Authorization header', async () => {
-        expectError(await api().get('/auth/me'), 401, 'No token provided');
+        expectError(await api().get('/me'), 401, 'No token provided');
     });
 
     it.each(['Token abc', 'Basic dXNlcjpwYXNz', 'bearer abc', 'Bearer'])(
         'responds 401 to a non-Bearer header %p',
         async (header) => {
             expectError(
-                await api().get('/auth/me').set('Authorization', header),
+                await api().get('/me').set('Authorization', header),
                 401,
                 'No token provided'
             );
@@ -201,7 +216,7 @@ describe('authentication middleware', () => {
 
     it('responds 401 when Supabase rejects the token', async () => {
         const res = await api()
-            .get('/auth/me')
+            .get('/me')
             .set('Authorization', 'Bearer forged.jwt.token');
         expectError(res, 401, 'Invalid or expired token');
         expect(supabase.auth.getUser).toHaveBeenCalledWith('forged.jwt.token');
@@ -210,7 +225,7 @@ describe('authentication middleware', () => {
     it('responds 401 for a valid Supabase user with no account in our database', async () => {
         const ghost = { id: '8b0f6b8c-6d7e-4a57-9d3c-4c4e1f0b9a11' };
         expectError(
-            await as(ghost).get('/auth/me'),
+            await as(ghost).get('/me'),
             401,
             'Account not found or deleted'
         );
@@ -219,7 +234,7 @@ describe('authentication middleware', () => {
     it('responds 401 for a soft-deleted account', async () => {
         const organiser = await f.createOrganiser({ deleted_at: new Date() });
         expectError(
-            await as(organiser).get('/auth/me'),
+            await as(organiser).get('/me'),
             401,
             'Account not found or deleted'
         );
@@ -227,7 +242,7 @@ describe('authentication middleware', () => {
 
     it('lets a valid token through', async () => {
         const organiser = await f.createOrganiser();
-        expect(expectOk(await as(organiser).get('/auth/me')).user.id).toBe(
+        expect(expectOk(await as(organiser).get('/me')).user.id).toBe(
             organiser.id
         );
     });

@@ -52,7 +52,7 @@ async function request<T>(
     const isInitialDataRequest =
         !background &&
         (!options.method || options.method === 'GET') &&
-        !path.startsWith('/notifications');
+        !path.startsWith('/me/notifications');
     if (isInitialDataRequest) beginPageLoad();
     try {
         const res = await fetch(`${API_URL}${path}`, { ...options, headers });
@@ -91,6 +91,11 @@ export const api = {
                     : body !== undefined
                       ? JSON.stringify(body)
                       : undefined,
+        }),
+    put: <T>(path: string, body?: unknown) =>
+        request<T>(path, {
+            method: 'PUT',
+            body: body !== undefined ? JSON.stringify(body) : undefined,
         }),
     patch: <T>(path: string, body?: unknown) =>
         request<T>(path, {

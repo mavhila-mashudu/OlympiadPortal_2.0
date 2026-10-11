@@ -137,9 +137,9 @@ const requireAuth = async (req, _res, next) => {
         // This protects the other school-scoped routes which previously checked
         // only the broad 'educator' role.
         const permittedWhilePending = new Set([
-            'GET /auth/me',
+            'GET /me',
             'POST /auth/logout',
-            'DELETE /auth/account',
+            'DELETE /me',
         ]);
         const routeKey = `${req.method} ${String(req.originalUrl || req.url || '').split('?')[0]}`;
         if (
@@ -178,6 +178,40 @@ const requireRole =
         }
         next();
     };
+
+// A few endpoints mean different things to different roles: GET /me/rounds
+// lists a student's registrations but an educator's school rounds, each behind
+// its own controller and guards. byRole dispatches to the chain for the
+// signed-in user's role; a role that is not in the map is refused exactly as
+// requireRole would refuse it. Never stack requireRole in front of byRole —
+// it would run first and reject every role it does not list.
+const byRole = (handlers) => (req, res, next) => {
+    if (!req.user) {
+        return next(new UnauthorizedError('Not authenticated'));
+    }
+    const chosen = handlers[req.user.role];
+    if (!chosen) {
+        return next(new ForbiddenError('Insufficient permissions'));
+    }
+    const chain = Array.isArray(chosen) ? chosen : [chosen];
+    let index = 0;
+    const step = (err) => {
+        if (err) return next(err);
+        const middleware = chain[index++];
+        if (!middleware) return next();
+        try {
+            const result = middleware(req, res, step);
+            // Controllers handle their own errors; this only catches a
+            // rejection that slipped past their try/catch.
+            if (result && typeof result.catch === 'function') {
+                result.catch(next);
+            }
+        } catch (error) {
+            next(error);
+        }
+    };
+    step();
+};
 
 const requireSameSchool = async (req, _res, next) => {
     try {
@@ -233,6 +267,7 @@ const requireSchoolMembership =
 module.exports = {
     requireAuth,
     requireRole,
+    byRole,
     requireSameSchool,
     requireSchoolMembership,
     forgetCachedToken,

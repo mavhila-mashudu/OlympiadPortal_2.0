@@ -1,25 +1,18 @@
 // @ts-nocheck
 const express = require('express');
 const router = express.Router();
-const {
-    downloadPaper,
-    getRoundPaperUrl,
-} = require('../controllers/paperController');
+const { downloadPaper } = require('../controllers/paperController');
+const { listSharedArchive } = require('../controllers/schoolController');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 
-// Signed viewing URL for a round's paper or memo.
-// Organisers see both; educators see the question paper only
-// (the memo backs the organiser's verification).  Access is
-// checked in the service.
-router.get(
-    '/by-round/:roundId',
-    requireAuth,
-    requireRole('organiser', 'educator'),
-    getRoundPaperUrl
-);
-
-// Organiser-only direct download by paper id
+// Organiser-only: the shared past-paper archive, and direct downloads
+// by paper id.  Access is checked in the service.
 router.use(requireAuth, requireRole('organiser'));
-router.get('/:id/download', downloadPaper);
+
+// One archive of past papers shared by all of the organiser's olympiads
+router.get('/archive', listSharedArchive);
+
+// Signed direct download by paper id
+router.get('/:paperId/download', downloadPaper);
 
 module.exports = router;

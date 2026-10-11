@@ -6,10 +6,10 @@ import { renderApp } from './support/renderApp';
 
 describe('educator dashboard', () => {
     beforeEach(() => {
-        mockApi('get', '/auth/me', fx.me('educator'));
+        mockApi('get', '/me', fx.me('educator'));
     });
     it("shows each round's status, countdown and next action", async () => {
-        mockApi('get', '/educator/rounds', {
+        mockApi('get', '/me/rounds', {
             school: fx.school,
             rounds: [
                 fx.educatorRound({
@@ -74,7 +74,7 @@ describe('educator dashboard', () => {
     });
 
     it('explains when the school has no rounds', async () => {
-        mockApi('get', '/educator/rounds', { rounds: [], school: fx.school });
+        mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
         renderApp('/educator');
         expect(await screen.findByText(/No rounds found/)).toBeInTheDocument();
     });
@@ -82,7 +82,7 @@ describe('educator dashboard', () => {
     it("shows why rounds couldn't be loaded", async () => {
         mockApiError(
             'get',
-            '/educator/rounds',
+            '/me/rounds',
             403,
             'Educator profile not found'
         );
@@ -96,7 +96,7 @@ describe('educator dashboard', () => {
 });
 
 describe('educator round page', () => {
-    // GET /educator/rounds/:id
+    // GET /me/rounds/:roundId
     const roundDetail = (overrides: Record<string, unknown> = {}) => ({
         id: 'round-1',
         name: 'Round 1 — Regional',
@@ -141,13 +141,13 @@ describe('educator round page', () => {
         { pastPapers = [] as unknown[], roster = entrants } = {}
     ) => {
         const state = { round };
-        mockApi('get', '/educator/rounds/round-1', () => ({
+        mockApi('get', '/me/rounds/round-1', () => ({
             round: state.round,
         }));
-        mockApi('get', '/educator/rounds/round-1/papers/past', {
+        mockApi('get', '/rounds/round-1/papers/archive', {
             papers: pastPapers,
         });
-        mockApi('get', '/educator/rounds/round-1/entrants', {
+        mockApi('get', '/rounds/round-1/entrants', {
             entrants: roster,
         });
         return state;
@@ -157,7 +157,7 @@ describe('educator round page', () => {
         mockRound(roundDetail());
         const downloads = mockApi(
             'get',
-            '/educator/rounds/:roundId/paper/download',
+            '/rounds/:roundId/papers/download',
             (req) => ({ url: `https://storage.test/paper.pdf${req.search}` })
         );
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -175,11 +175,11 @@ describe('educator round page', () => {
             )
         );
         expect(downloads[0].path).toBe(
-            '/educator/rounds/round-1/paper/download'
+            '/rounds/round-1/papers/download'
         );
     });
 
-    // A submission row as GET /educator/rounds/:id lists it
+    // A submission row as GET /me/rounds/:roundId lists it
     const submitted = (
         entrant: (typeof entrants)[number],
         overrides: Record<string, unknown> = {}
@@ -488,7 +488,7 @@ describe('educator round page', () => {
         });
         const downloads = mockApi(
             'get',
-            '/educator/rounds/:roundId/paper/download',
+            '/rounds/:roundId/papers/download',
             { url: 'https://storage.test/past.pdf' }
         );
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -509,7 +509,7 @@ describe('educator round page', () => {
             )
         );
         expect(downloads[0].path).toBe(
-            '/educator/rounds/round-0/paper/download'
+            '/rounds/round-0/papers/download'
         );
     });
 
@@ -522,7 +522,7 @@ describe('educator round page', () => {
                 closes_at: fx.inHours(-28),
             })
         );
-        mockApi('get', '/educator/rounds/round-1/results', {
+        mockApi('get', '/me/rounds/round-1/results', {
             round: {
                 id: 'round-1',
                 name: 'Round 1 — Regional',
@@ -583,7 +583,7 @@ describe('educator round page', () => {
         mockRound(roundDetail({ state: 'marking', status: 'closed' }));
         const resultRequests = mockApiError(
             'get',
-            '/educator/rounds/round-1/results',
+            '/me/rounds/round-1/results',
             400,
             'Results are not yet available — round is "marking"'
         );
@@ -600,12 +600,12 @@ describe('educator round page', () => {
     it('shows a load failure with a way back', async () => {
         mockApiError(
             'get',
-            '/educator/rounds/round-1',
+            '/me/rounds/round-1',
             403,
             'Your school is not registered for this olympiad'
         );
-        mockApi('get', '/educator/rounds/round-1/papers/past', { papers: [] });
-        mockApi('get', '/educator/rounds/round-1/entrants', { entrants: [] });
+        mockApi('get', '/rounds/round-1/papers/archive', { papers: [] });
+        mockApi('get', '/rounds/round-1/entrants', { entrants: [] });
         renderApp('/educator/rounds/round-1');
 
         expect(
@@ -677,15 +677,15 @@ describe('educator entrants and invitations', () => {
                 'oly-2': [] as ReturnType<typeof olympiadEntrant>[],
             } as Record<string, ReturnType<typeof olympiadEntrant>[]>,
         };
-        mockApi('get', '/educator/rounds', { rounds: [], school: fx.school });
-        mockApi('get', '/auth/educator-olympiads', { olympiads });
-        mockApi('get', '/invites/sent', () => ({ invites: state.invitations }));
-        mockApi('get', '/invites/candidates', () => ({
+        mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
+        mockApi('get', '/me/olympiads', { olympiads });
+        mockApi('get', '/me/sent-olympiad-invitations', () => ({ invites: state.invitations }));
+        mockApi('get', '/me/olympiad-invitation-candidates', () => ({
             candidates: state.candidates,
         }));
         mockApi(
             'get',
-            '/auth/me',
+            '/me',
             fx.me('educator', {
                 school_memberships: [
                     {
@@ -696,12 +696,12 @@ describe('educator entrants and invitations', () => {
                 ],
             })
         );
-        mockApi('get', '/educator/olympiads/:olympiadId/entrants', (req) => ({
-            entrants: state.entrants[req.path.split('/')[3]],
+        mockApi('get', '/olympiads/:olympiadId/entrants', (req) => ({
+            entrants: state.entrants[req.path.split('/')[2]],
         }));
         mockApi(
             'get',
-            '/educator/olympiads/:olympiadId/progression',
+            '/olympiads/:olympiadId/progression',
             (req) => ({
                 rounds: [
                     {
@@ -770,7 +770,7 @@ describe('educator entrants and invitations', () => {
         const state = mockEntrantsPage();
         const registrations = mockApi(
             'post',
-            '/educator/olympiads/:olympiadId/entrants',
+            '/olympiads/:olympiadId/entrants',
             (req) => {
                 const [entrant] = (
                     req.body as { entrants: Record<string, string>[] }
@@ -806,7 +806,7 @@ describe('educator entrants and invitations', () => {
             })
         ).toBeInTheDocument();
         expect(registrations[0].path).toBe(
-            '/educator/olympiads/oly-1/entrants'
+            '/olympiads/oly-1/entrants'
         );
         expect(registrations[0].body).toEqual({
             entrants: [
@@ -820,7 +820,7 @@ describe('educator entrants and invitations', () => {
         mockEntrantsPage();
         mockApi(
             'post',
-            '/educator/olympiads/:olympiadId/entrants',
+            '/olympiads/:olympiadId/entrants',
             {
                 entrants: [
                     olympiadEntrant({ full_name: 'Late Learner', rounds: [] }),
@@ -845,7 +845,7 @@ describe('educator entrants and invitations', () => {
         mockEntrantsPage();
         mockApiError(
             'post',
-            '/educator/olympiads/:olympiadId/entrants',
+            '/olympiads/:olympiadId/entrants',
             403,
             'Your school is not registered for this olympiad'
         );
@@ -874,7 +874,7 @@ describe('educator entrants and invitations', () => {
         const state = mockEntrantsPage();
         const invites = mockApi(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             () => {
                 state.invitations = [
                     {
@@ -920,7 +920,7 @@ describe('educator entrants and invitations', () => {
         mockEntrantsPage();
         mockApiError(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             409,
             'That person has already been invited to this olympiad'
         );
@@ -956,15 +956,15 @@ describe('educator entrants and invitations', () => {
     });
 
     it("tells the educator when invitations couldn't be loaded", async () => {
-        mockApi('get', '/educator/rounds', { rounds: [], school: fx.school });
+        mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
         mockApiError(
             'get',
-            '/auth/educator-olympiads',
+            '/me/olympiads',
             500,
             'Internal server error'
         );
-        mockApi('get', '/invites/sent', { invites: [] });
-        mockApi('get', '/auth/me', fx.me('educator'));
+        mockApi('get', '/me/sent-olympiad-invitations', { invites: [] });
+        mockApi('get', '/me', fx.me('educator'));
         renderApp('/educator/entrants');
 
         expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -1010,7 +1010,7 @@ describe('educator results', () => {
     ];
 
     it("shows the latest round's results and switches rounds", async () => {
-        mockApi('get', '/educator/results', { rounds });
+        mockApi('get', '/me/results', { rounds });
         const { user } = renderApp('/educator/results');
 
         const row = (await screen.findByText('Ayanda Khumalo')).closest('tr')!;
@@ -1032,7 +1032,7 @@ describe('educator results', () => {
     });
 
     it('explains when no results have been released', async () => {
-        mockApi('get', '/educator/results', { rounds: [] });
+        mockApi('get', '/me/results', { rounds: [] });
         renderApp('/educator/results');
         expect(
             await screen.findByText(/No results available yet/)
@@ -1042,7 +1042,7 @@ describe('educator results', () => {
     it("shows why results couldn't be loaded", async () => {
         mockApiError(
             'get',
-            '/educator/results',
+            '/me/results',
             403,
             'Educator profile not found'
         );

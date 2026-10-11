@@ -207,6 +207,70 @@ describe('decideStudentRequest', () => {
     });
 });
 
+describe('decideRequestById', () => {
+    const membershipRequest = {
+        id: 'mem-1',
+        user_id: 'edu-1',
+        school_id: 'school-1',
+        role: 'educator',
+        status: 'pending',
+    };
+
+    it('decides a staff membership when the id is a school membership', async () => {
+        prisma.school_memberships.findUnique.mockResolvedValue(
+            membershipRequest
+        );
+        prisma.school_memberships.findFirst.mockResolvedValue(null);
+        prisma.school_memberships.update.mockResolvedValue({
+            id: 'mem-1',
+            status: 'active',
+            role: 'coordinator',
+            user_id: 'edu-1',
+        });
+
+        const decided = await service.decideRequestById(
+            { role: 'organiser', userId: 'org-1' },
+            'mem-1',
+            'approve'
+        );
+
+        expect(decided.membership).toMatchObject({ id: 'mem-1', status: 'active' });
+        expect(decided).not.toHaveProperty('student');
+        expect(prisma.entrants.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('decides a student signup when the id is in entrants', async () => {
+        // The dispatch lookup misses the membership table; the coordinator
+        // check inside decideStudentRequest still sees the real membership
+        prisma.school_memberships.findUnique.mockResolvedValueOnce(null);
+
+        const decided = await service.decideRequestById(
+            coordinator,
+            'ent-new',
+            'approve'
+        );
+
+        expect(decided.student).toMatchObject({ id: 'ent-new', status: 'active' });
+        expect(decided).not.toHaveProperty('membership');
+    });
+
+    it('is not found when the id matches neither kind', async () => {
+        prisma.school_memberships.findUnique.mockResolvedValue(null);
+        prisma.entrants.findUnique.mockResolvedValue(null);
+
+        await expect(
+            service.decideRequestById(coordinator, 'gone', 'approve')
+        ).rejects.toMatchObject({ statusCode: 404 });
+    });
+
+    it('rejects an unknown decision before looking anything up', async () => {
+        await expect(
+            service.decideRequestById(coordinator, 'ent-new', 'maybe')
+        ).rejects.toMatchObject({ statusCode: 400 });
+        expect(prisma.school_memberships.findUnique).not.toHaveBeenCalled();
+    });
+});
+
 describe('listRequests for a coordinator', () => {
     it('includes pending students with the listed entrants that share their name', async () => {
         prisma.school_memberships.findUnique.mockResolvedValue({

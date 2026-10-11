@@ -18,7 +18,7 @@ export const olympiad = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-// GET /olympiads/:id/rounds item
+// GET /olympiads/:olympiadId/rounds item
 export const organiserRound = (overrides: Record<string, unknown> = {}) => ({
     id: id('round'),
     olympiad_id: 'oly-1',
@@ -37,7 +37,7 @@ export const organiserRound = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-// A question row as returned by /rounds/:id/questions
+// A question row as returned by /rounds/:roundId/questions
 export const question = (overrides: Record<string, unknown> = {}) => ({
     id: id('q'),
     paper_id: 'paper-1',
@@ -64,7 +64,7 @@ export const examStatus = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-// GET /auth/me
+// GET /me
 export const me = (
     role: 'organiser' | 'educator' | 'student',
     overrides: Record<string, unknown> = {}
@@ -110,7 +110,7 @@ export const me = (
     },
 });
 
-// GET /educator/rounds item
+// GET /me/rounds item
 export const educatorRound = (overrides: Record<string, unknown> = {}) => ({
     id: id('round'),
     name: 'Round 1',

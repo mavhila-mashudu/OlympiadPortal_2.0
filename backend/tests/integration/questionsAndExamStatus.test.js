@@ -1,5 +1,5 @@
 // Digitising an exam: educators build questions, the organiser verifies and
-// approves (draft → ready → live). Questions service + exam-status route
+// approves (draft → ready → live). Questions service + exam/status route
 // handlers, all against the real database.
 jest.mock(
     '../../src/config/supabase',
@@ -15,12 +15,12 @@ const f = require('./helpers/factories');
 const getExamStatus = getRouteHandler(
     examStatusRouter,
     'get',
-    '/:roundId/exam-status'
+    '/:roundId/exam/status'
 );
 const updateExamStatus = getRouteHandler(
     examStatusRouter,
     'patch',
-    '/:roundId/exam-status'
+    '/:roundId/exam/status'
 );
 
 const mcq = {

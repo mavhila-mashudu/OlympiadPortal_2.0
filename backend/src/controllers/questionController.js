@@ -86,7 +86,7 @@ const updateQuestion = async (req, res, next) => {
         } = req.body;
 
         const question = await questionService.updateQuestion(
-            req.params.id,
+            req.params.questionId,
             req.user.userId,
             req.user.role,
             {
@@ -110,7 +110,7 @@ const updateQuestion = async (req, res, next) => {
 const deleteQuestion = async (req, res, next) => {
     try {
         await questionService.deleteQuestion(
-            req.params.id,
+            req.params.questionId,
             req.user.userId,
             req.user.role,
             req.params.roundId

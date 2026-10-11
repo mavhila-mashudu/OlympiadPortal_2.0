@@ -63,37 +63,49 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 
 ### API Routes
 
-| Method | Path                                  | Role      | Purpose                        |
-| ------ | ------------------------------------- | --------- | ------------------------------ |
-| POST   | /auth/register                        | Public    | Sign up as educator or student |
-| GET    | /auth/schools                         | Public    | Schools for the signup form    |
-| GET    | /auth/me                              | Any       | Get current user               |
-| DELETE | /auth/account                         | Any       | Soft-delete account            |
-| GET    | /invites/mine                         | Any       | Invitations addressed to me    |
-| POST   | /invites/:id/accept                   | Any       | Accept an invitation           |
-| POST   | /invites/:id/reject                   | Any       | Decline an invitation          |
-| POST   | /invites                              | Staff     | Invite someone to an olympiad  |
-| DELETE | /invites/:id                          | Staff     | Withdraw an invitation         |
-| GET    | /invites/sent                         | Staff     | Invitations I have sent        |
-| GET    | /invites/candidates                   | Staff     | Who I may still invite         |
-| POST   | /olympiads                            | Organiser | Create olympiad                |
-| GET    | /olympiads                            | Organiser | List olympiads                 |
-| GET    | /olympiads/:id                        | Organiser | Get olympiad detail            |
-| GET    | /olympiads/:id/schools                | Organiser | List registered schools        |
-| GET    | /olympiads/:id/archive                | Organiser | List archived papers           |
-| POST   | /olympiads/:id/rounds                 | Organiser | Create round                   |
-| GET    | /olympiads/:id/rounds                 | Organiser | List rounds                    |
-| GET    | /rounds/:id                           | Organiser | Get round detail               |
-| PATCH  | /rounds/:id                           | Organiser | Update round                   |
-| DELETE | /rounds/:id                           | Organiser | Delete round                   |
-| POST   | /rounds/:id/papers                    | Organiser | Upload paper and memo          |
-| GET    | /papers/:id/download                  | Organiser | Download paper file            |
-| POST   | /marking/:roundId/mark                | Organiser | Bulk auto-mark submissions     |
-| POST   | /marking/:roundId/results             | Organiser | Generate final results         |
-| PATCH  | /marking/:roundId/answers/:id         | Organiser | Manually mark answer           |
-| POST   | /submissions/:roundId/submissions     | Educator  | Create submission              |
-| GET    | /submissions/:roundId/submissions     | Edu/Org   | List submissions               |
-| GET    | /submissions/:roundId/submissions/:id | Edu/Org   | Get submission detail          |
+| Method | Path                                       | Role      | Purpose                        |
+| ------ | ------------------------------------------ | --------- | ------------------------------ |
+| POST   | /auth/register                             | Public    | Sign up as educator or student |
+| GET    | /schools                                   | Public    | Schools for the signup form    |
+| GET    | /me                                        | Any       | Get current user               |
+| DELETE | /me                                        | Any       | Soft-delete account            |
+| GET    | /me/rounds/:roundId                        | Any       | One round, by caller's role    |
+| GET    | /me/rounds/:roundId/results                | Educator  | One round's results (school)   |
+| GET    | /me/olympiad-invitations                   | Any       | Invitations addressed to me    |
+| GET    | /me/sent-olympiad-invitations              | Staff     | Invitations I have sent        |
+| GET    | /me/olympiad-invitation-candidates         | Staff     | Who I may still invite         |
+| POST   | /olympiad-invitations                      | Staff     | Invite someone to an olympiad  |
+| POST   | /olympiad-invitations/:invitationId/accept | Any       | Accept an invitation           |
+| POST   | /olympiad-invitations/:invitationId/reject | Any       | Decline an invitation          |
+| DELETE | /olympiad-invitations/:invitationId        | Staff     | Withdraw an invitation         |
+| POST   | /olympiads                                 | Organiser | Create olympiad                |
+| GET    | /olympiads                                 | Organiser | List olympiads                 |
+| GET    | /olympiads/:olympiadId                     | Organiser | Get olympiad detail            |
+| GET    | /olympiads/:olympiadId/schools             | Organiser | List registered schools        |
+| GET    | /olympiads/:olympiadId/papers/archive      | Organiser | List archive (one olympiad)    |
+| POST   | /olympiads/:olympiadId/entrants            | Educator  | Register entrants              |
+| GET    | /olympiads/:olympiadId/entrants            | Educator  | List olympiad entrants         |
+| GET    | /olympiads/:olympiadId/progression         | Educator  | Qualification funnel           |
+| POST   | /olympiads/:olympiadId/rounds              | Organiser | Create round                   |
+| GET    | /olympiads/:olympiadId/rounds              | Organiser | List rounds                    |
+| GET    | /rounds/:roundId                           | Organiser | Get round detail               |
+| POST   | /rounds/:roundId/entrants                  | Educator  | Register entrants              |
+| GET    | /rounds/:roundId/entrants                  | Educator  | List round entrants            |
+| GET    | /rounds/:roundId/progression               | Educator  | Qualification funnel           |
+| GET    | /rounds/:roundId/papers/preview            | Edu/Org   | Signed paper/memo preview      |
+| GET    | /rounds/:roundId/papers/download           | Edu/Stud  | Paper download link (signed)   |
+| GET    | /rounds/:roundId/papers/archive            | Educator  | Past papers for the round      |
+| PATCH  | /rounds/:roundId                           | Organiser | Update round                   |
+| DELETE | /rounds/:roundId                           | Organiser | Delete round                   |
+| POST   | /rounds/:roundId/papers                    | Organiser | Upload paper and memo          |
+| GET    | /papers/archive                            | Organiser | Shared past-paper archive      |
+| GET    | /papers/:paperId/download                  | Organiser | Download paper file            |
+| POST   | /rounds/:roundId/auto-mark                 | Edu/Org   | Bulk auto-mark submissions     |
+| POST   | /rounds/:roundId/results                   | Organiser | Generate final results         |
+| PATCH  | /rounds/:roundId/answers/:answerId         | Edu/Org   | Manually mark answer           |
+| POST   | /rounds/:roundId/submissions               | Educator  | Create submission              |
+| GET    | /rounds/:roundId/submissions               | Edu/Org   | List submissions               |
+| GET    | /rounds/:roundId/submissions/:submissionId | Edu/Org   | Get submission detail          |
 
 ---
 
@@ -161,7 +173,7 @@ users ─────┬──── olympiad_invites
 Registration is open to everyone: invitations are optional for educators and students. School access is either approved manually or granted by an authorised email-bound signup code.
 
 1. **Sign-up:** POST /auth/register with a role of educator or student (organisers are provisioned by the administrator). It creates the Supabase Auth user and the users row, plus an educators row and school membership for an educator, or an entrant row for a student.
-2. **Choosing a school:** educators and students pick from GET /auth/schools. An educator whose school is not listed may name a new one. A student must pick an existing school.
+2. **Choosing a school:** educators and students pick from GET /schools. An educator whose school is not listed may name a new one. A student must pick an existing school.
 3. **Approval (no invitation code):** a new educator's membership is `pending`. An organiser approves the first coordinator of a school; that coordinator approves later educators and all students. Until then the person can log in but only sees a "waiting for approval" page.
 4. **Invitation code (educators or students):** an organiser can invite an educator at a selected school, including a first coordinator. An active school educator (coordinator or ordinary educator) can invite educators and students to their **own school** using POST /school-invitations. A recipient signs up with the emailed address, matching account type and one-use code, gaining active school access without waiting. Student invitations create a new entrant only, never link an existing record by name. Codes expire after 7 days and only hashes are stored. A bad code is rejected rather than falling back to approval. EmailJS delivers the invitation, and the signup link uses FRONTEND_URL.
 5. **Joining an olympiad (organiser to educator):** the organiser sends an in-app invitation to an educator. It appears on the educator's dashboard; accepting registers their school for the olympiad.

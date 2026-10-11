@@ -54,15 +54,15 @@ describe('organiser exam review', () => {
         mockApi('get', '/rounds/round-1/questions', () => ({
             questions: state.questions,
         }));
-        mockApi('get', '/rounds/round-1/exam-status', () => state.status);
+        mockApi('get', '/rounds/round-1/exam/status', () => state.status);
         if (memo)
-            mockApi('get', '/papers/by-round/round-1', (req) => ({
+            mockApi('get', '/rounds/round-1/papers/preview', (req) => ({
                 url: `https://storage.test/memo.pdf${req.search}`,
             }));
         else
             mockApiError(
                 'get',
-                '/papers/by-round/round-1',
+                '/rounds/round-1/papers/preview',
                 404,
                 'No paper uploaded for this round'
             );
@@ -139,7 +139,7 @@ describe('organiser exam review', () => {
 
     it('approves the exam and shows who verified it', async () => {
         const state = mockReview();
-        const patches = mockApi('patch', '/rounds/round-1/exam-status', () => {
+        const patches = mockApi('patch', '/rounds/round-1/exam/status', () => {
             state.status = {
                 ...state.status,
                 exam_status: 'live',
@@ -167,7 +167,7 @@ describe('organiser exam review', () => {
 
     it('sends the exam back to the educator', async () => {
         mockReview();
-        const patches = mockApi('patch', '/rounds/round-1/exam-status', {
+        const patches = mockApi('patch', '/rounds/round-1/exam/status', {
             round: { exam_status: 'draft' },
         });
         const { user } = renderApp('/organiser/rounds/round-1/review');
@@ -189,7 +189,7 @@ describe('organiser exam review', () => {
         mockReview();
         mockApiError(
             'patch',
-            '/rounds/round-1/exam-status',
+            '/rounds/round-1/exam/status',
             400,
             'Exam has no questions'
         );
@@ -280,7 +280,7 @@ describe('organiser exam review', () => {
         expect(screen.queryByTitle('Correct answer')).not.toBeInTheDocument();
     });
 
-    // GET /rounds/:id/question-bank: the organiser's questions from other rounds
+    // GET /rounds/:roundId/question-bank: the organiser's questions from other rounds
     const bankQuestion = (overrides: Record<string, unknown>) => ({
         ...fx.question(overrides),
         source_round: { id: 'round-0', name: '2025 Heats' },
@@ -538,7 +538,7 @@ describe('organiser marking queue', () => {
         answers: QueueAnswer[];
     };
 
-    // GET /rounds/:id/marking-queue: queued submissions with their unmarked answers
+    // GET /rounds/:roundId/marking-queue: queued submissions with their unmarked answers
     const essayAnswer = (id: string, value: string | null) => ({
         id,
         submission_id: 'sub',
@@ -893,8 +893,8 @@ describe('organiser marking queue', () => {
             ],
         }));
         const decisions = mockApi(
-            'patch',
-            '/rounds/round-1/remarks/:remarkId',
+            'post',
+            '/remarks/:remarkId/decision',
             () => {
                 status = 'approved';
                 return { remark: { id: 'remark-1', status } };
@@ -923,7 +923,7 @@ describe('organiser marking queue', () => {
             screen.queryByRole('button', { name: 'Record decision' })
         ).not.toBeInTheDocument();
         expect(decisions[0]).toMatchObject({
-            path: '/rounds/round-1/remarks/remark-1',
+            path: '/remarks/remark-1/decision',
             body: {
                 status: 'approved',
                 answer_id: 'ans-9',

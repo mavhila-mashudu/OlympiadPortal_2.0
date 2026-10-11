@@ -69,10 +69,24 @@ const submitRemark = async (req, res, next) => {
     }
 };
 
+const getMyRemark = async (req, res, next) => {
+    try {
+        const entrantId = resolveEntrantId(req);
+        const remark = await studentRoundService.getMyRemark(
+            entrantId,
+            req.params.roundId
+        );
+        res.json({ success: true, data: { remark } });
+    } catch (err) {
+        next(err);
+    }
+};
+
 module.exports = {
     listRegisteredRounds,
     getRoundDetail,
     getStudentResults,
     downloadPaper,
     submitRemark,
+    getMyRemark,
 };
