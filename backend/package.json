@@ -20,7 +20,9 @@
         "test:integration:coverage": "jest --config jest.integration.config.js --coverage",
         "pretest:api": "prisma generate",
         "test:api": "jest --config jest.api.config.js",
-        "test:api:coverage": "jest --config jest.api.config.js --coverage"
+        "test:api:coverage": "jest --config jest.api.config.js --coverage",
+        "test:perf": "node scripts/benchmark.js",
+        "test:stress": "node scripts/stress-test.js"
     },
     "keywords": [],
     "author": "",
