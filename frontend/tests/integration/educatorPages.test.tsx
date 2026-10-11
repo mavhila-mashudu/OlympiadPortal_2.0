@@ -679,8 +679,8 @@ describe('educator entrants and invitations', () => {
         };
         mockApi('get', '/me/rounds', { rounds: [], school: fx.school });
         mockApi('get', '/me/olympiads', { olympiads });
-        mockApi('get', '/invites/sent', () => ({ invites: state.invitations }));
-        mockApi('get', '/invites/candidates', () => ({
+        mockApi('get', '/me/sent-olympiad-invitations', () => ({ invites: state.invitations }));
+        mockApi('get', '/me/olympiad-invitation-candidates', () => ({
             candidates: state.candidates,
         }));
         mockApi(
@@ -874,7 +874,7 @@ describe('educator entrants and invitations', () => {
         const state = mockEntrantsPage();
         const invites = mockApi(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             () => {
                 state.invitations = [
                     {
@@ -920,7 +920,7 @@ describe('educator entrants and invitations', () => {
         mockEntrantsPage();
         mockApiError(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             409,
             'That person has already been invited to this olympiad'
         );
@@ -963,7 +963,7 @@ describe('educator entrants and invitations', () => {
             500,
             'Internal server error'
         );
-        mockApi('get', '/invites/sent', { invites: [] });
+        mockApi('get', '/me/sent-olympiad-invitations', { invites: [] });
         mockApi('get', '/me', fx.me('educator'));
         renderApp('/educator/entrants');
 

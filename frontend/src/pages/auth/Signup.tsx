@@ -87,7 +87,7 @@ function Signup() {
 
         let cancelled = false;
         setCheckingCode(true);
-        api.post<{ invitation: Invite }>('/auth/invitations/check', {
+        api.post<{ invitation: Invite }>('/school-invitations/check', {
             code: inviteCode,
         })
             .then(({ invitation }) => {

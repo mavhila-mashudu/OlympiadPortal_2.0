@@ -92,7 +92,7 @@ app.use('/auth', require('./routes/auth'));
 app.use('/schools', require('./routes/schools'));
 app.use('/memberships', require('./routes/membershipApprovals'));
 app.use('/school-invitations', require('./routes/schoolInvitations'));
-app.use('/invites', require('./routes/invites'));
+app.use('/olympiad-invitations', require('./routes/olympiadInvitations'));
 // /me/notifications is mounted before /me so it wins the shared prefix
 app.use('/me/notifications', require('./routes/portalNotifications'));
 app.use('/me', require('./routes/me'));

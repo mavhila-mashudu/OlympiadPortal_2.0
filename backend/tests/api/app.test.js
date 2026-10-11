@@ -137,6 +137,7 @@ describe('rate limiting', () => {
     it.each([
         ['post', '/auth/register'],
         ['get', '/schools'],
+        ['post', '/school-invitations/check'],
         ['post', '/auth/forgot-password'],
     ])('limits requests to %s %s per client', async (method, path) => {
         const res = await api()[method](path).send({});

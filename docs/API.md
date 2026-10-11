@@ -396,16 +396,6 @@ coordinator chooses whether to link them to one when approving
 - **Response `201`:** `data.user` - `{ id, full_name, email, role, created_at }`
 - **Errors:** `400` missing/invalid school, or an invalid invitation code; `404` school not found; `409` email already registered
 
-### `POST /auth/invitations/check`
-
-What an invitation code leads to, so the signup form can show the school and
-the invited address before the account is created. No auth; rate limited per
-client IP like signup, because a code is secret.
-
-- **Body:** `code` (string; case, spaces and dashes don't matter)
-- **Response:** `data.invitation` - `{ school: { id, name }, email, role, accountType }`, where `accountType` is `student` or `educator`; educator invitations have school `role` of `educator` or `coordinator`
-- **Errors:** `400` the code isn't valid. The message is the same whether the code is unknown, used, cancelled or expired.
-
 ### School signup invitations (educators and students)
 
 An organiser may email an educator a signup code for a selected school. Any
@@ -417,6 +407,17 @@ coordinator/organiser approval. Codes are one-use, expire after 7 days, and
 only their hashes are stored. Student codes create a *new* active entrant;
 existing records/results are never claimed by name. These school signup codes
 are separate from the existing in-app Olympiad participation invitations.
+
+#### `POST /school-invitations/check`
+
+What an invitation code leads to, so the signup form can show the school and
+the invited address before the account is created. No auth, so it answers
+before the guard the routes below require; rate limited per client IP like
+signup, because a code is secret.
+
+- **Body:** `code` (string; case, spaces and dashes don't matter)
+- **Response:** `data.invitation` - `{ school: { id, name }, email, role, accountType }`, where `accountType` is `student` or `educator`; educator invitations have school `role` of `educator` or `coordinator`
+- **Errors:** `400` the code isn't valid. The message is the same whether the code is unknown, used, cancelled or expired.
 
 #### `POST /school-invitations`
 
@@ -531,29 +532,38 @@ An invitation object is
 `{ id, role, status, message, createdAt, respondedAt, olympiad, school, invitee, invitedBy }`,
 where `status` is `pending`, `accepted` or `rejected`.
 
-### `GET /invites/mine`
+The caller's own lists live under `/me`, and actions on a single invitation
+under `/olympiad-invitations`. These are not the school signup codes: those
+create accounts and are documented under
+[School signup invitations](#school-signup-invitations-educators-and-students).
+
+### `GET /me/olympiad-invitations`
 
 The invitations addressed to the signed-in user.
 
 - **Auth:** Bearer token (any role)
 - **Response:** `data.invites`
 
-### `POST /invites/:invitationId/accept`
+### `GET /me/sent-olympiad-invitations`
 
-Accept an invitation addressed to you, performing the registration it stands for.
+For an organiser, the invitations for one of their olympiads (requires
+`olympiad_id`). For an educator, the student invitations for their school.
 
-- **Auth:** Bearer token (any role); must be the invitee
-- **Response:** `data.invite`
-- **Errors:** `400` already answered; `403` not your invitation; `404` unknown invitation
+- **Auth:** organiser or educator
+- **Query:** `olympiad_id` (organiser only)
+- **Response:** `data.invites`
 
-### `POST /invites/:invitationId/reject`
+### `GET /me/olympiad-invitation-candidates`
 
-Decline an invitation. Nothing is registered.
+The people the caller may still invite to an olympiad: every educator on the
+platform for an organiser, and the school's own students for an educator.
+Anyone already invited to that olympiad is left out.
 
-- **Auth:** Bearer token (any role); must be the invitee
-- **Response:** `data.invite`
+- **Auth:** organiser or educator
+- **Query:** `olympiad_id` (uuid, required)
+- **Response:** `data.candidates` - `[{ id, name, email, school }]`
 
-### `POST /invites`
+### `POST /olympiad-invitations`
 
 Send an invitation.
 
@@ -567,32 +577,28 @@ their school is approved for.
 - **Response `201`:** `data.invite`
 - **Errors:** `400` wrong role for the inviter; `403` not yours / not your school; `409` already invited to this olympiad
 
-### `DELETE /invites/:invitationId`
+### `POST /olympiad-invitations/:invitationId/accept`
+
+Accept an invitation addressed to you, performing the registration it stands for.
+
+- **Auth:** Bearer token (any role); must be the invitee
+- **Response:** `data.invite`
+- **Errors:** `400` already answered; `403` not your invitation; `404` unknown invitation
+
+### `POST /olympiad-invitations/:invitationId/reject`
+
+Decline an invitation. Nothing is registered.
+
+- **Auth:** Bearer token (any role); must be the invitee
+- **Response:** `data.invite`
+
+### `DELETE /olympiad-invitations/:invitationId`
 
 Withdraw an invitation you sent that has not been answered yet.
 
 - **Auth:** organiser or educator; must be the sender
 - **Response:** `data.id`
 - **Errors:** `400` already answered; `403` not the sender
-
-### `GET /invites/sent`
-
-For an organiser, the invitations for one of their olympiads (requires
-`olympiad_id`). For an educator, the student invitations for their school.
-
-- **Auth:** organiser or educator
-- **Query:** `olympiad_id` (organiser only)
-- **Response:** `data.invites`
-
-### `GET /invites/candidates`
-
-The people the caller may still invite to an olympiad: every educator on the
-platform for an organiser, and the school's own students for an educator.
-Anyone already invited to that olympiad is left out.
-
-- **Auth:** organiser or educator
-- **Query:** `olympiad_id` (uuid, required)
-- **Response:** `data.candidates` - `[{ id, name, email, school }]`
 
 ---
 

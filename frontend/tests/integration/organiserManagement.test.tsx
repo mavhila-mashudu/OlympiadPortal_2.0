@@ -412,7 +412,7 @@ describe('olympiads page', () => {
                 fx.olympiad({ id: 'oly-2', name: 'Science Olympiad' }),
             ],
         });
-        mockApi('get', '/invites/candidates', {
+        mockApi('get', '/me/olympiad-invitation-candidates', {
             candidates: [
                 {
                     id: 'edu-1',
@@ -424,7 +424,7 @@ describe('olympiads page', () => {
         });
         const invites = mockApi(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             { invite: { id: 'inv-1' } },
             { status: 201 }
         );
@@ -526,7 +526,7 @@ describe('schools page', () => {
         const listCalls = mockApi('get', '/olympiads/oly-1/schools', () => ({
             schools: list,
         }));
-        mockApi('get', '/invites/candidates', {
+        mockApi('get', '/me/olympiad-invitation-candidates', {
             candidates: [
                 {
                     id: 'edu-2',
@@ -538,7 +538,7 @@ describe('schools page', () => {
         });
         const invites = mockApi(
             'post',
-            '/invites',
+            '/olympiad-invitations',
             () => {
                 list = [schools[1]];
                 return { invite: { id: 'inv-2' } };

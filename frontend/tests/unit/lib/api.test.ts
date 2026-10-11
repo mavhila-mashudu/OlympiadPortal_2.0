@@ -195,7 +195,7 @@ describe('api errors', () => {
             jsonResponse({ success: false, error: 'Invitation not found' })
         );
         const { api } = await loadApi();
-        await expect(api.get('/invites/mine')).rejects.toThrow(
+        await expect(api.get('/me/olympiad-invitations')).rejects.toThrow(
             'Invitation not found'
         );
     });

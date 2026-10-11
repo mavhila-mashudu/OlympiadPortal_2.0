@@ -69,13 +69,13 @@ All errors return `{ success: false, error: "message" }`. Stack traces are suppr
 | GET    | /schools                              | Public    | Schools for the signup form    |
 | GET    | /me                                   | Any       | Get current user               |
 | DELETE | /me                                   | Any       | Soft-delete account            |
-| GET    | /invites/mine                         | Any       | Invitations addressed to me    |
-| POST   | /invites/:id/accept                   | Any       | Accept an invitation           |
-| POST   | /invites/:id/reject                   | Any       | Decline an invitation          |
-| POST   | /invites                              | Staff     | Invite someone to an olympiad  |
-| DELETE | /invites/:id                          | Staff     | Withdraw an invitation         |
-| GET    | /invites/sent                         | Staff     | Invitations I have sent        |
-| GET    | /invites/candidates                   | Staff     | Who I may still invite         |
+| GET    | /me/olympiad-invitations              | Any       | Invitations addressed to me    |
+| GET    | /me/sent-olympiad-invitations         | Staff     | Invitations I have sent        |
+| GET    | /me/olympiad-invitation-candidates    | Staff     | Who I may still invite         |
+| POST   | /olympiad-invitations                 | Staff     | Invite someone to an olympiad  |
+| POST   | /olympiad-invitations/:invitationId/accept | Any  | Accept an invitation           |
+| POST   | /olympiad-invitations/:invitationId/reject | Any  | Decline an invitation          |
+| DELETE | /olympiad-invitations/:invitationId   | Staff     | Withdraw an invitation         |
 | POST   | /olympiads                            | Organiser | Create olympiad                |
 | GET    | /olympiads                            | Organiser | List olympiads                 |
 | GET    | /olympiads/:id                        | Organiser | Get olympiad detail            |

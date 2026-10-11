@@ -20,7 +20,7 @@ const mockLandingPages = () => {
         rounds: [],
         stats: { roundsEntered: 0, resultsAvailable: 0, certificatesEarned: 0 },
     });
-    mockApi('get', '/invites/mine', { invites: [] });
+    mockApi('get', '/me/olympiad-invitations', { invites: [] });
 };
 
 beforeEach(() => {
@@ -377,7 +377,7 @@ describe('signing up', () => {
         it('shows where the code leads, locks the email, and signs up without choosing a school', async () => {
             mockLandingPages();
             mockSchools();
-            const checks = mockApi('post', '/auth/invitations/check', {
+            const checks = mockApi('post', '/school-invitations/check', {
                 invitation,
             });
             const registrations = mockApi(
@@ -429,7 +429,7 @@ describe('signing up', () => {
 
         it('accepts a student signup link and selects Student automatically', async () => {
             mockSchools();
-            mockApi('post', '/auth/invitations/check', {
+            mockApi('post', '/school-invitations/check', {
                 invitation: { ...invitation, accountType: 'student', role: null },
             });
             renderApp(`/signup?code=${CODE}`);
@@ -441,7 +441,7 @@ describe('signing up', () => {
 
         it('opens with the code from the email link already filled in', async () => {
             mockSchools();
-            const checks = mockApi('post', '/auth/invitations/check', {
+            const checks = mockApi('post', '/school-invitations/check', {
                 invitation,
             });
             renderApp(`/signup?code=${CODE}`);
@@ -460,7 +460,7 @@ describe('signing up', () => {
             mockSchools();
             mockApiError(
                 'post',
-                '/auth/invitations/check',
+                '/school-invitations/check',
                 400,
                 'This invitation code is not valid.'
             );

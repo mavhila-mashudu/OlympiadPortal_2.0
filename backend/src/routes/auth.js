@@ -3,7 +3,6 @@ const express = require('express');
 const { body } = require('express-validator');
 const {
     register,
-    checkInvitation,
     logout,
     forgotPassword,
 } = require('../controllers/authController');
@@ -75,14 +74,6 @@ const registerRules = [
 ];
 
 router.post('/register', publicAuthLimiter, registerRules, validate, register);
-// Rate limited like signup itself: a code is secret, so guessing is capped
-router.post(
-    '/invitations/check',
-    publicAuthLimiter,
-    [body('code').isString().isLength({ min: 1, max: 40 })],
-    validate,
-    checkInvitation
-);
 router.post(
     '/forgot-password',
     publicAuthLimiter,

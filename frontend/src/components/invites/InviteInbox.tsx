@@ -33,7 +33,9 @@ export function InviteInbox({ onAccepted }: InviteInboxProps) {
 
     const load = useCallback(async () => {
         try {
-            const data = await api.get<{ invites: Invite[] }>('/invites/mine');
+            const data = await api.get<{ invites: Invite[] }>(
+                '/me/olympiad-invitations'
+            );
             setInvites(data.invites || []);
         } catch (err) {
             setError(
@@ -53,7 +55,7 @@ export function InviteInbox({ onAccepted }: InviteInboxProps) {
         setError(null);
         try {
             await api.post(
-                `/invites/${invite.id}/${accept ? 'accept' : 'reject'}`
+                `/olympiad-invitations/${invite.id}/${accept ? 'accept' : 'reject'}`
             );
             await load();
             if (accept) onAccepted?.();

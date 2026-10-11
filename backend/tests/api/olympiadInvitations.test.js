@@ -1,14 +1,15 @@
-// /invites: the in-app invitation flow that replaced emailed signup codes.
-// An organiser invites an educator (accepting registers their school), and an
-// educator invites a student of their own school (accepting enters them into
-// the olympiad's rounds).
+// /olympiad-invitations: the in-app invitation flow that replaced emailed
+// signup codes. An organiser invites an educator (accepting registers their
+// school), and an educator invites a student of their own school (accepting
+// enters them into the olympiad's rounds). List views live under /me.
 const prisma = require('../../src/config/database').default;
 const f = require('../integration/helpers/factories');
 const { api, as, expectError, expectOk } = require('./helpers/api');
 
-const invite = (sender, body) => as(sender).post('/invites').send(body);
+const invite = (sender, body) =>
+    as(sender).post('/olympiad-invitations').send(body);
 
-describe('POST /invites', () => {
+describe('POST /olympiad-invitations', () => {
     it('lets an organiser invite an educator, and records who it is for', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -158,7 +159,7 @@ describe('POST /invites', () => {
     });
 });
 
-describe('GET /invites/mine', () => {
+describe('GET /me/olympiad-invitations', () => {
     it('shows the invitations addressed to the signed-in user', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -171,7 +172,7 @@ describe('GET /invites/mine', () => {
         });
 
         const { invites } = expectOk(
-            await as(educatorUser).get('/invites/mine')
+            await as(educatorUser).get('/me/olympiad-invitations')
         );
 
         expect(invites).toHaveLength(1);
@@ -193,13 +194,13 @@ describe('GET /invites/mine', () => {
         });
         const other = await f.createOrganiser();
 
-        expect(expectOk(await as(other).get('/invites/mine')).invites).toEqual(
-            []
-        );
+        expect(
+            expectOk(await as(other).get('/me/olympiad-invitations')).invites
+        ).toEqual([]);
     });
 });
 
-describe('POST /invites/:invitationId/accept', () => {
+describe('POST /olympiad-invitations/:invitationId/accept', () => {
     it("registers the educator's school for the olympiad", async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -212,7 +213,9 @@ describe('POST /invites/:invitationId/accept', () => {
         });
 
         const { invite: answered } = expectOk(
-            await as(educatorUser).post(`/invites/${pending.id}/accept`)
+            await as(educatorUser).post(
+                `/olympiad-invitations/${pending.id}/accept`
+            )
         );
 
         expect(answered).toMatchObject({ status: 'accepted' });
@@ -243,7 +246,11 @@ describe('POST /invites/:invitationId/accept', () => {
             school,
         });
 
-        expectOk(await as(studentUser).post(`/invites/${pending.id}/accept`));
+        expectOk(
+            await as(studentUser).post(
+                `/olympiad-invitations/${pending.id}/accept`
+            )
+        );
 
         const registrations = await prisma.entrant_registrations.findMany({
             where: { entrant_id: entrant.id },
@@ -270,7 +277,9 @@ describe('POST /invites/:invitationId/accept', () => {
         const intruder = (await f.createEducator()).user;
 
         expectError(
-            await as(intruder).post(`/invites/${pending.id}/accept`),
+            await as(intruder).post(
+                `/olympiad-invitations/${pending.id}/accept`
+            ),
             403,
             'This invitation was not sent to you'
         );
@@ -287,9 +296,15 @@ describe('POST /invites/:invitationId/accept', () => {
             school,
         });
 
-        expectOk(await as(educatorUser).post(`/invites/${pending.id}/accept`));
+        expectOk(
+            await as(educatorUser).post(
+                `/olympiad-invitations/${pending.id}/accept`
+            )
+        );
         expectError(
-            await as(educatorUser).post(`/invites/${pending.id}/accept`),
+            await as(educatorUser).post(
+                `/olympiad-invitations/${pending.id}/accept`
+            ),
             400,
             'You have already answered this invitation'
         );
@@ -299,7 +314,7 @@ describe('POST /invites/:invitationId/accept', () => {
         const educatorUser = (await f.createEducator()).user;
         expectError(
             await as(educatorUser).post(
-                '/invites/00000000-0000-4000-8000-000000000000/accept'
+                '/olympiad-invitations/00000000-0000-4000-8000-000000000000/accept'
             ),
             404,
             'Invitation not found'
@@ -307,7 +322,7 @@ describe('POST /invites/:invitationId/accept', () => {
     });
 });
 
-describe('POST /invites/:invitationId/reject', () => {
+describe('POST /olympiad-invitations/:invitationId/reject', () => {
     it('marks the invitation rejected and registers nothing', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -320,7 +335,9 @@ describe('POST /invites/:invitationId/reject', () => {
         });
 
         const { invite: answered } = expectOk(
-            await as(educatorUser).post(`/invites/${pending.id}/reject`)
+            await as(educatorUser).post(
+                `/olympiad-invitations/${pending.id}/reject`
+            )
         );
 
         expect(answered).toMatchObject({
@@ -335,7 +352,7 @@ describe('POST /invites/:invitationId/reject', () => {
     });
 });
 
-describe('GET /invites/candidates', () => {
+describe('GET /me/olympiad-invitation-candidates', () => {
     it('offers an organiser the educators who have not been invited yet', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -351,7 +368,7 @@ describe('GET /invites/candidates', () => {
 
         const { candidates } = expectOk(
             await as(organiser).get(
-                `/invites/candidates?olympiad_id=${olympiad.id}`
+                `/me/olympiad-invitation-candidates?olympiad_id=${olympiad.id}`
             )
         );
 
@@ -371,7 +388,7 @@ describe('GET /invites/candidates', () => {
 
         const { candidates } = expectOk(
             await as(educatorUser).get(
-                `/invites/candidates?olympiad_id=${olympiad.id}`
+                `/me/olympiad-invitation-candidates?olympiad_id=${olympiad.id}`
             )
         );
 
@@ -379,7 +396,7 @@ describe('GET /invites/candidates', () => {
     });
 });
 
-describe('GET /invites/sent', () => {
+describe('GET /me/sent-olympiad-invitations', () => {
     it('shows an organiser the invitations for one of their olympiads', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -392,7 +409,9 @@ describe('GET /invites/sent', () => {
         });
 
         const { invites } = expectOk(
-            await as(organiser).get(`/invites/sent?olympiad_id=${olympiad.id}`)
+            await as(organiser).get(
+                `/me/sent-olympiad-invitations?olympiad_id=${olympiad.id}`
+            )
         );
 
         expect(invites).toHaveLength(1);
@@ -411,7 +430,7 @@ describe('GET /invites/sent', () => {
         });
 
         const { invites } = expectOk(
-            await as(educatorUser).get('/invites/sent')
+            await as(educatorUser).get('/me/sent-olympiad-invitations')
         );
 
         expect(invites).toHaveLength(1);
@@ -422,7 +441,7 @@ describe('GET /invites/sent', () => {
     });
 });
 
-describe('DELETE /invites/:invitationId', () => {
+describe('DELETE /olympiad-invitations/:invitationId', () => {
     it('withdraws an invitation the sender has not had answered yet', async () => {
         const organiser = await f.createOrganiser();
         const olympiad = await f.createOlympiad({ organiser });
@@ -434,7 +453,11 @@ describe('DELETE /invites/:invitationId', () => {
             school,
         });
 
-        expectOk(await as(organiser).delete(`/invites/${pending.id}`));
+        expectOk(
+            await as(organiser).delete(
+                `/olympiad-invitations/${pending.id}`
+            )
+        );
 
         expect(
             await prisma.olympiad_invites.findUnique({
@@ -456,7 +479,7 @@ describe('DELETE /invites/:invitationId', () => {
         const other = await f.createOrganiser();
 
         expectError(
-            await as(other).delete(`/invites/${pending.id}`),
+            await as(other).delete(`/olympiad-invitations/${pending.id}`),
             403,
             'You can only withdraw invitations you sent'
         );
@@ -465,6 +488,10 @@ describe('DELETE /invites/:invitationId', () => {
 
 describe('unauthenticated access', () => {
     it('requires a token', async () => {
-        expectError(await api().get('/invites/mine'), 401, 'No token provided');
+        expectError(
+            await api().get('/me/olympiad-invitations'),
+            401,
+            'No token provided'
+        );
     });
 });

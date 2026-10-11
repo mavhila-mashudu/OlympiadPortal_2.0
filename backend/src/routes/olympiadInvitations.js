@@ -1,10 +1,10 @@
 // @ts-nocheck
+// In-app olympiad invitations: create, answer or withdraw a single
+// invitation. The caller-specific lists (received and sent) live under /me —
+// see routes/me.js.
 const express = require('express');
-const { body, param, query } = require('express-validator');
+const { body, param } = require('express-validator');
 const {
-    listMyInvites,
-    listSentInvites,
-    listCandidates,
     createInvite,
     acceptInvite,
     rejectInvite,
@@ -20,9 +20,6 @@ router.use(requireAuth);
 const invitationIdRule = [
     param('invitationId').isUUID().withMessage('Valid invitation id required'),
 ];
-const olympiadQueryRule = [
-    query('olympiad_id').isUUID().withMessage('Valid olympiad id required'),
-];
 const createInviteRules = [
     body('olympiad_id').isUUID().withMessage('Valid olympiad id required'),
     body('invitee_id').isUUID().withMessage('Select someone to invite'),
@@ -32,21 +29,8 @@ const createInviteRules = [
         .withMessage('Message is too long'),
 ];
 
-// Invitations addressed to the signed-in user, shown on their dashboard.
-router.get('/mine', listMyInvites);
-router.post('/:invitationId/accept', invitationIdRule, validate, acceptInvite);
-router.post('/:invitationId/reject', invitationIdRule, validate, rejectInvite);
-
-// Invitations the signed-in user has sent. Organisers invite educators to
-// their own olympiads; educators invite the students of their own school.
-router.get('/sent', requireRole('organiser', 'educator'), listSentInvites);
-router.get(
-    '/candidates',
-    requireRole('organiser', 'educator'),
-    olympiadQueryRule,
-    validate,
-    listCandidates
-);
+// Organisers invite educators to their own olympiads; educators invite the
+// students of their own school.
 router.post(
     '/',
     requireRole('organiser', 'educator'),
@@ -54,6 +38,11 @@ router.post(
     validate,
     createInvite
 );
+
+// Actions on a single invitation: any signed-in user, since the invitee
+// answers it and the service checks it was addressed to them.
+router.post('/:invitationId/accept', invitationIdRule, validate, acceptInvite);
+router.post('/:invitationId/reject', invitationIdRule, validate, rejectInvite);
 router.delete(
     '/:invitationId',
     requireRole('organiser', 'educator'),

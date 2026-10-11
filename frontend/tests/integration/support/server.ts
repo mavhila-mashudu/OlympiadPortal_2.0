@@ -12,7 +12,7 @@ const backgroundDefaults = [
     http.get(`${API_URL}/me/notifications`, () =>
         HttpResponse.json({ success: true, data: { notifications: [] } })
     ),
-    http.get(`${API_URL}/invites/mine`, () =>
+    http.get(`${API_URL}/me/olympiad-invitations`, () =>
         HttpResponse.json({ success: true, data: { invites: [] } })
     ),
     // The sidebar shows the signed-in person's name

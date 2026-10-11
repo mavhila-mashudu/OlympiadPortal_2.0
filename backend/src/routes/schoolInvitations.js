@@ -3,10 +3,26 @@ const express = require('express');
 const { body, param, query } = require('express-validator');
 const { requireAuth, requireRole } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
-const { createRateLimiter } = require('../middlewares/rateLimit');
+const {
+    createRateLimiter,
+    publicAuthLimiter,
+} = require('../middlewares/rateLimit');
+const { checkInvitation } = require('../controllers/authController');
 const service = require('../services/schoolInvitationService');
 
 const router = express.Router();
+
+// Public on purpose: the signup form checks a code before anyone has an
+// account, so this route sits above the auth guard. /check is POST only and
+// no POST /:invitationId exists, so the two cannot collide. Rate limited like
+// signup itself: a code is secret, so guessing is capped.
+router.post(
+    '/check',
+    publicAuthLimiter,
+    [body('code').isString().isLength({ min: 1, max: 40 })],
+    validate,
+    checkInvitation
+);
 
 // Organisers and active educators, limited to their own school in the service
 router.use(requireAuth, requireRole('organiser', 'educator'));

@@ -145,15 +145,15 @@ Invitations are delivered in the app, not by email, and go only to people who
 already have an account. Accepting one registers an educator's school for the
 olympiad, or enters a student into its rounds.
 
-| Method | Endpoint              | Description                   | Auth Required       |
-| ------ | --------------------- | ----------------------------- | ------------------- |
-| GET    | `/invites/mine`       | Invitations addressed to me   | Yes                 |
-| POST   | `/invites/:id/accept` | Accept an invitation          | Yes (the invitee)   |
-| POST   | `/invites/:id/reject` | Decline an invitation         | Yes (the invitee)   |
-| POST   | `/invites`            | Invite someone to an olympiad | Organiser, educator |
-| DELETE | `/invites/:id`        | Withdraw an invitation I sent | Organiser, educator |
-| GET    | `/invites/sent`       | Invitations I have sent       | Organiser, educator |
-| GET    | `/invites/candidates` | Who I may still invite        | Organiser, educator |
+| Method | Endpoint                                     | Description                   | Auth Required       |
+| ------ | -------------------------------------------- | ----------------------------- | ------------------- |
+| GET    | `/me/olympiad-invitations`                   | Invitations addressed to me   | Yes                 |
+| GET    | `/me/sent-olympiad-invitations`              | Invitations I have sent       | Organiser, educator |
+| GET    | `/me/olympiad-invitation-candidates`         | Who I may still invite        | Organiser, educator |
+| POST   | `/olympiad-invitations`                      | Invite someone to an olympiad | Organiser, educator |
+| POST   | `/olympiad-invitations/:invitationId/accept` | Accept an invitation          | Yes (the invitee)   |
+| POST   | `/olympiad-invitations/:invitationId/reject` | Decline an invitation         | Yes (the invitee)   |
+| DELETE | `/olympiad-invitations/:invitationId`        | Withdraw an invitation I sent | Organiser, educator |
 
 > Full API documentation is available on our documentation site.
 

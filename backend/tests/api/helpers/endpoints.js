@@ -70,7 +70,6 @@ const endpoints = [
     },
     // Auth
     { method: 'post', path: '/auth/register', roles: 'public' },
-    { method: 'post', path: '/auth/invitations/check', roles: 'public' },
     { method: 'post', path: '/auth/forgot-password', roles: 'public' },
     { method: 'post', path: '/auth/logout', roles: 'any' },
 
@@ -84,6 +83,13 @@ const endpoints = [
     { method: 'get', path: '/me/results', roles: ['student', 'educator'] },
     { method: 'get', path: '/me/overview', roles: EDUCATOR },
     { method: 'get', path: '/me/olympiads', roles: EDUCATOR },
+    { method: 'get', path: '/me/olympiad-invitations', roles: 'any' },
+    { method: 'get', path: '/me/sent-olympiad-invitations', roles: STAFF },
+    {
+        method: 'get',
+        path: '/me/olympiad-invitation-candidates',
+        roles: STAFF,
+    },
 
     // School membership approval
     { method: 'get', path: '/memberships/requests', roles: STAFF },
@@ -102,17 +108,24 @@ const endpoints = [
         path: '/school-invitations/:invitationId',
         roles: STAFF,
     },
+    // The signup form checks a code before any account exists
+    { method: 'post', path: '/school-invitations/check', roles: 'public' },
 
-    // In-app olympiad invitations
-    { method: 'get', path: '/invites/mine', roles: 'any' },
-    { method: 'post', path: '/invites/:invitationId/accept', roles: 'any' },
-    { method: 'post', path: '/invites/:invitationId/reject', roles: 'any' },
-    { method: 'get', path: '/invites/sent', roles: STAFF },
-    { method: 'get', path: '/invites/candidates', roles: STAFF },
-    { method: 'post', path: '/invites', roles: STAFF },
+    // Olympiad invitations (resource actions; list views live under /me)
+    { method: 'post', path: '/olympiad-invitations', roles: STAFF },
+    {
+        method: 'post',
+        path: '/olympiad-invitations/:invitationId/accept',
+        roles: 'any',
+    },
+    {
+        method: 'post',
+        path: '/olympiad-invitations/:invitationId/reject',
+        roles: 'any',
+    },
     {
         method: 'delete',
-        path: '/invites/:invitationId',
+        path: '/olympiad-invitations/:invitationId',
         roles: STAFF,
     },
 
@@ -304,7 +317,7 @@ const mounts = {
     'auth.js': '/auth',
     'membershipApprovals.js': '/memberships',
     'schoolInvitations.js': '/school-invitations',
-    'invites.js': '/invites',
+    'olympiadInvitations.js': '/olympiad-invitations',
     'educator.js': '/educator',
     'organiserRemarks.js': '/organiser/remarks',
     'olympiads.js': '/olympiads',
