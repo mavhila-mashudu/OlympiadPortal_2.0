@@ -82,6 +82,14 @@ REST API reference: [docs/API.md](./docs/API.md)
 
 Testing documentation: [docs/testing.md](./docs/testing.md)
 
+## Project Management & Tracking
+
+We used Trello to manage our project backlog, assign tasks, track user stories, and monitor progress throughout the sprints.
+
+- **Work Tracker:** [Olympiad Portal Trello Board](https://trello.com/b/5cHqfLX9/olympiadportal)
+- **Meeting Minutes:** Available both on Trello and in our project documentation.
+
+
 ## Team
 
 Prompt Engineers — COMS3011A 2026
