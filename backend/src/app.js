@@ -84,26 +84,34 @@ app.get('/', (_req, res) => {
 });
 
 // ── Routes ──────────────────────────────────────────────
-// Public developer API: no authentication, open to any website, and rate
-// limited per client IP since there is no account to throttle
-app.use('/public', createPublicRateLimiter(), require('./routes/public'));
 
+// Public developer API at /public/v1 (the path carries the version; policy
+// in docs/API.md): no authentication, open to any website, and rate limited
+// per client IP since there is no account to throttle
+app.use('/public/v1', createPublicRateLimiter(), require('./routes/public'));
+
+// Accounts and the signup school list
 app.use('/auth', require('./routes/auth'));
 app.use('/schools', require('./routes/schools'));
+
+// School membership requests and the two invitation resources
 app.use('/membership-requests', require('./routes/membershipApprovals'));
 app.use('/school-invitations', require('./routes/schoolInvitations'));
 app.use('/olympiad-invitations', require('./routes/olympiadInvitations'));
-// /me/notifications is mounted before /me so it wins the shared prefix
+
+// The caller's own record and notifications
 app.use('/me/notifications', require('./routes/portalNotifications'));
 app.use('/me', require('./routes/me'));
+
 // Remarks: the organiser's decision and assignment, the educator's review
 app.use('/remarks', require('./routes/remarks'));
 
-//registering olympiads and rounds routes
+// Olympiads; their rounds and notification rules mount from olympiads.js
 app.use('/olympiads', require('./routes/olympiads'));
-// Every route under /rounds carries :roundId (or a deeper segment), so
-// nothing static competes with roundDetail's /:roundId and no mount order
-// is load-bearing.
+
+// Rounds: every route carries :roundId (or a deeper segment), so nothing
+// static competes with roundDetail's /:roundId and no mount order is
+// load-bearing
 app.use('/rounds', require('./routes/reviews'));
 app.use('/rounds', require('./routes/studentRounds'));
 app.use('/rounds', require('./routes/studentExam'));
@@ -112,9 +120,10 @@ app.use('/rounds', require('./routes/examStatus'));
 app.use('/rounds', require('./routes/submissions'));
 app.use('/rounds', require('./routes/marking'));
 app.use('/rounds', require('./routes/standings'));
-// Round papers: upload, preview, download and the past-paper list
 app.use('/rounds', require('./routes/roundPapers'));
 app.use('/rounds', require('./routes/roundDetail'));
+
+// Papers: the shared organiser archive and downloads
 app.use('/papers', require('./routes/papers'));
 
 // 404

@@ -1,4 +1,4 @@
-// Building and verifying an exam: questions, the exam-status workflow
+// Building and verifying an exam: questions, the exam/status workflow
 // (draft → ready → live) and signed links to the paper and memo.
 const prisma = require('../../src/config/database').default;
 const f = require('../integration/helpers/factories');

@@ -17,33 +17,33 @@ const endpoints = [
     { method: 'get', path: '/', roles: 'public' },
 
     // Public API (no auth)
-    { method: 'get', path: '/public/stats', roles: 'public' },
-    { method: 'get', path: '/public/stats/yearly', roles: 'public' },
-    { method: 'get', path: '/public/activity', roles: 'public' },
-    { method: 'get', path: '/public/calendar', roles: 'public' },
-    { method: 'get', path: '/public/search', roles: 'public' },
-    { method: 'get', path: '/public/olympiads', roles: 'public' },
-    { method: 'get', path: '/public/olympiads/:olympiadId', roles: 'public' },
+    { method: 'get', path: '/public/v1/stats', roles: 'public' },
+    { method: 'get', path: '/public/v1/stats/yearly', roles: 'public' },
+    { method: 'get', path: '/public/v1/activity', roles: 'public' },
+    { method: 'get', path: '/public/v1/calendar', roles: 'public' },
+    { method: 'get', path: '/public/v1/search', roles: 'public' },
+    { method: 'get', path: '/public/v1/olympiads', roles: 'public' },
+    { method: 'get', path: '/public/v1/olympiads/:olympiadId', roles: 'public' },
     {
         method: 'get',
-        path: '/public/olympiads/:olympiadId/rounds/:roundId/results',
+        path: '/public/v1/olympiads/:olympiadId/rounds/:roundId/results',
         roles: 'public',
     },
     {
         method: 'get',
-        path: '/public/olympiads/:olympiadId/rounds/:roundId/results/by-school',
+        path: '/public/v1/olympiads/:olympiadId/rounds/:roundId/results/by-school',
         roles: 'public',
     },
     {
         method: 'get',
-        path: '/public/olympiads/:olympiadId/leaderboard',
+        path: '/public/v1/olympiads/:olympiadId/leaderboard',
         roles: 'public',
     },
-    { method: 'get', path: '/public/schools/top', roles: 'public' },
-    { method: 'get', path: '/public/schools', roles: 'public' },
-    { method: 'get', path: '/public/schools/:schoolId', roles: 'public' },
-    { method: 'get', path: '/public/papers', roles: 'public' },
-    { method: 'get', path: '/public/papers/:paperId/download', roles: 'public' },
+    { method: 'get', path: '/public/v1/schools/top', roles: 'public' },
+    { method: 'get', path: '/public/v1/schools', roles: 'public' },
+    { method: 'get', path: '/public/v1/schools/:schoolId', roles: 'public' },
+    { method: 'get', path: '/public/v1/papers', roles: 'public' },
+    { method: 'get', path: '/public/v1/papers/:paperId/download', roles: 'public' },
 
     // Portal notifications
     { method: 'get', path: '/me/notifications', roles: 'any' },
@@ -293,7 +293,7 @@ const endpoints = [
 
 // Where each route file is mounted (see src/app.js and src/routes/olympiads.js)
 const mounts = {
-    'public.js': '/public',
+    'public.js': '/public/v1',
     'me.js': '/me',
     'schools.js': '/schools',
     'portalNotifications.js': '/me/notifications',

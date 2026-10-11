@@ -16,7 +16,7 @@ import {
 import { InviteEducatorDialog, InviteEducatorForm } from './InviteEducatorForm';
 import styles from './Schools.module.css';
 
-// GET /olympiads/:id/schools lists the schools taking part, plus the educators
+// GET /olympiads/:olympiadId/schools lists the schools taking part, plus the educators
 // who were invited and have not answered yet
 type RegisteredSchool = {
     id: string;

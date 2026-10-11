@@ -280,7 +280,7 @@ describe('organiser exam review', () => {
         expect(screen.queryByTitle('Correct answer')).not.toBeInTheDocument();
     });
 
-    // GET /rounds/:id/question-bank: the organiser's questions from other rounds
+    // GET /rounds/:roundId/question-bank: the organiser's questions from other rounds
     const bankQuestion = (overrides: Record<string, unknown>) => ({
         ...fx.question(overrides),
         source_round: { id: 'round-0', name: '2025 Heats' },
@@ -538,7 +538,7 @@ describe('organiser marking queue', () => {
         answers: QueueAnswer[];
     };
 
-    // GET /rounds/:id/marking-queue: queued submissions with their unmarked answers
+    // GET /rounds/:roundId/marking-queue: queued submissions with their unmarked answers
     const essayAnswer = (id: string, value: string | null) => ({
         id,
         submission_id: 'sub',

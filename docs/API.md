@@ -70,8 +70,11 @@ Read-only data about olympiads, rounds, schools, results and past papers,
 for anyone to build on: school websites, widgets, dashboards and other apps.
 No account or token is needed.
 
-- **Base URL:** `https://olympiad-portal-api.azurewebsites.net/public`
-  (locally, `http://localhost:3000/public`)
+- **Base URL:** `https://olympiad-portal-api.azurewebsites.net/public/v1`
+  (locally, `http://localhost:3000/public/v1`)
+- **Versioning:** the path carries the version. This page documents `v1`;
+  if a breaking change is ever needed, it will ship as `/public/v2` with
+  `v1` left working, so call the full versioned path, never bare `/public`.
 - **Methods:** `GET` only. Responses use the [usual envelope](#response-envelope).
 - **From the browser:** any website may call it. Responses carry
   `Access-Control-Allow-Origin: *`, and no cookies or credentials are used.
@@ -99,13 +102,13 @@ school entered only one learner, that average is that learner's score.
 ### Example
 
 ```bash
-curl https://olympiad-portal-api.azurewebsites.net/public/olympiads?limit=5
+curl https://olympiad-portal-api.azurewebsites.net/public/v1/olympiads?limit=5
 ```
 
 ```js
 // From any web page
 const res = await fetch(
-    'https://olympiad-portal-api.azurewebsites.net/public/schools/top?limit=10'
+    'https://olympiad-portal-api.azurewebsites.net/public/v1/schools/top?limit=10'
 );
 const { success, data, error } = await res.json();
 if (!success) throw new Error(error);
@@ -116,29 +119,29 @@ data.forEach((school) =>
 
 ### Endpoints
 
-| Endpoint                                                              | Returns                                                               |
-| --------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `GET /public/stats`                                                   | Platform totals                                                       |
-| `GET /public/stats/yearly`                                            | Totals for each year                                                  |
-| `GET /public/activity`                                                | Recently closed rounds, upcoming rounds and recently released results |
-| `GET /public/calendar`                                                | Rounds running within a date range                                    |
-| `GET /public/search`                                                  | Olympiads, schools and rounds matching a name                         |
-| `GET /public/olympiads`                                               | Olympiads, with search, year filter, sorting and pages                |
-| `GET /public/olympiads/:olympiadId`                                   | One olympiad and its rounds                                           |
-| `GET /public/olympiads/:olympiadId/rounds/:roundId/results`           | A released round's result statistics                                  |
-| `GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school` | The same, for each school                                             |
-| `GET /public/olympiads/:olympiadId/leaderboard`                       | Schools ranked by average score in an olympiad                        |
-| `GET /public/schools/top`                                             | Schools ranked by average score across every olympiad                 |
-| `GET /public/schools`                                                 | Schools, with search and pages                                        |
-| `GET /public/schools/:schoolId`                                       | One school's participation and averages                               |
-| `GET /public/papers`                                                  | Past papers of released rounds, with download links                   |
-| `GET /public/papers/:paperId/download`                                | Downloads a past paper or its memo                                    |
+| Endpoint                                                                 | Returns                                                               |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `GET /public/v1/stats`                                                   | Platform totals                                                       |
+| `GET /public/v1/stats/yearly`                                            | Totals for each year                                                  |
+| `GET /public/v1/activity`                                                | Recently closed rounds, upcoming rounds and recently released results |
+| `GET /public/v1/calendar`                                                | Rounds running within a date range                                    |
+| `GET /public/v1/search`                                                  | Olympiads, schools and rounds matching a name                         |
+| `GET /public/v1/olympiads`                                               | Olympiads, with search, year filter, sorting and pages                |
+| `GET /public/v1/olympiads/:olympiadId`                                   | One olympiad and its rounds                                           |
+| `GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results`           | A released round's result statistics                                  |
+| `GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results/by-school` | The same, for each school                                             |
+| `GET /public/v1/olympiads/:olympiadId/leaderboard`                       | Schools ranked by average score in an olympiad                        |
+| `GET /public/v1/schools/top`                                             | Schools ranked by average score across every olympiad                 |
+| `GET /public/v1/schools`                                                 | Schools, with search and pages                                        |
+| `GET /public/v1/schools/:schoolId`                                       | One school's participation and averages                               |
+| `GET /public/v1/papers`                                                  | Past papers of released rounds, with download links                   |
+| `GET /public/v1/papers/:paperId/download`                                | Downloads a past paper or its memo                                    |
 
 Lists that page take `page` (from 1) and `limit`, and return a `pagination`
 object: `{ page, limit, total, totalPages }`. Ids are UUIDs; a malformed one
 gets `422`. Dates are ISO 8601 in UTC.
 
-#### `GET /public/stats`
+#### `GET /public/v1/stats`
 
 ```json
 {
@@ -152,18 +155,18 @@ gets `422`. Dates are ISO 8601 in UTC.
 
 `totalStudents` counts learner records; `totalSubmissions` counts exams handed in, online or on paper.
 
-#### `GET /public/stats/yearly`
+#### `GET /public/v1/stats/yearly`
 
 One entry per year in which rounds opened, newest first:
 `[{ year, totalOlympiads, totalRounds, totalStudents, totalSchools, totalSubmissions }]`.
 
-#### `GET /public/activity`
+#### `GET /public/v1/activity`
 
 Up to five of each, over the last 30 days or the upcoming ones:
 `{ recentlyCompletedRounds, upcomingRounds, recentResultsReleased }`. Each
 round is `{ id, name, olympiadId, olympiadName, opensAt, closesAt, resultsReleaseAt, state }`.
 
-#### `GET /public/calendar`
+#### `GET /public/v1/calendar`
 
 | Query  | Rules                                                   |
 | ------ | ------------------------------------------------------- |
@@ -172,13 +175,13 @@ round is `{ id, name, olympiadId, olympiadName, opensAt, closesAt, resultsReleas
 
 Rounds that are open at any time between `from` and `to`, earliest first, in the round shape above.
 
-#### `GET /public/search`
+#### `GET /public/v1/search`
 
 `q` — text to look for in names, ignoring case. Returns up to ten of each:
 `{ olympiads: [{ id, name, createdAt, roundCount }], schools: [{ id, name, studentCount }], rounds: [{ id, name, olympiadId, olympiadName, state, opensAt, closesAt }] }`.
 An empty `q` returns empty lists.
 
-#### `GET /public/olympiads`
+#### `GET /public/v1/olympiads`
 
 | Query           | Rules                                                          |
 | --------------- | -------------------------------------------------------------- |
@@ -204,13 +207,13 @@ An empty `q` returns empty lists.
 }
 ```
 
-#### `GET /public/olympiads/:olympiadId`
+#### `GET /public/v1/olympiads/:olympiadId`
 
 `{ id, name, timezone, createdAt, organiserName, schoolCount, studentCount, rounds }`,
 where each round is `{ id, name, state, opensAt, closesAt, resultsReleasedAt, participantCount, submissionCount }`.
 `404` if there is no such olympiad.
 
-#### `GET /public/olympiads/:olympiadId/rounds/:roundId/results`
+#### `GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results`
 
 Only for a round whose results are released (`400` otherwise; `404` if the
 round doesn't exist or belongs to another olympiad). Scores are marks out of
@@ -244,19 +247,19 @@ round doesn't exist or belongs to another olympiad). Scores are marks out of
 
 `gradeDistribution` counts learners by percentage band.
 
-#### `GET /public/olympiads/:olympiadId/rounds/:roundId/results/by-school`
+#### `GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results/by-school`
 
 `{ roundName, olympiadName, schools }`, best average first, where each school is
 `{ schoolId, schoolName, participantCount, averageScore, qualifiedCount, gradeDistribution }`.
 Same conditions as above.
 
-#### `GET /public/olympiads/:olympiadId/leaderboard`
+#### `GET /public/v1/olympiads/:olympiadId/leaderboard`
 
 Schools ranked by their average over all of the olympiad's released rounds:
 `{ olympiadName, schools: [{ rank, schoolName, averageScore, totalParticipants, qualifiedCount }] }`.
 Empty before any results are out.
 
-#### `GET /public/schools/top`
+#### `GET /public/v1/schools/top`
 
 | Query   | Rules                                       |
 | ------- | ------------------------------------------- |
@@ -265,12 +268,12 @@ Empty before any results are out.
 
 `[{ rank, schoolId, schoolName, averageScore, totalResults, totalStudents, totalOlympiads }]`, from released results only.
 
-#### `GET /public/schools`
+#### `GET /public/v1/schools`
 
 `search`, `page` and `limit` (1–100, default 20). Schools by name:
 `{ schools: [{ id, name, olympiadCount, studentCount }], pagination }`.
 
-#### `GET /public/schools/:schoolId`
+#### `GET /public/v1/schools/:schoolId`
 
 ```json
 {
@@ -295,7 +298,7 @@ Empty before any results are out.
 
 Averages are over the school's own learners in released rounds. `404` if there is no such school.
 
-#### `GET /public/papers`
+#### `GET /public/v1/papers`
 
 | Query           | Rules                                  |
 | --------------- | -------------------------------------- |
@@ -315,8 +318,8 @@ Papers of rounds whose results are released, newest first:
             "olympiadName": "Maths Olympiad",
             "roundName": "Round 1",
             "year": 2026,
-            "fileUrl": "https://olympiad-portal-api.azurewebsites.net/public/papers/…/download",
-            "memoFileUrl": "https://olympiad-portal-api.azurewebsites.net/public/papers/…/download?type=memo"
+            "fileUrl": "https://olympiad-portal-api.azurewebsites.net/public/v1/papers/…/download",
+            "memoFileUrl": "https://olympiad-portal-api.azurewebsites.net/public/v1/papers/…/download?type=memo"
         }
     ],
     "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
@@ -325,7 +328,7 @@ Papers of rounds whose results are released, newest first:
 
 `memoFileUrl` is `null` when no memo was uploaded. The links don't expire, so they can be stored or put on a page.
 
-#### `GET /public/papers/:paperId/download`
+#### `GET /public/v1/papers/:paperId/download`
 
 `type` — `paper` (the default) or `memo`. Redirects (`302`) to a link to the
 PDF that works for one minute, so follow the redirect straight away rather
@@ -338,7 +341,7 @@ reached.
 | Status | When                                                                   |
 | ------ | ---------------------------------------------------------------------- |
 | `400`  | A round's results aren't released yet                                  |
-| `404`  | No such olympiad, round, school or paper, or an unknown `/public` path |
+| `404`  | No such olympiad, round, school or paper, or an unknown `/public/v1` path |
 | `422`  | A malformed id or query parameter; `error` says which                  |
 | `429`  | Over the rate limit; see the `RateLimit` header for when to retry      |
 | `502`  | The paper store couldn't be reached                                    |

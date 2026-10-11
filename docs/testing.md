@@ -111,7 +111,7 @@ Covered: login and sign-up, password reset, account deletion, organiser dashboar
 
 Each area then covers the normal case, ownership (users from another olympiad or school are refused), validation (**422** with a clear message) and edge cases (a round that isn't open, a duplicate submission, a file over the size limit).
 
-**Public developer API.** `backend/tests/api/public.test.js` checks what other websites rely on (any origin may call `/public` from the browser while the rest of the API still refuses it, responses may be cached for a minute, and each client's rate limit is reported in the standard headers), every public endpoint's data against a known set of olympiads, schools and results, validation and 404s, paper downloads, and that no response anywhere in `/public` contains a learner's name, email, id or own result.
+**Public developer API.** `backend/tests/api/public.test.js` checks what other websites rely on (any origin may call `/public/v1` from the browser while the rest of the API still refuses it, responses may be cached for a minute, and each client's rate limit is reported in the standard headers), every public endpoint's data against a known set of olympiads, schools and results, validation and 404s, paper downloads, and that no response anywhere in `/public/v1` contains a learner's name, email, id or own result.
 
 **Peak load (A1).** `backend/tests/api/peakLoad.test.js` piles many things onto the same instant and then checks the outcome exactly, not just that nothing failed:
 

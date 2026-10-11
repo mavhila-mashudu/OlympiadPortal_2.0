@@ -300,7 +300,7 @@ describe('notification bell', () => {
         mockApi('get', '/me/notifications', {
             notifications: [note({ id: 'n-1' })],
         });
-        const reads = mockApi('patch', '/me/notifications/:id/read', {
+        const reads = mockApi('patch', '/me/notifications/:notificationId/read', {
             message: 'Read',
         });
         const { user } = renderPage();
@@ -401,7 +401,7 @@ describe('paper archive', () => {
     it('opens a signed download link for the chosen file', async () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
         mockApi('get', '/papers/archive', { rounds: archived });
-        const downloads = mockApi('get', '/papers/:id/download', (req) => ({
+        const downloads = mockApi('get', '/papers/:paperId/download', (req) => ({
             url: `https://storage.test/${req.path.split('/')[2]}${req.search}`,
         }));
         const open = vi.spyOn(window, 'open').mockReturnValue(null);
@@ -427,7 +427,7 @@ describe('paper archive', () => {
         mockApi('get', '/papers/archive', { rounds: archived });
         mockApiError(
             'get',
-            '/papers/:id/download',
+            '/papers/:paperId/download',
             404,
             'Paper file not found'
         );

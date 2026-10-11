@@ -151,7 +151,7 @@ describe('organiser dashboard', () => {
             closes_at: '2026-10-01T08:30:00.000Z',
         });
         mockApi('get', '/olympiads/oly-1/rounds', { rounds: [round] });
-        mockApi('get', '/rounds/:id', {
+        mockApi('get', '/rounds/:roundId', {
             round: {
                 ...round,
                 state: 'scheduled',
@@ -192,7 +192,7 @@ describe('organiser dashboard', () => {
         mockApi('get', '/olympiads', { olympiads: [fx.olympiad()] });
         let current = rounds();
         mockApi('get', '/olympiads/oly-1/rounds', () => ({ rounds: current }));
-        const stateChanges = mockApi('patch', '/rounds/:id/state', (req) => {
+        const stateChanges = mockApi('patch', '/rounds/:roundId/state', (req) => {
             current = current.map((r) =>
                 r.id === 'r-ready' ? { ...r, state: 'open' } : r
             );
@@ -223,7 +223,7 @@ describe('organiser dashboard', () => {
         mockApi('get', '/olympiads/oly-1/rounds', { rounds: rounds() });
         mockApiError(
             'patch',
-            '/rounds/:id/state',
+            '/rounds/:roundId/state',
             400,
             'Cannot transition from "open" to "closed"'
         );
@@ -459,7 +459,7 @@ describe('olympiads page', () => {
 });
 
 describe('schools page', () => {
-    // GET /olympiads/:id/schools returns participating schools plus outstanding
+    // GET /olympiads/:olympiadId/schools returns participating schools plus outstanding
     // educator invitations
     const schools = [
         {

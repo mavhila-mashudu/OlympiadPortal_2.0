@@ -7,7 +7,7 @@ import { renderApp } from './support/renderApp';
 const PATH = '/student/rounds/round-1/exam';
 const SAVE_WAIT = { timeout: 3000 }; // answers save 800ms after the last change
 
-// GET /rounds/:id/exam questions: no answer keys, Decimal points as strings
+// GET /rounds/:roundId/exam questions: no answer keys, Decimal points as strings
 const questions = [
     {
         id: 'q-mcq',
@@ -89,7 +89,7 @@ const mockExam = ({
     );
     const saves = mockApi(
         'patch',
-        '/rounds/round-1/exam/answers/:qid',
+        '/rounds/round-1/exam/answers/:questionId',
         (req) => {
             const qid = req.path.split('/').pop();
             const { answer_value } = req.body as {
@@ -319,7 +319,7 @@ describe('sitting an exam online', () => {
 
     it('keeps answers locally while offline and syncs them when the connection returns', async () => {
         mockExam({ submission: startedSubmission() });
-        mockNetworkFailure('patch', '/rounds/round-1/exam/answers/:qid');
+        mockNetworkFailure('patch', '/rounds/round-1/exam/answers/:questionId');
         const { user } = renderApp(PATH);
 
         await user.click(await screen.findByLabelText('A. 2'));
@@ -337,7 +337,7 @@ describe('sitting an exam online', () => {
         expect(screen.getByText(/You are offline/)).toBeInTheDocument();
 
         // Back online: the failed save is replayed
-        const replays = mockApi('patch', '/rounds/round-1/exam/answers/:qid', {
+        const replays = mockApi('patch', '/rounds/round-1/exam/answers/:questionId', {
             answer: {},
         });
         fireEvent(window, new Event('online'));
