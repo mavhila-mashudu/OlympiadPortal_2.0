@@ -261,6 +261,25 @@ export function AppShell({
             setMarkingReadId(null);
         }
     };
+    const openNotification = async (
+        notification: (typeof notifications)[number]
+    ) => {
+        if (markingReadId === notification.id) return;
+        if (!notification.read_at) await markNotificationRead(notification.id);
+        const destination = notification.dedupe_key?.includes(':signup:')
+            ? activeRole === 'organiser'
+                ? '/organiser/educators'
+                : '/educator/members'
+            : notification.dedupe_key?.includes(':invite:')
+              ? activeRole === 'organiser'
+                  ? '/organiser/educators'
+                  : '/educator/invitations'
+              : null;
+        if (destination) {
+            setShowNotifications(false);
+            navigate(destination);
+        }
+    };
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -529,53 +548,29 @@ export function AppShell({
                                     <p>No notifications yet.</p>
                                 )
                             )}
+                            {notificationActionError && (
+                                <ErrorAlert
+                                    message={notificationActionError.message}
+                                    onRetry={() => markNotificationRead(notificationActionError.id)}
+                                />
+                            )}
                             {notifications.map((n) => (
-                                <div key={n.id} className={styles.notificationItem}>
+                                <div
+                                    key={n.id}
+                                    className={`${styles.notificationItem} ${!n.read_at ? styles.notificationItemUnread : ''}`}
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-disabled={markingReadId === n.id}
+                                    onClick={() => void openNotification(n)}
+                                    onKeyDown={(event) => {
+                                        if (event.key === 'Enter' || event.key === ' ') {
+                                            event.preventDefault();
+                                            void openNotification(n);
+                                        }
+                                    }}
+                                >
                                     <strong>{n.title}</strong>
                                     <p>{n.body}</p>
-                                    {n.dedupe_key?.includes(':signup:') && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowNotifications(false);
-                                                navigate(activeRole === 'organiser'
-                                                    ? '/organiser/educators'
-                                                    : '/educator/members');
-                                            }}
-                                        >
-                                            Review request
-                                        </button>
-                                    )}
-                                    {n.dedupe_key?.includes(':invite:') && (
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                setShowNotifications(false);
-                                                navigate(activeRole === 'organiser'
-                                                    ? '/organiser/educators'
-                                                    : '/educator/invitations');
-                                            }}
-                                        >
-                                            View invitations
-                                        </button>
-                                    )}
-                                    {!n.read_at && (
-                                        <button
-                                            disabled={markingReadId === n.id}
-                                            type="button"
-                                            onClick={() => markNotificationRead(n.id)}
-                                        >
-                                            {markingReadId === n.id
-                                                ? 'Marking read…'
-                                                : 'Mark read'}
-                                        </button>
-                                    )}
-                                    {notificationActionError?.id === n.id && (
-                                        <ErrorAlert
-                                            message={notificationActionError.message}
-                                            onRetry={() => markNotificationRead(n.id)}
-                                        />
-                                    )}
                                 </div>
                             ))}
                         </section>

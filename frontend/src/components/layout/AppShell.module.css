@@ -378,6 +378,27 @@
     padding: 0.75rem 0.25rem;
     font-size: 0.875rem;
     line-height: 1.4;
+    border-radius: calc(var(--radius) - 2px);
+    transition: background-color 180ms ease;
+    cursor: pointer;
+}
+
+.notificationItemUnread {
+    background: var(--unread);
+}
+
+.notificationItem strong,
+.main strong {
+    font-weight: 600;
+}
+
+.notificationItem:not(.notificationItemUnread):hover {
+    background: var(--accent);
+}
+
+.notificationItem:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
 }
 
 .notificationItem:last-child {
@@ -386,31 +407,13 @@
 .notificationItem p {
     color: var(--muted-foreground);
 }
-.notificationItem button {
-    justify-self: start;
-    min-height: 2rem;
-    border: 1px solid var(--input);
-    border-radius: calc(var(--radius) - 2px);
-    padding: 0.35rem 0.65rem;
-    background: var(--background);
-    color: var(--foreground);
-    font: inherit;
-    font-size: 0.8125rem;
-    cursor: pointer;
-}
-.notificationItem button:hover {
-    background: var(--accent);
-}
-.notificationItem button:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-}
-
 .main {
     width: 100%;
     max-width: 72rem;
     margin: 0 auto;
     padding: 1.5rem 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
 }
 
 @media (min-width: 40rem) {
