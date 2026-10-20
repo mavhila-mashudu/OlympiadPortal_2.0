@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: olympiad-portal-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    # Render waits for the GitHub Actions checks in .github/workflows/ci.yml.
+    autoDeployTrigger: checksPass
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_URL
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: EMAILJS_SERVICE_ID
+        sync: false
+      - key: EMAILJS_TEMPLATE_ID
+        sync: false
+      - key: EMAILJS_USER_ID
+        sync: false
+      - key: EMAILJS_PRIVATE_KEY
+        sync: false
