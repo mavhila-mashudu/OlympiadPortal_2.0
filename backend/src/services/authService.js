@@ -373,17 +373,26 @@ const deleteAccount = async (userId) => {
             data: { user_id: null },
         });
 
-        // Last, so a Supabase failure undoes the changes above rather than
-        // reporting an account deleted whose login still works. Supabase reports
-        // failures in its result instead of throwing.
-        const { error } = await supabase.auth.admin.deleteUser(userId);
-        if (error && error.status !== 404) {
+    });
+
+    // Supabase is a separate service and cannot participate in the database
+    // transaction. Delete the login after committing the anonymisation rather
+    // than holding database locks open during a network request.
+    const { error } = await supabase.auth.admin.deleteUser(userId);
+    if (error && error.status !== 404) {
+        // Auth may complete deletion but return an error while producing its
+        // response. Verify the final state before reporting a failure.
+        const { data, error: lookupError } =
+            await supabase.auth.admin.getUserById(userId);
+        const authUserIsGone =
+            lookupError?.status === 404 || (!lookupError && !data?.user);
+        if (!authUserIsGone) {
             throw new AppError(
                 'We couldn’t delete your account. Please try again.',
                 502
             );
         }
-    });
+    }
     forgetCachedUser(userId);
 };
 
