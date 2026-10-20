@@ -28,7 +28,12 @@ export function TablePanel({
                     <h2>{title}</h2>
                 </div>
             ) : null}
-            <div className={styles.scroller}>
+            <div
+                aria-label={title ? `${title} table` : 'Scrollable table'}
+                className={styles.scroller}
+                role="region"
+                tabIndex={0}
+            >
                 <table
                     className={styles.table}
                     style={{ '--table-min-width': minWidth } as CSSProperties}

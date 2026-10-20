@@ -43,10 +43,10 @@ beforeEach(() => {
 
 const pdf = (name) => ({
     originalname: name,
-    buffer: Buffer.from('%PDF'),
+    buffer: Buffer.from('%PDF-1.4'),
     mimetype: 'application/pdf',
 });
-const sharedPath = `shared/${require('node:crypto').createHash('sha256').update(Buffer.from('%PDF')).digest('hex')}`;
+const sharedPath = `shared/${require('node:crypto').createHash('sha256').update(Buffer.from('%PDF-1.4')).digest('hex')}`;
 
 describe('uploadRoundPapers', () => {
     it('rejects replacements after the round opens', async () => {

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import * as fx from './support/fixtures';
 import { mockApi, mockApiError, mockNetworkFailure } from './support/network';
 import { renderApp } from './support/renderApp';
+import { examStorageKey } from '../../src/pages/student/examStorage';
 
 const PATH = '/student/rounds/round-1/exam';
 const SAVE_WAIT = { timeout: 3000 }; // answers save 800ms after the last change
@@ -201,7 +202,11 @@ describe('sitting an exam online', () => {
         expect(
             screen.getByTitle('Question 1 (flagged for review)')
         ).toBeInTheDocument();
-        expect(JSON.parse(localStorage.getItem('exam-flags-round-1')!)).toEqual(
+        expect(
+            JSON.parse(
+                localStorage.getItem(examStorageKey('exam-flags', 'round-1'))!
+            )
+        ).toEqual(
             ['q-mcq']
         );
 
@@ -258,7 +263,11 @@ describe('sitting an exam online', () => {
             ])
         );
         expect(submits).toHaveLength(1);
-        expect(localStorage.getItem('exam-answers-round-1')).toBeNull();
+        expect(
+            localStorage.getItem(
+                examStorageKey('exam-answers', 'round-1')
+            )
+        ).toBeNull();
     });
 
     it('tells a late submitter their exam was flagged', async () => {
@@ -295,7 +304,7 @@ describe('sitting an exam online', () => {
         });
         // The last save of the short answer never reached the server
         localStorage.setItem(
-            'exam-answers-round-1',
+            examStorageKey('exam-answers', 'round-1'),
             JSON.stringify({
                 answers: { 'q-short': 'Pretoria', 'q-essay': 'Local essay' },
                 dirty: ['q-short'],
@@ -327,7 +336,11 @@ describe('sitting an exam online', () => {
             await screen.findByText('1 answer saved locally', {}, SAVE_WAIT)
         ).toBeInTheDocument();
         expect(
-            JSON.parse(localStorage.getItem('exam-answers-round-1')!)
+            JSON.parse(
+                localStorage.getItem(
+                    examStorageKey('exam-answers', 'round-1')
+                )!
+            )
         ).toEqual({
             answers: { 'q-mcq': '0' },
             dirty: ['q-mcq'],
@@ -348,7 +361,11 @@ describe('sitting an exam online', () => {
         expect(replays.map((r) => r.body)).toEqual([{ answer_value: '0' }]);
         expect(screen.queryByText(/You are offline/)).not.toBeInTheDocument();
         expect(
-            JSON.parse(localStorage.getItem('exam-answers-round-1')!).dirty
+            JSON.parse(
+                localStorage.getItem(
+                    examStorageKey('exam-answers', 'round-1')
+                )!
+            ).dirty
         ).toEqual([]);
     });
 

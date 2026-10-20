@@ -68,44 +68,22 @@
     outline-offset: 2px;
 }
 
-.loadingOverlay {
+.globalLoading {
     position: fixed;
-    inset: 0;
+    inset: 0 0 auto;
     z-index: 2000;
-    display: grid;
-    place-items: center;
-    padding: 1.5rem;
-    background: rgb(15 23 42 / 0.3);
-    backdrop-filter: blur(7px);
+    height: 3px;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--primary) 18%, transparent);
+    pointer-events: none;
 }
-.loadingDialog {
-    display: grid;
-    justify-items: center;
-    gap: 0.875rem;
-    min-width: min(100%, 20rem);
-    padding: 2rem 2.5rem;
-    border: 1px solid color-mix(in oklab, var(--primary) 25%, var(--border));
-    border-radius: calc(var(--radius) + 0.25rem);
-    background: color-mix(in oklab, var(--card) 95%, transparent);
-    box-shadow: 0 20px 50px rgb(15 23 42 / 0.25);
-    color: var(--foreground);
-    text-align: center;
-}
-.loadingDialog strong {
-    font-size: 1.125rem;
-}
-.loadingDialog span:last-child {
-    color: var(--muted-foreground);
-    font-size: 0.875rem;
-}
-.largeSpinner {
-    width: 5.5rem;
-    height: 5.5rem;
-    border: 0.55rem solid color-mix(in oklab, var(--primary) 20%, transparent);
-    border-top-color: var(--primary);
-    border-right-color: color-mix(in oklab, var(--primary) 60%, transparent);
-    border-radius: 50%;
-    animation: spin 800ms linear infinite;
+.globalLoadingBar {
+    display: block;
+    width: 35%;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--primary);
+    animation: loading-progress 1.15s ease-in-out infinite alternate;
 }
 .loading {
     display: inline-flex;
@@ -135,6 +113,10 @@
         transform: rotate(360deg);
     }
 }
+@keyframes loading-progress {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(290%); }
+}
 @keyframes enter {
     from {
         opacity: 0;
@@ -148,8 +130,11 @@
 
 @media (prefers-reduced-motion: reduce) {
     .alert,
-    .spinner,
-    .largeSpinner {
+    .spinner {
+        animation: none;
+    }
+    .globalLoadingBar {
+        width: 100%;
         animation: none;
     }
 }

@@ -15,6 +15,7 @@ import { useParams } from 'react-router-dom';
 import { AppShell } from '../../components/layout/AppShell';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
+import { ErrorAlert } from '../../components/ui/Feedback';
 import { Label } from '../../components/ui/Label';
 import { Select } from '../../components/ui/Select';
 import { StatusBadge } from '../../components/ui/StatusBadge';
@@ -43,6 +44,7 @@ function EducatorRoundDetail() {
     // Submission state (B12, B13)
     const [selectedEntrantId, setSelectedEntrantId] = useState('');
     const [receipt, setReceipt] = useState<SubmissionReceipt | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
     const submitMutation = useSubmitResults(roundId!);
 
     // Results (B15) — only fetch once released; the backend refuses
@@ -121,10 +123,11 @@ function EducatorRoundDetail() {
         resultsData.results.length > 0;
 
     const handleDownloadPaper = async () => {
+        setActionError(null);
         try {
             await downloadPaperFile(roundId!, 'paper');
         } catch (err) {
-            alert((err as Error).message);
+            setActionError((err as Error).message);
         }
     };
 
@@ -132,6 +135,7 @@ function EducatorRoundDetail() {
         e.preventDefault();
         if (!selectedEntrantId) return;
 
+        setActionError(null);
         try {
             const result = await submitMutation.mutateAsync({
                 entrant_id: selectedEntrantId,
@@ -141,7 +145,7 @@ function EducatorRoundDetail() {
             setReceipt(result);
             setSelectedEntrantId('');
         } catch (err) {
-            alert((err as Error).message);
+            setActionError((err as Error).message);
         }
     };
 
@@ -153,6 +157,12 @@ function EducatorRoundDetail() {
             portalLabel="Educator portal"
         >
             <div className={styles.stack}>
+                {actionError && (
+                    <ErrorAlert
+                        message={actionError}
+                        onDismiss={() => setActionError(null)}
+                    />
+                )}
                 <header className={styles.pageHeader}>
                     <div>
                         <h1>{round.name}</h1>
@@ -303,7 +313,7 @@ function EducatorRoundDetail() {
                                                         'paper'
                                                     );
                                                 } catch (err) {
-                                                    alert(
+                                                    setActionError(
                                                         (err as Error).message
                                                     );
                                                 }

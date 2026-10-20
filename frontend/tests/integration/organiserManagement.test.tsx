@@ -260,7 +260,9 @@ describe('organiser dashboard', () => {
         mockApiError('get', '/olympiads', 500, 'Database unavailable');
         renderApp('/organiser');
         expect(
-            await screen.findByText('Database unavailable')
+            await within(screen.getByRole('main')).findByText(
+                'Database unavailable'
+            )
         ).toBeInTheDocument();
     });
 

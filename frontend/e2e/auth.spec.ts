@@ -87,14 +87,16 @@ test.describe('signing up', () => {
         ).toHaveCount(0);
     });
 
-    test('a student signs up by picking their school, with no invitation code', async ({
+    test('a student signs up by picking their school and waits for approval', async ({
         page,
     }) => {
         const email = `new.student.${Date.now()}@e2e.test`;
 
         await page.goto('/signup');
         await page.getByRole('radio', { name: /Student/ }).click();
-        await expect(page.getByLabel('Invitation code')).toBeHidden();
+        await expect(
+            page.getByLabel('Invitation code', { exact: true })
+        ).toBeHidden();
 
         await page.getByLabel('School').selectOption({ label: SCHOOL.name });
         await page.getByLabel('Full name').fill('New Learner');
@@ -104,7 +106,7 @@ test.describe('signing up', () => {
 
         await expect(page).toHaveURL(/\/student$/);
         await expect(
-            page.getByRole('heading', { name: 'Your olympiad' })
+            page.getByRole('heading', { name: 'Waiting for approval' })
         ).toBeVisible();
     });
 
@@ -125,7 +127,10 @@ test.describe('signing up', () => {
 
         await expect(page).toHaveURL(/\/educator$/);
         await expect(
-            page.getByRole('heading', { name: 'Your rounds' })
+            page.getByRole('heading', { name: 'School approval pending' })
+        ).toBeVisible();
+        await expect(
+            page.getByText(new RegExp(school))
         ).toBeVisible();
     });
 });

@@ -19,7 +19,7 @@ import { Input } from '../../components/ui/Input';
 import { Textarea } from '../../components/ui/Textarea';
 import { studentNav } from '../../lib/mockData';
 import styles from './ExamSitting.module.css';
-import { readStored, writeStored } from './examStorage';
+import { examStorageKey, readStored, writeStored } from './examStorage';
 import { useCountdown } from './useCountdown';
 
 // How long before the close the exam is submitted automatically, so the
@@ -129,7 +129,9 @@ function ExamSitting() {
                 }
                 // Overlay locally stored answers whose last save
                 // failed — they are newer than what the server has
-                const stored = readStored(`exam-answers-${roundId}`);
+                const stored = readStored(
+                    examStorageKey('exam-answers', roundId!)
+                );
                 for (const qid of stored.dirty) {
                     if (stored.answers[qid] !== undefined) {
                         map.set(qid, stored.answers[qid]);
@@ -151,7 +153,9 @@ function ExamSitting() {
     // server) but persist across refreshes
     useEffect(() => {
         try {
-            const raw = localStorage.getItem(`exam-flags-${roundId}`);
+            const raw = localStorage.getItem(
+                examStorageKey('exam-flags', roundId!)
+            );
             if (raw) setFlagged(new Set(JSON.parse(raw)));
         } catch {
             // ignore
@@ -165,7 +169,7 @@ function ExamSitting() {
             else next.add(questionId);
             try {
                 localStorage.setItem(
-                    `exam-flags-${roundId}`,
+                    examStorageKey('exam-flags', roundId!),
                     JSON.stringify([...next])
                 );
             } catch {
@@ -214,7 +218,7 @@ function ExamSitting() {
 
     // Persist the full answer state + dirty list locally
     const persistLocal = useCallback(() => {
-        writeStored(`exam-answers-${roundId}`, {
+        writeStored(examStorageKey('exam-answers', roundId!), {
             answers: Object.fromEntries(answersRef.current),
             dirty: [...dirtyRef.current],
         });
@@ -375,8 +379,12 @@ function ExamSitting() {
             });
             // Local caches no longer needed
             try {
-                localStorage.removeItem(`exam-answers-${roundId}`);
-                localStorage.removeItem(`exam-flags-${roundId}`);
+                localStorage.removeItem(
+                    examStorageKey('exam-answers', roundId!)
+                );
+                localStorage.removeItem(
+                    examStorageKey('exam-flags', roundId!)
+                );
             } catch {
                 // ignore
             }

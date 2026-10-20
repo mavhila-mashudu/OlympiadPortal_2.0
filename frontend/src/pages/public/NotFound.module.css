@@ -1,0 +1,59 @@
+.page {
+    display: grid;
+    min-height: 100vh;
+    place-items: center;
+    padding: 1.5rem;
+    background: var(--background);
+    color: var(--foreground);
+}
+
+.card {
+    width: min(100%, 34rem);
+    padding: clamp(1.5rem, 5vw, 3rem);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 0.25rem);
+    background: var(--card);
+    box-shadow: 0 1.5rem 4rem rgb(15 23 42 / 0.1);
+}
+
+.code {
+    margin: 0 0 0.75rem;
+    color: var(--primary);
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+}
+
+.card h1 {
+    margin: 0;
+    font-size: clamp(1.75rem, 5vw, 2.5rem);
+    line-height: 1.15;
+}
+
+.card > p:not(.code) {
+    margin: 1rem 0 1.5rem;
+    color: var(--muted-foreground);
+    line-height: 1.6;
+}
+
+.link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0.625rem 1rem;
+    border-radius: var(--radius);
+    background: var(--primary);
+    color: var(--primary-foreground);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.link:hover {
+    filter: brightness(0.94);
+}
+
+.link:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+}

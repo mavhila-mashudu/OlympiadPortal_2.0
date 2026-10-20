@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   ArrowUpRight,
   BookOpen,
@@ -13,7 +12,6 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import styles from "./Home.module.css";
 
@@ -62,41 +60,20 @@ const audiences = [
   },
 ];
 
-const slideNames = ["Welcome", "How it works", "Who it's for", "Get started"];
-const slideHashes = ["#welcome", "#how-it-works", "#who-its-for", "#get-started"];
-
-function indexFromHash() {
-  return Math.max(0, slideHashes.indexOf(window.location.hash));
-}
-
 function Home() {
-  const [activeSlide, setActiveSlide] = useState(indexFromHash);
-  const touchStartX = useRef<number | null>(null);
-
-  useEffect(() => {
-    const updateFromLocation = () => setActiveSlide(indexFromHash());
-    window.addEventListener("hashchange", updateFromLocation);
-    return () => window.removeEventListener("hashchange", updateFromLocation);
-  }, []);
-
-  const goToSlide = (index: number) => {
-    const next = Math.max(0, Math.min(slideNames.length - 1, index));
-    setActiveSlide(next);
-  };
-
   return (
     <div className={styles.page}>
       <a className={styles.skipLink} href="#main-content">Skip to content</a>
 
       <header className={styles.header}>
         <nav aria-label="Main navigation" className={styles.nav}>
-          <Link aria-label="Olympiad Portal home" className={styles.wordmark} onClick={() => goToSlide(0)} to="/">
+          <Link aria-label="Olympiad Portal home" className={styles.wordmark} to="/">
             <span className={styles.brandMark}><Trophy aria-hidden="true" size={20} strokeWidth={1.9} /></span>
             <span className={styles.brandText}><strong>OLYMPIAD</strong><small>PORTAL</small></span>
           </Link>
           <div className={styles.navLinks}>
-            <a aria-current={activeSlide === 1 ? "page" : undefined} href="#how-it-works" onClick={(event) => { event.preventDefault(); goToSlide(1); }}>How it works</a>
-            <a aria-current={activeSlide === 2 ? "page" : undefined} href="#who-its-for" onClick={(event) => { event.preventDefault(); goToSlide(2); }}>Who it's for</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#who-its-for">Who it's for</a>
           </div>
           <div className={styles.navActions}>
             <Link className={styles.loginLink} to="/login">Log in</Link>
@@ -105,29 +82,8 @@ function Home() {
         </nav>
       </header>
 
-      <main className={styles.sliderShell} id="main-content">
-        <div
-          aria-label="Landing page sections. Use Left and Right arrows to navigate."
-          className={styles.slideViewport}
-          onKeyDown={(event) => {
-            if (event.target !== event.currentTarget) return;
-            if (event.key === "ArrowRight") { event.preventDefault(); goToSlide(activeSlide + 1); }
-            if (event.key === "ArrowLeft") { event.preventDefault(); goToSlide(activeSlide - 1); }
-          }}
-          onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null; }}
-          onTouchEnd={(event) => {
-            const end = event.changedTouches[0]?.clientX;
-            if (end === undefined || touchStartX.current === null) return;
-            const distance = end - touchStartX.current;
-            if (Math.abs(distance) > 65) goToSlide(activeSlide + (distance < 0 ? 1 : -1));
-            touchStartX.current = null;
-          }}
-          onTouchCancel={() => { touchStartX.current = null; }}
-          role="region"
-          tabIndex={0}
-        >
-          <div className={styles.slideTrack} style={{ transform: `translateX(-${activeSlide * 100}%)` }}>
-        <section aria-hidden={activeSlide !== 0} aria-labelledby="hero-title" className={`${styles.slide} ${styles.hero}`} id="welcome" inert={activeSlide !== 0}>
+      <main className={styles.main} id="main-content">
+        <section aria-labelledby="hero-title" className={styles.hero} id="welcome">
           <div className={styles.heroGrid}>
             <div className={styles.heroCopy}>
               <div className={styles.eyebrow}><span className={styles.eyebrowRule} /> THE HOME OF SCHOOL OLYMPIADS</div>
@@ -137,7 +93,7 @@ function Home() {
               </p>
               <div className={styles.heroActions}>
                 <Link className={styles.primaryButton} to="/signup">Join the portal <ArrowUpRight aria-hidden="true" size={19} /></Link>
-                <a className={styles.textButton} href="#how-it-works" onClick={(event) => { event.preventDefault(); goToSlide(1); }}>Explore how it works <ArrowRight aria-hidden="true" size={18} /></a>
+                <a className={styles.textButton} href="#how-it-works">Explore how it works <ArrowRight aria-hidden="true" size={18} /></a>
               </div>
               <div className={styles.heroFootnote}>
                 <span className={styles.footnoteIcon}><Check aria-hidden="true" size={15} /></span>
@@ -170,7 +126,7 @@ function Home() {
           <div className={styles.heroBottomBar} aria-hidden="true"><span>THINK.</span><span>DISCOVER.</span><span>ACHIEVE.</span><span className={styles.heroBarEmblem}>✳</span></div>
         </section>
 
-        <section aria-hidden={activeSlide !== 1} aria-labelledby="journey-title" className={`${styles.slide} ${styles.journey}`} id="how-it-works" inert={activeSlide !== 1}>
+        <section aria-labelledby="journey-title" className={styles.journey} id="how-it-works">
           <div className={styles.sectionHeading}>
             <span className={styles.sectionKicker}>THE JOURNEY / 01</span>
             <div className={styles.headingRow}>
@@ -190,7 +146,7 @@ function Home() {
           </div>
         </section>
 
-        <section aria-hidden={activeSlide !== 2} aria-labelledby="audience-title" className={`${styles.slide} ${styles.audiences}`} id="who-its-for" inert={activeSlide !== 2}>
+        <section aria-labelledby="audience-title" className={styles.audiences} id="who-its-for">
           <div className={styles.sectionHeading}>
             <span className={styles.sectionKicker}>EVERY ROLE MATTERS / 02</span>
             <div className={styles.headingRow}>
@@ -212,7 +168,7 @@ function Home() {
           </div>
         </section>
 
-        <section aria-hidden={activeSlide !== 3} aria-labelledby="cta-title" className={`${styles.slide} ${styles.ctaSection}`} id="get-started" inert={activeSlide !== 3}>
+        <section aria-labelledby="cta-title" className={styles.ctaSection} id="get-started">
           <div className={styles.ctaPanel}>
             <div className={styles.ctaEmblem} aria-hidden="true">✳</div>
             <span className={styles.ctaKicker}>YOUR NEXT CHAPTER BEGINS HERE</span>
@@ -224,32 +180,11 @@ function Home() {
             </div>
           </div>
         </section>
-          </div>
-        </div>
-        <nav aria-label="Landing page slide navigation" className={styles.slideControls}>
-          <div aria-hidden="true" className={styles.slideSpacer} />
-          <div aria-label="Choose landing page section" className={styles.slideDots} role="group">
-            {slideNames.map((name, index) => (
-              <button
-                aria-label={`Show ${name}`}
-                aria-pressed={activeSlide === index}
-                className={`${styles.slideDot} ${activeSlide === index ? styles.slideDotActive : ""}`}
-                key={name}
-                onClick={() => goToSlide(index)}
-                type="button"
-              />
-            ))}
-          </div>
-          <div className={styles.slideArrows}>
-            <button aria-label="Previous section" disabled={activeSlide === 0} onClick={() => goToSlide(activeSlide - 1)} type="button"><ArrowLeft aria-hidden="true" size={20}/></button>
-            <button aria-label="Next section" disabled={activeSlide === 3} onClick={() => goToSlide(activeSlide + 1)} type="button"><ArrowRight aria-hidden="true" size={20}/></button>
-          </div>
-        </nav>
       </main>
       <footer className={styles.footer}>
         <Link className={styles.footerBrand} to="/"><Trophy aria-hidden="true" size={19} /> Olympiad Portal</Link>
         <span>Where learning meets opportunity.</span>
-        <a href="#welcome" onClick={(event) => { event.preventDefault(); goToSlide(0); }}>Back to first section ↑</a>
+        <a href="#welcome">Back to first section ↑</a>
       </footer>
     </div>
   );

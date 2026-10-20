@@ -63,35 +63,64 @@ function NavIcon({ icon: Icon }: { icon: LucideIcon }) {
 function OlympiadSwitcher() {
     const version = useOlympiadsVersion();
     const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
+    const [error, setError] = useState<string | null>(null);
+    const [reload, setReload] = useState(0);
 
     useEffect(() => {
         let active = true;
+        setError(null);
         getOlympiads()
             .then((list) => {
-                if (active) setOlympiads(list);
+                if (active) {
+                    setOlympiads(list);
+                    setError(null);
+                }
             })
-            .catch(() => {});
+            .catch((err) => {
+                if (active) {
+                    setError(
+                        friendlyErrorMessage(
+                            err,
+                            'We couldn’t load your olympiads.'
+                        )
+                    );
+                }
+            });
         return () => {
             active = false;
         };
-    }, [version]);
+    }, [version, reload]);
 
     const current = pickCurrentOlympiad(olympiads);
-    if (!current) return null;
     return (
-        <label className={styles.switcher}>
-            <span>Current olympiad</span>
-            <select
-                value={current.id}
-                onChange={(event) => selectOlympiad(event.target.value)}
-            >
-                {olympiads.map((olympiad) => (
-                    <option key={olympiad.id} value={olympiad.id}>
-                        {olympiad.name}
-                    </option>
-                ))}
-            </select>
-        </label>
+        <div className={styles.switcher}>
+            {current && (
+                <label>
+                    <span>Current olympiad</span>
+                    <select
+                        value={current.id}
+                        onChange={(event) => selectOlympiad(event.target.value)}
+                    >
+                        {olympiads.map((olympiad) => (
+                            <option key={olympiad.id} value={olympiad.id}>
+                                {olympiad.name}
+                            </option>
+                        ))}
+                    </select>
+                </label>
+            )}
+            {error && (
+                <div className={styles.switcherError} role="alert">
+                    <span>{error}</span>
+                    <button
+                        onClick={() => setReload((attempt) => attempt + 1)}
+                        type="button"
+                    >
+                        Try again
+                    </button>
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -144,22 +173,70 @@ export function AppShell({
         { id: string; dedupe_key?: string; title: string; body: string; read_at: string | null }[]
     >([]);
     const [showNotifications, setShowNotifications] = useState(false);
+    const [notificationReload, setNotificationReload] = useState(0);
+    const [notificationsLoaded, setNotificationsLoaded] = useState(false);
+    const [notificationError, setNotificationError] = useState<string | null>(null);
+    const [notificationActionError, setNotificationActionError] = useState<{
+        id: string;
+        message: string;
+    } | null>(null);
+    const [markingReadId, setMarkingReadId] = useState<string | null>(null);
     useEffect(() => {
         let active = true;
-        const refresh = () =>
-            api
-                .get<{ notifications: typeof notifications }>('/me/notifications')
-                .then((data) => {
-                    if (active) setNotifications(data.notifications);
-                })
-                .catch(() => {});
+        const refresh = async () => {
+            try {
+                const data = await api.get<{ notifications: typeof notifications }>(
+                    '/me/notifications'
+                );
+                if (active) {
+                    setNotifications(data.notifications);
+                    setNotificationsLoaded(true);
+                    setNotificationError(null);
+                }
+            } catch (err) {
+                if (active) {
+                    setNotificationsLoaded(true);
+                    setNotificationError(
+                        friendlyErrorMessage(
+                            err,
+                            'We couldn’t load your notifications.'
+                        )
+                    );
+                }
+            }
+        };
         refresh();
         const timer = setInterval(refresh, 60_000);
         return () => {
             active = false;
             clearInterval(timer);
         };
-    }, []);
+    }, [notificationReload]);
+
+    const markNotificationRead = async (id: string) => {
+        setMarkingReadId(id);
+        setNotificationActionError(null);
+        try {
+            await api.patch(`/me/notifications/${id}/read`);
+            setNotifications((list) =>
+                list.map((entry) =>
+                    entry.id === id
+                        ? { ...entry, read_at: new Date().toISOString() }
+                        : entry
+                )
+            );
+        } catch (err) {
+            setNotificationActionError({
+                id,
+                message: friendlyErrorMessage(
+                    err,
+                    'We couldn’t mark this notification as read.'
+                ),
+            });
+        } finally {
+            setMarkingReadId(null);
+        }
+    };
     const [confirmingDelete, setConfirmingDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -383,6 +460,7 @@ export function AppShell({
             <div className={styles.contentFrame}>
                 <div style={{ padding: '0.75rem 1.5rem' }}>
                     <Button
+                        aria-expanded={showNotifications}
                         variant="outline"
                         icon={<Bell aria-hidden="true" />}
                         onClick={() => setShowNotifications(!showNotifications)}
@@ -401,8 +479,23 @@ export function AppShell({
                                 overflowY: 'auto',
                             }}
                         >
+                            {notificationError && (
+                                <ErrorAlert
+                                    message={notificationError}
+                                    onRetry={() =>
+                                        setNotificationReload((attempt) => attempt + 1)
+                                    }
+                                />
+                            )}
+                            {!notificationsLoaded && !notificationError && (
+                                <p aria-live="polite" role="status">
+                                    Loading notifications…
+                                </p>
+                            )}
                             {notifications.length === 0 && (
-                                <p>No notifications yet.</p>
+                                notificationsLoaded && !notificationError && (
+                                    <p>No notifications yet.</p>
+                                )
                             )}
                             {notifications.map((n) => (
                                 <div
@@ -442,32 +535,20 @@ export function AppShell({
                                     )}
                                     {!n.read_at && (
                                         <button
+                                            disabled={markingReadId === n.id}
                                             type="button"
-                                            onClick={() =>
-                                                api
-                                                    .patch(
-                                                        `/me/notifications/${n.id}/read`
-                                                    )
-                                                    .then(() =>
-                                                        setNotifications(
-                                                            (list) =>
-                                                                list.map(
-                                                                    (entry) =>
-                                                                        entry.id ===
-                                                                        n.id
-                                                                            ? {
-                                                                                  ...entry,
-                                                                                  read_at:
-                                                                                      new Date().toISOString(),
-                                                                              }
-                                                                            : entry
-                                                                )
-                                                        )
-                                                    )
-                                            }
+                                            onClick={() => markNotificationRead(n.id)}
                                         >
-                                            Mark read
+                                            {markingReadId === n.id
+                                                ? 'Marking read…'
+                                                : 'Mark read'}
                                         </button>
+                                    )}
+                                    {notificationActionError?.id === n.id && (
+                                        <ErrorAlert
+                                            message={notificationActionError.message}
+                                            onRetry={() => markNotificationRead(n.id)}
+                                        />
                                     )}
                                 </div>
                             ))}

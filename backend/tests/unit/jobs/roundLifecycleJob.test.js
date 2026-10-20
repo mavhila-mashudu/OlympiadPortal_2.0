@@ -45,13 +45,13 @@ describe('roundLifecycleJob', () => {
         current.runLifecycleTick.mockResolvedValue({});
 
         current.job.start();
-        expect(current.runLifecycleTick).not.toHaveBeenCalled();
-
-        await jest.advanceTimersByTimeAsync(30_000);
         expect(current.runLifecycleTick).toHaveBeenCalledTimes(1);
 
+        await jest.advanceTimersByTimeAsync(30_000);
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(2);
+
         await jest.advanceTimersByTimeAsync(60_000);
-        expect(current.runLifecycleTick).toHaveBeenCalledTimes(3);
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(4);
     });
 
     it('skips a tick while the previous one is still running, then carries on', async () => {
@@ -90,7 +90,7 @@ describe('roundLifecycleJob', () => {
 
         current.job.start();
         await jest.advanceTimersByTimeAsync(5_000);
-        expect(current.runLifecycleTick).toHaveBeenCalledTimes(1);
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(2);
         expect(consoleLog).toHaveBeenCalledWith(
             expect.stringContaining('every 5s')
         );
@@ -102,9 +102,9 @@ describe('roundLifecycleJob', () => {
 
         current.job.start();
         await jest.advanceTimersByTimeAsync(29_999);
-        expect(current.runLifecycleTick).not.toHaveBeenCalled();
-        await jest.advanceTimersByTimeAsync(1);
         expect(current.runLifecycleTick).toHaveBeenCalledTimes(1);
+        await jest.advanceTimersByTimeAsync(1);
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(2);
     });
 
     it('ignores a second start instead of running two timers', async () => {
@@ -114,7 +114,7 @@ describe('roundLifecycleJob', () => {
         current.job.start();
         current.job.start();
         await jest.advanceTimersByTimeAsync(30_000);
-        expect(current.runLifecycleTick).toHaveBeenCalledTimes(1);
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(2);
     });
 
     it('logs a failed tick and keeps running', async () => {
@@ -131,7 +131,7 @@ describe('roundLifecycleJob', () => {
         );
 
         await jest.advanceTimersByTimeAsync(30_000);
-        expect(current.runLifecycleTick).toHaveBeenCalledTimes(2);
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(3);
     });
 
     it('stops ticking after stop, and can start again', async () => {
@@ -141,11 +141,11 @@ describe('roundLifecycleJob', () => {
         current.job.start();
         current.job.stop();
         await jest.advanceTimersByTimeAsync(90_000);
-        expect(current.runLifecycleTick).not.toHaveBeenCalled();
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(1);
 
         current.job.start();
         await jest.advanceTimersByTimeAsync(30_000);
-        expect(current.runLifecycleTick).toHaveBeenCalledTimes(1);
+        expect(current.runLifecycleTick).toHaveBeenCalledTimes(3);
     });
 
     it("allows stop to be called when the job isn't running", () => {

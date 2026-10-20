@@ -1,10 +1,27 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+    examStorageKey,
     readStored,
     writeStored,
 } from '../../../../src/pages/student/examStorage';
+import { clearToken, setToken } from '../../../../src/lib/api';
 
 const KEY = 'exam-answers-round-1';
+
+describe('examStorageKey', () => {
+    it('scopes locally saved exam work to the signed-in Supabase user', () => {
+        const tokenFor = (subject: string) =>
+            `header.${btoa(JSON.stringify({ sub: subject }))}.signature`;
+        setToken(tokenFor('student-a'));
+        const firstUserKey = examStorageKey('exam-answers', 'round-1');
+        setToken(tokenFor('student-b'));
+
+        expect(firstUserKey).not.toBe(
+            examStorageKey('exam-answers', 'round-1')
+        );
+        clearToken();
+    });
+});
 
 describe('readStored', () => {
     it('starts empty when nothing has been saved', () => {

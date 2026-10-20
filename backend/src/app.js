@@ -7,6 +7,7 @@ const { ForbiddenError } = require('./errors/AppError');
 const { createPublicRateLimiter } = require('./middlewares/rateLimit');
 require('./config/env');
 require('dotenv').config();
+const prisma = require('./config/database').default;
 
 const app = express();
 
@@ -30,10 +31,10 @@ const allowedOrigins = new Set(
           ]
 );
 
-const isPublicApi = (path) => path === '/public' || path.startsWith('/public/');
-
 // The public developer API is read-only data anyone may use, so any website
 // may call it from the browser. It takes no cookies or tokens, so "*" is safe.
+const isPublicApi = (path) => path === '/public' || path.startsWith('/public/');
+
 const publicCors = cors({
     origin: '*',
     methods: ['GET', 'HEAD', 'OPTIONS'],
@@ -77,6 +78,18 @@ app.get('/health', (_req, res) => {
         frontend_url:
             process.env.FRONTEND_URL || 'NOT SET (fallback: localhost:5173)',
     });
+});
+
+// Readiness is separate from liveness: Azure should only consider a deploy
+// healthy once the database connection used by application routes responds.
+app.get('/ready', async (_req, res) => {
+    try {
+        await prisma.$queryRaw`SELECT 1`;
+        res.json({ status: 'ok' });
+    } catch (err) {
+        console.error('[ready] database check failed:', err.message);
+        res.status(503).json({ status: 'unavailable' });
+    }
 });
 
 app.get('/', (_req, res) => {

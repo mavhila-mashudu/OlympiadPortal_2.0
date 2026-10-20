@@ -22,6 +22,14 @@ describe('GET /health', () => {
     });
 });
 
+describe('GET /ready', () => {
+    it('confirms the database connection used by application routes is ready', async () => {
+        const res = await api().get('/ready');
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ status: 'ok' });
+    });
+});
+
 describe('GET /', () => {
     it('returns the welcome message', async () => {
         const res = await api().get('/');

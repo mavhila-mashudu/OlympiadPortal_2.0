@@ -75,7 +75,7 @@ export function ErrorAlert({
     );
 }
 
-export function GlobalLoadingOverlay() {
+export function GlobalLoadingIndicator() {
     const isLoading = useSyncExternalStore(
         subscribeToPageLoad,
         isPageLoading,
@@ -84,12 +84,9 @@ export function GlobalLoadingOverlay() {
     if (!isLoading) return null;
 
     return (
-        <div aria-live="polite" className={styles.loadingOverlay} role="status">
-            <div className={styles.loadingDialog}>
-                <span aria-hidden="true" className={styles.largeSpinner} />
-                <strong>Loading</strong>
-                <span>Please wait while we prepare your page.</span>
-            </div>
+        <div aria-live="polite" className={styles.globalLoading} role="status">
+            <span aria-hidden="true" className={styles.globalLoadingBar} />
+            <span className="sr-only">Loading page content</span>
         </div>
     );
 }

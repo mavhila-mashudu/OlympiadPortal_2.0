@@ -17,6 +17,18 @@ const BUCKET = 'papers';
 const sharedPaperPath = (file) =>
     `shared/${crypto.createHash('sha256').update(file.buffer).digest('hex')}`;
 
+const assertPdfFile = (file, label) => {
+    if (!file) return;
+    // The MIME type and filename come from the browser and can be forged.
+    // Require the PDF signature before storing anything in the shared bucket.
+    if (
+        !Buffer.isBuffer(file.buffer) ||
+        !file.buffer.subarray(0, 1024).includes(Buffer.from('%PDF-'))
+    ) {
+        throw new BadRequestError(`${label} must be a valid PDF file`);
+    }
+};
+
 const uploadRoundPapers = async ({
     roundId,
     organiserId,
@@ -43,6 +55,9 @@ const uploadRoundPapers = async ({
         );
     }
 
+    assertPdfFile(paperFile, 'Paper');
+    assertPdfFile(memoFile, 'Memo');
+
     const data = {};
 
     if (paperFile) {
@@ -50,7 +65,7 @@ const uploadRoundPapers = async ({
         const { error } = await supabase.storage
             .from(BUCKET)
             .upload(path, paperFile.buffer, {
-                contentType: paperFile.mimetype,
+                contentType: 'application/pdf',
                 upsert: true,
             });
         if (error)
@@ -63,7 +78,7 @@ const uploadRoundPapers = async ({
         const { error } = await supabase.storage
             .from(BUCKET)
             .upload(path, memoFile.buffer, {
-                contentType: memoFile.mimetype,
+                contentType: 'application/pdf',
                 upsert: true,
             });
         if (error)

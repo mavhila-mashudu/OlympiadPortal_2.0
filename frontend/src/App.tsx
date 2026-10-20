@@ -1,9 +1,10 @@
 import { Suspense } from 'react';
 import { Route, Routes } from 'react-router-dom';
+import NotFound from './pages/public/NotFound';
 import { RequireSession } from './components/auth/RequireSession';
 import { AppErrorBoundary } from './components/ui/AppErrorBoundary';
 import {
-    GlobalLoadingOverlay,
+    GlobalLoadingIndicator,
     LoadingIndicator,
 } from './components/ui/Feedback';
 import { lazyPage } from './lib/lazyPage';
@@ -66,7 +67,7 @@ const StudentRoundDetail = lazyPage(
 function App() {
     return (
         <AppErrorBoundary>
-            <GlobalLoadingOverlay />
+            <GlobalLoadingIndicator />
             <Suspense
                 fallback={<LoadingIndicator fullPage label="Loading page" />}
             >
@@ -189,6 +190,7 @@ function App() {
                             />
                         </Route>
                     </Route>
+                    <Route path="*" element={<NotFound />} />
                 </Routes>
             </Suspense>
         </AppErrorBoundary>

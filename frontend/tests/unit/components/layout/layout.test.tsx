@@ -43,9 +43,23 @@ describe('AppShell', () => {
     // request may leave the test, so every call is answered here
     let requests: string[];
     let signedInAs: { full_name: string } | null;
+    let notificationLoadFailures: number;
+    let notificationReadFailures: number;
+    let olympiadLoadFailures: number;
+    let notificationFixture: {
+        id: string;
+        dedupe_key?: string;
+        title: string;
+        body: string;
+        read_at: string | null;
+    }[];
     beforeEach(() => {
         requests = [];
         signedInAs = { full_name: 'Thandi Mokoena' };
+        notificationLoadFailures = 0;
+        notificationReadFailures = 0;
+        olympiadLoadFailures = 0;
+        notificationFixture = [];
         // Each test loads the signed-in user and olympiads afresh
         clearCurrentUser();
         clearCurrentOlympiadCache();
@@ -71,11 +85,64 @@ describe('AppShell', () => {
                           );
                 }
                 if (path === '/olympiads') {
+                    if (olympiadLoadFailures > 0) {
+                        olympiadLoadFailures--;
+                        return new Response(
+                            JSON.stringify({
+                                success: false,
+                                error: 'Could not load olympiads',
+                            }),
+                            { status: 503 }
+                        );
+                    }
                     return new Response(
                         JSON.stringify({
                             success: true,
-                            data: { olympiads: [] },
+                            data: {
+                                olympiads: [
+                                    {
+                                        id: 'olympiad-1',
+                                        name: 'Maths Olympiad',
+                                        organiser_id: 'organiser-1',
+                                        timezone: 'Africa/Johannesburg',
+                                        created_at: '2026-01-01T00:00:00.000Z',
+                                    },
+                                ],
+                            },
                         })
+                    );
+                }
+                if (path === '/me/notifications' && init?.method !== 'PATCH') {
+                    if (notificationLoadFailures > 0) {
+                        notificationLoadFailures--;
+                        return new Response(
+                            JSON.stringify({
+                                success: false,
+                                error: 'Could not load notifications',
+                            }),
+                            { status: 503 }
+                        );
+                    }
+                    return new Response(
+                        JSON.stringify({
+                            success: true,
+                            data: { notifications: notificationFixture },
+                        })
+                    );
+                }
+                if (path.startsWith('/me/notifications/') && init?.method === 'PATCH') {
+                    if (notificationReadFailures > 0) {
+                        notificationReadFailures--;
+                        return new Response(
+                            JSON.stringify({
+                                success: false,
+                                error: 'Could not mark notification as read',
+                            }),
+                            { status: 503 }
+                        );
+                    }
+                    return new Response(
+                        JSON.stringify({ success: true, data: {} })
                     );
                 }
                 return new Response(
@@ -242,6 +309,58 @@ describe('AppShell', () => {
         expect(
             within(nav).getByRole('link', { name: 'Dashboard' })
         ).toHaveClass(shellStyles.navItemActive);
+    });
+
+    it('shows an olympiad loading error and lets the organiser retry', async () => {
+        olympiadLoadFailures = 1;
+        renderShell('/organiser');
+
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Could not load olympiads'
+        );
+        await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+        expect(
+            await screen.findByRole('combobox', { name: 'Current olympiad' })
+        ).toHaveValue('olympiad-1');
+    });
+
+    it('distinguishes a notification load error from an empty notification list', async () => {
+        notificationLoadFailures = 1;
+        renderShell('/organiser');
+
+        await userEvent.click(screen.getByRole('button', { name: /Notifications/ }));
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Could not load notifications'
+        );
+        expect(screen.queryByText('No notifications yet.')).not.toBeInTheDocument();
+
+        await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+        expect(await screen.findByText('No notifications yet.')).toBeInTheDocument();
+    });
+
+    it('shows a retry action when marking a notification as read fails', async () => {
+        notificationReadFailures = 1;
+        notificationFixture = [
+            {
+                id: 'notification-1',
+                title: 'New invitation',
+                body: 'You have been invited.',
+                read_at: null,
+            },
+        ];
+        renderShell('/organiser');
+
+        await userEvent.click(screen.getByRole('button', { name: /Notifications/ }));
+        await userEvent.click(await screen.findByRole('button', { name: 'Mark read' }));
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'Could not mark notification as read'
+        );
+
+        await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+        await waitFor(() =>
+            expect(screen.queryByRole('button', { name: 'Mark read' })).not.toBeInTheDocument()
+        );
     });
 
     it.each([

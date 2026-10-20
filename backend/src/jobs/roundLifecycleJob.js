@@ -45,6 +45,9 @@ const start = () => {
         `[lifecycle] round lifecycle job started (checking every ${INTERVAL_MS / 1000}s)`
     );
 
+    // Reconcile overdue rounds and notifications immediately after a cold
+    // start instead of leaving them stale until the first interval elapses.
+    void tick();
     timer = setInterval(tick, INTERVAL_MS);
 
     // Don't let this timer keep the process alive on its own

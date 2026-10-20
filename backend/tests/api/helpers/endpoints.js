@@ -14,6 +14,7 @@ const STAFF = ['organiser', 'educator'];
 const endpoints = [
     // App
     { method: 'get', path: '/health', roles: 'public' },
+    { method: 'get', path: '/ready', roles: 'public' },
     { method: 'get', path: '/', roles: 'public' },
 
     // Public API (no auth)

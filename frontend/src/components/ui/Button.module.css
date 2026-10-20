@@ -1,6 +1,6 @@
 .button {
     display: inline-flex;
-    min-height: 2.25rem;
+    min-height: 2.75rem;
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
@@ -21,7 +21,7 @@
 
 .button:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 1px var(--ring);
+    box-shadow: 0 0 0 2px var(--ring);
 }
 
 .button:disabled,
@@ -67,15 +67,15 @@
 }
 
 .sm {
-    min-height: 2rem;
+    min-height: 2.5rem;
     border-radius: calc(var(--radius) - 2px);
     padding: 0.375rem 0.75rem;
     font-size: 0.75rem;
 }
 
 .icon {
-    width: 2.25rem;
-    height: 2.25rem;
+    width: 2.75rem;
+    height: 2.75rem;
     padding: 0;
 }
 

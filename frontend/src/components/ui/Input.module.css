@@ -1,7 +1,7 @@
 .input {
     display: flex;
     width: 100%;
-    height: 2.25rem;
+    min-height: 2.75rem;
     border: 1px solid var(--input);
     border-radius: calc(var(--radius) - 2px);
     padding: 0.25rem 0.75rem;
@@ -19,7 +19,7 @@
 
 .input:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 1px var(--ring);
+    box-shadow: 0 0 0 2px var(--ring);
 }
 
 .input:disabled {

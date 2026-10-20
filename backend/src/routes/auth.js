@@ -1,5 +1,6 @@
 // @ts-nocheck
 const express = require('express');
+const router = express.Router();
 const { body } = require('express-validator');
 const {
     register,
@@ -10,8 +11,6 @@ const { requireAuth } = require('../middlewares/auth');
 const validate = require('../middlewares/validate');
 // Shared with the other public endpoints — see routes/schools.js
 const { publicAuthLimiter } = require('../middlewares/rateLimit');
-
-const router = express.Router();
 
 const passwordRule = body('password')
     .isLength({ min: 8 })
@@ -58,7 +57,11 @@ const registerRules = [
         .isLength({ max: 40 })
         .withMessage('Invitation code is too long'),
     body().custom((value) => {
-        if (value.role === 'student' && !value.school_id && !value.invitation_code) {
+        if (
+            value.role === 'student' &&
+            !value.school_id &&
+            !value.invitation_code
+        ) {
             throw new Error('Select your school from the list');
         }
         if (

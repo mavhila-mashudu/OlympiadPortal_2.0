@@ -60,11 +60,13 @@ describe('TablePanel', () => {
             screen.getByRole('heading', { name: 'Results' })
         ).toBeInTheDocument();
         expect(screen.getByRole('table')).toHaveTextContent('cell');
+        expect(screen.getByRole('region', { name: 'Results table' })).toHaveAttribute('tabindex', '0');
     });
 
     it('omits the heading without a title', () => {
         table();
         expect(screen.queryByRole('heading')).not.toBeInTheDocument();
+        expect(screen.getByRole('region', { name: 'Scrollable table' })).toHaveAttribute('tabindex', '0');
     });
 
     it('sets a default minimum table width for horizontal scrolling', () => {
