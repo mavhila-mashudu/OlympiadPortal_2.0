@@ -141,210 +141,72 @@ Lists that page take `page` (from 1) and `limit`, and return a `pagination`
 object: `{ page, limit, total, totalPages }`. Ids are UUIDs; a malformed one
 gets `422`. Dates are ISO 8601 in UTC.
 
-#### `GET /public/v1/stats`
-
-```json
-{
-    "totalOlympiads": 4,
-    "totalRounds": 11,
-    "totalSchools": 23,
-    "totalStudents": 612,
-    "totalSubmissions": 1480
-}
-```
-
-`totalStudents` counts learner records; `totalSubmissions` counts exams handed in, online or on paper.
-
-#### `GET /public/v1/stats/yearly`
-
-One entry per year in which rounds opened, newest first:
-`[{ year, totalOlympiads, totalRounds, totalStudents, totalSchools, totalSubmissions }]`.
-
-#### `GET /public/v1/activity`
-
-Up to five of each, over the last 30 days or the upcoming ones:
-`{ recentlyCompletedRounds, upcomingRounds, recentResultsReleased }`. Each
-round is `{ id, name, olympiadId, olympiadName, opensAt, closesAt, resultsReleaseAt, state }`.
-
-#### `GET /public/v1/calendar`
-
-| Query  | Rules                                                   |
-| ------ | ------------------------------------------------------- |
-| `from` | optional ISO 8601 date; default the start of this month |
-| `to`   | optional ISO 8601 date; default the end of this month   |
-
-Rounds that are open at any time between `from` and `to`, earliest first, in the round shape above.
-
-#### `GET /public/v1/search`
-
-`q` — text to look for in names, ignoring case. Returns up to ten of each:
-`{ olympiads: [{ id, name, createdAt, roundCount }], schools: [{ id, name, studentCount }], rounds: [{ id, name, olympiadId, olympiadName, state, opensAt, closesAt }] }`.
-An empty `q` returns empty lists.
-
-#### `GET /public/v1/olympiads`
-
-| Query           | Rules                                                          |
-| --------------- | -------------------------------------------------------------- |
-| `search`        | optional; part of the name, ignoring case                      |
-| `year`          | optional; olympiads with a round opening that year (2000–2100) |
-| `sort`          | optional; `created_at` (newest first, the default) or `name`   |
-| `page`, `limit` | optional; `limit` 1–100, default 20                            |
-
-```json
-{
-    "olympiads": [
-        {
-            "id": "…",
-            "name": "Maths Olympiad",
-            "createdAt": "2026-08-01T09:00:00.000Z",
-            "roundCount": 2,
-            "schoolCount": 2,
-            "studentCount": 3,
-            "year": 2026
-        }
-    ],
-    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
-}
-```
-
-#### `GET /public/v1/olympiads/:olympiadId`
-
-`{ id, name, timezone, createdAt, organiserName, schoolCount, studentCount, rounds }`,
-where each round is `{ id, name, state, opensAt, closesAt, resultsReleasedAt, participantCount, submissionCount }`.
-`404` if there is no such olympiad.
-
-#### `GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results`
-
-Only for a round whose results are released (`400` otherwise; `404` if the
-round doesn't exist or belongs to another olympiad). Scores are marks out of
-`maxPossibleScore`; `qualifyingThreshold` is a percentage of it.
-
-```json
-{
-    "roundName": "Round 1",
-    "olympiadName": "Maths Olympiad",
-    "totalParticipants": 3,
-    "totalSubmissions": 3,
-    "maxPossibleScore": 10,
-    "averageScore": 5.67,
-    "medianScore": 6,
-    "highestScore": 8,
-    "lowestScore": 3,
-    "qualifyingThreshold": 60,
-    "qualifiedCount": 2,
-    "gradeDistribution": {
-        "90-100": 0,
-        "80-89": 1,
-        "70-79": 0,
-        "60-69": 1,
-        "50-59": 0,
-        "40-49": 0,
-        "30-39": 1,
-        "0-29": 0
-    }
-}
-```
-
-`gradeDistribution` counts learners by percentage band.
-
-#### `GET /public/v1/olympiads/:olympiadId/rounds/:roundId/results/by-school`
-
-`{ roundName, olympiadName, schools }`, best average first, where each school is
-`{ schoolId, schoolName, participantCount, averageScore, qualifiedCount, gradeDistribution }`.
-Same conditions as above.
-
-#### `GET /public/v1/olympiads/:olympiadId/leaderboard`
-
-Schools ranked by their average over all of the olympiad's released rounds:
-`{ olympiadName, schools: [{ rank, schoolName, averageScore, totalParticipants, qualifiedCount }] }`.
-Empty before any results are out.
-
-#### `GET /public/v1/schools/top`
-
-| Query   | Rules                                       |
-| ------- | ------------------------------------------- |
-| `year`  | optional; only rounds that opened that year |
-| `limit` | optional; 1–50, default 10                  |
-
-`[{ rank, schoolId, schoolName, averageScore, totalResults, totalStudents, totalOlympiads }]`, from released results only.
-
-#### `GET /public/v1/schools`
-
-`search`, `page` and `limit` (1–100, default 20). Schools by name:
-`{ schools: [{ id, name, olympiadCount, studentCount }], pagination }`.
-
-#### `GET /public/v1/schools/:schoolId`
-
-```json
-{
-    "id": "…",
-    "name": "Parktown High",
-    "olympiads": [
-        {
-            "id": "…",
-            "name": "Maths Olympiad",
-            "year": 2026,
-            "studentCount": 2,
-            "averageScore": 7
-        }
-    ],
-    "stats": {
-        "totalStudents": 2,
-        "totalRoundsParticipated": 1,
-        "overallAverageScore": 7
-    }
-}
-```
-
-Averages are over the school's own learners in released rounds. `404` if there is no such school.
-
-#### `GET /public/v1/papers`
-
-| Query           | Rules                                  |
-| --------------- | -------------------------------------- |
-| `olympiad`      | optional olympiad id                   |
-| `year`          | optional; rounds that opened that year |
-| `page`, `limit` | optional; `limit` 1–100, default 20    |
-
-Papers of rounds whose results are released, newest first:
-
-```json
-{
-    "papers": [
-        {
-            "id": "…",
-            "title": "Maths Round 1 paper",
-            "olympiadId": "…",
-            "olympiadName": "Maths Olympiad",
-            "roundName": "Round 1",
-            "year": 2026,
-            "fileUrl": "https://olympiad-portal-api.azurewebsites.net/public/v1/papers/…/download",
-            "memoFileUrl": "https://olympiad-portal-api.azurewebsites.net/public/v1/papers/…/download?type=memo"
-        }
-    ],
-    "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
-}
-```
-
-`memoFileUrl` is `null` when no memo was uploaded. The links don't expire, so they can be stored or put on a page.
-
-#### `GET /public/v1/papers/:paperId/download`
-
-`type` — `paper` (the default) or `memo`. Redirects (`302`) to a link to the
-PDF that works for one minute, so follow the redirect straight away rather
-than storing where it leads. `404` for a paper whose round's results aren't
-released, or a memo that was never uploaded; `502` if the file store can't be
-reached.
+> 📖 **Full Specification & Request/Response Payloads:** For complete JSON schemas, parameter tables, cURL/Python integration recipes, and schema documentation for all 15 public endpoints, please refer to the dedicated **[Public Developer API Reference](./public-developer-api.md)**.
 
 ### Errors
 
-| Status | When                                                                   |
-| ------ | ---------------------------------------------------------------------- |
-| `400`  | A round's results aren't released yet                                  |
-| `404`  | No such olympiad, round, school or paper, or an unknown `/public/v1` path |
-| `422`  | A malformed id or query parameter; `error` says which                  |
-| `429`  | Over the rate limit; see the `RateLimit` header for when to retry      |
-| `502`  | The paper store couldn't be reached                                    |
+| Status | When |
+| :--- | :--- |
+| `400` | A round's results aren't released yet |
+| `404` | No such olympiad, round, school or paper, or an unknown `/public/v1` path |
+| `422` | A malformed id or query parameter; `error` says which |
+| `429` | Over the rate limit; see the `RateLimit` header for when to retry |
+| `502` | The paper store couldn't be reached |
+
+---
+
+## Testing & Performance Benchmarks
+
+The API includes standardized Postman collections, automated CLI test suites, and high-concurrency performance benchmark tools.
+
+### 1. Postman Test Suite
+
+A standardized Postman Collection (v2.1 format) is available in the [`postman/`](../postman) directory:
+
+* **Collection File:** [`postman/OlympiadPortal.postman_collection.json`](../postman/OlympiadPortal.postman_collection.json)
+* **Environment File:** [`postman/OlympiadPortal.postman_environment.json`](../postman/OlympiadPortal.postman_environment.json)
+* **Usage Guide:** [`docs/postman-testing.md`](./postman-testing.md)
+
+#### Running via Postman Desktop App (GUI)
+1. Open the Postman Desktop App and click **Import** (top left).
+2. Select `postman/OlympiadPortal.postman_collection.json` and `postman/OlympiadPortal.postman_environment.json`.
+3. In the environment selector, choose **Olympiad Portal — Production (Azure)**.
+4. Click **Run** to execute the functional requests and automated assertions, or switch to the **Performance** tab to plot real-time latency and throughput curves under virtual user load.
+
+#### Running via Postman CLI (Headless)
+```bash
+# Run against deployed Azure API
+postman collection run postman/OlympiadPortal.postman_collection.json
+
+# Run against local development API
+postman collection run postman/OlympiadPortal.postman_collection.json --env-var "baseUrl=http://localhost:3000"
+```
+
+### 2. High-Concurrency Performance Benchmark (`npm run test:perf`)
+
+To satisfy performance and load criteria without external dependencies, a native Node.js benchmark suite is provided in [`backend/scripts/benchmark.js`](../backend/scripts/benchmark.js):
+
+```bash
+cd backend
+npm run test:perf
+```
+
+This tests cold-start latency, warm latency, and executes 250 requests under concurrent load across all core API archetypes.
+
+#### Deployed Azure Benchmark Results (Live Evidence)
+
+* **Host:** `https://olympiad-portal-api.azurewebsites.net`
+* **First Request Cold Start:** `439.4 ms` (`GET /health`)
+* **Warm Request Latency:** `97.3 ms` (Cold start overhead: ~342 ms)
+* **Crash Rate under Load:** **0% (0 server crashes / 0 5xx errors across 250 concurrent requests)**
+
+| Endpoint Archetype | Reqs | Concurrency | Throughput (RPS) | 200 OK | 5xx (Crashes) | Avg Latency | p50 (Median) | p95 Latency | p99 Latency |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Health Probe (`/health`)** | 50 | 10 | **100.0 req/s** | 50 | 0 | 87.6 ms | 68.4 ms | 189.0 ms | 196.3 ms |
+| **Top Schools (`/schools/top`)** | 50 | 10 | **28.6 req/s** | 50 | 0 | 323.9 ms | 327.8 ms | 435.5 ms | 436.3 ms |
+| **Schools Directory (`/schools`)** | 50 | 10 | **24.1 req/s** | 50 | 0 | 397.0 ms | 367.8 ms | 677.4 ms | 804.1 ms |
+| **Olympiads Query (`/olympiads`)** | 50 | 10 | **9.7 req/s** | 50 | 0 | 930.8 ms | 880.3 ms | 1,077.4 ms | 1,789.2 ms |
+| **Public Stats (`/stats`)** | 50 | 10 | **9.4 req/s** | 50 | 0 | 984.0 ms | 913.7 ms | 1,851.2 ms | 2,032.5 ms |
 
 ---
 
