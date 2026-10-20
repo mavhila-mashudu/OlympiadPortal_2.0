@@ -191,6 +191,28 @@ export async function sendPasswordResetEmail({
     });
 }
 
+/** Tell an educator that their school membership has been approved. */
+export async function sendEducatorApprovalEmail({
+    to,
+    fullName,
+    schoolName,
+}: {
+    to: string;
+    fullName: string;
+    schoolName: string;
+}) {
+    const frontendUrl = (
+        process.env.FRONTEND_URL ||
+        'https://olympiadportalfe.z1.web.core.windows.net'
+    ).replace(/\/+$/, '');
+    const loginUrl = `${frontendUrl}/login`;
+    return deliver({
+        to,
+        subject: 'Your educator account has been approved',
+        html: `<h2>Your account is approved</h2><p>Hello ${escapeHtml(fullName)},</p><p>Your educator membership for <strong>${escapeHtml(schoolName)}</strong> has been approved. You can now sign in and access your educator dashboard.</p><p><a href="${loginUrl}">Go to the Olympiad Portal sign-in page</a></p><p>If the link does not work, open ${loginUrl} in your browser.</p>`,
+    });
+}
+
 /**
  * Generic round-notification email (round opening/closing reminders, results
  * released). The caller supplies the fully rendered HTML so the EmailJS

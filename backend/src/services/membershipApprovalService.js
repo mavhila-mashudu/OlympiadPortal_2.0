@@ -2,6 +2,7 @@
 const prisma = require('../config/database').default;
 const { forgetCachedUser } = require('../middlewares/auth');
 const { notifyDecision } = require('./accountNotificationService');
+const { sendEducatorApprovalEmail } = require('../lib/mailer');
 const {
     BadRequestError,
     ConflictError,
@@ -158,7 +159,14 @@ async function decideRequest(user, requestId, decision) {
                 status: decision === 'approve' ? 'active' : 'rejected',
                 role: coordinator ? 'educator' : 'coordinator',
             },
-            select: { id: true, status: true, role: true, user_id: true },
+            select: {
+                id: true,
+                status: true,
+                role: true,
+                user_id: true,
+                users: { select: { full_name: true, email: true } },
+                schools: { select: { name: true } },
+            },
         });
         await notifyDecision(tx, { requestId, userId: updated.user_id, decision, type: 'educator' });
         return updated;
@@ -166,7 +174,20 @@ async function decideRequest(user, requestId, decision) {
     // Permissions are cached for up to 30 s; revoke the cached identity so an
     // approved educator gains access on their very next authenticated call.
     forgetCachedUser(changed.user_id);
-    return changed;
+    const { users, schools, ...membership } = changed;
+    if (decision === 'approve' && users?.email) {
+        const { delivered } = await sendEducatorApprovalEmail({
+            to: users.email,
+            fullName: users.full_name,
+            schoolName: schools?.name || 'your school',
+        });
+        if (!delivered) {
+            console.warn(
+                '[membership approvals] approval email was not delivered; the in-app notice remains available'
+            );
+        }
+    }
+    return membership;
 }
 
 // A student signs up as a pending entrant. Only the active coordinator of that

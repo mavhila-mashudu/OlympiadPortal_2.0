@@ -5,9 +5,13 @@ jest.mock('../../../src/config/database', () => ({
 jest.mock('../../../src/middlewares/auth', () => ({
     forgetCachedUser: jest.fn(),
 }));
+jest.mock('../../../src/lib/mailer', () => ({
+    sendEducatorApprovalEmail: jest.fn().mockResolvedValue({ delivered: true }),
+}));
 
 const { prisma, resetPrismaMock } = require('../helpers/prismaMock');
 const { forgetCachedUser } = require('../../../src/middlewares/auth');
+const { sendEducatorApprovalEmail } = require('../../../src/lib/mailer');
 const service = require('../../../src/services/membershipApprovalService');
 
 const coordinator = { role: 'educator', userId: 'coord-1', schoolId: 'school-1' };
@@ -22,6 +26,7 @@ const pendingStudent = {
 beforeEach(() => {
     resetPrismaMock();
     forgetCachedUser.mockReset();
+    sendEducatorApprovalEmail.mockReset().mockResolvedValue({ delivered: true });
     prisma.entrants.findUnique.mockResolvedValue(pendingStudent);
     prisma.school_memberships.findUnique.mockResolvedValue({
         role: 'coordinator',
@@ -33,6 +38,45 @@ beforeEach(() => {
         user_id: data.user_id ?? 'stu-1',
         status: data.status,
     }));
+});
+
+describe('decideRequest', () => {
+    it('emails an educator after approval and keeps contact details out of the response', async () => {
+        prisma.school_memberships.findUnique.mockResolvedValue({
+            id: 'mem-1',
+            user_id: 'edu-1',
+            school_id: 'school-1',
+            role: 'coordinator',
+            status: 'pending',
+        });
+        prisma.school_memberships.findFirst.mockResolvedValue(null);
+        prisma.school_memberships.update.mockResolvedValue({
+            id: 'mem-1',
+            user_id: 'edu-1',
+            role: 'coordinator',
+            status: 'active',
+            users: { full_name: 'Thandi Mokoena', email: 'thandi@example.test' },
+            schools: { name: 'Parktown High' },
+        });
+
+        const result = await service.decideRequest(
+            { role: 'organiser', userId: 'org-1' },
+            'mem-1',
+            'approve'
+        );
+
+        expect(sendEducatorApprovalEmail).toHaveBeenCalledWith({
+            to: 'thandi@example.test',
+            fullName: 'Thandi Mokoena',
+            schoolName: 'Parktown High',
+        });
+        expect(result).toEqual({
+            id: 'mem-1',
+            user_id: 'edu-1',
+            role: 'coordinator',
+            status: 'active',
+        });
+    });
 });
 
 describe('decideStudentRequest', () => {

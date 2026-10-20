@@ -160,6 +160,32 @@ describe('the password reset email', () => {
     });
 });
 
+describe('educator approval email', () => {
+    it('sends an escaped approval message with the portal sign-in link', async () => {
+        const mailer = loadMailer(configured);
+
+        await expect(
+            mailer.sendEducatorApprovalEmail({
+                to: 'thandi@school.test',
+                fullName: '<Thandi>',
+                schoolName: 'Parktown & High',
+            })
+        ).resolves.toEqual({ delivered: true });
+
+        const { template_params: params } = sentEmail();
+        const frontendBase = (
+            process.env.FRONTEND_URL ||
+            'https://olympiadportalfe.z1.web.core.windows.net'
+        ).replace(/\/+$/, '');
+        expect(params.to_email).toBe('thandi@school.test');
+        expect(params.subject).toBe('Your educator account has been approved');
+        expect(params.html_content).toContain('Your account is approved');
+        expect(params.html_content).toContain('&lt;Thandi&gt;');
+        expect(params.html_content).toContain('Parktown &amp; High');
+        expect(params.html_content).toContain(`${frontendBase}/login`);
+    });
+});
+
 describe("when EmailJS can't be used", () => {
     it.each(EMAILJS_KEYS)(
         'reports the invitation as undelivered when %s is missing',

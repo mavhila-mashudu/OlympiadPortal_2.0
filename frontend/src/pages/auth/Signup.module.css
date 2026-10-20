@@ -120,7 +120,7 @@
 .roleSelector {
     display: grid;
     gap: 0.5rem;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .roleOption {
@@ -138,12 +138,6 @@
 .roleOption strong {
     font-size: 0.8125rem;
     font-weight: 600;
-}
-
-.roleOption small {
-    color: var(--muted-foreground);
-    font-size: 0.6875rem;
-    line-height: 0.9375rem;
 }
 
 .roleOption:hover {
