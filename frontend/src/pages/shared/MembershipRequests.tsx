@@ -42,6 +42,7 @@ export default function MembershipRequests({ mode }: { mode: 'organiser' | 'educ
         try {
             const { requests: pending } = await api.get<{requests: Membership[]}>('/membership-requests');
             setRequests(pending);
+            window.dispatchEvent(new Event('membership-requests-updated'));
             // One listed student with this name is the likely match, so it starts
             // selected; with several, the coordinator has to choose.
             setLinks(Object.fromEntries(pending

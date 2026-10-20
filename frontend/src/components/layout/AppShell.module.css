@@ -180,6 +180,7 @@
 }
 
 .navItem {
+    position: relative;
     display: flex;
     min-height: 2.75rem;
     align-items: center;
@@ -209,6 +210,23 @@
     width: 1rem;
     height: 1rem;
     flex-shrink: 0;
+}
+
+.navBadge {
+    display: inline-flex;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    align-items: center;
+    justify-content: center;
+    margin-left: auto;
+    border-radius: 999px;
+    padding: 0 0.35rem;
+    background: var(--destructive);
+    color: var(--destructive-foreground);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
 .account {
@@ -275,6 +293,117 @@
 
 .contentFrame {
     min-height: calc(100vh - 3.5rem);
+}
+
+.notificationArea {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    justify-content: flex-end;
+    max-width: 76rem;
+    margin: 0 auto;
+    padding: 0.75rem 1rem 0;
+}
+
+.notificationBell {
+    position: relative;
+    display: inline-flex;
+    width: 2.75rem;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 999px;
+    padding: 0;
+    background: transparent;
+    color: var(--foreground);
+    cursor: pointer;
+}
+
+.notificationBell:hover {
+    background: var(--accent);
+}
+
+.notificationBell:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+}
+
+.notificationBell svg {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.notificationBadge {
+    position: absolute;
+    top: 0;
+    right: -0.15rem;
+    display: inline-flex;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--background);
+    border-radius: 999px;
+    padding: 0 0.25rem;
+    background: var(--destructive);
+    color: var(--destructive-foreground);
+    font-size: 0.625rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.notificationPopover {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    right: 1rem;
+    display: grid;
+    gap: 0.5rem;
+    width: min(26rem, calc(100vw - 2rem));
+    max-height: min(28rem, calc(100vh - 7rem));
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: 0 12px 32px rgb(15 23 42 / 0.14);
+}
+
+.notificationItem {
+    display: grid;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 0.25rem;
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.notificationItem:last-child {
+    border-bottom: 0;
+}
+.notificationItem p {
+    color: var(--muted-foreground);
+}
+.notificationItem button {
+    justify-self: start;
+    min-height: 2rem;
+    border: 1px solid var(--input);
+    border-radius: calc(var(--radius) - 2px);
+    padding: 0.35rem 0.65rem;
+    background: var(--background);
+    color: var(--foreground);
+    font: inherit;
+    font-size: 0.8125rem;
+    cursor: pointer;
+}
+.notificationItem button:hover {
+    background: var(--accent);
+}
+.notificationItem button:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
 }
 
 .main {
@@ -353,6 +482,12 @@
     .collapsed .accountButton {
         justify-content: center;
         padding-inline: 0;
+    }
+
+    .collapsed .navBadge {
+        position: absolute;
+        margin: 0;
+        transform: translate(0.9rem, -0.9rem);
     }
 
     .collapsed .brand,

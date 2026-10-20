@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { ErrorAlert, LoadingIndicator } from '../../components/ui/Feedback';
 import { friendlyErrorMessage } from '../../lib/feedback';
+import styles from '../../components/layout/ApprovalGate.module.css';
 
 type Entrant = {
     status: 'active' | 'pending' | 'rejected' | 'removed';
@@ -46,7 +47,7 @@ export default function StudentApprovalGate() {
     }
     if (error) {
         return (
-            <main style={{ padding: '3rem' }}>
+            <main className={styles.page}>
                 <ErrorAlert message={error} onRetry={() => void refresh()} />
             </main>
         );
@@ -56,8 +57,8 @@ export default function StudentApprovalGate() {
 
     const rejected = entrant.status === 'rejected';
     return (
-        <main style={{ maxWidth: 540, margin: '5rem auto', padding: '1rem' }}>
-            <Card>
+        <main className={styles.page}>
+            <Card className={styles.card}>
                 <h1>
                     {rejected ? 'Request not approved' : 'Waiting for approval'}
                 </h1>
@@ -68,14 +69,7 @@ export default function StudentApprovalGate() {
                         : 'Your account has been created. Your school coordinator must approve you before you can see rounds and results.'}
                 </p>
                 <ApprovalUpdate />
-                <div
-                    style={{
-                        display: 'flex',
-                        gap: '.75rem',
-                        marginTop: '1.25rem',
-                        flexWrap: 'wrap',
-                    }}
-                >
+                <div className={styles.actions}>
                     <Button onClick={() => void refresh()}>Check again</Button>
                     <Button
                         variant="outline"

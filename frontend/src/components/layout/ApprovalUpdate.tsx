@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import styles from './ApprovalGate.module.css';
 
 type Notice = { id: string; dedupe_key?: string; title: string; body: string };
 
@@ -20,14 +21,11 @@ export function ApprovalUpdate() {
     }, []);
     if (!notices.length) return null;
     return (
-        <aside aria-label="Registration updates" style={{
-            marginTop: '1rem', padding: '0.8rem 1rem', borderRadius: '0.75rem',
-            background: 'var(--muted)', color: 'var(--foreground)',
-        }}>
+        <aside aria-label="Registration updates" className={styles.update}>
             {notices.map((notice) => (
                 <div key={notice.id}>
                     <strong>{notice.title}</strong>
-                    <p style={{ marginTop: '0.35rem', fontSize: '0.9rem' }}>{notice.body}</p>
+                    <p>{notice.body}</p>
                 </div>
             ))}
         </aside>

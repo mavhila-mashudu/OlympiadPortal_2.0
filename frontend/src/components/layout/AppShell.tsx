@@ -181,6 +181,30 @@ export function AppShell({
         message: string;
     } | null>(null);
     const [markingReadId, setMarkingReadId] = useState<string | null>(null);
+    const [pendingRequestCount, setPendingRequestCount] = useState(0);
+    useEffect(() => {
+        if (activeRole === 'student' || (activeRole === 'educator' && !isCoordinator)) return;
+        let active = true;
+        const refreshRequests = async () => {
+            try {
+                const data = await api.get<{ requests: unknown[] }>(
+                    '/membership-requests',
+                    { background: true }
+                );
+                if (active) setPendingRequestCount(data.requests.length);
+            } catch {
+                // The queue page reports access and loading errors in context.
+            }
+        };
+        void refreshRequests();
+        window.addEventListener('membership-requests-updated', refreshRequests);
+        const timer = setInterval(refreshRequests, 60_000);
+        return () => {
+            active = false;
+            clearInterval(timer);
+            window.removeEventListener('membership-requests-updated', refreshRequests);
+        };
+    }, [activeRole, isCoordinator]);
     useEffect(() => {
         let active = true;
         const refresh = async () => {
@@ -332,6 +356,13 @@ export function AppShell({
                                 <span className={styles.label}>
                                     {item.label}
                                 </span>
+                                {((activeRole === 'organiser' && item.to === '/organiser/educators') ||
+                                    (activeRole === 'educator' && item.to === '/educator/members')) &&
+                                    pendingRequestCount > 0 && (
+                                        <span className={styles.navBadge} aria-label={`${pendingRequestCount} pending requests`}>
+                                            {pendingRequestCount > 99 ? '99+' : pendingRequestCount}
+                                        </span>
+                                    )}
                             </NavLink>
                         ))}
                     </nav>
@@ -458,26 +489,27 @@ export function AppShell({
             </header>
 
             <div className={styles.contentFrame}>
-                <div style={{ padding: '0.75rem 1.5rem' }}>
-                    <Button
+                <div className={styles.notificationArea}>
+                    <button
+                        aria-label={`Notifications${notifications.filter((n) => !n.read_at).length ? `, ${notifications.filter((n) => !n.read_at).length} unread` : ''}`}
                         aria-expanded={showNotifications}
-                        variant="outline"
-                        icon={<Bell aria-hidden="true" />}
+                        aria-controls="notification-popover"
+                        className={styles.notificationBell}
                         onClick={() => setShowNotifications(!showNotifications)}
+                        type="button"
                     >
-                        Notifications (
-                        {notifications.filter((n) => !n.read_at).length})
-                    </Button>
+                        <Bell aria-hidden="true" />
+                        {notifications.filter((n) => !n.read_at).length > 0 && (
+                            <span className={styles.notificationBadge} aria-hidden="true">
+                                {notifications.filter((n) => !n.read_at).length > 99 ? '99+' : notifications.filter((n) => !n.read_at).length}
+                            </span>
+                        )}
+                    </button>
                     {showNotifications && (
                         <section
+                            id="notification-popover"
+                            className={styles.notificationPopover}
                             aria-label="Notifications"
-                            style={{
-                                padding: '1rem',
-                                background: 'white',
-                                border: '1px solid #ddd',
-                                maxHeight: '20rem',
-                                overflowY: 'auto',
-                            }}
                         >
                             {notificationError && (
                                 <ErrorAlert
@@ -498,13 +530,7 @@ export function AppShell({
                                 )
                             )}
                             {notifications.map((n) => (
-                                <div
-                                    key={n.id}
-                                    style={{
-                                        borderBottom: '1px solid #ddd',
-                                        padding: '0.5rem',
-                                    }}
-                                >
+                                <div key={n.id} className={styles.notificationItem}>
                                     <strong>{n.title}</strong>
                                     <p>{n.body}</p>
                                     {n.dedupe_key?.includes(':signup:') && (
