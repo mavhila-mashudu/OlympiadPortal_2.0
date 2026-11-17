@@ -294,7 +294,6 @@ describe('educator round page', () => {
             409,
             'This entrant has already submitted for this round'
         );
-        const alert = vi.spyOn(window, 'alert').mockImplementation(() => {});
         const { user } = renderApp('/educator/rounds/round-1');
 
         await user.selectOptions(
@@ -305,10 +304,8 @@ describe('educator round page', () => {
             screen.getByRole('button', { name: 'Submit results' })
         );
 
-        await waitFor(() =>
-            expect(alert).toHaveBeenCalledWith(
-                'This entrant has already submitted for this round'
-            )
+        expect(await screen.findByRole('alert')).toHaveTextContent(
+            'This entrant has already submitted for this round'
         );
         expect(
             screen.queryByText('Submission confirmed')

@@ -380,7 +380,15 @@ describe('logout', () => {
 
 describe('deleteAccount', () => {
     beforeEach(() => {
-        prisma.users.findUnique.mockResolvedValue({ role: 'student' });
+        prisma.users.findUnique.mockResolvedValue({
+            role: 'student',
+            deleted_at: null,
+            email: 'student@test.com',
+            full_name: 'Student',
+            auth_provider_id: 'auth-user-1',
+            school_memberships: [],
+            entrants: null,
+        });
         supabase.auth.admin.deleteUser.mockResolvedValue({
             data: {},
             error: null,
@@ -415,6 +423,15 @@ describe('deleteAccount', () => {
     });
 
     it('reports a Supabase deletion failure when the login still exists', async () => {
+        prisma.users.findUnique.mockResolvedValue({
+            role: 'student',
+            deleted_at: null,
+            email: 'student@test.com',
+            full_name: 'Student',
+            auth_provider_id: 'auth-user-1',
+            school_memberships: [{ id: 'membership-1', status: 'pending' }],
+            entrants: { id: 'entrant-1', user_id: 'user-1' },
+        });
         supabase.auth.admin.deleteUser.mockResolvedValue({
             data: null,
             error: { status: 500, message: 'Database error' },
@@ -426,6 +443,23 @@ describe('deleteAccount', () => {
                 message: 'We couldn’t delete your account. Please try again.',
             }
         );
+        expect(prisma.users.update).toHaveBeenLastCalledWith({
+            where: { id: 'user-1' },
+            data: {
+                deleted_at: null,
+                email: 'student@test.com',
+                full_name: 'Student',
+                auth_provider_id: 'auth-user-1',
+            },
+        });
+        expect(prisma.school_memberships.update).toHaveBeenCalledWith({
+            where: { id: 'membership-1' },
+            data: { status: 'pending' },
+        });
+        expect(prisma.entrants.update).toHaveBeenCalledWith({
+            where: { id: 'entrant-1' },
+            data: { user_id: 'user-1' },
+        });
         expect(prisma.users.update.mock.invocationCallOrder[0]).toBeLessThan(
             supabase.auth.admin.deleteUser.mock.invocationCallOrder[0]
         );
@@ -471,7 +505,15 @@ describe('deleteAccount', () => {
     });
 
     it('refuses an organiser whose olympiad is still running', async () => {
-        prisma.users.findUnique.mockResolvedValue({ role: 'organiser' });
+        prisma.users.findUnique.mockResolvedValue({
+            role: 'organiser',
+            deleted_at: null,
+            email: 'organiser@test.com',
+            full_name: 'Organiser',
+            auth_provider_id: 'auth-user-1',
+            school_memberships: [],
+            entrants: null,
+        });
         prisma.olympiads.findFirst.mockResolvedValue({
             name: 'Maths Olympiad',
         });

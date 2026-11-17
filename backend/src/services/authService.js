@@ -352,7 +352,20 @@ const deleteAccount = async (userId) => {
         }
     }
 
-    await prisma.$transaction(async (tx) => {
+    const originalAccount = await prisma.$transaction(async (tx) => {
+        const account = await tx.users.findUnique({
+            where: { id: userId },
+            select: {
+                deleted_at: true,
+                email: true,
+                full_name: true,
+                auth_provider_id: true,
+                school_memberships: { select: { id: true, status: true } },
+                entrants: { select: { id: true, user_id: true } },
+            },
+        });
+        if (!account) throw new NotFoundError('Account not found');
+
         await tx.users.update({
             where: { id: userId },
             data: {
@@ -372,7 +385,7 @@ const deleteAccount = async (userId) => {
             where: { user_id: userId },
             data: { user_id: null },
         });
-
+        return account;
     });
 
     // Supabase is a separate service and cannot participate in the database
@@ -387,6 +400,29 @@ const deleteAccount = async (userId) => {
         const authUserIsGone =
             lookupError?.status === 404 || (!lookupError && !data?.user);
         if (!authUserIsGone) {
+            await prisma.$transaction(async (tx) => {
+                await tx.users.update({
+                    where: { id: userId },
+                    data: {
+                        deleted_at: originalAccount.deleted_at,
+                        email: originalAccount.email,
+                        full_name: originalAccount.full_name,
+                        auth_provider_id: originalAccount.auth_provider_id,
+                    },
+                });
+                for (const membership of originalAccount.school_memberships) {
+                    await tx.school_memberships.update({
+                        where: { id: membership.id },
+                        data: { status: membership.status },
+                    });
+                }
+                if (originalAccount.entrants) {
+                    await tx.entrants.update({
+                        where: { id: originalAccount.entrants.id },
+                        data: { user_id: originalAccount.entrants.user_id },
+                    });
+                }
+            });
             throw new AppError(
                 'We couldn’t delete your account. Please try again.',
                 502

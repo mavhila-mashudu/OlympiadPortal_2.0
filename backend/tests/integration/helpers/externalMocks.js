@@ -16,6 +16,7 @@ const supabase = {
         admin: {
             createUser: jest.fn(),
             deleteUser: jest.fn(),
+            getUserById: jest.fn(),
             signOut: jest.fn(),
             generateLink: jest.fn(),
         },
@@ -37,6 +38,12 @@ const resetExternalMocks = () => {
     supabase.auth.admin.deleteUser
         .mockReset()
         .mockResolvedValue({ data: {}, error: null });
+    supabase.auth.admin.getUserById
+        .mockReset()
+        .mockImplementation(async (id) => ({
+            data: { user: { id } },
+            error: null,
+        }));
     supabase.auth.admin.signOut
         .mockReset()
         .mockResolvedValue({ data: null, error: null });
