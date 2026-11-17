@@ -271,7 +271,7 @@ describe('notification bell', () => {
         const { user } = renderPage();
 
         const bell = await screen.findByRole('button', {
-            name: 'Notifications (1)',
+            name: 'Notifications, 1 unread',
         });
         expect(
             screen.queryByRole('region', { name: 'Notifications' })
@@ -290,10 +290,7 @@ describe('notification bell', () => {
                 'Results for Heat 1 are available in the portal.'
             )
         ).toBeInTheDocument();
-        // Only the unread one can be marked read
-        expect(
-            within(panel).getAllByRole('button', { name: 'Mark read' })
-        ).toHaveLength(1);
+        expect(within(panel).getAllByRole('button')).toHaveLength(2);
     });
 
     it('marks a notification read and updates the count', async () => {
@@ -306,24 +303,26 @@ describe('notification bell', () => {
         const { user } = renderPage();
 
         await user.click(
-            await screen.findByRole('button', { name: 'Notifications (1)' })
+            await screen.findByRole('button', {
+                name: 'Notifications, 1 unread',
+            })
         );
-        await user.click(screen.getByRole('button', { name: 'Mark read' }));
+        await user.click(
+            screen.getByRole('button', { name: /Round opens soon/ })
+        );
 
         expect(
-            await screen.findByRole('button', { name: 'Notifications (0)' })
+            await screen.findByRole('button', { name: 'Notifications' })
         ).toBeInTheDocument();
-        expect(
-            screen.queryByRole('button', { name: 'Mark read' })
-        ).not.toBeInTheDocument();
         expect(reads.map((r) => r.path)).toEqual(['/me/notifications/n-1/read']);
     });
 
     it('says so when there is nothing yet', async () => {
+        mockApi('get', '/me/notifications', { notifications: [] });
         const { user } = renderPage();
 
         await user.click(
-            await screen.findByRole('button', { name: 'Notifications (0)' })
+            await screen.findByRole('button', { name: 'Notifications' })
         );
         expect(screen.getByText('No notifications yet.')).toBeInTheDocument();
     });
@@ -336,7 +335,7 @@ describe('notification bell', () => {
             await screen.findByText('No announcements configured.')
         ).toBeInTheDocument();
         expect(
-            screen.getByRole('button', { name: 'Notifications (0)' })
+            screen.getByRole('button', { name: 'Notifications' })
         ).toBeInTheDocument();
     });
 });

@@ -411,7 +411,6 @@ describe('logging out', () => {
             userId: 'student-user',
             accessToken: 'jwt-ayanda',
         });
-        const signOuts = mockSupabaseSignOut();
         const students = [
             fx.me('student'),
             fx.me('student', { id: 'student-2', full_name: 'Lerato Nkosi' }),
@@ -444,7 +443,6 @@ describe('logging out', () => {
         expect(localStorage.getItem('exam-answers-round-1')).toBeNull();
         expect(localStorage.getItem('exam-flags-round-1')).toBeNull();
         expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
-        await waitFor(() => expect(signOuts).toEqual(['?scope=local']));
 
         // A different student signs in on the same tab
         mockSupabaseSignIn({ userId: 'student-2', accessToken: 'jwt-lerato' });

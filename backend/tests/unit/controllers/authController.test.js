@@ -8,6 +8,9 @@ jest.mock('../../../src/services/authService', () => ({
     deleteAccount: jest.fn(),
     listEducatorOlympiads: jest.fn(),
 }));
+jest.mock('../../../src/services/passwordResetService', () => ({
+    requestPasswordReset: jest.fn(),
+}));
 
 const { prisma, resetPrismaMock } = require('../helpers/prismaMock');
 const authService = require('../../../src/services/authService');

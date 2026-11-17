@@ -352,15 +352,18 @@ describe('AppShell', () => {
         renderShell('/organiser');
 
         await userEvent.click(screen.getByRole('button', { name: /Notifications/ }));
-        await userEvent.click(await screen.findByRole('button', { name: 'Mark read' }));
+        await userEvent.click(
+            await screen.findByRole('button', { name: /New invitation/ })
+        );
         expect(await screen.findByRole('alert')).toHaveTextContent(
             'Could not mark notification as read'
         );
 
         await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-        await waitFor(() =>
-            expect(screen.queryByRole('button', { name: 'Mark read' })).not.toBeInTheDocument()
-        );
+        expect(
+            await screen.findByRole('button', { name: 'Notifications' })
+        ).toBeInTheDocument();
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     });
 
     it.each([
