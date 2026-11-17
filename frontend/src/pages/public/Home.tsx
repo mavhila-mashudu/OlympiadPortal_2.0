@@ -107,7 +107,7 @@ function Home() {
               <div className={styles.artGrid} aria-hidden="true" />
               <div className={styles.paper} aria-hidden="true">
                 <div className={styles.paperTopline}><span className={styles.paperPill}>SAMPLE ROUND</span><span className={styles.paperStars}>✳ ✳</span></div>
-                <div className={styles.paperTitle}>An invitation to think <span>\u2197</span></div>
+                <div className={styles.paperTitle}>An invitation to think <span>↗</span></div>
                 <div className={styles.paperRule} />
                 <div className={styles.paperMeta}><span>MATHEMATICS</span><span>QUESTION 01 / 03</span></div>
                 <p className={styles.paperQuestion}>Which of these numbers is prime?</p>
@@ -120,7 +120,7 @@ function Home() {
                 <div className={styles.paperBottom}><span className={styles.progressBar}><b /></span><span>KEEP THINKING <ArrowRight size={13} /></span></div>
               </div>
               <div className={styles.artTag} aria-hidden="true"><span className={styles.artTagIcon}><Sparkles size={17} /></span><span>Curiosity<br /><strong>in motion</strong></span></div>
-              <div className={styles.artCaption}>A SAMPLE OF WHAT'S POSSIBLE <span>\u2197</span></div>
+              <div className={styles.artCaption}>A SAMPLE OF WHAT'S POSSIBLE <span>↗</span></div>
             </div>
           </div>
           <div className={styles.heroBottomBar} aria-hidden="true"><span>THINK.</span><span>DISCOVER.</span><span>ACHIEVE.</span><span className={styles.heroBarEmblem}>✳</span></div>

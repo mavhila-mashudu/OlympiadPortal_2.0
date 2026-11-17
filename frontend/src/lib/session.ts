@@ -3,7 +3,6 @@ import type { UserRole } from './auth';
 import { clearCurrentUser } from './currentUser';
 import { SELECTED_OLYMPIAD_KEY, clearCurrentOlympiadCache } from './olympiad';
 import { clearStudentProfile } from './student';
-import { getSupabaseClient } from './supabase';
 
 const ROLE_KEY = 'op_role';
 const ROLES: UserRole[] = ['organiser', 'educator', 'student'];
@@ -92,15 +91,9 @@ export async function endLocalSession() {
     clearStudentProfile();
     clearCurrentUser();
     clearCurrentOlympiadCache();
-    try {
-        await withTimeout(
-            getSupabaseClient().auth.signOut({ scope: 'local' }),
-            3000
-        );
-    } catch {
-        // Supabase isn't configured — there is no session to end
-    }
-    // After Supabase, which leaves its copy behind if it can't reach the server
+    // Remove Supabase's persisted refresh token directly. Calling its signOut
+    // method here can make another Auth API request after the server has
+    // already revoked the session, producing a misleading 403 in the console.
     clearUserStorage();
 }
 

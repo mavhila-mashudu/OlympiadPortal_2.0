@@ -1,13 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const signOut = vi.fn();
-vi.mock('../../../src/lib/supabase', () => ({
-    getSupabaseClient: vi.fn(() => ({ auth: { signOut } })),
-}));
 vi.mock('../../../src/lib/student', () => ({ clearStudentProfile: vi.fn() }));
 
 import { clearStudentProfile } from '../../../src/lib/student';
-import { getSupabaseClient } from '../../../src/lib/supabase';
 import {
     endLocalSession,
     logout,
@@ -23,10 +18,6 @@ let requests: { method: string; path: string; authorization: string | null }[];
 
 beforeEach(() => {
     localStorage.clear();
-    signOut.mockReset().mockResolvedValue({ error: null });
-    vi.mocked(getSupabaseClient).mockImplementation(
-        () => ({ auth: { signOut } }) as never
-    );
     requests = [];
     vi.stubGlobal(
         'fetch',
@@ -84,23 +75,12 @@ describe('endLocalSession', () => {
         await endLocalSession();
 
         expect(clearStudentProfile).toHaveBeenCalled();
-        expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
         expect(Object.keys(localStorage)).toEqual(['theme']);
     });
 
-    it("still forgets everything when Supabase fails or isn't configured", async () => {
+    it('clears local state without making an Auth API request', async () => {
         startSession('jwt', 'student');
         localStorage.setItem('sb-project-auth-token', '{}');
-        signOut.mockRejectedValue(new TypeError('Failed to fetch'));
-        await endLocalSession();
-        expect(Object.keys(localStorage)).toEqual([]);
-
-        startSession('jwt', 'student');
-        vi.mocked(getSupabaseClient).mockImplementation(() => {
-            throw new Error(
-                'Supabase frontend environment variables are missing'
-            );
-        });
         await endLocalSession();
         expect(Object.keys(localStorage)).toEqual([]);
     });

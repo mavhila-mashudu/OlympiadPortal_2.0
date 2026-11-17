@@ -7,6 +7,7 @@ jest.mock('../../../src/config/supabase', () => ({
         admin: {
             createUser: jest.fn(),
             deleteUser: jest.fn(),
+            getUserById: jest.fn(),
             signOut: jest.fn(),
         },
     },
@@ -384,6 +385,10 @@ describe('deleteAccount', () => {
             data: {},
             error: null,
         });
+        supabase.auth.admin.getUserById.mockResolvedValue({
+            data: { user: { id: 'user-1' } },
+            error: null,
+        });
     });
 
     it("removes the Supabase login and the person's details, and ends their school ties", async () => {
@@ -409,7 +414,7 @@ describe('deleteAccount', () => {
         });
     });
 
-    it('deletes the Supabase login last, inside the transaction, so a failure undoes the rest', async () => {
+    it('reports a Supabase deletion failure when the login still exists', async () => {
         supabase.auth.admin.deleteUser.mockResolvedValue({
             data: null,
             error: { status: 500, message: 'Database error' },
@@ -423,6 +428,35 @@ describe('deleteAccount', () => {
         );
         expect(prisma.users.update.mock.invocationCallOrder[0]).toBeLessThan(
             supabase.auth.admin.deleteUser.mock.invocationCallOrder[0]
+        );
+        expect(supabase.auth.admin.getUserById).toHaveBeenCalledWith('user-1');
+    });
+
+    it('treats an error as success when Supabase confirms the login is gone', async () => {
+        supabase.auth.admin.deleteUser.mockResolvedValue({
+            data: null,
+            error: { status: 500, message: 'Response failed' },
+        });
+        supabase.auth.admin.getUserById.mockResolvedValue({
+            data: { user: null },
+            error: null,
+        });
+
+        await expect(authService.deleteAccount('user-1')).resolves.toBeUndefined();
+    });
+
+    it('does not assume the login is gone when Supabase verification fails', async () => {
+        supabase.auth.admin.deleteUser.mockResolvedValue({
+            data: null,
+            error: { status: 500, message: 'Response failed' },
+        });
+        supabase.auth.admin.getUserById.mockResolvedValue({
+            data: null,
+            error: { status: 503, message: 'Auth service unavailable' },
+        });
+
+        await expect(authService.deleteAccount('user-1')).rejects.toMatchObject(
+            { statusCode: 502 }
         );
     });
 
