@@ -18,7 +18,7 @@ The portal manages academic olympiad competitions between schools, educators, an
 
 Before running this project, make sure you have:
 
-- Node.js v18 or higher
+- Node.js 22, 24, or 26 (see `package.json`)
 - npm v8 or higher
 - A Supabase account and project
 - Git
@@ -28,7 +28,7 @@ Before running this project, make sure you have:
 ### 1. Clone the repository
 
 ```bash
-git clone https://sdp.ms.wits.ac.za/prompt-engineers/OlympiadPortal_2.0.git
+git clone https://github.com/mavhila-mashudu/OlympiadPortal_2.0.git
 cd OlympiadPortal_2.0/backend
 ```
 
@@ -98,26 +98,54 @@ Expected response:
 
 ## Environment Variables
 
-| Variable               | Description                | Where to find it                   |
-| ---------------------- | -------------------------- | ---------------------------------- |
-| `NODE_ENV`             | Environment name           | Set to `development` locally       |
-| `PORT`                 | Server port                | Set to `3000` locally              |
-| `FRONTEND_URL`         | Frontend URL for CORS      | `http://localhost:5173` locally    |
-| `DATABASE_URL`         | Supabase pooled connection | Supabase → Connect → ORMs → Prisma |
-| `DIRECT_URL`           | Supabase direct connection | Supabase → Connect → ORMs → Prisma |
-| `SUPABASE_URL`         | Supabase project URL       | Supabase → Settings → API          |
-| `SUPABASE_ANON_KEY`    | Supabase public key        | Supabase → Settings → API          |
-| `SUPABASE_SERVICE_KEY` | Supabase service role key  | Supabase → Settings → API          |
+Set the variables used by the backend in `.env`. The names below match [`.env.example`](.env.example).
 
+| Variable | Description |
+| --- | --- |
+| `NODE_ENV` | Runtime environment; use `development` locally. |
+| `PORT` | API port; defaults to `3000`. |
+| `FRONTEND_URL` | Frontend origin allowed by CORS; use `http://localhost:5173` locally. |
+| `DATABASE_URL` | Pooled PostgreSQL connection string. |
+| `DIRECT_URL` | Direct PostgreSQL connection string used by Prisma migrations. |
+| `SUPABASE_URL` | Supabase project URL. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key. `SUPABASE_SERVICE_KEY` is accepted as a legacy fallback. |
+| `EMAILJS_SERVICE_ID` | EmailJS service ID; configure with the other EmailJS values to enable email delivery. |
+| `EMAILJS_TEMPLATE_ID` | EmailJS template ID. |
+| `EMAILJS_USER_ID` | EmailJS public key. |
+| `EMAILJS_PRIVATE_KEY` | EmailJS private key. |
+| `LIFECYCLE_INTERVAL_MS` | Optional lifecycle job interval in milliseconds. |
+| `AUTH_RATE_LIMIT_MAX` | Optional auth requests per IP per 15 minutes; defaults to `100`. |
+| `PUBLIC_RATE_LIMIT_MAX` | Optional public API requests per IP per 15 minutes; defaults to `300`. |
 ## Project Structure
+
+```text
+backend/
+|-- prisma/          # Prisma schema and database migrations
+|-- scripts/         # Organiser setup and performance scripts
+|-- src/
+|   |-- config/       # Environment configuration
+|   |-- controllers/ # HTTP request handlers
+|   |-- errors/      # Application error types
+|   |-- jobs/        # Scheduled lifecycle jobs
+|   |-- lib/         # Shared infrastructure and helpers
+|   |-- middlewares/ # Authentication, validation, and error handling
+|   |-- routes/      # REST API route definitions
+|   |-- services/    # Business logic
+|   |-- utils/       # Shared utilities
+|-- tests/
+|   |-- api/         # HTTP endpoint tests
+|   |-- integration/ # Services using a temporary PostgreSQL database
+|   |-- unit/        # Isolated controller, service, and utility tests
+|-- server.ts        # API server entry point
+```
 
 ## Available Scripts
 
-| Script          | Description                              |
-| --------------- | ---------------------------------------- |
-| `npm run dev`   | Start development server with hot reload |
-| `npm run build` | Build for production                     |
-| `npm start`     | Start production server                  |
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the development server with hot reload |
+| `npm start` | Start the API server |
+| `npm run start:prod` | Apply pending migrations, then start the API server |
 
 ## Database Scripts
 

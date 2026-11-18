@@ -17,13 +17,16 @@ Bugs found by testing and by users are recorded in [bug-tracking.md](bug-trackin
 
 The portal has a React frontend and an Express + PostgreSQL backend, used by three roles: organisers, educators and students. Tests are written at four levels, each answering a different question.
 
-| Level       | Question it answers                                                                                | Tests     | Speed   |
-| ----------- | -------------------------------------------------------------------------------------------------- | --------- | ------- |
-| Unit        | Does each function, component and hook work on its own?                                            | 923       | Seconds |
-| Integration | Do the parts work together — services with a real database, whole pages with the app's real logic? | 234       | Seconds |
-| API         | Does every endpoint return the right response, and let in only the right people?                   | 482       | ~45s    |
-| End-to-end  | Can each role finish their real tasks in a real browser?                                           | 15        | ~40s    |
-| **Total**   |                                                                                                    | **1,654** |         |
+| Suite | Tests | Speed / note |
+| --- | ---: | --- |
+| Backend unit | 889 | Seconds |
+| Backend integration | 138 | Seconds |
+| Backend API | 709 | About 4 minutes |
+| Frontend unit and integration | 460 | About 3 minutes |
+| End-to-end | 57 | 19 journeys in each of Chromium, Firefox, and WebKit |
+| **Total configured suite cases** | **2,253** | Verified 18 November 2026 |
+
+Jest and Vitest reported 2,196 executed tests as passing. Playwright `--list` enumerated 57 configured end-to-end cases across three browsers; those cases were listed, not executed, for this count.
 
 Most tests sit at the lower levels, because they are fast and point straight at the cause of a failure. A small number of end-to-end tests cover the critical journeys from start to finish.
 
