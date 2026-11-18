@@ -182,7 +182,7 @@ All protected API routes require a valid Supabase JWT token in the
 
 ## Contributing
 
-See `CONTRIBUTING.md` for our Git workflow and branching strategy.
+See the [repository README](../README.md) for project-wide setup and the [deployment guide](../docs/deployment.md) for the current hosting workflow.
 
 ## Team
 

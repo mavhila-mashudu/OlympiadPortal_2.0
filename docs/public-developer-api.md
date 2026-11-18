@@ -1,8 +1,8 @@
-﻿# Public Developer API Reference (v1)
+# Public Developer API Reference (v1)
 
 This is the read-only public API for olympiad and competition data. It is intended for school websites, dashboards, widgets, and other public-facing integrations.
 
-- Base URL: `https://olympiad-portal-api.azurewebsites.net/public/v1`
+- Base URL: `https://olympiad-portal-api.onrender.com/public/v1`
 - Local dev URL: `http://localhost:3000/public/v1`
 - Access: `GET` only
 - Auth: not required
@@ -185,7 +185,7 @@ Paginated responses usually include:
 ### JavaScript
 
 ```js
-const res = await fetch('https://olympiad-portal-api.azurewebsites.net/public/v1/schools/top?limit=5');
+const res = await fetch('https://olympiad-portal-api.onrender.com/public/v1/schools/top?limit=5');
 const { success, data, error } = await res.json();
 
 if (!success) {
@@ -198,8 +198,8 @@ console.log(data);
 ### cURL
 
 ```bash
-curl "https://olympiad-portal-api.azurewebsites.net/public/v1/stats"
-curl "https://olympiad-portal-api.azurewebsites.net/public/v1/olympiads?limit=10"
+curl "https://olympiad-portal-api.onrender.com/public/v1/stats"
+curl "https://olympiad-portal-api.onrender.com/public/v1/olympiads?limit=10"
 ```
 
 ## Notes

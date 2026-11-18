@@ -12,7 +12,7 @@ The Postman artifacts are located in the [`postman/`](../postman) directory:
   * **01 Availability & Health**: Liveness probes (`/health`, `/`), cold start benchmarks, and uptime verifications.
   * **02 Public API (Performance Archetypes)**: Unauthenticated public developer endpoints (`/public/v1/stats`, `/public/v1/olympiads`, `/public/v1/schools`, `/public/v1/schools/top`, `/public/v1/activity`, `/public/v1/calendar`, `/public/v1/papers`).
   * **03 Security & Auth Guards**: Verifies that protected routes (`/me`, `/olympiads`) reject unauthenticated callers with clean `401 Unauthorized` responses without crashing.
-* **[`OlympiadPortal.postman_environment.json`](../postman/OlympiadPortal.postman_environment.json)**: Environment file configured for the production deployment (`https://olympiad-portal-api.azurewebsites.net`).
+* **[`OlympiadPortal.postman_environment.json`](../postman/OlympiadPortal.postman_environment.json)**: Environment file configured for the production deployment (`https://olympiad-portal-api.onrender.com`).
 
 ---
 
@@ -23,7 +23,7 @@ The Postman artifacts are located in the [`postman/`](../postman) directory:
 1. Open Postman.
 2. Click **File → Import** (or click the **Import** button in the top left).
 3. Select `postman/OlympiadPortal.postman_collection.json` and `postman/OlympiadPortal.postman_environment.json`.
-4. In the environment dropdown (top right), select **Olympiad Portal — Production (Azure)**.
+4. In the environment dropdown (top right), select **Olympiad Portal — Production (Render)**.
 5. **To run functional test suites:**
    * Click **Olympiad Portal — Official API Collection** → **Run** → **Run Olympiad Portal**.
 6. **To run live performance / load tests:**
@@ -39,7 +39,7 @@ The Postman artifacts are located in the [`postman/`](../postman) directory:
 Run directly from your terminal in the root repository directory:
 
 ```bash
-# Run against the deployed Azure production API
+# Run against the deployed Render production API
 postman collection run postman/OlympiadPortal.postman_collection.json
 
 # Run against a local development server

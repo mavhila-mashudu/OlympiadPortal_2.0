@@ -19,7 +19,7 @@
 
 const { performance } = require('node:perf_hooks');
 
-const TARGET_URL = process.env.API_URL || 'https://olympiad-portal-api.azurewebsites.net';
+const TARGET_URL = process.env.API_URL || 'https://olympiad-portal-api.onrender.com';
 
 async function sendRequest(method, path, body = null, headers = {}) {
     try {

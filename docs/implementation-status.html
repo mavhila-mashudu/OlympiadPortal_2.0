@@ -1294,7 +1294,7 @@
                             <td>Integrate an external service</td>
                             <td>
                                 Supabase provides auth, Postgres and file
-                                storage, and Azure hosts both tiers. Round
+                                storage, and Render hosts both tiers. Round
                                 reminders, open/close notices and results
                                 notices are emailed to educators through
                                 EmailJS, each recorded so it is sent once;
@@ -1348,103 +1348,22 @@
                 Each one is a self-contained description with the reasoning, the
                 files involved, a way to confirm it and a suggested fix. Use
                 <em>Copy as Markdown</em> to put the whole body on your
-                clipboard, then paste it into a new Gitea issue and use the
+                clipboard, then paste it into a new GitHub issue and use the
                 heading line as the title.
             </div>
 
             <article class="issue" id="issue-1">
                 <div class="issue-head">
-                    <h3 class="issue-title">
-                        1. Deep links return HTTP 404 even though the page
-                        renders correctly
-                    </h3>
-                    <button class="copy" type="button" data-target="md-1">
-                        Copy as Markdown
-                    </button>
+                    <h3 class="issue-title">1. Client-side route handling</h3>
                 </div>
-                <p class="issue-meta">
-                    <span class="tag sev-low">Low</span>
-                    <span class="role">frontend / hosting</span>
-                </p>
-                <h4>What is wrong</h4>
-                <p>
-                    The frontend is served from Azure Blob Storage static
-                    website hosting, with `index.html` set as both the index and
-                    the error document. A request for a client-side route such
-                    as /organiser/schools therefore returns the app correctly,
-                    but with a 404 status rather than 200.
-                </p>
-                <h4>Why it matters</h4>
-                <p>
-                    Nothing user-facing breaks: the page loads, React Router
-                    resolves the path, and navigation works. The cost is that
-                    automated tooling sees a 404 — crawlers, uptime monitors and
-                    anything asserting on status codes. For a portal behind a
-                    login this is close to harmless, which is why it was
-                    accepted, but it should be a recorded decision rather than a
-                    surprise someone finds in devtools during a demo.
-                </p>
-                <h4>Where to look</h4>
-                <ul class="where">
-                    <li>
-                        <code
-                            >Azure Storage account olympiadportalfe, $web
-                            container, error document set to index.html</code
-                        >
-                    </li>
-                    <li>
-                        <code
-                            >docs/system-design.md — deployment section explains
-                            the trade-off</code
-                        >
-                    </li>
-                </ul>
-                <h4>How to confirm it</h4>
-                <p>
-                    curl -o /dev/null -w &#x27;%{http_code}&#x27;
-                    https://olympiadportalfe.z1.web.core.windows.net/organiser/schools
-                    returns 404 while the body is the app shell.
-                </p>
-                <h4>Suggested fix</h4>
-                <p>
-                    Accept it, or put Azure Front Door in front of the storage
-                    account to rewrite unmatched paths with a 200. Front Door
-                    costs money, so this is only worth doing if a custom domain
-                    is wanted anyway. Azure Static Web Apps would solve it
-                    natively but is unavailable — its five regions do not
-                    intersect the five this subscription&#x27;s policy permits.
-                </p>
-                <h4>Done when</h4>
-                <ul class="done-list">
-                    <li>
-                        Either the status is corrected, or the trade-off is
-                        recorded as an accepted decision
-                    </li>
-                </ul>
+                <p class="issue-meta"><span class="tag sev-low">Resolved</span><span class="role">frontend / hosting</span></p>
+                <p>Vercel serves the frontend. Client-side routes are rewritten to the SPA entry point by <code>frontend/vercel.json</code>, allowing React Router to handle deep links.</p>
                 <script type="text/plain" id="md-1">
-                    **Severity:** Low  |  **Area:** frontend / hosting
+                    **Status:** Resolved  |  **Area:** frontend / hosting
 
-                    ### What is wrong
-                    The frontend is served from Azure Blob Storage static website hosting, with `index.html` set as both the index and the error document. A request for a client-side route such as /organiser/schools therefore returns the app correctly, but with a 404 status rather than 200.
-
-                    ### Why it matters
-                    Nothing user-facing breaks: the page loads, React Router resolves the path, and navigation works. The cost is that automated tooling sees a 404 — crawlers, uptime monitors and anything asserting on status codes. For a portal behind a login this is close to harmless, which is why it was accepted, but it should be a recorded decision rather than a surprise someone finds in devtools during a demo.
-
-                    ### Where to look
-                    - Azure Storage account olympiadportalfe, $web container, error document set to index.html
-                    - `docs/system-design.md — deployment section explains the trade-off`
-
-                    ### How to confirm it
-                    curl -o /dev/null -w '%{http_code}' https://olympiadportalfe.z1.web.core.windows.net/organiser/schools returns 404 while the body is the app shell.
-
-                    ### Suggested fix
-                    Accept it, or put Azure Front Door in front of the storage account to rewrite unmatched paths with a 200. Front Door costs money, so this is only worth doing if a custom domain is wanted anyway. Azure Static Web Apps would solve it natively but is unavailable — its five regions do not intersect the five this subscription's policy permits.
-
-                    ### Done when
-                    - [ ] Either the status is corrected, or the trade-off is recorded as an accepted decision
+                    Vercel serves the frontend. Client-side routes are rewritten to the SPA entry point by `frontend/vercel.json`, allowing React Router to handle deep links.
                 </script>
-            </article>
-            <article class="issue" id="issue-2">
+            </article><article class="issue" id="issue-2">
                 <div class="issue-head">
                     <h3 class="issue-title">
                         2. Values in .env are wrapped in quotes and break when
@@ -1464,7 +1383,7 @@
                     in double quotes. Prisma and Vite both strip quotes when
                     parsing a .env file, so local development works correctly
                     and the problem is invisible day to day. But a value copied
-                    by hand into a Gitea secret or an Azure App Service setting
+                    by hand into a GitHub secret or a Render environment variable
                     carries the quotes with it, and the consuming code receives
                     them as part of the string.
                 </p>
@@ -1475,7 +1394,7 @@
                     naming a host that does not exist, because the leading quote
                     becomes part of the parsed URL. A quoted Supabase key simply
                     fails to authenticate with no useful message. Someone hit
-                    this while configuring the Azure App Service; the values
+                    this while configuring Render; the values
                     there were stripped before being set, which is why the
                     deployed backend works.
                 </p>
@@ -1519,10 +1438,10 @@
                     **Severity:** Low  |  **Area:** config / developer experience
 
                     ### What is wrong
-                    Every value in `backend/.env` and `frontend/.env` is wrapped in double quotes. Prisma and Vite both strip quotes when parsing a .env file, so local development works correctly and the problem is invisible day to day. But a value copied by hand into a Gitea secret or an Azure App Service setting carries the quotes with it, and the consuming code receives them as part of the string.
+                    Every value in `backend/.env` and `frontend/.env` is wrapped in double quotes. Prisma and Vite both strip quotes when parsing a .env file, so local development works correctly and the problem is invisible day to day. But a value copied by hand into a GitHub secret or a Render environment variable carries the quotes with it, and the consuming code receives them as part of the string.
 
                     ### Why it matters
-                    The resulting failures are confusing out of proportion to the cause. A quoted DATABASE_URL produces a connection error naming a host that does not exist, because the leading quote becomes part of the parsed URL. A quoted Supabase key simply fails to authenticate with no useful message. Someone hit this while configuring the Azure App Service; the values there were stripped before being set, which is why the deployed backend works.
+                    The resulting failures are confusing out of proportion to the cause. A quoted DATABASE_URL produces a connection error naming a host that does not exist, because the leading quote becomes part of the parsed URL. A quoted Supabase key simply fails to authenticate with no useful message. Someone hit this while configuring Render; the values there were stripped before being set, which is why the deployed backend works.
 
                     ### Where to look
                     - `backend/.env and frontend/.env — all values quoted`
@@ -1768,7 +1687,7 @@
                                 Service had none of the four EmailJS settings.
                             </td>
                             <td>
-                                The settings were added to the App Service and a
+                                The settings were added to the Render service and a
                                 test email was delivered with them.
                             </td>
                         </tr>
@@ -1899,7 +1818,7 @@
                             <td>69</td>
                             <td>
                                 Online sitting, marking, round lifecycle, the
-                                whole test suite, CI/CD and Azure deployment,
+                                whole test suite, CI/CD and Render deployment,
                                 open-signup and in-app invitations
                             </td>
                         </tr>

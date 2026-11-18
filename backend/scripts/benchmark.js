@@ -12,7 +12,7 @@
 
 const { performance } = require('node:perf_hooks');
 
-const TARGET_URL = process.env.API_URL || 'https://olympiad-portal-api.azurewebsites.net';
+const TARGET_URL = process.env.API_URL || 'https://olympiad-portal-api.onrender.com';
 
 const ENDPOINTS = [
     { name: 'Health Check (Uptime Probe)', path: '/health' },

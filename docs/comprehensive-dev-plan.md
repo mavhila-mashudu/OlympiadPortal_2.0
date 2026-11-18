@@ -36,7 +36,7 @@ The Olympiad Portal is a web platform that digitises academic olympiad competiti
 - **Friday:** Demo completed work, retrospective, update Trello
 - **Trello:** Continuous task tracking (Backlog, To Do, In Progress, Review, Done)
 - **WhatsApp:** Ad-hoc communication
-- **Gitea PRs:** Code review before merging
+- **GitHub PRs:** Code review before merging
 
 ---
 
@@ -111,8 +111,8 @@ We use Agile with Scrum as the delivery framework:
 | Tool                      | Purpose                              |
 | ------------------------- | ------------------------------------ |
 | VS Code / Qoder IDE       | Code editor with TypeScript support  |
-| Gitea (sdp.ms.wits.ac.za) | Primary Git host, code review, CI    |
-| Gitea Actions             | CI and deployment to Azure           |
+| GitHub | Primary Git host, code review, CI    |
+| GitHub Actions             | CI and deployment to Render           |
 | Trello                    | Sprint board and backlog             |
 | Lovable                   | UI prototyping (see UI Design doc)   |
 | Supabase Dashboard        | Database management, auth monitoring |
@@ -140,8 +140,8 @@ We use Agile with Scrum as the delivery framework:
 
 | Service           | Component         | Why                                                                |
 | ----------------- | ----------------- | ------------------------------------------------------------------ |
-| Azure App Service | Backend API       | Linux Node 22 plan, deployed by Gitea Actions, automatic HTTPS     |
-| Azure Storage     | Frontend SPA      | Static website hosting, deployed by Gitea Actions, automatic HTTPS |
+| Render | Backend API       | Linux Node 22 plan, deployed through the hosting provider integration, automatic HTTPS     |
+| Vercel     | Frontend SPA      | Static website hosting, deployed through the hosting provider integration, automatic HTTPS |
 | Supabase          | PostgreSQL + Auth | Managed database with backups, built-in auth service               |
 
 ---

@@ -12,7 +12,7 @@ The Olympiad Portal uses a **multi-tier architecture** with three tiers deployed
 
 ```
 CLIENT TIER                    APPLICATION TIER               DATA TIER
-React SPA (Azure Storage) --->  Express API (Azure)   --->   PostgreSQL (Supabase)
+React SPA (Vercel) --->  Express API (Render)   --->   PostgreSQL (Supabase)
 Role-based dashboards          Routes > Controllers          Prisma ORM
 React Router, React Query      > Services > Prisma           Supabase Auth
                                Helmet, CORS, WebSocket       Supabase Storage
@@ -21,7 +21,7 @@ React Router, React Query      > Services > Prisma           Supabase Auth
 ### Why Multi-Tier
 
 - **Separation of concerns:** Each tier handles one responsibility (presentation, business logic, data storage)
-- **Independent scaling:** The frontend is static files served straight from Azure Storage; the backend scales on its Azure App Service plan; the database scales vertically on Supabase
+- **Independent scaling:** The frontend is static files served straight from Vercel; the backend scales on its Render plan; the database scales vertically on Supabase
 - **Security boundaries:** The client never accesses the database directly; all data flows through the API tier which enforces authentication and authorisation
 
 ---
@@ -216,7 +216,7 @@ The composite unique constraint on (round_id, entrant_id, route) plus a unique i
 | Passwords        | Min 8 chars, uppercase letter, number required                     |
 | JWT              | Managed by Supabase Auth; access tokens expire after 1 hour        |
 | HTTP headers     | Helmet sets CSP, HSTS, X-Content-Type-Options, X-Frame-Options     |
-| CORS             | Restricted to one origin in production: the Azure Storage site     |
+| CORS             | Restricted to one origin in production: the Vercel site     |
 | Input validation | express-validator on all routes with sanitisation                  |
 | SQL injection    | Prevented by Prisma parameterised queries                          |
 | File upload      | Multer with size limits; PDF only for papers/memos                 |
@@ -280,32 +280,26 @@ Every automatic action (round transitions, auto-marking, progression, notificati
 ```
 Internet
   |
-  +---> Azure Storage static website ---> React SPA (built assets)
-  |         olympiadportalfe.z1.web.core.windows.net
+  +---> Vercel static website ---> React SPA (built assets)
+  |         Vercel deployment URL
   |
-  +---> Azure App Service (Linux, Node 22) ---> Express API
-            olympiad-portal-api.azurewebsites.net
+  +---> Render (Linux, Node 22) ---> Express API
+            olympiad-portal-api.onrender.com
               |
               +---> Supabase ---> PostgreSQL + Auth + Storage
 ```
 
-Everything lives in one resource group, `olympiad-portal-rg` (South Africa North),
-alongside the Ubuntu VM that hosts the self-hosted Gitea Actions runner.
-
-Azure Static Web Apps would be the natural home for the frontend, but it is only
-offered in five regions and the subscription's `sys.regionrestriction` policy
-permits five different ones, with no overlap. Storage static website hosting is
-used instead: the built site is uploaded to the `$web` container, and the error
-document is set to `index.html` so unmatched paths fall back to the SPA and
-React Router can resolve them. The one compromise is that those fallback
-responses carry a 404 status even though the correct page renders.
+The frontend is deployed to Vercel, which serves the built single-page
+application. The backend is deployed to Render from the repository's Docker
+configuration. GitHub Actions runs the code checks; the hosting providers use
+their repository integrations for deployment.
 
 Configuration is held where it is used, not duplicated:
 
-- Backend (App Service settings): NODE_ENV, DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_SERVICE_KEY, FRONTEND_URL, SCM_DO_BUILD_DURING_DEPLOYMENT
+- Backend (Render environment): NODE_ENV, DATABASE_URL, DIRECT_URL, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FRONTEND_URL
 - Frontend (baked in at build time by Vite): VITE_API_URL, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY
 
-`FRONTEND_URL` must match the storage site's URL exactly, since production CORS
+`FRONTEND_URL` must match the Vercel site's URL exactly, since production CORS
 admits that single origin and nothing else.
 
 ---

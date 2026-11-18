@@ -175,7 +175,7 @@ describe('educator approval email', () => {
         const { template_params: params } = sentEmail();
         const frontendBase = (
             process.env.FRONTEND_URL ||
-            'https://olympiadportalfe.z1.web.core.windows.net'
+            'http://localhost:5173'
         ).replace(/\/+$/, '');
         expect(params.to_email).toBe('thandi@school.test');
         expect(params.subject).toBe('Your educator account has been approved');

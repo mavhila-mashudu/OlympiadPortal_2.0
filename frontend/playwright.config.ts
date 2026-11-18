@@ -2,7 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 import { URLS } from './e2e/test-data';
 
 // This suite runs on the shared instance runners, which serve every team on the
-// Gitea server and are frequently busy, so steps can take far longer than on a
+// GitHub server and are frequently busy, so steps can take far longer than on a
 // developer machine. The limits below are generous in CI and strict locally, so
 // a genuine hang still fails fast where you are working.
 //

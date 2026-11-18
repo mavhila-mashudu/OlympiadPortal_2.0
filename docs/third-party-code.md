@@ -80,9 +80,9 @@ rules are handled through the Express API and Prisma services.
 | Supabase Storage               | Private `papers` bucket and time-limited signed URLs            | Stores large exam documents separately from relational records.                                                             |
 | SMTP provider                  | Invitation email delivery through Nodemailer                    | Allows invitations to reach schools, educators, and students.                                                               |
 | Docker `node:22-bookworm-slim` | Production backend image in `backend/Dockerfile`                | Provides a reproducible Node.js runtime with the libraries required by the backend.                                         |
-| Azure App Service              | Backend hosting                                                 | Runs the Express API on a Linux Node 22 plan; the deploy pipeline ships the built application to it.                        |
-| Azure Storage (static website) | Frontend hosting                                                | Serves the Vite-generated static SPA from the `$web` container, falling back to `index.html` so client-side routes resolve. |
-| Gitea Actions                  | Repository automation configuration under `.gitea`              | Automates backend image builds and deployment workflows.                                                                    |
+| Render                         | Backend hosting                                                 | Runs the Express API from the repository's Docker configuration.                                                             |
+| Vercel                         | Frontend hosting                                                | Builds and serves the Vite-generated single-page application.                                                               |
+| GitHub Actions                 | Repository automation configuration under `.github/workflows`  | Runs backend tests and frontend lint, tests, and production build.                                                          |
 
 ## Selection Decisions
 

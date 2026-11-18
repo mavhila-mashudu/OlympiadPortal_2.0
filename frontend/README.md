@@ -1,35 +1,35 @@
-# React + TypeScript + Vite
+# Olympiad Portal frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React and TypeScript single-page application built with Vite. It provides the public landing and account pages, plus role-based workspaces for organisers, educators, and students.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Use Node.js 22 or newer. From this directory:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-    "$schema": "./node_modules/oxlint/configuration_schema.json",
-    "plugins": ["react", "typescript", "oxc"],
-    "options": {
-        "typeAware": true
-    },
-    "rules": {
-        "react/rules-of-hooks": "error",
-        "react/only-export-components": [
-            "warn",
-            { "allowConstantExport": true }
-        ]
-    }
-}
+```bash
+npm ci
+cp .env.example .env
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Set the following values in `.env`:
+
+| Variable | Description |
+| --- | --- |
+| `VITE_API_URL` | Backend API URL, for local development `http://localhost:3000` |
+| `VITE_SUPABASE_URL` | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Supabase public anon key |
+
+Vite serves the app at `http://localhost:5173` by default. The backend must also be configured and running; see [backend setup](../backend/README.md).
+
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local development server |
+| `npm run build` | Type-check and create the production bundle in `dist/` |
+| `npm run lint` | Run Oxlint |
+| `npm test` | Run unit and integration tests |
+| `npm run test:e2e` | Run Playwright browser tests |
+
+For project-wide setup, architecture, documentation, and CI details, see the [repository README](../README.md).

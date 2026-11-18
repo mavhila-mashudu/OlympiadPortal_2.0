@@ -203,7 +203,7 @@ export async function sendEducatorApprovalEmail({
 }) {
     const frontendUrl = (
         process.env.FRONTEND_URL ||
-        'https://olympiadportalfe.z1.web.core.windows.net'
+        'http://localhost:5173'
     ).replace(/\/+$/, '');
     const loginUrl = `${frontendUrl}/login`;
     return deliver({

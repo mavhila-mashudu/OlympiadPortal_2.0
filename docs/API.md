@@ -2,7 +2,7 @@
 
 The backend is a hand-written Express (Node.js) REST API backed by PostgreSQL (Prisma ORM) and Supabase Auth/Storage.
 
-- **Base URL:** `https://olympiad-portal-api.azurewebsites.net` (local dev: `http://localhost:3000`)
+- **Base URL:** `https://olympiad-portal-api.onrender.com` (local dev: `http://localhost:3000`)
 - **Public developer API:** open to any website without an account; see [Public Developer API](#public-developer-api)
 - **Content type:** `application/json` (except paper uploads, which use `multipart/form-data`)
 
@@ -70,7 +70,7 @@ Read-only data about olympiads, rounds, schools, results and past papers,
 for anyone to build on: school websites, widgets, dashboards and other apps.
 No account or token is needed.
 
-- **Base URL:** `https://olympiad-portal-api.azurewebsites.net/public/v1`
+- **Base URL:** `https://olympiad-portal-api.onrender.com/public/v1`
   (locally, `http://localhost:3000/public/v1`)
 - **Versioning:** the path carries the version. This page documents `v1`;
   if a breaking change is ever needed, it will ship as `/public/v2` with
@@ -102,13 +102,13 @@ school entered only one learner, that average is that learner's score.
 ### Example
 
 ```bash
-curl https://olympiad-portal-api.azurewebsites.net/public/v1/olympiads?limit=5
+curl https://olympiad-portal-api.onrender.com/public/v1/olympiads?limit=5
 ```
 
 ```js
 // From any web page
 const res = await fetch(
-    'https://olympiad-portal-api.azurewebsites.net/public/v1/schools/top?limit=10'
+    'https://olympiad-portal-api.onrender.com/public/v1/schools/top?limit=10'
 );
 const { success, data, error } = await res.json();
 if (!success) throw new Error(error);
@@ -170,12 +170,12 @@ A standardized Postman Collection (v2.1 format) is available in the [`postman/`]
 #### Running via Postman Desktop App (GUI)
 1. Open the Postman Desktop App and click **Import** (top left).
 2. Select `postman/OlympiadPortal.postman_collection.json` and `postman/OlympiadPortal.postman_environment.json`.
-3. In the environment selector, choose **Olympiad Portal — Production (Azure)**.
+3. In the environment selector, choose **Olympiad Portal — Production (Render)**.
 4. Click **Run** to execute the functional requests and automated assertions, or switch to the **Performance** tab to plot real-time latency and throughput curves under virtual user load.
 
 #### Running via Postman CLI (Headless)
 ```bash
-# Run against deployed Azure API
+# Run against deployed Render API
 postman collection run postman/OlympiadPortal.postman_collection.json
 
 # Run against local development API
@@ -193,9 +193,9 @@ npm run test:perf
 
 This tests cold-start latency, warm latency, and executes 250 requests under concurrent load across all core API archetypes.
 
-#### Deployed Azure Benchmark Results (Live Evidence)
+#### Deployed Render Benchmark Results (Live Evidence)
 
-* **Host:** `https://olympiad-portal-api.azurewebsites.net`
+* **Host:** `https://olympiad-portal-api.onrender.com`
 * **First Request Cold Start:** `439.4 ms` (`GET /health`)
 * **Warm Request Latency:** `97.3 ms` (Cold start overhead: ~342 ms)
 * **Crash Rate under Load:** **0% (0 server crashes / 0 5xx errors across 250 concurrent requests)**

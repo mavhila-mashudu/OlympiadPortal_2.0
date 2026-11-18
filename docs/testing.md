@@ -201,61 +201,11 @@ npm run test:e2e:report           # open the report after a failure
 
 ## 4. How CI enforces the tests
 
-Everything runs through one Gitea Actions pipeline: [`.gitea/workflows/ci.yml`](../.gitea/workflows/ci.yml). Deployment sits in the same file as the tests, because a job can only wait for jobs in the same workflow — that is what makes the deploys run after the checks.
+The [GitHub Actions workflow](../.github/workflows/ci.yml) runs backend tests and frontend lint, tests, and production build on pull requests and pushes to `main` or `master`. Render and Vercel deploy through their repository integrations after changes are pushed. End-to-end browser tests are run locally and are not part of CI.
 
-| Job                     | Runner | Pull request | Push to `main`              | What it does                                                         |
-| ----------------------- | ------ | ------------ | --------------------------- | -------------------------------------------------------------------- |
-| Backend checks & tests  | ours   | Yes          | Yes                         | Prisma schema check, unit, integration and API tests                 |
-| Frontend checks & tests | ours   | Yes          | Yes                         | Lint, test type-check, unit and integration tests, production build  |
-| Work out what changed   | ours   | No           | Yes                         | Decides whether the backend, the frontend or both need deploying     |
-| Deploy backend          | ours   | No           | Yes, if `backend/` changed  | Builds, migrates the database, then zip-deploys to Azure App Service |
-| Deploy frontend         | ours   | No           | Yes, if `frontend/` changed | Builds the site and uploads it to the Azure Storage `$web` container |
-
-### Where the jobs run
-
-Every job runs on our own runner, `prompt-engineers-runner-1`, an Ubuntu VM in
-Azure registered against this repository. It advertises a single label,
-`prompt-engineers-azure`, which the shared runners do not, so a job asking for
-that label can only land on ours — and, because it advertises nothing else, it
-is never pulled into another team's `ubuntu-latest` queue.
-
-**The end-to-end suite is not part of CI; run it locally** (`npm run test:e2e`
-in `frontend/`) before merging changes to a user journey. Playwright, Chromium,
-a real backend and a PGlite database together need more memory than the VM
-has: on the 1 GiB VM the suite took 12–18 minutes and still failed tests on
-timeouts, while swapping heavily. It then ran on the shared runners, but they
-queued it behind other teams for so long that it rarely reported, so it was
-taken out of the pipeline on 28 September 2026. Bigger machines were considered
-and set aside: a 4 GB Azure VM costs about four times the current one, and
-Oracle's free Arm machines had no capacity in our region.
-
-Our runner takes one job at a time (`capacity: 1`), so jobs that once ran
-side by side now queue. That is the cost of guaranteeing where they run.
-
-**Supported Node versions: 22, 24 and 26.** Every suite (unit, integration,
-API and end-to-end) passes on each. Both `package.json` files declare
-`"node": "^22 || ^24 || ^26"`, so npm prints an `EBADENGINE` warning on any
-other version, such as the short-lived odd releases. CI and App Service use
-Node 22.
-
-Node 24 once broke one frontend integration test, and the cause is worth
-knowing. From Node 24, `fetch`'s multipart parser builds each uploaded file
-with whatever `File` is global, then asserts it is Node's own `File`. Under
-jsdom the global is jsdom's `File`, so the assertion failed inside the mock
-server and the paper upload never resolved. `readBody` in
-`tests/integration/support/network.ts` now parses uploads with Node's `File`
-briefly put back in place. Browsers and the backend are unaffected; it only
-ever happened in the test environment.
-
-Rules the pipeline applies:
-
-- **Deploys wait for the checks but don't depend on them.** Both deploy jobs start once the backend and frontend checks have finished, pass or fail. A red check on `main` means the deployed code has a problem that needs fixing promptly; it doesn't hold the deploy back. Pull requests are where failures should be caught, so a pull request with red checks shouldn't be merged.
-- **Only what changed is deployed.** A frontend-only change doesn't rebuild and redeploy the backend.
-- **A newer push replaces a run in progress**, except on `main`, where a deploy is never cancelled half way. A cancelled run deploys nothing.
-- The pipeline can also be started by hand (`workflow_dispatch`), which runs everything and deploys both sides.
+The backend and frontend declare support for Node.js 22, 24, and 26. CI uses Node.js 22. See the [deployment guide](deployment.md) for hosting configuration.
 
 ---
-
 ## 5. Test policy
 
 ### When tests must be written
@@ -300,7 +250,7 @@ Rules the pipeline applies:
 
 ### Recording and triage
 
-Every piece of feedback becomes an issue in the project's Gitea repository, labelled `bug`, `usability` or `feature request`, and given a priority:
+Every piece of feedback becomes an issue in the project's GitHub repository, labelled `bug`, `usability` or `feature request`, and given a priority:
 
 | Priority | Meaning                                                | Example                                                  |
 | -------- | ------------------------------------------------------ | -------------------------------------------------------- |

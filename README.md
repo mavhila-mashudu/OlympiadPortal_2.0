@@ -1,94 +1,72 @@
 # Olympiad Portal
 
-A web platform for managing academic olympiad competitions between schools.
-Built for COMS3011A at the University of the Witwatersrand, 2026.
+Olympiad Portal is a web platform for running school academic competitions. Organisers manage olympiads and rounds; educators register schools, prepare papers, and mark submissions; students sit exams and review results.
 
-## Project Structure
+Built by the Prompt Engineers team for COMS3011A at the University of the Witwatersrand (2026).
 
-## Quick Start
+## What it does
 
-See the README in each folder:
+- Role-based workflows for organisers, educators, and students
+- Olympiad, round, paper, question, and school registration management
+- Online exam sitting, submissions, marking, results, and qualification tracking
+- Invitations, notifications, moderation, and archived competition records
+- Public API for developer integrations
 
-- [Backend Setup](./backend/README.md)
-- [Frontend Setup](./frontend/README.md)
+## Architecture
 
-## Testing
+| App | Stack | Location |
+| --- | --- | --- |
+| Frontend | React, TypeScript, Vite | `frontend/` |
+| API | Express, TypeScript/JavaScript, Prisma | `backend/` |
+| Data and authentication | PostgreSQL and Supabase Auth | Supabase |
 
-The project has 2,064 automated tests across four levels:
+## Run locally
 
-| Level       | What it checks                                                             | Where                                                 |
-| ----------- | -------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Unit        | Single functions, components and hooks, with everything around them mocked | backend/tests/unit, frontend/tests/unit               |
-| Integration | Services against a real database, and whole pages inside the real app      | backend/tests/integration, frontend/tests/integration |
-| API         | Every endpoint over real HTTP: responses, permissions and validation       | backend/tests/api                                     |
-| End-to-end  | Critical journeys in a real browser, front to back                         | frontend/e2e                                          |
-
-Run them locally (no database, `.env` file or internet connection needed):
-
-```bash
-cd backend  && npm test          # unit, integration and API tests
-cd frontend && npm test          # unit and integration tests
-cd frontend && npm run test:e2e  # end-to-end tests (first run: npx playwright install chromium)
-```
-
-### Test coverage
-
-To see what percentage of the code the tests exercise, run a coverage report. Each command runs the tests, prints a summary table at the end (the percentage of statements, branches, functions and lines that ran), and writes a detailed report you can open in a browser.
-
-**Backend** (from the `backend` folder):
+Requirements: Node.js 22 or newer and npm. The API needs a Supabase project; create local environment files from the examples and provide the project credentials before starting the apps.
 
 ```bash
-npm run test:coverage               # unit tests        → coverage/index.html
-npm run test:integration:coverage   # integration tests → coverage/integration/index.html
-npm run test:api:coverage           # API tests         → coverage/api/index.html
+cd backend
+npm ci
+cp .env.example .env
+npx prisma generate
+npx prisma migrate dev
+npm run dev
 ```
 
-**Frontend** (from the `frontend` folder):
+In a second terminal:
 
 ```bash
-npm run test:coverage:all   # unit and integration tests, every source file → coverage/index.html
-npm run test:coverage       # unit tests only, leaving out the full pages
+cd frontend
+npm ci
+cp .env.example .env
+npm run dev
 ```
 
-The summary at the end of a run looks like this:
+Set `VITE_API_URL`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY` in `frontend/.env`. Set the backend database, Supabase, and `FRONTEND_URL` values in `backend/.env`; see each app's README for details. The frontend runs at `http://localhost:5173`, and the API at `http://localhost:3000`.
 
+## Quality checks
+
+The repository includes backend unit, integration, and API suites; frontend unit and integration suites; and Playwright end-to-end journeys. CI runs backend tests plus frontend lint, tests, and production build on pull requests and pushes to `main` or `master`. End-to-end tests are run locally.
+
+```bash
+cd backend && npm test
+cd frontend && npm run lint && npm test && npm run build
+cd frontend && npm run test:e2e
 ```
-Statements   : 77.41% ( 1906/2462 )
-Branches     : 68.9% ( 1467/2129 )
-Functions    : 76.21% ( 564/740 )
-Lines        : 78.36% ( 1731/2209 )
-```
 
-In the HTML report, click through the folders to a file: lines the tests never ran are highlighted in red, and branches never taken in yellow. The `coverage` folders are generated, so don't commit them.
+See [testing documentation](./docs/testing.md) for suite details and [bug tracking](./docs/bug-tracking.md) for known issues.
 
-Coverage measured on 29 September 2026:
+## Documentation and delivery
 
-| Suite                                            | Statements | Branches | Functions | Lines |
-| ------------------------------------------------ | ---------- | -------- | --------- | ----- |
-| Backend unit                                     | 88.8%      | 79.2%    | 87.5%     | 90.0% |
-| Backend API                                      | 80.9%      | 65.3%    | 77.5%     | 82.8% |
-| Backend integration                              | 67.3%      | 53.0%    | 64.9%     | 70.4% |
-| Frontend unit and integration (all source files) | 77.4%      | 68.9%    | 76.2%     | 78.4% |
+- [System design](./docs/system-design.md)
+- [REST API reference](./docs/API.md)
+- [Testing and coverage](./docs/testing.md)
+- [Deployment guide](./docs/deployment.md)
+- [User stories](./docs/olympiad_portal_user_stories_by_role.md)
+- [Project documentation site](https://2846849.github.io/Olympiad-portal-documentation/)
+- [Trello work tracker](https://trello.com/b/5cHqfLX9/olympiadportal)
 
-CI runs the backend and frontend suites on every pull request, and on pushes to `main` deploys to Azure once those checks have finished, whether they passed or not. The end-to-end tests aren't part of CI, so run them locally before merging a change to a user journey — see [.gitea/workflows/ci.yml](./.gitea/workflows/ci.yml).
-
-Full details: [docs/testing.md](./docs/testing.md) · Known and fixed bugs: [docs/bug-tracking.md](./docs/bug-tracking.md)
-
-## Documentation
-
-Full project documentation:https://2846849.github.io/Olympiad-portal-documentation/
-
-REST API reference: [docs/API.md](./docs/API.md)
-
-Testing documentation: [docs/testing.md](./docs/testing.md)
-
-## Project Management & Tracking
-
-We used Trello to manage our project backlog, assign tasks, track user stories and monitor progress throughout the sprints.
-
-- **Work Tracker:** [Olympiad Portal Trello Board](https://trello.com/b/5cHqfLX9/olympiadportal)
-- **Meeting Minutes:** Available both on Trello and in our project documentation.
-
+See [bug tracking](./docs/bug-tracking.md) for known issues.
 ## Team
 
-Prompt Engineers — COMS3011A 2026
+Prompt Engineers — COMS3011A, University of the Witwatersrand, 2026.

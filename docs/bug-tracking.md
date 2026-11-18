@@ -113,7 +113,7 @@ Every bug fixed in the application code has an automated test that reproduces it
 | ID      | Area                         | Priority | Found by   | Bug                                                                                                                                                                                                         | Fix                                                                                 | Status |
 | ------- | ---------------------------- | -------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | ------ |
 | BUG-046 | Frontend deployment (Vercel) | High     | Deployment | The deployed frontend was built without its settings (API address and Supabase keys), so login and sign-up didn't work: the variables were marked sensitive, so the build step couldn't read them.          | Re-added as non-sensitive — they are public by design — and redeployed.             | Fixed  |
-| BUG-047 | Backend deployment           | High     | Deployment | The step that tells Render to deploy the new image failed because the stored Render service ID was wrong, and the Docker image failed to build on the Gitea runner because the build had no network access. | Corrected the `RENDER_SERVICE_ID` secret and built the image with `--network=host`. | Fixed  |
+| BUG-047 | Backend deployment           | High     | Deployment | The step that tells Render to deploy the new image failed because the stored Render service ID was wrong, and the Docker image failed to build on the CI runner because the build had no network access. | Corrected the `RENDER_SERVICE_ID` secret and built the image with `--network=host`. | Fixed  |
 
 ## Logging out and deleting an account
 
@@ -164,7 +164,7 @@ Found while making the `/public` endpoints usable by other websites and apps.
 
 ## Reporting a new bug
 
-New bugs are logged as issues in the project's Gitea repository, following the [user feedback process](testing.md#6-user-feedback-process). Include:
+New bugs are logged as issues in the project's GitHub repository, following the [user feedback process](testing.md#6-user-feedback-process). Include:
 
 1. **Role** (organiser, educator or student) and the **page or endpoint**
 2. **Steps** to reproduce

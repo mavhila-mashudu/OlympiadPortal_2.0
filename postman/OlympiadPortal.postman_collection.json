@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "https://olympiad-portal-api.azurewebsites.net",
+      "value": "https://olympiad-portal-api.onrender.com",
       "type": "string"
     }
   ],

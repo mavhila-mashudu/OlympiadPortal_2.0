@@ -80,7 +80,7 @@ app.get('/health', (_req, res) => {
     });
 });
 
-// Readiness is separate from liveness: Azure should only consider a deploy
+// Readiness is separate from liveness: Render should only consider a deploy
 // healthy once the database connection used by application routes responds.
 app.get('/ready', async (_req, res) => {
     try {
