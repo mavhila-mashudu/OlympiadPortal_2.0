@@ -4,7 +4,7 @@ React and TypeScript single-page application built with Vite. It provides the pu
 
 ## Setup
 
-Use Node.js 22 or newer. From this directory:
+Use Node.js 22, 24, or 26, as specified in `package.json`. From this directory:
 
 ```bash
 npm ci

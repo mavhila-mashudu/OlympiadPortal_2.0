@@ -187,16 +187,16 @@ olympiad, or enters a student into its rounds.
 
 ## Database Schema
 
-The database has 15 tables covering:
+The Prisma schema defines 24 models backed by PostgreSQL tables. They cover:
 
-- **Users & Roles** — users, educators, entrants
-- **Olympiad Structure** — olympiads, rounds, papers, questions
-- **Participation** — schools, school_registrations, entrant_registrations
-- **Submissions** — submissions, answers, results
-- **Invitations** — olympiad_invites
+- **Accounts and schools:** `users`, `educators`, `entrants`, `schools`, `school_memberships`
+- **Competition setup:** `olympiads`, `rounds`, `school_registrations`, `entrant_registrations`
+- **Exam content and delivery:** `papers`, `questions`, `exam_assignments`, `submissions`, `answers`
+- **Results and review:** `results`, `remark_requests`, `marking_reviews`, `submission_deadline_decisions`
+- **Invitations and notifications:** `olympiad_invites`, `school_invitations`, `notification_rules`, `sent_notifications`, `portal_notifications`
+- **Audit history:** `round_events`
 
-See `prisma/schema.prisma` for the full schema definition.
-
+See [`prisma/schema.prisma`](prisma/schema.prisma) for the complete schema.
 ## Authentication Flow
 
 This project uses **Supabase Authentication** for token management.

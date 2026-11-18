@@ -126,25 +126,38 @@ users ─────┬──── olympiad_invites
            └──── entrants ───── entrant_registrations ────────────────┘
 ```
 
-### Models (14 total)
+### Models (24 total)
 
-| Model                 | Key Fields                                                           | Purpose                                           |
-| --------------------- | -------------------------------------------------------------------- | ------------------------------------------------- |
-| users                 | id, email, full_name, role, auth_provider_id                         | Core user accounts (organiser, educator, student) |
-| olympiad_invites      | olympiad_id, school_id, invitee_id, invited_by_id, role, status      | In-app invitations to take part in an olympiad    |
-| schools               | name, address                                                        | School records                                    |
-| educators             | user_id, school_id                                                   | Links users to schools                            |
-| entrants              | user_id, school_id, full_name, grade                                 | Student participants                              |
-| olympiads             | name, organiser_id, timezone                                         | Competition events                                |
-| school_registrations  | school_id, olympiad_id                                               | Many-to-many: schools to olympiads                |
-| rounds                | olympiad_id, name, opens_at, closes_at, state, qualifying_threshold  | Competition rounds with lifecycle state           |
-| papers                | round_id, file_url, memo_file_url, is_archived                       | Question papers and memos                         |
-| questions             | paper_id, type, prompt, options, correct_option, max_points          | Individual questions (mcq, short_answer, essay)   |
-| answers               | submission_id, question_id, answer_value, is_correct, points_awarded | Student answers with marking data                 |
-| submissions           | round_id, entrant_id, route, status, idempotency_key                 | Submission tracking (online/offline)              |
-| entrant_registrations | entrant_id, round_id, registered_by                                  | Which entrants are in which rounds                |
-| results               | round_id, entrant_id, total_points, rank, qualified                  | Final scores and rankings                         |
+The Prisma schema defines these 24 models, which map to PostgreSQL tables:
 
+| Model | Purpose |
+| --- | --- |
+| `users` | Organiser, educator, and student accounts |
+| `olympiad_invites` | In-app invitations to join an olympiad |
+| `schools` | School records |
+| `school_invitations` | Email invitations and single-use codes for school membership |
+| `school_memberships` | User roles and membership status within a school |
+| `educators` | Educator profiles linked to schools |
+| `entrants` | Student participants and their school details |
+| `olympiads` | Competition records and organiser ownership |
+| `notification_rules` | Rules for sending competition notifications |
+| `sent_notifications` | Records used to prevent duplicate email delivery |
+| `school_registrations` | School participation in an olympiad |
+| `rounds` | Competition stages, schedules, and lifecycle state |
+| `papers` | Round papers and marking memos |
+| `questions` | Question content and answer configuration |
+| `answers` | Student answers and awarded marks |
+| `submissions` | Online and offline exam submissions |
+| `exam_assignments` | Per-student exam question and option ordering |
+| `entrant_registrations` | Student registration for competition rounds |
+| `results` | Scores, ranks, and qualification outcomes |
+| `remark_requests` | Requests to review a result |
+| `portal_notifications` | In-app notifications and read status |
+| `marking_reviews` | Changes and comments on awarded marks |
+| `round_events` | Append-only round lifecycle audit events |
+| `submission_deadline_decisions` | Decisions about submissions at round deadlines |
+
+See [`backend/prisma/schema.prisma`](../backend/prisma/schema.prisma) for fields, relationships, indexes, and constraints.
 ### Enums
 
 | Enum              | Values                                                      |

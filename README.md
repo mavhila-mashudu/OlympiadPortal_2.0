@@ -22,7 +22,7 @@ Built by the Prompt Engineers team for COMS3011A at the University of the Witwat
 
 ## Run locally
 
-Requirements: Node.js 22 or newer and npm. The API needs a Supabase project; create local environment files from the examples and provide the project credentials before starting the apps.
+Requirements: Node.js 22, 24, or 26 and npm, as specified by the frontend and backend packages. The API needs a Supabase project; create local environment files from the examples and provide the project credentials before starting the apps.
 
 ```bash
 cd backend
